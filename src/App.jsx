@@ -178,6 +178,13 @@ function isValidAnalysisResponse(payload) {
   );
 }
 
+function shouldRetryAsQuick(mode, error) {
+  if (mode !== "full") return false;
+  if (!(error instanceof Error)) return false;
+  const lower = error.message.toLowerCase();
+  return lower.includes("timed out") || lower.includes("timeout") || lower.includes("malformed response");
+}
+
 function readSearchHistory() {
   if (typeof window === "undefined") return [];
   try {
@@ -316,6 +323,7 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [copyMessage, setCopyMessage] = useState("");
+  const [notice, setNotice] = useState("");
 
   const checkHealth = useCallback(async () => {
     try {
@@ -335,6 +343,7 @@ export default function App() {
 
     setLoading(true);
     setError("");
+    setNotice("");
     try {
       const json = await fetchJson(`${API_BASE}/api/analyze`, {
         method: "POST",
@@ -353,6 +362,34 @@ export default function App() {
       setShareQuery(cleanQuery);
       checkHealth();
     } catch (err) {
+      if (shouldRetryAsQuick(mode, err)) {
+        try {
+          const fallbackJson = await fetchJson(`${API_BASE}/api/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: cleanQuery, mode: "quick" }),
+          });
+
+          if (!isValidAnalysisResponse(fallbackJson)) {
+            throw new Error("Malformed response");
+          }
+
+          setData(fallbackJson);
+          setActiveTab("overview");
+          setLastUpdated(new Date().toLocaleString());
+          setHistory(saveSearchHistory(cleanQuery));
+          setShareQuery(cleanQuery);
+          setNotice("Loaded quick analysis because the full analysis took too long.");
+          checkHealth();
+          return;
+        } catch (fallbackErr) {
+          setData(null);
+          setError(normalizeErrorMessage(fallbackErr instanceof Error ? fallbackErr.message : "Analysis failed"));
+          checkHealth();
+          return;
+        }
+      }
+
       setData(null);
       setError(normalizeErrorMessage(err instanceof Error ? err.message : "Analysis failed"));
       checkHealth();
@@ -365,7 +402,7 @@ export default function App() {
     setHistory(readSearchHistory());
     setFavorites(readFavorites());
     checkHealth();
-    analyze(readInitialQuery(), "full");
+    analyze(readInitialQuery(), "quick");
   }, [analyze, checkHealth]);
 
   useEffect(() => {
@@ -952,6 +989,13 @@ export default function App() {
           </div>
         ) : null}
 
+        {notice ? (
+          <div style={styles.noticeBox}>
+            <div style={styles.noticeTitle}>Analysis loaded</div>
+            <div style={styles.noticeText}>{notice}</div>
+          </div>
+        ) : null}
+
         {!data && !loading && !error ? (
           <div style={styles.emptyState}>
             <div style={styles.emptyTitle}>No analysis loaded yet</div>
@@ -1484,6 +1528,22 @@ const styles = {
   },
   errorText: {
     color: "#f1d5d5",
+    lineHeight: 1.7,
+  },
+  noticeBox: {
+    marginTop: 22,
+    padding: 18,
+    borderRadius: 22,
+    background: "rgba(255,176,32,0.1)",
+    border: "1px solid rgba(255,176,32,0.24)",
+  },
+  noticeTitle: {
+    fontWeight: 800,
+    marginBottom: 6,
+    color: "#ffd789",
+  },
+  noticeText: {
+    color: "#f3e4bf",
     lineHeight: 1.7,
   },
   emptyState: {
