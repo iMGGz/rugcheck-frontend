@@ -21,7 +21,7 @@ React + Vite frontend for the RugCheck AI crypto research terminal.
 Create a local `.env` file if you want to point the UI to a custom backend URL.
 
 ```env
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=https://research-terminal-backend-production.up.railway.app
 ```
 
 An example file is included as `.env.example`.
@@ -36,7 +36,13 @@ npm run dev
 The app runs on `http://localhost:5173` by default.
 
 ## Backend Connection
-By default, the frontend expects the backend at `http://localhost:4000`.
+In production, point the frontend to the deployed Railway backend.
+
+For local development, you can still use:
+
+```env
+VITE_API_BASE_URL=http://localhost:4000
+```
 
 For local development, make sure the backend `FRONTEND_URL` is set to `http://localhost:5173`.
 

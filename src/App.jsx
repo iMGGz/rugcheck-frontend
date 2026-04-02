@@ -1,6 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+const PRODUCTION_API_BASE = "https://research-terminal-backend-production.up.railway.app";
+const REQUEST_TIMEOUT_MS = 20000;
+
+function resolveApiBase() {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+    if (isLocalhost) {
+      return "http://localhost:4000";
+    }
+
+    if (protocol === "https:") {
+      return PRODUCTION_API_BASE;
+    }
+  }
+
+  return "http://localhost:4000";
+}
+
+const API_BASE = resolveApiBase();
 const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
 const RESEARCH_TABS = [
   { key: "overview", label: "Overview" },
@@ -91,11 +113,69 @@ function statusMeta(status) {
 function normalizeErrorMessage(message) {
   if (!message) return "Analysis failed. Please try again.";
   const lower = message.toLowerCase();
+  if (lower.includes("timed out") || lower.includes("timeout")) return "The backend took too long to respond. Try again in a moment.";
   if (lower.includes("failed to fetch")) return "Could not reach the backend. Check deployment status or try again in a moment.";
+  if (lower.includes("cors")) return "The frontend is blocked from calling the backend. Check the backend allowed origins configuration.";
   if (lower.includes("unexpected token") || lower.includes("not valid json")) return "The backend returned an unexpected response. Retry the request after the service stabilizes.";
+  if (lower.includes("malformed response")) return "The backend returned an incomplete analysis payload. Try again after the backend stabilizes.";
   if (lower.includes("rate limit")) return "Rate limit reached. Wait a bit before running another analysis.";
   if (lower.includes("not found")) return "Token not found. Try a symbol, project name, or EVM contract address.";
   return message;
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    const snippet = text.slice(0, 180).trim();
+    throw new Error(snippet ? `Malformed response: ${snippet}` : "Malformed response");
+  }
+}
+
+async function fetchJson(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {}),
+      },
+    });
+
+    const json = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      throw new Error(json?.error?.message || `Request failed with status ${response.status}`);
+    }
+
+    return json;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Request timed out");
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function isValidAnalysisResponse(payload) {
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    payload.asset &&
+    payload.marketData &&
+    payload.scores &&
+    payload.confidence,
+  );
 }
 
 function readSearchHistory() {
@@ -239,10 +319,10 @@ export default function App() {
 
   const checkHealth = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/health`);
-      setBackendStatus(response.ok ? "online" : "degraded");
+      await fetchJson(`${API_BASE}/api/health`, {}, 7000);
+      setBackendStatus("online");
     } catch {
-      setBackendStatus("offline");
+      setBackendStatus("degraded");
     }
   }, []);
 
@@ -256,15 +336,14 @@ export default function App() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${API_BASE}/api/analyze`, {
+      const json = await fetchJson(`${API_BASE}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: cleanQuery, mode }),
       });
 
-      const json = await response.json();
-      if (!response.ok) {
-        throw new Error(json?.error?.message || "Analysis failed");
+      if (!isValidAnalysisResponse(json)) {
+        throw new Error("Malformed response");
       }
 
       setData(json);
