@@ -5,9 +5,11 @@ const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
 const RESEARCH_TABS = [
   { key: "overview", label: "Overview" },
   { key: "market", label: "Market" },
+  { key: "sources", label: "Sources" },
   { key: "tokenomics", label: "Tokenomics" },
   { key: "team", label: "Team" },
   { key: "technical", label: "Technical" },
+  { key: "news", label: "News" },
   { key: "risks", label: "Risks" },
   { key: "verdict", label: "Verdict" },
 ];
@@ -65,6 +67,18 @@ function confidenceLabel(level) {
   if (level === "high") return "High confidence";
   if (level === "medium") return "Medium confidence";
   return "Low confidence";
+}
+
+function riskLevelColor(level) {
+  if (level === "low") return "#2fd67b";
+  if (level === "medium") return "#ffb020";
+  if (level === "high") return "#ff8a4c";
+  return "#ff6b6b";
+}
+
+function riskLevelLabel(level) {
+  if (!level) return "Unknown";
+  return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
 function statusMeta(status) {
@@ -286,9 +300,14 @@ export default function App() {
   const security = data?.security;
   const scores = data?.scores;
   const aiReport = data?.aiReport;
+  const officialLinks = data?.officialLinks;
+  const whitepaperDocs = data?.whitepaperDocs;
+  const newsIntelligence = data?.newsIntelligence;
+  const snapshot = data?.snapshot;
   const sourceStatus = data?.sourceStatus;
   const meta = data?.meta;
   const confidence = data?.confidence;
+  const fundamentals = data?.fundamentals;
   const warnings = data?.warnings || [];
   const backendMeta = statusMeta(backendStatus);
   const currentFavoriteKey = (asset?.symbol || query || "").trim().toUpperCase();
@@ -349,6 +368,31 @@ export default function App() {
           )) : <p style={{ color: "#8a94a6" }}>No source status available.</p>}
         </Card>
 
+        <Card
+          title="Official sources"
+          score={officialLinks?.sourceReliabilityScore}
+          subtitle={officialLinks?.status ? `Source reliability: ${officialLinks.status}` : "Official project links"}
+        >
+          <SectionRow label="Summary" value={officialLinks?.summary || "Unavailable"} />
+          <div style={styles.inlineGrid}>
+            <Box label="Website" value={officialLinks?.website || "Unavailable"} />
+            <Box label="Docs" value={officialLinks?.docs || "Unavailable"} />
+            <Box label="Whitepaper" value={officialLinks?.whitepaper || "Unavailable"} />
+            <Box label="X / Twitter" value={officialLinks?.twitter || "Unavailable"} />
+            <Box label="GitHub" value={officialLinks?.github || "Unavailable"} />
+            <Box label="Explorer" value={officialLinks?.explorer || "Unavailable"} />
+          </div>
+          <ListBlock title="Source notes" items={officialLinks?.notes || []} emptyText="No source notes available." color="#9bd7ff" />
+        </Card>
+
+        <Card
+          title="Research timeline"
+          subtitle={snapshot?.generatedAt ? `Snapshot stored at ${new Date(snapshot.generatedAt).toLocaleString()}` : "No persisted snapshot yet"}
+        >
+          <SectionRow label="Previous snapshot" value={snapshot?.previousSnapshotAt ? new Date(snapshot.previousSnapshotAt).toLocaleString() : "No previous snapshot"} />
+          <ListBlock title="What changed" items={snapshot?.changeSummary || []} emptyText="No change summary available yet." color="#9bd7ff" />
+        </Card>
+
         <Card title="Score breakdown" subtitle="Calculated by the backend engine">
           {scores ? (
             [
@@ -369,6 +413,35 @@ export default function App() {
               </div>
             ))
           ) : <p style={{ color: "#8a94a6" }}>Scores unavailable.</p>}
+        </Card>
+
+        <Card
+          title="Fundamental posture"
+          score={fundamentals?.tokenomics?.overallScore}
+          subtitle={fundamentals?.tokenomics ? `Unlock impact: ${riskLevelLabel(fundamentals.tokenomics.upcomingUnlockImpact)}` : "Fundamental snapshot"}
+        >
+          <SectionRow
+            label="Supply health"
+            value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.supplyHealth}/100` : "Unavailable"}
+          />
+          <SectionRow
+            label="FDV pressure"
+            value={fundamentals?.tokenomics?.breakdown?.fdvPressure ? riskLevelLabel(fundamentals.tokenomics.breakdown.fdvPressure) : "Unavailable"}
+          />
+          <SectionRow
+            label="Inflation risk"
+            value={fundamentals?.tokenomics?.breakdown?.inflationRisk ? riskLevelLabel(fundamentals.tokenomics.breakdown.inflationRisk) : "Unavailable"}
+          />
+          <SectionRow
+            label="Concentration risk"
+            value={fundamentals?.tokenomics?.breakdown?.concentrationRisk ? riskLevelLabel(fundamentals.tokenomics.breakdown.concentrationRisk) : "Unavailable"}
+          />
+          <ListBlock
+            title="Key alerts"
+            items={fundamentals?.risks?.keyAlerts || []}
+            emptyText="No material alerts from the tokenomics and risk engine."
+            color="#ffb6b6"
+          />
         </Card>
       </div>
     );
@@ -395,19 +468,90 @@ export default function App() {
     );
   }
 
+  function renderSources() {
+    return (
+      <div style={styles.advancedGrid}>
+        <Card
+          title="Official links"
+          score={officialLinks?.sourceReliabilityScore}
+          subtitle={officialLinks?.status ? `Coverage: ${officialLinks.status}` : "Official project sources"}
+        >
+          <SectionRow label="Summary" value={officialLinks?.summary || "Unavailable"} />
+          <div style={styles.inlineGrid}>
+            <Box label="Website" value={officialLinks?.website || "Unavailable"} />
+            <Box label="Docs" value={officialLinks?.docs || "Unavailable"} />
+            <Box label="Whitepaper" value={officialLinks?.whitepaper || "Unavailable"} />
+            <Box label="GitHub" value={officialLinks?.github || "Unavailable"} />
+            <Box label="X / Twitter" value={officialLinks?.twitter || "Unavailable"} />
+            <Box label="Explorer" value={officialLinks?.explorer || "Unavailable"} />
+          </div>
+          <ListBlock title="Source notes" items={officialLinks?.notes || []} emptyText="No source notes available." color="#9bd7ff" />
+        </Card>
+
+        <Card
+          title="Whitepaper and docs"
+          score={whitepaperDocs?.score}
+          subtitle={whitepaperDocs ? `Documentation depth: ${whitepaperDocs.documentationDepth}` : "Docs analysis"}
+        >
+          <SectionRow label="Summary" value={whitepaperDocs?.summary || "Unavailable"} />
+          <SectionRow label="Token utility coverage" value={whitepaperDocs?.tokenUtilityCoverage || "Unavailable"} />
+          <SectionRow label="Consistency" value={whitepaperDocs?.consistency || "Unavailable"} />
+          <ListBlock title="Documentation notes" items={whitepaperDocs?.notes || []} emptyText="No documentation notes available." color="#a6f3c2" />
+          <ListBlock title="Red flags" items={whitepaperDocs?.redFlags || []} emptyText="No explicit documentation red flags." color="#ffb6b6" />
+        </Card>
+      </div>
+    );
+  }
+
   function renderTokenomics() {
     return (
-      <div style={styles.advancedGridSingle}>
-        <Card title="Tokenomics" score={aiReport?.tokenomics?.score} subtitle={aiReport?.tokenomics?.inflationRisk || "Tokenomics analysis"}>
+      <div style={styles.advancedGrid}>
+        <Card
+          title="Tokenomics engine"
+          score={fundamentals?.tokenomics?.overallScore ?? aiReport?.tokenomics?.score}
+          subtitle={fundamentals?.tokenomics ? `Upcoming unlock impact: ${riskLevelLabel(fundamentals.tokenomics.upcomingUnlockImpact)}` : (aiReport?.tokenomics?.inflationRisk || "Tokenomics analysis")}
+        >
           <SectionRow label="Summary" value={aiReport?.tokenomics?.summary || "Unavailable"} />
           <SectionRow label="Supply pressure" value={aiReport?.tokenomics?.supplyPressure || "Unavailable"} />
           <SectionRow label="Market cap / FDV view" value={aiReport?.tokenomics?.mcapToFdvRatio || "Unavailable"} />
           <div style={styles.inlineGrid}>
             <Box label="Circulating Supply" value={formatCompact(marketData?.circulatingSupply)} />
             <Box label="Total Supply" value={formatCompact(marketData?.totalSupply)} />
+            <Box label="Max Supply" value={formatCompact(marketData?.maxSupply)} />
             <Box label="Market Cap" value={formatUsd(marketData?.marketCap)} />
             <Box label="FDV" value={formatUsd(marketData?.fdv)} />
+            <Box
+              label="MC / FDV"
+              value={fundamentals?.tokenomics?.breakdown?.mcToFdvRatio ?? "Unknown"}
+              tone="Closer to 1.0 is healthier."
+            />
+            <Box
+              label="Float %"
+              value={fundamentals?.tokenomics?.breakdown?.floatPercent !== null && fundamentals?.tokenomics?.breakdown?.floatPercent !== undefined
+                ? formatPct(fundamentals.tokenomics.breakdown.floatPercent)
+                : "Unknown"}
+              tone="Higher float usually means lower dilution overhang."
+            />
           </div>
+          <div style={styles.inlineGrid}>
+            <Box label="Supply Health" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.supplyHealth}/100` : "Unavailable"} />
+            <Box label="Unlock Risk" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.unlockRisk}/100` : "Unavailable"} />
+            <Box label="Inflation Health" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.inflationHealth}/100` : "Unavailable"} />
+            <Box label="Insider Concentration" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.insiderConcentration}/100` : "Unavailable"} />
+            <Box label="FDV Pressure" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.fdvPressure}/100` : "Unavailable"} />
+            <Box label="Value Accrual Quality" value={fundamentals?.tokenomics ? `${fundamentals.tokenomics.valueAccrualQuality}/100` : "Unavailable"} />
+          </div>
+          <ListBlock title="Strengths" items={fundamentals?.tokenomics?.strengths || []} emptyText="No clear strengths were extracted." color="#a6f3c2" />
+          <ListBlock title="Concerns" items={fundamentals?.tokenomics?.concerns || []} emptyText="No major tokenomics concerns were extracted." color="#ffb6b6" />
+        </Card>
+
+        <Card title="Why the tokenomics score looks like this" subtitle="Scoring explanations from the backend evaluator">
+          <SectionRow label="Supply health" value={fundamentals?.tokenomics?.explanations?.supplyHealth || "Unavailable"} />
+          <SectionRow label="Unlock risk" value={fundamentals?.tokenomics?.explanations?.unlockRisk || "Unavailable"} />
+          <SectionRow label="Inflation health" value={fundamentals?.tokenomics?.explanations?.inflationHealth || "Unavailable"} />
+          <SectionRow label="Insider concentration" value={fundamentals?.tokenomics?.explanations?.insiderConcentration || "Unavailable"} />
+          <SectionRow label="FDV pressure" value={fundamentals?.tokenomics?.explanations?.fdvPressure || "Unavailable"} />
+          <SectionRow label="Value accrual quality" value={fundamentals?.tokenomics?.explanations?.valueAccrualQuality || "Unavailable"} />
           <ListBlock
             title="Still worth checking manually"
             items={[
@@ -461,6 +605,40 @@ export default function App() {
     );
   }
 
+  function renderNews() {
+    return (
+      <div style={styles.advancedGrid}>
+        <Card
+          title="News intelligence"
+          score={newsIntelligence?.score}
+          subtitle={newsIntelligence ? `Sentiment: ${newsIntelligence.sentiment} | Source confidence: ${newsIntelligence.sourceConfidence}` : "Catalyst monitor"}
+        >
+          <SectionRow label="Summary" value={newsIntelligence?.summary || "Unavailable"} />
+          <ListBlock title="News notes" items={newsIntelligence?.notes || []} emptyText="No news notes available." color="#9bd7ff" />
+          {newsIntelligence?.latestEvents?.length ? newsIntelligence.latestEvents.map((event) => (
+            <div key={`${event.title}-${event.publishedAt || "na"}`} style={styles.sectionRow}>
+              <div style={styles.sectionRowLabel}>
+                {event.source} {event.publishedAt ? `| ${new Date(event.publishedAt).toLocaleString()}` : ""}
+              </div>
+              <div style={styles.sectionRowValue}>{event.title}</div>
+              <div style={styles.eventMeta}>
+                <span style={{ ...styles.riskChip, borderColor: sourceColor("partial"), color: "#7dd3fc" }}>{event.classification}</span>
+                <span style={{ ...styles.riskChip, borderColor: event.impact === "high" ? "#ff6b6b" : event.impact === "medium" ? "#ffb020" : "#7dd3fc", color: event.impact === "high" ? "#ff6b6b" : event.impact === "medium" ? "#ffb020" : "#7dd3fc" }}>
+                  Impact: {event.impact}
+                </span>
+              </div>
+            </div>
+          )) : <p style={{ color: "#8a94a6" }}>No recent events available.</p>}
+        </Card>
+
+        <Card title="Snapshot changes" subtitle={snapshot?.generatedAt ? `Latest snapshot: ${new Date(snapshot.generatedAt).toLocaleString()}` : "Change tracking"}>
+          <SectionRow label="Previous snapshot" value={snapshot?.previousSnapshotAt ? new Date(snapshot.previousSnapshotAt).toLocaleString() : "No previous snapshot"} />
+          <ListBlock title="Change summary" items={snapshot?.changeSummary || []} emptyText="No change summary available." color="#9bd7ff" />
+        </Card>
+      </div>
+    );
+  }
+
   function renderRisks() {
     return (
       <div style={styles.advancedGrid}>
@@ -471,6 +649,32 @@ export default function App() {
           <SectionRow label="Concentration risk" value={aiReport?.riskMatrix?.concentrationRisk || "Unavailable"} />
           <ListBlock title="Red flags" items={aiReport?.riskMatrix?.redFlags || []} emptyText="No explicit red flags returned." color="#ffb6b6" />
           <ListBlock title="Green flags" items={aiReport?.riskMatrix?.greenFlags || []} emptyText="No explicit green flags returned." color="#a6f3c2" />
+        </Card>
+
+        <Card title="Backend risk engine" subtitle="Machine-readable product and token risk posture">
+          <div style={styles.inlineGrid}>
+            <Box label="Tokenomics Risk" value={riskLevelLabel(fundamentals?.risks?.tokenomicsRisk)} tone="Covers dilution, float, and supply-overhang risk." />
+            <Box label="Product Risk" value={riskLevelLabel(fundamentals?.risks?.productRisk)} tone="Reflects how measurable the product and usage look from available data." />
+            <Box label="Execution Risk" value={riskLevelLabel(fundamentals?.risks?.executionRisk)} tone="Raised when warnings and missing confirmations start to stack up." />
+            <Box label="Governance Risk" value={riskLevelLabel(fundamentals?.risks?.governanceRisk)} tone="Higher when governance transparency is still weak." />
+            <Box label="Security Risk" value={riskLevelLabel(fundamentals?.risks?.securityRisk)} tone="Combines contract support and hard red flags like honeypot or mintability." />
+            <Box label="Liquidity Risk" value={riskLevelLabel(fundamentals?.risks?.liquidityRisk)} tone="Based on how much usable market liquidity the token appears to have." />
+          </div>
+          <div style={styles.riskLevelRow}>
+            {[
+              ["Tokenomics", fundamentals?.risks?.tokenomicsRisk],
+              ["Product", fundamentals?.risks?.productRisk],
+              ["Execution", fundamentals?.risks?.executionRisk],
+              ["Governance", fundamentals?.risks?.governanceRisk],
+              ["Security", fundamentals?.risks?.securityRisk],
+              ["Liquidity", fundamentals?.risks?.liquidityRisk],
+            ].map(([label, level]) => (
+              <div key={label} style={{ ...styles.riskChip, borderColor: riskLevelColor(level), color: riskLevelColor(level) }}>
+                {label}: {riskLevelLabel(level)}
+              </div>
+            ))}
+          </div>
+          <ListBlock title="Key alerts" items={fundamentals?.risks?.keyAlerts || []} emptyText="No critical alerts were raised by the backend risk engine." color="#ffb6b6" />
         </Card>
 
         <Card title="Security checks" score={scores?.securityScore} subtitle={security?.isSupported ? "GoPlus-supported asset" : "Unsupported or unavailable"}>
@@ -503,9 +707,11 @@ export default function App() {
     switch (activeTab) {
       case "overview": return renderOverview();
       case "market": return renderMarket();
+      case "sources": return renderSources();
       case "tokenomics": return renderTokenomics();
       case "team": return renderTeam();
       case "technical": return renderTechnical();
+      case "news": return renderNews();
       case "risks": return renderRisks();
       case "verdict": return renderVerdict();
       default: return renderOverview();
@@ -1333,6 +1539,25 @@ const styles = {
     border: "1px solid rgba(138,148,166,0.18)",
     background: "#0f172a",
     fontWeight: 700,
+  },
+  riskLevelRow: {
+    display: "flex",
+    gap: 10,
+    marginTop: 14,
+    flexWrap: "wrap",
+  },
+  riskChip: {
+    padding: "8px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(138,148,166,0.18)",
+    background: "#0f172a",
+    fontWeight: 700,
+  },
+  eventMeta: {
+    display: "flex",
+    gap: 8,
+    marginTop: 10,
+    flexWrap: "wrap",
   },
   progressOuter: {
     height: 8,
