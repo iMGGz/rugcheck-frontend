@@ -15,6 +15,16 @@ const CONTRIBUTOR_STRENGTH = {
   high: 3,
 };
 
+function shortSnapshotId(snapshotId) {
+  if (!snapshotId) return "unknown";
+  return String(snapshotId).slice(0, 8);
+}
+
+function formatSnapshotLabel(snapshot) {
+  if (!snapshot) return "Unavailable";
+  return `${formatDateTime(snapshot.generatedAt)} · #${shortSnapshotId(snapshot.snapshotId)}`;
+}
+
 function normalizeContributorAreas(scoreContributors) {
   const byArea = new Map();
 
@@ -180,7 +190,7 @@ export default function ComparePanel({
           <div style={styles.compareToolbar}>
             <div style={styles.compareMetaBlock}>
               <div style={styles.boxLabel}>Base snapshot</div>
-              <div style={styles.boxValue}>{formatDateTime(latestTimelineSnapshot?.generatedAt)}</div>
+              <div style={styles.boxValue}>{formatSnapshotLabel(latestTimelineSnapshot)}</div>
             </div>
             <div style={styles.compareMetaBlock}>
               <div style={styles.boxLabel}>Compare against</div>
@@ -191,7 +201,7 @@ export default function ComparePanel({
               >
                 {compareSelectionOptions.map((item) => (
                   <option key={item.snapshotId} value={item.snapshotId}>
-                    {formatDateTime(item.generatedAt)} | impact {item.compactImpact?.overall || "none"}
+                    {formatSnapshotLabel(item)} | impact {item.compactImpact?.overall || "none"}
                   </option>
                 ))}
               </select>
@@ -220,10 +230,10 @@ export default function ComparePanel({
                   Overall impact: {titleCase(compareData.comparison.impact.overall)}
                 </span>
                 <span style={{ ...styles.riskChip, borderColor: "#7dd3fc", color: "#7dd3fc" }}>
-                  Base: {formatDateTime(compareData.base.generatedAt)}
+                  Base: {formatSnapshotLabel(compareData.base)}
                 </span>
                 <span style={{ ...styles.riskChip, borderColor: "#8a94a6", color: "#8a94a6" }}>
-                  Against: {formatDateTime(compareData.against.generatedAt)}
+                  Against: {formatSnapshotLabel(compareData.against)}
                 </span>
               </div>
 
