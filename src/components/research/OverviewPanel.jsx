@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Card, ListBlock, ProgressBar, SectionRow } from "./researchPrimitives";
-import { analysisColor, moduleAvailabilityTone, riskLevelLabel, sourceColor, titleCase } from "./researchUtils";
+import { analysisColor, riskLevelLabel, sourceColor, titleCase } from "./researchUtils";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
 
 export default function OverviewPanel({

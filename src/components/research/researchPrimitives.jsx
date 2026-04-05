@@ -29,7 +29,7 @@ export function SectionRow({ label, value, styles }) {
   );
 }
 
-export function ListBlock({ title, items, emptyText, color = "#d5dcec", styles }) {
+export function ListBlock({ title, items, emptyText, color = "#d5dcec" }) {
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ color, fontWeight: 700, marginBottom: 8 }}>{title}</div>

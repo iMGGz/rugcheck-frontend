@@ -4,6 +4,8 @@ import MarketPanel from "./MarketPanel";
 import SourcesPanel from "./SourcesPanel";
 import ProjectCredibilityPanel from "./ProjectCredibilityPanel";
 import OnChainPanel from "./OnChainPanel";
+import ProtocolIntelligencePanel from "./ProtocolIntelligencePanel";
+import ScoreContributorsPanel from "./ScoreContributorsPanel";
 import FundamentalsPanel from "./FundamentalsPanel";
 import RisksPanel from "./RisksPanel";
 import NewsPanel from "./NewsPanel";
@@ -32,10 +34,13 @@ export default function SnapshotDetailPanel({
   const security = snapshotRecord?.rawData?.security;
   const onChainMetrics = snapshotRecord?.derivedAnalysis?.onChainMetrics;
   const projectCredibility = snapshotRecord?.derivedAnalysis?.projectCredibility;
+  const protocolUsage = snapshotRecord?.derivedAnalysis?.protocolUsage;
+  const protocolEconomics = snapshotRecord?.derivedAnalysis?.protocolEconomics;
   const scores = snapshotRecord?.derivedAnalysis?.scores;
   const confidence = snapshotRecord?.derivedAnalysis?.confidence;
   const fundamentals = snapshotRecord?.derivedAnalysis?.fundamentals;
   const aiReport = snapshotRecord?.derivedAnalysis?.aiReport;
+  const scoreContributors = snapshotRecord?.derivedAnalysis?.scoreContributors;
   const sourceStatus = snapshotRecord?.derivedAnalysis?.sourceStatus;
   const meta = snapshotRecord?.derivedAnalysis?.meta;
   const warnings = snapshotRecord?.derivedAnalysis?.warnings || [];
@@ -58,6 +63,8 @@ export default function SnapshotDetailPanel({
   );
   const sectionFreshness = meta?.sectionFreshness || snapshotRecord?.sectionFreshness || {};
   const onChainFundamentals = fundamentals?.onChain;
+  const protocolUsageFundamentals = fundamentals?.protocolUsage;
+  const protocolEconomicsFundamentals = fundamentals?.protocolEconomics;
   const riskVerdict = useMemo(() => {
     if (!scores) return "UNKNOWN";
     if (scores.fragilityScore >= 70 || scores.securityScore <= 20) return "HIGH RISK";
@@ -120,10 +127,23 @@ export default function SnapshotDetailPanel({
             scores={scores}
             styles={styles}
           />
+          <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
           <MarketPanel aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={meta?.providerDiagnostics || []} providerHealth={null} freshnessEntry={sectionFreshness.marketData} styles={styles} />
           <SourcesPanel officialLinks={officialLinks} whitepaperDocs={whitepaperDocs} sourceStatus={sourceStatus} providerDiagnostics={meta?.providerDiagnostics || []} providerHealth={null} freshnessEntry={sectionFreshness.officialLinksDocs} styles={styles} />
           <ProjectCredibilityPanel projectCredibility={projectCredibility} fundamentals={fundamentals} aiReport={aiReport} scores={scores} sourceStatus={sourceStatus} providerDiagnostics={meta?.providerDiagnostics || []} providerHealth={null} freshnessEntry={sectionFreshness.projectCredibility} styles={styles} />
           <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={meta?.providerDiagnostics || []} providerHealth={null} freshnessEntry={sectionFreshness.onChainMetrics} styles={styles} />
+          <ProtocolIntelligencePanel
+            protocolUsage={protocolUsage}
+            protocolEconomics={protocolEconomics}
+            protocolUsageFundamentals={protocolUsageFundamentals}
+            protocolEconomicsFundamentals={protocolEconomicsFundamentals}
+            sourceStatus={sourceStatus}
+            providerDiagnostics={meta?.providerDiagnostics || []}
+            providerHealth={null}
+            protocolUsageFreshnessEntry={sectionFreshness.protocolUsage}
+            protocolEconomicsFreshnessEntry={sectionFreshness.protocolEconomics}
+            styles={styles}
+          />
           <FundamentalsPanel fundamentals={fundamentals} aiReport={aiReport} marketData={marketData} styles={styles} />
           <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />
           <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshotMeta} styles={styles} />

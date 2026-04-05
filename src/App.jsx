@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ResearchHeader from "./components/research/ResearchHeader";
 import SearchPanel from "./components/research/SearchPanel";
 import ResultSummary from "./components/research/ResultSummary";
+import ScoreContributorsPanel from "./components/research/ScoreContributorsPanel";
 import StatusSummary from "./components/research/StatusSummary";
 import AnalysisQualityNote from "./components/research/AnalysisQualityNote";
 import OverviewPanel from "./components/research/OverviewPanel";
@@ -10,6 +11,7 @@ import SourcesPanel from "./components/research/SourcesPanel";
 import FundamentalsPanel from "./components/research/FundamentalsPanel";
 import ProjectCredibilityPanel from "./components/research/ProjectCredibilityPanel";
 import OnChainPanel from "./components/research/OnChainPanel";
+import ProtocolIntelligencePanel from "./components/research/ProtocolIntelligencePanel";
 import NewsPanel from "./components/research/NewsPanel";
 import RisksPanel from "./components/research/RisksPanel";
 import VerdictPanel from "./components/research/VerdictPanel";
@@ -766,12 +768,17 @@ export default function App() {
   const confidence = data?.confidence;
   const fundamentals = data?.fundamentals;
   const projectCredibility = data?.projectCredibility;
-  const providerDiagnostics = meta?.providerDiagnostics || [];
-  const notableDiagnostics = providerDiagnostics.filter((entry) =>
+  const protocolUsage = data?.protocolUsage;
+  const protocolEconomics = data?.protocolEconomics;
+  const providerDiagnostics = useMemo(() => meta?.providerDiagnostics || [], [meta?.providerDiagnostics]);
+  const notableDiagnostics = useMemo(() => providerDiagnostics.filter((entry) =>
     entry.status !== "success" ||
     ["partial", "weak", "missing", "unavailable"].includes(entry.coverage || ""),
-  );
+  ), [providerDiagnostics]);
   const onChainFundamentals = fundamentals?.onChain;
+  const protocolUsageFundamentals = fundamentals?.protocolUsage;
+  const protocolEconomicsFundamentals = fundamentals?.protocolEconomics;
+  const scoreContributors = data?.scoreContributors;
   const warnings = data?.warnings || [];
   const backendMeta = statusMeta(backendStatus);
   const currentWatchlistKey = buildWatchlistKey(activeWatchlistAsset || asset);
@@ -1047,7 +1054,23 @@ export default function App() {
       case "team":
         return <ProjectCredibilityPanel projectCredibility={projectCredibility} fundamentals={fundamentals} aiReport={aiReport} scores={scores} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.projectCredibility} styles={styles} />;
       case "onchain":
-        return <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.onChainMetrics} styles={styles} />;
+        return (
+          <>
+            <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.onChainMetrics} styles={styles} />
+            <ProtocolIntelligencePanel
+              protocolUsage={protocolUsage}
+              protocolEconomics={protocolEconomics}
+              protocolUsageFundamentals={protocolUsageFundamentals}
+              protocolEconomicsFundamentals={protocolEconomicsFundamentals}
+              sourceStatus={sourceStatus}
+              providerDiagnostics={providerDiagnostics}
+              providerHealth={providerHealth}
+              protocolUsageFreshnessEntry={meta?.sectionFreshness?.protocolUsage}
+              protocolEconomicsFreshnessEntry={meta?.sectionFreshness?.protocolEconomics}
+              styles={styles}
+            />
+          </>
+        );
       case "news":
         return <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />;
       case "risks":
@@ -1172,6 +1195,10 @@ export default function App() {
 
         {data ? (
           <AnalysisQualityNote explanation={analysisQualityExplanation} styles={styles} />
+        ) : null}
+
+        {data ? (
+          <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
         ) : null}
 
         {data ? (

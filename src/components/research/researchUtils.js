@@ -128,6 +128,11 @@ export function compareAreaLabel(area) {
     confidence: "Confidence",
     data_quality: "Data quality",
     tokenomics_risk: "Tokenomics risk",
+    token_unlocks: "Token unlocks",
+    fundraising: "Fundraising",
+    product_usage: "Product usage",
+    protocol_usage: "Protocol usage",
+    protocol_economics: "Protocol economics",
     governance_risk: "Governance risk",
     liquidity_risk: "Liquidity risk",
     onchain_score: "On-chain score",
@@ -149,6 +154,8 @@ export function providerLabel(provider) {
     whitepaperDocs: "Docs / whitepaper",
     onChain: "On-chain provider",
     ai: "AI provider",
+    protocolEconomics: "Protocol economics",
+    defillama: "DefiLlama",
   };
 
   return labels[provider] || titleCase(provider);
@@ -324,6 +331,8 @@ export function buildSectionQualityHint(section, {
   officialLinks,
   whitepaperDocs,
   projectCredibility,
+  protocolUsage,
+  protocolEconomics,
 }) {
   const diagnosticsByProvider = Object.fromEntries(
     providerDiagnostics.map((entry) => [entry.provider, entry]),
@@ -420,6 +429,43 @@ export function buildSectionQualityHint(section, {
       return {
         tone: "info",
         message: "Some project identity evidence exists, but founder, backer, or company confirmation is still incomplete.",
+      };
+    }
+  }
+
+  if (section === "protocol") {
+    const defillamaDiag = diagnosticsByProvider.defillama;
+    const economicsDiag = diagnosticsByProvider.protocolEconomics;
+    const defillamaDown = providers.defillama?.configured && providers.defillama?.reachable === false;
+
+    if (defillamaDown) {
+      return {
+        tone: "warning",
+        message: "Protocol usage and value-capture context may be limited because DefiLlama is currently degraded.",
+      };
+    }
+
+    if (sourceStatus?.protocolUsage === "skipped" && sourceStatus?.protocolEconomics === "skipped") {
+      return {
+        tone: "neutral",
+        message: "Protocol-level usage and economics were skipped because no confident asset-to-protocol mapping was available.",
+      };
+    }
+
+    if (availability === "partial" || defillamaDiag?.coverage === "partial" || economicsDiag?.coverage === "partial") {
+      return {
+        tone: "info",
+        message: "Protocol context is partial because a protocol match was found, but only part of the TVL, fees, revenue, or volume stack was backed.",
+      };
+    }
+
+    if (
+      availability === "missing"
+      || (protocolUsage?.availability === "missing" && protocolEconomics?.availability === "missing")
+    ) {
+      return {
+        tone: "neutral",
+        message: "No backed protocol-level usage or economics signal was confirmed for this asset in the connected public sources.",
       };
     }
   }
