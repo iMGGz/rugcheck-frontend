@@ -150,7 +150,7 @@ export default function TimelinePanel({
       {timelinePageInfo?.nextCursor ? (
         <div style={styles.timelineActionRow}>
           <button
-            onClick={() => loadTimeline(latestTimelineSnapshot?.query || asset?.query || query, { cursor: timelinePageInfo.nextCursor, append: true })}
+            onClick={() => loadTimeline(query || latestTimelineSnapshot?.query || asset?.query, { cursor: timelinePageInfo.nextCursor, append: true })}
             style={styles.secondaryButton}
             disabled={timelineLoadingMore}
           >

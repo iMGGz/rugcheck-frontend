@@ -80,6 +80,13 @@ export function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+export function shortenAddress(value, start = 6, end = 4) {
+  if (!value) return "Unavailable";
+  const stringValue = String(value);
+  if (stringValue.length <= start + end + 3) return stringValue;
+  return `${stringValue.slice(0, start)}...${stringValue.slice(-end)}`;
+}
+
 export function formatSignedDelta(value, digits = 0, suffix = "") {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "Unavailable";
   const num = Number(value);
@@ -145,6 +152,81 @@ export function providerLabel(provider) {
   };
 
   return labels[provider] || titleCase(provider);
+}
+
+export function buildAssetLookupQuery(asset, fallbackQuery = "") {
+  if (asset?.contractAddress) {
+    return `${asset.chain || "unknown"}:${asset.contractAddress.toLowerCase()}`;
+  }
+  if (asset?.coinmarketcapId) {
+    return `cmc:${asset.coinmarketcapId}`;
+  }
+  if (asset?.coingeckoId) {
+    return `gecko:${asset.coingeckoId}`;
+  }
+  return fallbackQuery;
+}
+
+export function buildWatchlistKey(asset) {
+  if (!asset) return "";
+  if (asset.contractAddress) {
+    return `${asset.chain || "unknown"}:${String(asset.contractAddress).toLowerCase()}`;
+  }
+  if (asset.coinmarketcapId) {
+    return `cmc:${asset.coinmarketcapId}`;
+  }
+  if (asset.coingeckoId) {
+    return `gecko:${asset.coingeckoId}`;
+  }
+  return `${String(asset.chain || "unknown").toLowerCase()}:${String(asset.symbol || asset.name || "unknown").toLowerCase()}`;
+}
+
+export function normalizeWatchlistAsset(raw) {
+  if (!raw) return null;
+
+  if (typeof raw === "string") {
+    const clean = raw.trim();
+    if (!clean) return null;
+    return {
+      name: clean,
+      symbol: clean,
+      chain: null,
+      contractAddress: null,
+      coingeckoId: null,
+      coinmarketcapId: null,
+      logo: null,
+      category: null,
+    };
+  }
+
+  const normalized = {
+    name: raw.name || null,
+    symbol: raw.symbol || null,
+    chain: raw.chain || null,
+    contractAddress: raw.contractAddress || null,
+    coingeckoId: raw.coingeckoId || null,
+    coinmarketcapId: raw.coinmarketcapId ?? null,
+    logo: raw.logo || null,
+    category: raw.category || null,
+  };
+
+  if (!buildWatchlistKey(normalized)) return null;
+  return normalized;
+}
+
+export function buildWatchlistAssetFromAnalysis(asset, selection = null) {
+  if (!asset && !selection) return null;
+
+  return normalizeWatchlistAsset({
+    name: asset?.name || selection?.name || null,
+    symbol: asset?.symbol || selection?.symbol || null,
+    chain: asset?.chain || selection?.chain || null,
+    contractAddress: asset?.contractAddress || selection?.contractAddress || null,
+    coingeckoId: asset?.coingeckoId || selection?.coingeckoId || null,
+    coinmarketcapId: asset?.coinmarketcapId ?? selection?.coinmarketcapId ?? null,
+    logo: selection?.logo || null,
+    category: asset?.category || selection?.category || null,
+  });
 }
 
 export function statusMeta(status) {
@@ -387,4 +469,139 @@ export function buildFreshnessBadge(entry) {
     detail: updatedAt ? `Updated ${updatedAt}` : null,
     color: "#7dd3fc",
   };
+}
+
+export function buildWatchlistFreshnessMeta(latestSnapshot) {
+  if (!latestSnapshot) {
+    return {
+      label: "No snapshot yet",
+      detail: "Run analysis once to create the first stored snapshot.",
+      color: "#8a94a6",
+      tone: "neutral",
+    };
+  }
+
+  const freshness = latestSnapshot.sectionFreshness || {};
+  const market = freshness.marketData || null;
+  const docs = freshness.officialLinksDocs || null;
+  const credibility = freshness.projectCredibility || null;
+  const onChain = freshness.onChainMetrics || null;
+
+  const nowMs = Date.now();
+  const ageMs = latestSnapshot.generatedAt ? Math.max(0, nowMs - new Date(latestSnapshot.generatedAt).getTime()) : null;
+  const marketUpdatedAtMs = market?.updatedAt ? new Date(market.updatedAt).getTime() : null;
+  const marketIsStale = Boolean(
+    market &&
+    market.availability !== "unsupported" &&
+    marketUpdatedAtMs &&
+    Number.isFinite(marketUpdatedAtMs) &&
+    nowMs - marketUpdatedAtMs > market.freshnessWindowMs,
+  );
+
+  if (marketIsStale || (ageMs !== null && ageMs > (market?.freshnessWindowMs || 0) && market?.availability !== "unsupported")) {
+    return {
+      label: "Stale",
+      detail: market?.updatedAt ? `Market last checked ${formatDateTime(market.updatedAt)}` : "Latest stored market snapshot is stale.",
+      color: "#ffb020",
+      tone: "warning",
+    };
+  }
+
+  const unsupportedSections = [market, docs, credibility, onChain].filter((entry) => entry?.availability === "unsupported");
+  const missingOrPartialSections = [market, docs, credibility].filter((entry) =>
+    entry && ["partial", "missing"].includes(entry.availability),
+  );
+
+  if (latestSnapshot.summary?.dataQuality !== "full" || missingOrPartialSections.length || unsupportedSections.length) {
+    let detail = "Recent snapshot exists, but some sections are partial or unsupported.";
+
+    if (unsupportedSections.length && !missingOrPartialSections.length) {
+      detail = "Recent snapshot exists, but some sections are unsupported for this asset path.";
+    } else if (docs?.availability === "partial" || credibility?.availability === "partial") {
+      detail = "Recent snapshot exists, but docs or project evidence are still only partially confirmed.";
+    } else if (market?.availability === "missing" || market?.availability === "partial") {
+      detail = "Recent snapshot exists, but market coverage is still thin.";
+    }
+
+    return {
+      label: "Limited coverage",
+      detail,
+      color: "#7dd3fc",
+      tone: "info",
+    };
+  }
+
+  return {
+    label: "Fresh",
+    detail: latestSnapshot.generatedAt ? `Latest snapshot ${formatDateTime(latestSnapshot.generatedAt)}` : "Recent snapshot coverage looks current.",
+    color: "#2fd67b",
+    tone: "positive",
+  };
+}
+
+export function buildWatchlistTimestampMeta({ latestSnapshot, lastCheckedAt, isRefreshing }) {
+  if (isRefreshing) {
+    return {
+      label: "Checking now",
+      value: "Refresh in progress.",
+    };
+  }
+
+  const snapshotTimeMs = latestSnapshot?.generatedAt ? new Date(latestSnapshot.generatedAt).getTime() : null;
+  const checkedTimeMs = lastCheckedAt ? new Date(lastCheckedAt).getTime() : null;
+  const hasSnapshotTime = Number.isFinite(snapshotTimeMs);
+  const hasCheckedTime = Number.isFinite(checkedTimeMs);
+
+  if (hasCheckedTime && hasSnapshotTime && checkedTimeMs > snapshotTimeMs + 1000) {
+    return {
+      label: "Last checked",
+      value: formatDateTime(lastCheckedAt),
+    };
+  }
+
+  if (hasSnapshotTime) {
+    return {
+      label: "Last refreshed",
+      value: formatDateTime(latestSnapshot.generatedAt),
+    };
+  }
+
+  if (hasCheckedTime) {
+    return {
+      label: "Last checked",
+      value: formatDateTime(lastCheckedAt),
+    };
+  }
+
+  return null;
+}
+
+export function buildWatchlistRefreshResultMeta(result) {
+  if (!result?.status) return null;
+
+  if (result.status === "updated") {
+    return {
+      label: "Updated",
+      detail: result.detail || "Refresh created a meaningful snapshot update.",
+      color: "#2fd67b",
+    };
+  }
+
+  if (result.status === "no_change") {
+    return {
+      label: "No change",
+      detail: result.detail || "The latest check did not produce a meaningful snapshot change.",
+      color: "#8a94a6",
+    };
+  }
+
+  if (result.status === "failed") {
+    return {
+      label: "Refresh failed",
+      detail: result.detail || "The last refresh attempt did not complete successfully.",
+      color: "#ff6b6b",
+    };
+  }
+
+  return null;
 }

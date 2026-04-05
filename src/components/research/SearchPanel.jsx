@@ -7,7 +7,6 @@ export default function SearchPanel({
   loading,
   quickSearches,
   history,
-  favorites,
   clearHistory,
   lastUpdated,
   styles,
@@ -75,25 +74,6 @@ export default function SearchPanel({
         </div>
       ) : null}
 
-      {favorites.length ? (
-        <div style={styles.historyWrap}>
-          <div style={styles.historyLabel}>Watchlist</div>
-          <div style={styles.historyRow}>
-            {favorites.map((item) => (
-              <button
-                key={item}
-                onClick={() => {
-                  setQuery(item);
-                  analyze(item, "full");
-                }}
-                style={styles.favoriteButton}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
