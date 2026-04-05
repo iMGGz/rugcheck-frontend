@@ -114,6 +114,8 @@ The UI reflects these limitations explicitly instead of hiding them.
 This tool is not a replacement for full due diligence.
 
 ## Important Note
-This interface is for research support only.
-It is not financial, legal, or investment advice.
-Always verify contract addresses and official project sources manually.
+This interface is provided for research and educational purposes only.
+It is not financial, investment, legal, tax, accounting, compliance, or trading advice.
+No output should be treated as a recommendation to buy, sell, hold, or avoid any asset.
+Users are responsible for verifying contract addresses, official project sources, token documentation, and any material claims before acting.
+The maintainers do not assume responsibility for trading, investment, tax, legal, or other decisions made using this interface.
