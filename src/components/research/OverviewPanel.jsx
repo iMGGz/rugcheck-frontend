@@ -1,7 +1,6 @@
 import React from "react";
 import { Box, Card, ListBlock, ProgressBar, SectionRow } from "./researchPrimitives";
-import { analysisColor, riskLevelLabel, sourceColor, titleCase } from "./researchUtils";
-import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
+import { analysisColor, riskLevelLabel, titleCase } from "./researchUtils";
 
 export default function OverviewPanel({
   asset,
@@ -10,8 +9,6 @@ export default function OverviewPanel({
   aiReport,
   warnings,
   confidence,
-  sourceStatus,
-  notableDiagnostics,
   officialLinks,
   snapshot,
   scores,
@@ -25,6 +22,8 @@ export default function OverviewPanel({
           <Box label="Symbol" value={asset?.symbol || "Unavailable"} styles={styles} />
           <Box label="Chain" value={asset?.chain || "Unavailable"} styles={styles} />
           <Box label="Category" value={asset?.category || "Unavailable"} styles={styles} />
+          <Box label="CoinGecko ID" value={asset?.coingeckoId || "Unavailable"} styles={styles} />
+          <Box label="CoinMarketCap ID" value={asset?.coinmarketcapId || "Unavailable"} styles={styles} />
           <Box label="Narrative" value={asset?.narrative || "Unavailable"} styles={styles} />
           <Box
             label="Delivery"
@@ -40,29 +39,11 @@ export default function OverviewPanel({
         />
       </Card>
 
-      <Card title="AI verdict" score={scores?.overallScore} subtitle={aiReport?.finalVerdict?.rating || "Generated from live analysis"} styles={styles}>
+      <Card title="Research summary" score={scores?.overallScore} subtitle={aiReport?.finalVerdict?.rating || "Structured backend summary"} styles={styles}>
         <SectionRow label="Recommendation" value={aiReport?.finalVerdict?.recommendation || "Unavailable"} styles={styles} />
         <SectionRow label="Summary" value={aiReport?.finalVerdict?.summary || "Unavailable"} styles={styles} />
-        <SectionRow label="Project overview" value={aiReport?.projectOverview || "Unavailable"} styles={styles} />
         <ListBlock title="Warnings" items={warnings} emptyText="No warnings returned." color="#f9d976" styles={styles} />
       </Card>
-
-      <Card title="Confidence" score={confidence?.score} subtitle={confidence?.level ? titleCase(`${confidence.level} confidence`) : "Assessment unavailable"} styles={styles}>
-        <SectionRow label="Summary" value={confidence?.summary || "Unavailable"} styles={styles} />
-        <SectionRow label="Market data status" value={confidence?.marketDataStatus || "Unknown"} styles={styles} />
-        <ListBlock title="Why this confidence level" items={confidence?.reasons || []} emptyText="No confidence notes available." color="#9bd7ff" styles={styles} />
-      </Card>
-
-      <Card title="Source coverage" subtitle="Live vs partial vs unavailable" styles={styles}>
-        {sourceStatus ? Object.entries(sourceStatus).map(([key, value]) => (
-          <div key={key} style={styles.scoreRow}>
-            <div style={{ color: "#d5dcec", textTransform: "capitalize" }}>{key}</div>
-            <div style={{ color: sourceColor(value), fontWeight: 800 }}>{value}</div>
-          </div>
-        )) : <p style={{ color: "#8a94a6" }}>No source status available.</p>}
-      </Card>
-
-      <ProviderDiagnosticsPanel notableDiagnostics={notableDiagnostics} styles={styles} />
 
       <Card
         title="Official sources"
@@ -129,6 +110,12 @@ export default function OverviewPanel({
         <SectionRow label="Inflation risk" value={fundamentals?.tokenomics?.breakdown?.inflationRisk ? riskLevelLabel(fundamentals.tokenomics.breakdown.inflationRisk) : "Unavailable"} styles={styles} />
         <SectionRow label="Concentration risk" value={fundamentals?.tokenomics?.breakdown?.concentrationRisk ? riskLevelLabel(fundamentals.tokenomics.breakdown.concentrationRisk) : "Unavailable"} styles={styles} />
         <ListBlock title="Key alerts" items={fundamentals?.risks?.keyAlerts || []} emptyText="No material alerts from the tokenomics and risk engine." color="#ffb6b6" styles={styles} />
+      </Card>
+
+      <Card title="Confidence reasons" score={confidence?.score} subtitle={confidence?.level ? titleCase(`${confidence.level} confidence`) : "Assessment unavailable"} styles={styles}>
+        <SectionRow label="Summary" value={confidence?.summary || "Unavailable"} styles={styles} />
+        <SectionRow label="Market data status" value={confidence?.marketDataStatus || "Unknown"} styles={styles} />
+        <ListBlock title="Why this confidence level" items={confidence?.reasons || []} emptyText="No confidence notes available." color="#9bd7ff" styles={styles} />
       </Card>
     </div>
   );

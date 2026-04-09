@@ -284,6 +284,12 @@ export const styles = {
     gap: 14,
     marginTop: 18,
   },
+  metaGridCompact: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gap: 14,
+    marginTop: 18,
+  },
   metaCard: {
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(138,148,166,0.14)",
@@ -801,7 +807,7 @@ export const styles = {
     fontSize: 13,
   },
   analysisQualityNote: {
-    marginTop: 16,
+    marginTop: 0,
     padding: 16,
     borderRadius: 18,
   },
@@ -1018,6 +1024,45 @@ export const styles = {
     gap: 8,
     flexWrap: "wrap",
     marginBottom: 14,
+  },
+  contextGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 14,
+    marginTop: 16,
+  },
+  contextCard: {
+    background: "#08111f",
+    borderRadius: 14,
+    border: "1px solid rgba(138,148,166,0.12)",
+    padding: 14,
+  },
+  contextLead: {
+    color: "#d5dcec",
+    lineHeight: 1.7,
+  },
+  contextMuted: {
+    color: "#8a94a6",
+    lineHeight: 1.6,
+    marginTop: 10,
+    fontSize: 13,
+  },
+  contextDetails: {
+    marginTop: 14,
+    borderRadius: 14,
+    border: "1px solid rgba(138,148,166,0.12)",
+    background: "rgba(255,255,255,0.02)",
+    overflow: "hidden",
+  },
+  contextSummary: {
+    cursor: "pointer",
+    padding: "14px 16px",
+    color: "#f4f7ff",
+    fontWeight: 800,
+    listStyle: "none",
+  },
+  contextDetailsBody: {
+    padding: "0 16px 16px",
   },
   snapshotDetailWrap: {
     marginTop: 18,

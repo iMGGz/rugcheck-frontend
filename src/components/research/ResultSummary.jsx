@@ -62,11 +62,6 @@ export default function ResultSummary({
         <Box label="24h Change" value={formatPct(marketData?.priceChange24h)} styles={styles} />
         <Box label="Circulating Supply" value={formatCompact(marketData?.circulatingSupply)} styles={styles} />
         <Box label="Total Supply" value={formatCompact(marketData?.totalSupply)} styles={styles} />
-        <Box label="Turnover Ratio" value={marketData?.turnoverRatio ?? "Unknown"} styles={styles} />
-        <Box label="Liquidity / MC Ratio" value={marketData?.liquidityToMarketCapRatio ?? "Unknown"} styles={styles} />
-        <Box label="CoinMarketCap ID" value={asset?.coinmarketcapId || "Unknown"} styles={styles} />
-        <Box label="CoinGecko ID" value={asset?.coingeckoId || "Unknown"} styles={styles} />
-        <Box label="Pair Address" value={asset?.pairAddress || "Unknown"} styles={styles} />
       </div>
     </div>
   );

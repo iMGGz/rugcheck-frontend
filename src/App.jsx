@@ -4,7 +4,6 @@ import SearchPanel from "./components/research/SearchPanel";
 import ResultSummary from "./components/research/ResultSummary";
 import ScoreContributorsPanel from "./components/research/ScoreContributorsPanel";
 import StatusSummary from "./components/research/StatusSummary";
-import AnalysisQualityNote from "./components/research/AnalysisQualityNote";
 import OverviewPanel from "./components/research/OverviewPanel";
 import MarketPanel from "./components/research/MarketPanel";
 import SourcesPanel from "./components/research/SourcesPanel";
@@ -18,9 +17,9 @@ import VerdictPanel from "./components/research/VerdictPanel";
 import TimelinePanel from "./components/research/TimelinePanel";
 import ComparePanel from "./components/research/ComparePanel";
 import SnapshotDetailPanel from "./components/research/SnapshotDetailPanel";
-import ProviderHealthPanel from "./components/research/ProviderHealthPanel";
 import TokenPickerPanel from "./components/research/TokenPickerPanel";
 import WatchlistPanel from "./components/research/WatchlistPanel";
+import ResearchContextPanel from "./components/research/ResearchContextPanel";
 import { styles } from "./components/research/researchStyles";
 import {
   buildAnalysisQualityExplanation,
@@ -1037,8 +1036,6 @@ export default function App() {
             aiReport={aiReport}
             warnings={warnings}
             confidence={confidence}
-            sourceStatus={sourceStatus}
-            notableDiagnostics={notableDiagnostics}
             officialLinks={officialLinks}
             snapshot={snapshot}
             scores={scores}
@@ -1078,7 +1075,7 @@ export default function App() {
       case "verdict":
         return <VerdictPanel aiReport={aiReport} scores={scores} riskVerdict={riskVerdict} styles={styles} />;
       default:
-        return <OverviewPanel asset={asset} meta={meta} fundamentals={fundamentals} aiReport={aiReport} warnings={warnings} confidence={confidence} sourceStatus={sourceStatus} notableDiagnostics={notableDiagnostics} officialLinks={officialLinks} snapshot={snapshot} scores={scores} styles={styles} />;
+        return <OverviewPanel asset={asset} meta={meta} fundamentals={fundamentals} aiReport={aiReport} warnings={warnings} confidence={confidence} officialLinks={officialLinks} snapshot={snapshot} scores={scores} styles={styles} />;
     }
   }
 
@@ -1194,10 +1191,6 @@ export default function App() {
         ) : null}
 
         {data ? (
-          <AnalysisQualityNote explanation={analysisQualityExplanation} styles={styles} />
-        ) : null}
-
-        {data ? (
           <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
         ) : null}
 
@@ -1205,17 +1198,10 @@ export default function App() {
           <>
             <StatusSummary
               confidence={confidence}
-              meta={meta}
               activeTab={activeTab}
               researchTabs={RESEARCH_TABS}
               setActiveTab={setActiveTab}
               scores={scores}
-              styles={styles}
-            />
-            <ProviderHealthPanel
-              providerHealth={providerHealth}
-              providerHealthLoading={providerHealthLoading}
-              providerHealthError={providerHealthError}
               styles={styles}
             />
             {renderActiveTab()}
@@ -1259,6 +1245,17 @@ export default function App() {
                 styles={styles}
               />
             ) : null}
+            <ResearchContextPanel
+              analysisQualityExplanation={analysisQualityExplanation}
+              confidence={confidence}
+              meta={meta}
+              sourceStatus={sourceStatus}
+              notableDiagnostics={notableDiagnostics}
+              providerHealth={providerHealth}
+              providerHealthLoading={providerHealthLoading}
+              providerHealthError={providerHealthError}
+              styles={styles}
+            />
           </>
         ) : null}
 
