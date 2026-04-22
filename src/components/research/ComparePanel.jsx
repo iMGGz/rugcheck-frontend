@@ -170,8 +170,8 @@ export default function ComparePanel({
 }) {
   const contributorCompare = compareData
     ? buildContributorCompare(
-        compareData.base?.derivedAnalysis?.scoreContributors,
-        compareData.against?.derivedAnalysis?.scoreContributors,
+        compareData.base?.analysis?.contributors || compareData.base?.derivedAnalysis?.scoreContributors,
+        compareData.against?.analysis?.contributors || compareData.against?.derivedAnalysis?.scoreContributors,
       )
     : null;
 

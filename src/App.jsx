@@ -122,8 +122,8 @@ function isValidAnalysisResponse(payload) {
     typeof payload === "object" &&
     payload.asset &&
     payload.marketData &&
-    payload.scores &&
-    payload.confidence,
+    (payload.analysis?.scores || payload.scores) &&
+    (payload.analysis?.confidence || payload.confidence),
   );
 }
 
@@ -752,10 +752,11 @@ export default function App() {
     void loadComparison(latestSnapshotId, compareAgainstId);
   }, [timelineData, compareAgainstId, loadComparison]);
 
+  const analysis = data?.analysis || null;
   const asset = data?.asset;
   const marketData = data?.marketData;
   const security = data?.security;
-  const scores = data?.scores;
+  const scores = analysis?.scores || data?.scores;
   const aiReport = data?.aiReport;
   const officialLinks = data?.officialLinks;
   const whitepaperDocs = data?.whitepaperDocs;
@@ -764,8 +765,8 @@ export default function App() {
   const snapshot = data?.snapshot;
   const sourceStatus = data?.sourceStatus;
   const meta = data?.meta;
-  const confidence = data?.confidence;
-  const fundamentals = data?.fundamentals;
+  const confidence = analysis?.confidence || data?.confidence;
+  const fundamentals = analysis?.fundamentals || data?.fundamentals;
   const projectCredibility = data?.projectCredibility;
   const protocolUsage = data?.protocolUsage;
   const protocolEconomics = data?.protocolEconomics;
@@ -777,7 +778,7 @@ export default function App() {
   const onChainFundamentals = fundamentals?.onChain;
   const protocolUsageFundamentals = fundamentals?.protocolUsage;
   const protocolEconomicsFundamentals = fundamentals?.protocolEconomics;
-  const scoreContributors = data?.scoreContributors;
+  const scoreContributors = analysis?.contributors || data?.scoreContributors;
   const warnings = data?.warnings || [];
   const backendMeta = statusMeta(backendStatus);
   const currentWatchlistKey = buildWatchlistKey(activeWatchlistAsset || asset);
@@ -1032,6 +1033,7 @@ export default function App() {
           <OverviewPanel
             asset={asset}
             meta={meta}
+            analysis={analysis}
             fundamentals={fundamentals}
             aiReport={aiReport}
             warnings={warnings}
@@ -1073,9 +1075,9 @@ export default function App() {
       case "risks":
         return <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />;
       case "verdict":
-        return <VerdictPanel aiReport={aiReport} scores={scores} riskVerdict={riskVerdict} styles={styles} />;
+        return <VerdictPanel aiReport={aiReport} analysis={analysis} asset={asset} scores={scores} riskVerdict={riskVerdict} styles={styles} />;
       default:
-        return <OverviewPanel asset={asset} meta={meta} fundamentals={fundamentals} aiReport={aiReport} warnings={warnings} confidence={confidence} officialLinks={officialLinks} snapshot={snapshot} scores={scores} styles={styles} />;
+        return <OverviewPanel asset={asset} meta={meta} analysis={analysis} fundamentals={fundamentals} aiReport={aiReport} warnings={warnings} confidence={confidence} officialLinks={officialLinks} snapshot={snapshot} scores={scores} styles={styles} />;
     }
   }
 

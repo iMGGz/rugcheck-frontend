@@ -1,10 +1,11 @@
 import React from "react";
 import { Box, Card, ListBlock, ProgressBar, SectionRow } from "./researchPrimitives";
-import { analysisColor, riskLevelLabel, titleCase } from "./researchUtils";
+import { analysisColor, buildVerdictDisplayData, riskLevelLabel, titleCase } from "./researchUtils";
 
 export default function OverviewPanel({
   asset,
   meta,
+  analysis,
   fundamentals,
   aiReport,
   warnings,
@@ -14,6 +15,8 @@ export default function OverviewPanel({
   scores,
   styles,
 }) {
+  const verdict = buildVerdictDisplayData({ aiReport, analysis, asset });
+
   return (
     <div style={styles.advancedGrid}>
       <Card title="Asset overview" subtitle={asset?.query ? `Query: ${asset.query}` : "Resolved asset identity"} styles={styles}>
@@ -39,9 +42,9 @@ export default function OverviewPanel({
         />
       </Card>
 
-      <Card title="Research summary" score={scores?.overallScore} subtitle={aiReport?.finalVerdict?.rating || "Structured backend summary"} styles={styles}>
-        <SectionRow label="Recommendation" value={aiReport?.finalVerdict?.recommendation || "Unavailable"} styles={styles} />
-        <SectionRow label="Summary" value={aiReport?.finalVerdict?.summary || "Unavailable"} styles={styles} />
+      <Card title="Research summary" score={scores?.overallScore} subtitle={titleCase(verdict.rating || "structured_backend_summary")} styles={styles}>
+        <SectionRow label="Recommendation" value={verdict.recommendation} styles={styles} />
+        <SectionRow label="Summary" value={verdict.summary} styles={styles} />
         <ListBlock title="Warnings" items={warnings} emptyText="No warnings returned." color="#f9d976" styles={styles} />
       </Card>
 

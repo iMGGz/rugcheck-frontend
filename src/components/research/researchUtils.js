@@ -651,3 +651,54 @@ export function buildWatchlistRefreshResultMeta(result) {
 
   return null;
 }
+
+export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
+  const posture = analysis?.decisionLayer?.posture?.label || null;
+  const currentState = analysis?.decisionLayer?.currentState?.label || null;
+  const thesisCore = analysis?.thesisCore || null;
+  const decisionFrame = analysis?.decisionLayer?.decisionFrame || null;
+  const assetLabel = asset?.symbol || asset?.name || "asset";
+
+  return {
+    recommendation:
+      aiReport?.finalVerdict?.recommendation
+      || decisionFrame?.whyNow
+      || (
+        posture && thesisCore?.investability?.status
+          ? `${titleCase(posture)} | ${titleCase(thesisCore.investability.status)}`
+          : posture
+            ? titleCase(posture)
+            : thesisCore?.investability?.status
+              ? titleCase(thesisCore.investability.status)
+              : "Structured verdict unavailable."
+      ),
+    summary:
+      aiReport?.finalVerdict?.summary
+      || thesisCore?.primaryWeakness
+      || decisionFrame?.whyNotNow
+      || (
+        currentState
+          ? `${assetLabel} currently maps to ${titleCase(currentState)}.`
+          : "No structured summary is available."
+      ),
+    bullCase:
+      aiReport?.bullCase
+      || thesisCore?.primaryStrength
+      || decisionFrame?.whatMustBeTrue?.[0]
+      || "No confirmed structural upside is currently recorded.",
+    bearCase:
+      aiReport?.bearCase
+      || thesisCore?.failureMode?.primary
+      || decisionFrame?.whatCouldBreak?.[0]
+      || "No structured failure mode is currently recorded.",
+    rating:
+      aiReport?.finalVerdict?.rating
+      || posture
+      || currentState
+      || "structured_backend_summary",
+    score:
+      aiReport?.finalVerdict?.score
+      || analysis?.scores?.overallScore
+      || null,
+  };
+}

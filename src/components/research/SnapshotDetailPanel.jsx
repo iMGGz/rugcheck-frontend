@@ -29,6 +29,7 @@ export default function SnapshotDetailPanel({
   onClose,
   styles,
 }) {
+  const analysis = snapshotRecord?.analysis || snapshotRecord?.derivedAnalysis || {};
   const asset = snapshotRecord?.rawData?.asset;
   const marketData = snapshotRecord?.rawData?.marketData;
   const security = snapshotRecord?.rawData?.security;
@@ -36,11 +37,11 @@ export default function SnapshotDetailPanel({
   const projectCredibility = snapshotRecord?.derivedAnalysis?.projectCredibility;
   const protocolUsage = snapshotRecord?.derivedAnalysis?.protocolUsage;
   const protocolEconomics = snapshotRecord?.derivedAnalysis?.protocolEconomics;
-  const scores = snapshotRecord?.derivedAnalysis?.scores;
-  const confidence = snapshotRecord?.derivedAnalysis?.confidence;
-  const fundamentals = snapshotRecord?.derivedAnalysis?.fundamentals;
+  const scores = analysis?.scores || snapshotRecord?.derivedAnalysis?.scores;
+  const confidence = analysis?.confidence || snapshotRecord?.derivedAnalysis?.confidence;
+  const fundamentals = analysis?.fundamentals || snapshotRecord?.derivedAnalysis?.fundamentals;
   const aiReport = snapshotRecord?.derivedAnalysis?.aiReport;
-  const scoreContributors = snapshotRecord?.derivedAnalysis?.scoreContributors;
+  const scoreContributors = analysis?.contributors || snapshotRecord?.derivedAnalysis?.scoreContributors;
   const sourceStatus = snapshotRecord?.derivedAnalysis?.sourceStatus;
   const meta = snapshotRecord?.derivedAnalysis?.meta;
   const warnings = snapshotRecord?.derivedAnalysis?.warnings || [];
@@ -116,6 +117,7 @@ export default function SnapshotDetailPanel({
           <OverviewPanel
             asset={asset}
             meta={meta}
+            analysis={analysis}
             fundamentals={fundamentals}
             aiReport={aiReport}
             warnings={warnings}
@@ -147,7 +149,7 @@ export default function SnapshotDetailPanel({
           <FundamentalsPanel fundamentals={fundamentals} aiReport={aiReport} marketData={marketData} styles={styles} />
           <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />
           <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshotMeta} styles={styles} />
-          <VerdictPanel aiReport={aiReport} scores={scores} riskVerdict={riskVerdict} styles={styles} />
+          <VerdictPanel aiReport={aiReport} analysis={analysis} asset={asset} scores={scores} riskVerdict={riskVerdict} styles={styles} />
         </>
       ) : null}
     </div>
