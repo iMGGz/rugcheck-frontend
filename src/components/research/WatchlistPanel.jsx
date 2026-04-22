@@ -7,6 +7,7 @@ import {
   buildWatchlistTimestampMeta,
   compareAreaLabel,
   formatDateTime,
+  safeArray,
   shortenAddress,
   titleCase,
 } from "./researchUtils";
@@ -46,9 +47,13 @@ export default function WatchlistPanel({
   onRemoveItem,
   styles,
 }) {
-  if (!watchlistItems.length && !watchlistLoading && !watchlistError) return null;
+  const safeWatchlistItems = safeArray(watchlistItems);
+  const safeWatchlistStates = safeArray(watchlistStates);
+  const safeRefreshingKeys = safeArray(watchlistRefreshingKeys);
 
-  const statesByKey = new Map((watchlistStates || []).map((entry) => [buildWatchlistKey(entry.asset), entry]));
+  if (!safeWatchlistItems.length && !watchlistLoading && !watchlistError) return null;
+
+  const statesByKey = new Map(safeWatchlistStates.map((entry) => [buildWatchlistKey(entry?.asset), entry]));
   const filterOptions = [
     { key: "all", label: "All" },
     { key: "stale", label: "Stale" },
@@ -63,7 +68,7 @@ export default function WatchlistPanel({
         <button
           onClick={() => onRefreshAll?.()}
           style={styles.actionButton}
-          disabled={!watchlistItems.length || Boolean(watchlistBatchRefresh) || watchlistRefreshingKeys.length > 0}
+          disabled={!safeWatchlistItems.length || Boolean(watchlistBatchRefresh) || safeRefreshingKeys.length > 0}
         >
           {watchlistBatchRefresh
             ? `Refreshing ${watchlistBatchRefresh.completed}/${watchlistBatchRefresh.total}`
@@ -96,7 +101,7 @@ export default function WatchlistPanel({
           </button>
         ))}
         <span style={styles.watchlistCountText}>
-          Showing {watchlistItems.length} of {watchlistTotalCount || watchlistItems.length}
+          Showing {safeWatchlistItems.length} of {watchlistTotalCount || safeWatchlistItems.length}
         </span>
       </div>
 
@@ -136,7 +141,7 @@ export default function WatchlistPanel({
         </div>
       ) : null}
 
-      {watchlistLoading && !watchlistItems.length ? (
+      {watchlistLoading && !safeWatchlistItems.length ? (
         <p style={styles.timelineEmptyText}>Loading watchlist state...</p>
       ) : null}
 
@@ -154,14 +159,16 @@ export default function WatchlistPanel({
         </div>
       ) : null}
 
-      {watchlistItems.length ? (
+      {safeWatchlistItems.length ? (
         <div style={styles.watchlistGrid}>
-          {watchlistItems.map((item) => {
+          {safeWatchlistItems.map((item) => {
             const state = statesByKey.get(buildWatchlistKey(item));
             const latestSnapshot = state?.latestSnapshot || null;
             const impact = latestSnapshot?.compactImpact || null;
             const itemKey = buildWatchlistKey(item);
-            const isRefreshing = watchlistRefreshingKeys.includes(itemKey);
+            const impactSummaryLines = safeArray(impact?.summaryLines);
+            const topChangedAreas = safeArray(impact?.topChangedAreas);
+            const isRefreshing = safeRefreshingKeys.includes(itemKey);
             const freshness = buildWatchlistFreshnessMeta(latestSnapshot);
             const refreshResult = buildWatchlistRefreshResultMeta(watchlistRefreshResults?.[itemKey] || null);
             const timestamp = buildWatchlistTimestampMeta({
@@ -234,10 +241,10 @@ export default function WatchlistPanel({
                     </div>
                     <div style={styles.timelineChipRow}>
                       <span style={{ ...styles.riskChip, borderColor: "#7dd3fc", color: "#7dd3fc" }}>
-                        Overall {latestSnapshot.summary.overallScore}/100
+                        Overall {latestSnapshot?.summary?.overallScore ?? "?"}/100
                       </span>
                       <span style={{ ...styles.riskChip, borderColor: "#2fd67b", color: "#2fd67b" }}>
-                        Confidence {latestSnapshot.summary.confidenceScore}/100
+                        Confidence {latestSnapshot?.summary?.confidenceScore ?? "?"}/100
                       </span>
                       {impact?.overall ? (
                         <span style={{ ...styles.riskChip, borderColor: "#ffb020", color: "#ffb020" }}>
@@ -245,14 +252,14 @@ export default function WatchlistPanel({
                         </span>
                       ) : null}
                     </div>
-                    {impact?.summaryLines?.length ? (
+                    {impactSummaryLines.length ? (
                       <div style={styles.watchlistSummaryText}>
-                        {impact.summaryLines.join(" ")}
+                        {impactSummaryLines.join(" ")}
                       </div>
                     ) : null}
-                    {impact?.topChangedAreas?.length ? (
+                    {topChangedAreas.length ? (
                       <div style={styles.timelineChipRow}>
-                        {impact.topChangedAreas.map((area) => (
+                        {topChangedAreas.map((area) => (
                           <span key={`${itemKey}-${area}`} style={styles.pickerChip}>
                             {compareAreaLabel(area)}
                           </span>

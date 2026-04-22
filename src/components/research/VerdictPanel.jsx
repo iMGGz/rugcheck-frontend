@@ -8,10 +8,10 @@ export default function VerdictPanel({ aiReport, analysis, asset, scores, riskVe
   return (
     <div style={styles.advancedGridSingle}>
       <Card title="Final verdict" score={verdict.score || scores?.overallScore} subtitle={titleCase(verdict.rating || riskVerdict)} styles={styles}>
-        <SectionRow label="Recommendation" value={verdict.recommendation} styles={styles} />
+        <SectionRow label="Recommendation" value={verdict.recommendation || "Verdict unavailable from current analysis data."} styles={styles} />
         <SectionRow label="Summary" value={verdict.summary} styles={styles} />
-        <SectionRow label="Bull case" value={verdict.bullCase} styles={styles} />
-        <SectionRow label="Bear case" value={verdict.bearCase} styles={styles} />
+        <SectionRow label="Bull case" value={verdict.bullCase || "No confirmed structural upside is currently recorded."} styles={styles} />
+        <SectionRow label="Bear case" value={verdict.bearCase || "No structured failure mode is currently recorded."} styles={styles} />
       </Card>
     </div>
   );

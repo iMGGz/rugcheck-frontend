@@ -3,7 +3,7 @@ import { Card } from "./researchPrimitives";
 import AnalysisQualityNote from "./AnalysisQualityNote";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
 import ProviderHealthPanel from "./ProviderHealthPanel";
-import { sourceColor, titleCase } from "./researchUtils";
+import { safeArray, sourceColor, titleCase } from "./researchUtils";
 
 export default function ResearchContextPanel({
   analysisQualityExplanation,
@@ -16,7 +16,7 @@ export default function ResearchContextPanel({
   providerHealthError,
   styles,
 }) {
-  const providerNotes = (meta?.providerNotes || []).slice(0, 4);
+  const providerNotes = safeArray(meta?.providerNotes).slice(0, 4);
   const coverageEntries = Object.entries(sourceStatus || {});
 
   return (

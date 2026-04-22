@@ -11,7 +11,7 @@ import RisksPanel from "./RisksPanel";
 import NewsPanel from "./NewsPanel";
 import VerdictPanel from "./VerdictPanel";
 import { Card, ListBlock, SectionRow } from "./researchPrimitives";
-import { titleCase } from "./researchUtils";
+import { assertSnapshotShape, safeArray, titleCase } from "./researchUtils";
 
 function mergeOfficialLinks(snapshot) {
   const raw = snapshot?.rawData?.officialLinks || {};
@@ -29,6 +29,8 @@ export default function SnapshotDetailPanel({
   onClose,
   styles,
 }) {
+  assertSnapshotShape(snapshotRecord, "snapshot-detail");
+
   const analysis = snapshotRecord?.analysis || snapshotRecord?.derivedAnalysis || {};
   const asset = snapshotRecord?.rawData?.asset;
   const marketData = snapshotRecord?.rawData?.marketData;
@@ -58,7 +60,7 @@ export default function SnapshotDetailPanel({
     previousSnapshotAt: snapshotRecord?.previousSnapshotAt,
     changeSummary: snapshotRecord?.changeSummary || [],
   }), [snapshotRecord]);
-  const notableDiagnostics = (meta?.providerDiagnostics || []).filter((entry) =>
+  const notableDiagnostics = safeArray(meta?.providerDiagnostics).filter((entry) =>
     entry.status !== "success" ||
     ["partial", "weak", "missing", "unavailable"].includes(entry.coverage || ""),
   );

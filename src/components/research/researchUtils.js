@@ -73,6 +73,134 @@ export function titleCase(value) {
     .join(" ");
 }
 
+export function safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+export function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+const devWarningKeys = new Set();
+
+export function devWarnOnce(key, message, details = undefined) {
+  if (!import.meta.env.DEV) return;
+  if (devWarningKeys.has(key)) return;
+  devWarningKeys.add(key);
+
+  if (details !== undefined) {
+    console.warn(`[research-ui] ${message}`, details);
+    return;
+  }
+
+  console.warn(`[research-ui] ${message}`);
+}
+
+export function extractDecisionLabel(value) {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    return value.label || value.value || value.id || null;
+  }
+  return null;
+}
+
+export function assertAnalysisShape(payload, context = "analysis") {
+  if (!import.meta.env.DEV) return;
+
+  const root = safeObject(payload);
+  const analysis = safeObject(root.analysis);
+  const derivedAnalysis = safeObject(root.derivedAnalysis);
+  const decisionLayer = safeObject(analysis.decisionLayer);
+  const thesisCore = safeObject(analysis.thesisCore);
+  const confidence = safeObject(analysis.confidence);
+
+  const posture = decisionLayer.posture;
+  if (posture !== undefined && posture !== null && typeof posture !== "string" && typeof posture !== "object") {
+    devWarnOnce(`posture-shape-${context}`, "Posture changed shape from expected string/object form.", {
+      context,
+      posture,
+    });
+  }
+
+  const hasAnalysis = Object.keys(analysis).length > 0;
+  const hasDerived = Object.keys(derivedAnalysis).length > 0;
+  const analysisScore = analysis?.scores?.overallScore;
+  const derivedScore = derivedAnalysis?.scores?.overallScore;
+  if (
+    hasAnalysis &&
+    hasDerived &&
+    analysisScore !== undefined &&
+    derivedScore !== undefined &&
+    analysisScore !== derivedScore
+  ) {
+    devWarnOnce(`analysis-derived-diverge-${context}`, "analysis and derivedAnalysis diverge on stored overall score.", {
+      context,
+      analysisScore,
+      derivedScore,
+    });
+  }
+
+  if (hasAnalysis && !thesisCore?.investability?.status) {
+    devWarnOnce(`investability-missing-${context}`, "Investability is missing from thesisCore.", {
+      context,
+      thesisCore,
+    });
+  }
+
+  if (hasAnalysis && (confidence.score === undefined || confidence.label === undefined)) {
+    devWarnOnce(`confidence-shape-${context}`, "Confidence is missing score or label.", {
+      context,
+      confidence,
+    });
+  }
+}
+
+export function assertSnapshotShape(snapshotRecord, context = "snapshot") {
+  if (!import.meta.env.DEV) return;
+  const snapshot = safeObject(snapshotRecord);
+  const hasAnalysis = Boolean(snapshot.analysis);
+  const hasDerived = Boolean(snapshot.derivedAnalysis);
+
+  if (!hasAnalysis && hasDerived) {
+    devWarnOnce(`snapshot-fallback-${context}`, "Snapshot fallback used because analysis is missing and derivedAnalysis was used instead.", {
+      context,
+      snapshotId: snapshot.snapshotId || null,
+    });
+  }
+
+  assertAnalysisShape({
+    analysis: snapshot.analysis,
+    derivedAnalysis: snapshot.derivedAnalysis,
+  }, context);
+}
+
+export function assertCompareShape(compareData, context = "compare") {
+  if (!import.meta.env.DEV) return;
+  const root = safeObject(compareData);
+  const comparison = safeObject(root.comparison);
+  const base = safeObject(root.base);
+  const against = safeObject(root.against);
+
+  if (!Object.keys(comparison).length || !Object.keys(base).length || !Object.keys(against).length) {
+    devWarnOnce(`compare-malformed-${context}`, "Compare payload malformed fallback used.", {
+      context,
+      hasComparison: Boolean(Object.keys(comparison).length),
+      hasBase: Boolean(Object.keys(base).length),
+      hasAgainst: Boolean(Object.keys(against).length),
+    });
+  }
+
+  assertAnalysisShape({
+    analysis: base.analysis,
+    derivedAnalysis: base.derivedAnalysis,
+  }, `${context}-base`);
+  assertAnalysisShape({
+    analysis: against.analysis,
+    derivedAnalysis: against.derivedAnalysis,
+  }, `${context}-against`);
+}
+
 export function formatDateTime(value) {
   if (!value) return "Unavailable";
   const date = new Date(value);
@@ -653,52 +781,90 @@ export function buildWatchlistRefreshResultMeta(result) {
 }
 
 export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
-  const posture = analysis?.decisionLayer?.posture?.label || null;
-  const currentState = analysis?.decisionLayer?.currentState?.label || null;
-  const thesisCore = analysis?.thesisCore || null;
-  const decisionFrame = analysis?.decisionLayer?.decisionFrame || null;
-  const assetLabel = asset?.symbol || asset?.name || "asset";
+  try {
+    const safeAnalysis = safeObject(analysis);
+    const safeAiReport = safeObject(aiReport);
+    const finalVerdict = safeObject(safeAiReport.finalVerdict);
+    const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+    const thesisCore = safeObject(safeAnalysis.thesisCore);
+    const decisionFrame = safeObject(decisionLayer.decisionFrame);
+    const investability = safeObject(thesisCore.investability);
+    const failureMode = safeObject(thesisCore.failureMode);
+    const posture = extractDecisionLabel(decisionLayer.posture);
+    const currentState = extractDecisionLabel(decisionLayer.currentState);
+    const assetLabel = asset?.symbol || asset?.name || "asset";
+    const mustBeTrue = safeArray(decisionFrame.whatMustBeTrue);
+    const couldBreak = safeArray(decisionFrame.whatCouldBreak);
 
-  return {
-    recommendation:
-      aiReport?.finalVerdict?.recommendation
-      || decisionFrame?.whyNow
-      || (
-        posture && thesisCore?.investability?.status
-          ? `${titleCase(posture)} | ${titleCase(thesisCore.investability.status)}`
-          : posture
-            ? titleCase(posture)
-            : thesisCore?.investability?.status
-              ? titleCase(thesisCore.investability.status)
-              : "Structured verdict unavailable."
-      ),
-    summary:
-      aiReport?.finalVerdict?.summary
-      || thesisCore?.primaryWeakness
-      || decisionFrame?.whyNotNow
-      || (
-        currentState
-          ? `${assetLabel} currently maps to ${titleCase(currentState)}.`
-          : "No structured summary is available."
-      ),
-    bullCase:
-      aiReport?.bullCase
-      || thesisCore?.primaryStrength
-      || decisionFrame?.whatMustBeTrue?.[0]
-      || "No confirmed structural upside is currently recorded.",
-    bearCase:
-      aiReport?.bearCase
-      || thesisCore?.failureMode?.primary
-      || decisionFrame?.whatCouldBreak?.[0]
-      || "No structured failure mode is currently recorded.",
-    rating:
-      aiReport?.finalVerdict?.rating
-      || posture
-      || currentState
-      || "structured_backend_summary",
-    score:
-      aiReport?.finalVerdict?.score
-      || analysis?.scores?.overallScore
-      || null,
-  };
+    if (!Object.keys(thesisCore).length) {
+      devWarnOnce("verdict-fallback-thesiscore", "Missing thesisCore fallback used in verdict display.", {
+        asset: assetLabel,
+      });
+    }
+
+    if (!Object.keys(decisionLayer).length) {
+      devWarnOnce("verdict-fallback-decision-layer", "Missing decisionLayer fallback used in verdict display.", {
+        asset: assetLabel,
+      });
+    }
+
+    return {
+      recommendation:
+        finalVerdict.recommendation
+        || decisionFrame.whyNow
+        || (
+          posture && investability.status
+            ? `${titleCase(posture)} | ${titleCase(investability.status)}`
+            : posture
+              ? titleCase(posture)
+              : investability.status
+                ? titleCase(investability.status)
+                : null
+        ),
+      summary:
+        finalVerdict.summary
+        || thesisCore.primaryWeakness
+        || decisionFrame.whyNotNow
+        || (
+          currentState
+            ? `${assetLabel} currently maps to ${titleCase(currentState)}.`
+            : "Verdict unavailable from current analysis data."
+        ),
+      bullCase:
+        safeAiReport.bullCase
+        || thesisCore.primaryStrength
+        || mustBeTrue[0]
+        || null,
+      bearCase:
+        safeAiReport.bearCase
+        || failureMode.primary
+        || couldBreak[0]
+        || null,
+      rating:
+        finalVerdict.rating
+        || posture
+        || currentState
+        || null,
+      score:
+        finalVerdict.score
+        ?? safeAnalysis?.scores?.overallScore
+        ?? null,
+    };
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error("[research-ui] buildVerdictDisplayData failed and returned safe fallback.", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : null,
+        asset: asset?.symbol || asset?.name || null,
+      });
+    }
+    return {
+      recommendation: null,
+      summary: "Verdict unavailable from current analysis data.",
+      bullCase: null,
+      bearCase: null,
+      rating: null,
+      score: null,
+    };
+  }
 }

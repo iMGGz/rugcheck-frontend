@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Card, ListBlock, SectionRow } from "./researchPrimitives";
-import { buildSectionQualityHint, moduleAvailabilityTone, titleCase } from "./researchUtils";
+import { buildSectionQualityHint, moduleAvailabilityTone, safeArray, titleCase } from "./researchUtils";
 import PanelStatusRow from "./PanelStatusRow";
 
 export default function ProjectCredibilityPanel({ projectCredibility, fundamentals, aiReport, scores, sourceStatus, providerDiagnostics, providerHealth, freshnessEntry, styles }) {
@@ -10,6 +10,17 @@ export default function ProjectCredibilityPanel({ projectCredibility, fundamenta
     sourceStatus,
     projectCredibility,
   });
+  const founders = safeArray(projectCredibility?.founders);
+  const backers = safeArray(projectCredibility?.backers);
+  const advisors = safeArray(projectCredibility?.advisors);
+  const strengthNotes = [
+    ...safeArray(fundamentals?.projectCredibility?.strengths),
+    ...safeArray(projectCredibility?.notes),
+  ];
+  const concerns = [
+    ...safeArray(fundamentals?.projectCredibility?.concerns),
+    ...safeArray(projectCredibility?.concerns),
+  ];
 
   return (
     <div style={styles.advancedGrid}>
@@ -28,20 +39,20 @@ export default function ProjectCredibilityPanel({ projectCredibility, fundamenta
           <Box label="Company credibility" value={titleCase(projectCredibility?.companyCredibility || "unknown")} styles={styles} />
           <Box
             label="Founders"
-            value={projectCredibility?.founders?.length ? projectCredibility.founders.map((item) => item.name).join(", ") : "Unavailable"}
-            tone={projectCredibility?.founders?.length ? "Backed founder evidence found." : "No explicit founder evidence returned."}
+            value={founders.length ? founders.map((item) => item?.name).filter(Boolean).join(", ") : "Unavailable"}
+            tone={founders.length ? "Backed founder evidence found." : "No explicit founder evidence returned."}
             styles={styles}
           />
           <Box
             label="Backers"
-            value={projectCredibility?.backers?.length ? projectCredibility.backers.map((item) => item.name).join(", ") : "Unavailable"}
-            tone={projectCredibility?.backers?.length ? "Named investor/backer evidence found." : "No explicit backer evidence returned."}
+            value={backers.length ? backers.map((item) => item?.name).filter(Boolean).join(", ") : "Unavailable"}
+            tone={backers.length ? "Named investor/backer evidence found." : "No explicit backer evidence returned."}
             styles={styles}
           />
         </div>
-        <ListBlock title="Advisors" items={projectCredibility?.advisors?.map((item) => item.name) || []} emptyText="No named advisors were confirmed." color="#9bd7ff" styles={styles} />
-        <ListBlock title="Strengths / notes" items={[...(fundamentals?.projectCredibility?.strengths || []), ...(projectCredibility?.notes || [])]} emptyText="No credibility strengths were surfaced." color="#a6f3c2" styles={styles} />
-        <ListBlock title="Concerns" items={[...(fundamentals?.projectCredibility?.concerns || []), ...(projectCredibility?.concerns || [])]} emptyText="No credibility concerns were surfaced." color="#ffb6b6" styles={styles} />
+        <ListBlock title="Advisors" items={advisors.map((item) => item?.name).filter(Boolean)} emptyText="No named advisors were confirmed." color="#9bd7ff" styles={styles} />
+        <ListBlock title="Strengths / notes" items={strengthNotes} emptyText="No credibility strengths were surfaced." color="#a6f3c2" styles={styles} />
+        <ListBlock title="Concerns" items={concerns} emptyText="No credibility concerns were surfaced." color="#ffb6b6" styles={styles} />
       </Card>
 
       <Card title="Execution and governance read" score={scores?.governanceScore} subtitle={aiReport?.teamGovernance?.dataAvailability || "Governance and identity context"} styles={styles}>

@@ -1,5 +1,5 @@
 import React from "react";
-import { analysisColor } from "./researchUtils";
+import { analysisColor, safeArray } from "./researchUtils";
 
 export function ProgressBar({ score, styles }) {
   const safe = Math.max(0, Math.min(100, Number(score || 0)));
@@ -30,13 +30,14 @@ export function SectionRow({ label, value, styles }) {
 }
 
 export function ListBlock({ title, items, emptyText, color = "#d5dcec" }) {
+  const safeItems = safeArray(items);
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ color, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-      {items && items.length ? (
-        items.map((item) => (
+      {safeItems.length ? (
+        safeItems.map((item, index) => (
           <p key={item} style={{ color, margin: "6px 0", lineHeight: 1.7 }}>
-            - {item}
+            - {item ?? `Item ${index + 1}`}
           </p>
         ))
       ) : (

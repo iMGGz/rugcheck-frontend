@@ -20,8 +20,10 @@ import SnapshotDetailPanel from "./components/research/SnapshotDetailPanel";
 import TokenPickerPanel from "./components/research/TokenPickerPanel";
 import WatchlistPanel from "./components/research/WatchlistPanel";
 import ResearchContextPanel from "./components/research/ResearchContextPanel";
+import ResearchErrorBoundary from "./components/research/ResearchErrorBoundary";
 import { styles } from "./components/research/researchStyles";
 import {
+  assertAnalysisShape,
   buildAnalysisQualityExplanation,
   buildAssetLookupQuery,
   buildWatchlistAssetFromAnalysis,
@@ -29,6 +31,7 @@ import {
   buildWatchlistKey,
   normalizeWatchlistAsset,
   normalizeErrorMessage,
+  safeArray,
   statusMeta,
 } from "./components/research/researchUtils";
 
@@ -770,7 +773,7 @@ export default function App() {
   const projectCredibility = data?.projectCredibility;
   const protocolUsage = data?.protocolUsage;
   const protocolEconomics = data?.protocolEconomics;
-  const providerDiagnostics = useMemo(() => meta?.providerDiagnostics || [], [meta?.providerDiagnostics]);
+  const providerDiagnostics = useMemo(() => safeArray(meta?.providerDiagnostics), [meta?.providerDiagnostics]);
   const notableDiagnostics = useMemo(() => providerDiagnostics.filter((entry) =>
     entry.status !== "success" ||
     ["partial", "weak", "missing", "unavailable"].includes(entry.coverage || ""),
@@ -794,6 +797,8 @@ export default function App() {
     providerHealth,
     sourceStatus,
   }), [confidence, providerDiagnostics, providerHealth, sourceStatus]);
+
+  assertAnalysisShape(data, "live-analysis");
 
   const visibleWatchlistItems = useMemo(() => {
     const enriched = watchlistItems.map((item) => ({
@@ -1178,26 +1183,22 @@ export default function App() {
         ) : null}
 
         {data ? (
-          <ResultSummary
-            asset={asset}
-            marketData={marketData}
-            riskVerdict={riskVerdict}
-            scores={scores}
-            confidence={confidence}
-            isFavorite={isFavorite}
-            toggleFavorite={toggleFavorite}
-            copyShareLink={copyShareLink}
-            copyMessage={copyMessage}
-            styles={styles}
-          />
-        ) : null}
+          <ResearchErrorBoundary styles={styles} areaName="research-results">
+            <ResultSummary
+              asset={asset}
+              marketData={marketData}
+              riskVerdict={riskVerdict}
+              scores={scores}
+              confidence={confidence}
+              isFavorite={isFavorite}
+              toggleFavorite={toggleFavorite}
+              copyShareLink={copyShareLink}
+              copyMessage={copyMessage}
+              styles={styles}
+            />
 
-        {data ? (
-          <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
-        ) : null}
+            <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
 
-        {data ? (
-          <>
             <StatusSummary
               confidence={confidence}
               activeTab={activeTab}
@@ -1258,7 +1259,7 @@ export default function App() {
               providerHealthError={providerHealthError}
               styles={styles}
             />
-          </>
+          </ResearchErrorBoundary>
         ) : null}
 
         <div style={styles.disclaimer}>

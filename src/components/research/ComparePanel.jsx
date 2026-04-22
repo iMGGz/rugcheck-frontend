@@ -1,11 +1,14 @@
 import React from "react";
 import { Box, Card, ListBlock } from "./researchPrimitives";
 import {
+  assertCompareShape,
   compareAreaLabel,
   formatDateTime,
   formatSignedDelta,
   formatTransition,
   impactColor,
+  safeArray,
+  safeObject,
   titleCase,
 } from "./researchUtils";
 
@@ -27,8 +30,9 @@ function formatSnapshotLabel(snapshot) {
 
 function normalizeContributorAreas(scoreContributors) {
   const byArea = new Map();
+  const normalized = safeObject(scoreContributors);
 
-  for (const item of scoreContributors?.neutralOrMissing || []) {
+  for (const item of safeArray(normalized.neutralOrMissing)) {
     if (!item?.area) continue;
     byArea.set(item.area, {
       area: item.area,
@@ -39,7 +43,7 @@ function normalizeContributorAreas(scoreContributors) {
     });
   }
 
-  for (const item of scoreContributors?.positives || []) {
+  for (const item of safeArray(normalized.positives)) {
     if (!item?.area) continue;
     const rank = CONTRIBUTOR_STRENGTH[item.strength] || 0;
     const current = byArea.get(item.area);
@@ -54,7 +58,7 @@ function normalizeContributorAreas(scoreContributors) {
     }
   }
 
-  for (const item of scoreContributors?.negatives || []) {
+  for (const item of safeArray(normalized.negatives)) {
     if (!item?.area) continue;
     const rank = CONTRIBUTOR_STRENGTH[item.strength] || 0;
     const current = byArea.get(item.area);
@@ -140,11 +144,13 @@ function buildContributorCompare(baseContributors, againstContributors) {
     }
   }
 
-  const topDriversAdded = (baseContributors?.topDrivers || []).filter(
-    (driver) => !(againstContributors?.topDrivers || []).includes(driver),
+  const baseTopDrivers = safeArray(baseContributors?.topDrivers);
+  const againstTopDrivers = safeArray(againstContributors?.topDrivers);
+  const topDriversAdded = baseTopDrivers.filter(
+    (driver) => !againstTopDrivers.includes(driver),
   );
-  const topDriversRemoved = (againstContributors?.topDrivers || []).filter(
-    (driver) => !(baseContributors?.topDrivers || []).includes(driver),
+  const topDriversRemoved = againstTopDrivers.filter(
+    (driver) => !baseTopDrivers.includes(driver),
   );
 
   return {
@@ -168,6 +174,24 @@ export default function ComparePanel({
   compareData,
   styles,
 }) {
+  assertCompareShape(compareData, "compare-panel");
+
+  const comparison = safeObject(compareData?.comparison);
+  const comparisonImpact = safeObject(comparison.impact);
+  const scoreChanges = safeObject(comparison.scoreChanges);
+  const projectCredibilityChanges = safeObject(comparison.projectCredibilityChanges);
+  const fundamentalsChanges = safeObject(comparison.fundamentalsChanges);
+  const warningsAndAlertsChanges = safeObject(comparison.warningsAndAlertsChanges);
+  const impactClassifications = safeArray(comparisonImpact.classifications);
+  const compareSummaryLines = safeArray(comparison.changeSummary);
+  const founderEvidenceAdded = safeArray(projectCredibilityChanges.founderEvidenceAdded);
+  const founderEvidenceRemoved = safeArray(projectCredibilityChanges.founderEvidenceRemoved);
+  const credibilityConcernsAdded = safeArray(projectCredibilityChanges.credibilityConcernsAdded);
+  const credibilityConcernsRemoved = safeArray(projectCredibilityChanges.credibilityConcernsRemoved);
+  const addedWarnings = safeArray(warningsAndAlertsChanges.addedWarnings);
+  const removedWarnings = safeArray(warningsAndAlertsChanges.removedWarnings);
+  const addedAlerts = safeArray(warningsAndAlertsChanges.addedAlerts);
+  const removedAlerts = safeArray(warningsAndAlertsChanges.removedAlerts);
   const contributorCompare = compareData
     ? buildContributorCompare(
         compareData.base?.analysis?.contributors || compareData.base?.derivedAnalysis?.scoreContributors,
@@ -223,11 +247,11 @@ export default function ComparePanel({
                 <span
                   style={{
                     ...styles.riskChip,
-                    borderColor: impactColor(compareData.comparison.impact.overall),
-                    color: impactColor(compareData.comparison.impact.overall),
+                    borderColor: impactColor(comparisonImpact.overall),
+                    color: impactColor(comparisonImpact.overall),
                   }}
                 >
-                  Overall impact: {titleCase(compareData.comparison.impact.overall)}
+                  Overall impact: {titleCase(comparisonImpact.overall || "none")}
                 </span>
                 <span style={{ ...styles.riskChip, borderColor: "#7dd3fc", color: "#7dd3fc" }}>
                   Base: {formatSnapshotLabel(compareData.base)}
@@ -238,35 +262,35 @@ export default function ComparePanel({
               </div>
 
               <div style={styles.inlineGrid}>
-                <Box label="Overall score delta" value={formatSignedDelta(compareData.comparison.scoreChanges.overallScoreDelta)} styles={styles} />
-                <Box label="Confidence delta" value={formatSignedDelta(compareData.comparison.scoreChanges.confidenceScoreDelta)} styles={styles} />
-                <Box label="On-chain delta" value={formatSignedDelta(compareData.comparison.scoreChanges.onChainScoreDelta)} styles={styles} />
-                <Box label="Credibility score delta" value={formatSignedDelta(compareData.comparison.projectCredibilityChanges.scoreDelta)} styles={styles} />
-                <Box label="Governance risk" value={formatTransition(compareData.comparison.fundamentalsChanges.governanceRiskFrom, compareData.comparison.fundamentalsChanges.governanceRiskTo)} styles={styles} />
-                <Box label="Liquidity risk" value={formatTransition(compareData.comparison.fundamentalsChanges.liquidityRiskFrom, compareData.comparison.fundamentalsChanges.liquidityRiskTo)} styles={styles} />
-                <Box label="Team transparency" value={formatTransition(compareData.comparison.projectCredibilityChanges.teamTransparencyFrom, compareData.comparison.projectCredibilityChanges.teamTransparencyTo)} styles={styles} />
-                <Box label="Backer quality" value={formatTransition(compareData.comparison.projectCredibilityChanges.backerQualityFrom, compareData.comparison.projectCredibilityChanges.backerQualityTo)} styles={styles} />
-                <Box label="Company credibility" value={formatTransition(compareData.comparison.projectCredibilityChanges.companyCredibilityFrom, compareData.comparison.projectCredibilityChanges.companyCredibilityTo)} styles={styles} />
+                <Box label="Overall score delta" value={formatSignedDelta(scoreChanges.overallScoreDelta)} styles={styles} />
+                <Box label="Confidence delta" value={formatSignedDelta(scoreChanges.confidenceScoreDelta)} styles={styles} />
+                <Box label="On-chain delta" value={formatSignedDelta(scoreChanges.onChainScoreDelta)} styles={styles} />
+                <Box label="Credibility score delta" value={formatSignedDelta(projectCredibilityChanges.scoreDelta)} styles={styles} />
+                <Box label="Governance risk" value={formatTransition(fundamentalsChanges.governanceRiskFrom, fundamentalsChanges.governanceRiskTo)} styles={styles} />
+                <Box label="Liquidity risk" value={formatTransition(fundamentalsChanges.liquidityRiskFrom, fundamentalsChanges.liquidityRiskTo)} styles={styles} />
+                <Box label="Team transparency" value={formatTransition(projectCredibilityChanges.teamTransparencyFrom, projectCredibilityChanges.teamTransparencyTo)} styles={styles} />
+                <Box label="Backer quality" value={formatTransition(projectCredibilityChanges.backerQualityFrom, projectCredibilityChanges.backerQualityTo)} styles={styles} />
+                <Box label="Company credibility" value={formatTransition(projectCredibilityChanges.companyCredibilityFrom, projectCredibilityChanges.companyCredibilityTo)} styles={styles} />
               </div>
 
               <div style={styles.timelineChipRow}>
-                {compareData.comparison.impact.classifications.map((entry) => (
+                {impactClassifications.map((entry, index) => (
                   <span
-                    key={`${entry.area}-${entry.level}`}
+                    key={`${entry?.area || "unknown"}-${entry?.level || "none"}-${index}`}
                     style={{
                       ...styles.riskChip,
-                      borderColor: impactColor(entry.level),
-                      color: impactColor(entry.level),
+                      borderColor: impactColor(entry?.level),
+                      color: impactColor(entry?.level),
                     }}
                   >
-                    {compareAreaLabel(entry.area)}: {titleCase(entry.level)}
+                    {compareAreaLabel(entry?.area || "unknown")}: {titleCase(entry?.level || "none")}
                   </span>
                 ))}
               </div>
 
               <ListBlock
                 title="Compare summary"
-                items={compareData.comparison.changeSummary || []}
+                items={compareSummaryLines}
                 emptyText="No meaningful stored delta summary was generated for this pair."
                 color="#9bd7ff"
                 styles={styles}
@@ -275,17 +299,17 @@ export default function ComparePanel({
               <ListBlock
                 title="Credibility changes"
                 items={[
-                  ...(compareData.comparison.projectCredibilityChanges.founderEvidenceAdded.length
-                    ? [`Founder evidence added: ${compareData.comparison.projectCredibilityChanges.founderEvidenceAdded.join(", ")}`]
+                  ...(founderEvidenceAdded.length
+                    ? [`Founder evidence added: ${founderEvidenceAdded.join(", ")}`]
                     : []),
-                  ...(compareData.comparison.projectCredibilityChanges.founderEvidenceRemoved.length
-                    ? [`Founder evidence removed: ${compareData.comparison.projectCredibilityChanges.founderEvidenceRemoved.join(", ")}`]
+                  ...(founderEvidenceRemoved.length
+                    ? [`Founder evidence removed: ${founderEvidenceRemoved.join(", ")}`]
                     : []),
-                  ...(compareData.comparison.projectCredibilityChanges.credibilityConcernsAdded.length
-                    ? [`Credibility concerns added: ${compareData.comparison.projectCredibilityChanges.credibilityConcernsAdded.join("; ")}`]
+                  ...(credibilityConcernsAdded.length
+                    ? [`Credibility concerns added: ${credibilityConcernsAdded.join("; ")}`]
                     : []),
-                  ...(compareData.comparison.projectCredibilityChanges.credibilityConcernsRemoved.length
-                    ? [`Credibility concerns removed: ${compareData.comparison.projectCredibilityChanges.credibilityConcernsRemoved.join("; ")}`]
+                  ...(credibilityConcernsRemoved.length
+                    ? [`Credibility concerns removed: ${credibilityConcernsRemoved.join("; ")}`]
                     : []),
                 ]}
                 emptyText="No founder, backer, or credibility concern deltas were stored for this pair."
@@ -296,17 +320,17 @@ export default function ComparePanel({
               <ListBlock
                 title="Warnings and alerts changed"
                 items={[
-                  ...(compareData.comparison.warningsAndAlertsChanges.addedWarnings.length
-                    ? [`Warnings added: ${compareData.comparison.warningsAndAlertsChanges.addedWarnings.join("; ")}`]
+                  ...(addedWarnings.length
+                    ? [`Warnings added: ${addedWarnings.join("; ")}`]
                     : []),
-                  ...(compareData.comparison.warningsAndAlertsChanges.removedWarnings.length
-                    ? [`Warnings removed: ${compareData.comparison.warningsAndAlertsChanges.removedWarnings.join("; ")}`]
+                  ...(removedWarnings.length
+                    ? [`Warnings removed: ${removedWarnings.join("; ")}`]
                     : []),
-                  ...(compareData.comparison.warningsAndAlertsChanges.addedAlerts.length
-                    ? [`Alerts added: ${compareData.comparison.warningsAndAlertsChanges.addedAlerts.join("; ")}`]
+                  ...(addedAlerts.length
+                    ? [`Alerts added: ${addedAlerts.join("; ")}`]
                     : []),
-                  ...(compareData.comparison.warningsAndAlertsChanges.removedAlerts.length
-                    ? [`Alerts removed: ${compareData.comparison.warningsAndAlertsChanges.removedAlerts.join("; ")}`]
+                  ...(removedAlerts.length
+                    ? [`Alerts removed: ${removedAlerts.join("; ")}`]
                     : []),
                 ]}
                 emptyText="No warnings or alerts changed between these stored snapshots."

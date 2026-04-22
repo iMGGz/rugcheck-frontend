@@ -43,7 +43,7 @@ export default function OverviewPanel({
       </Card>
 
       <Card title="Research summary" score={scores?.overallScore} subtitle={titleCase(verdict.rating || "structured_backend_summary")} styles={styles}>
-        <SectionRow label="Recommendation" value={verdict.recommendation} styles={styles} />
+        <SectionRow label="Recommendation" value={verdict.recommendation || "Verdict unavailable from current analysis data."} styles={styles} />
         <SectionRow label="Summary" value={verdict.summary} styles={styles} />
         <ListBlock title="Warnings" items={warnings} emptyText="No warnings returned." color="#f9d976" styles={styles} />
       </Card>

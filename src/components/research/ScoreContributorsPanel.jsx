@@ -1,14 +1,16 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { titleCase } from "./researchUtils";
+import { safeArray, titleCase } from "./researchUtils";
 
 function ContributorGroup({ title, color, items, styles, showStrength = false, emptyText }) {
+  const safeItems = safeArray(items);
+
   return (
     <div style={styles.scoreContributorGroup}>
       <div style={{ ...styles.scoreContributorGroupTitle, color }}>{title}</div>
-      {items?.length ? (
+      {safeItems.length ? (
         <div style={styles.scoreContributorList}>
-          {items.map((item, index) => (
+          {safeItems.map((item, index) => (
             <div
               key={`${title}-${item.area || "unknown"}-${item.summary || "summary"}-${index}`}
               style={styles.scoreContributorItem}
@@ -39,10 +41,10 @@ function ContributorGroup({ title, color, items, styles, showStrength = false, e
 }
 
 export default function ScoreContributorsPanel({ scoreContributors, styles }) {
-  const positives = scoreContributors?.positives || [];
-  const negatives = scoreContributors?.negatives || [];
-  const neutralOrMissing = scoreContributors?.neutralOrMissing || [];
-  const topDrivers = scoreContributors?.topDrivers || [];
+  const positives = safeArray(scoreContributors?.positives);
+  const negatives = safeArray(scoreContributors?.negatives);
+  const neutralOrMissing = safeArray(scoreContributors?.neutralOrMissing);
+  const topDrivers = safeArray(scoreContributors?.topDrivers);
   const hasContent = positives.length || negatives.length || neutralOrMissing.length || topDrivers.length;
 
   return (

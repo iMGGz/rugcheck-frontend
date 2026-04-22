@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Card, ListBlock } from "./researchPrimitives";
-import { compareAreaLabel, formatDateTime, impactColor, providerLabel, titleCase } from "./researchUtils";
+import { compareAreaLabel, formatDateTime, impactColor, providerLabel, safeArray, safeObject, titleCase } from "./researchUtils";
 
 export default function TimelinePanel({
   timelineLoading,
@@ -16,9 +16,12 @@ export default function TimelinePanel({
   openedSnapshotId,
   styles,
 }) {
+  const safeTimelineData = safeArray(timelineData);
+  const safePageInfo = safeObject(timelinePageInfo);
+
   return (
     <Card title="Research timeline" subtitle="Stored snapshots, compact impact, and provider quality context" styles={styles}>
-      {timelineLoading && !timelineData.length ? (
+      {timelineLoading && !safeTimelineData.length ? (
         <p style={styles.timelineEmptyText}>Loading stored snapshot history...</p>
       ) : null}
 
@@ -29,15 +32,21 @@ export default function TimelinePanel({
         </div>
       ) : null}
 
-      {!timelineLoading && !timelineError && !timelineData.length ? (
+      {!timelineLoading && !timelineError && !safeTimelineData.length ? (
         <p style={styles.timelineEmptyText}>No stored snapshot history is available yet for this token. Run another analysis later to build a timeline.</p>
       ) : null}
 
-      {timelineData.length ? (
+      {safeTimelineData.length ? (
         <div style={styles.timelineStack}>
-          {timelineData.map((item, index) => {
-            const impact = item.compactImpact;
-            const providerSummary = item.compactProviderDiagnostics;
+          {safeTimelineData.map((item, index) => {
+            const impact = safeObject(item?.compactImpact);
+            const providerSummary = safeObject(item?.compactProviderDiagnostics);
+            const impactSummaryLines = safeArray(impact.summaryLines);
+            const topChangedAreas = safeArray(impact.topChangedAreas);
+            const failedProviders = safeArray(providerSummary.failedProviders);
+            const skippedProviders = safeArray(providerSummary.skippedProviders);
+            const keyErrorClasses = safeArray(providerSummary.keyErrorClasses);
+            const providerSummaryLines = safeArray(providerSummary.summaryLines);
             const isLatest = index === 0;
 
             return (
@@ -72,7 +81,7 @@ export default function TimelinePanel({
                     <div style={styles.timelineMeta}>{formatDateTime(item.generatedAt)}</div>
                   </div>
                   <div style={styles.timelineMeta}>
-                    Overall {item.summary.overallScore}/100 | Confidence {item.summary.confidenceScore}/100
+                    Overall {item?.summary?.overallScore ?? "?"}/100 | Confidence {item?.summary?.confidenceScore ?? "?"}/100
                   </div>
                 </div>
 
@@ -86,14 +95,14 @@ export default function TimelinePanel({
                 </div>
 
                 <div style={styles.timelineSummary}>
-                  {impact?.summaryLines?.length
-                    ? impact.summaryLines.join(" ")
+                  {impactSummaryLines.length
+                    ? impactSummaryLines.join(" ")
                     : "No major change summary was stored for this snapshot."}
                 </div>
 
-                {impact?.topChangedAreas?.length ? (
+                {topChangedAreas.length ? (
                   <div style={styles.timelineChipRow}>
-                    {impact.topChangedAreas.map((area) => (
+                    {topChangedAreas.map((area) => (
                       <span key={`${item.snapshotId}-${area}`} style={{ ...styles.riskChip, borderColor: "#7dd3fc", color: "#7dd3fc" }}>
                         {compareAreaLabel(area)}
                       </span>
@@ -108,11 +117,11 @@ export default function TimelinePanel({
                   <Box label="Docs score" value={`${item.summary.docsScore}/100`} styles={styles} />
                 </div>
 
-                {providerSummary ? (
+                {Object.keys(providerSummary).length ? (
                   <>
                     <div style={styles.timelineSubsectionTitle}>Provider diagnostics snapshot</div>
                     <div style={styles.timelineChipRow}>
-                      {providerSummary.failedProviders.length ? providerSummary.failedProviders.map((provider) => (
+                      {failedProviders.length ? failedProviders.map((provider) => (
                         <span key={`${item.snapshotId}-failed-${provider}`} style={{ ...styles.riskChip, borderColor: "#ff6b6b", color: "#ff6b6b" }}>
                           Failed: {providerLabel(provider)}
                         </span>
@@ -121,12 +130,12 @@ export default function TimelinePanel({
                           No failed providers
                         </span>
                       )}
-                      {providerSummary.skippedProviders.map((provider) => (
+                      {skippedProviders.map((provider) => (
                         <span key={`${item.snapshotId}-skipped-${provider}`} style={{ ...styles.riskChip, borderColor: "#ffb020", color: "#ffb020" }}>
                           Skipped: {providerLabel(provider)}
                         </span>
                       ))}
-                      {providerSummary.keyErrorClasses.map((errorClass) => (
+                      {keyErrorClasses.map((errorClass) => (
                         <span key={`${item.snapshotId}-${errorClass}`} style={{ ...styles.riskChip, borderColor: "#8a94a6", color: "#8a94a6" }}>
                           {titleCase(errorClass)}
                         </span>
@@ -134,7 +143,7 @@ export default function TimelinePanel({
                     </div>
                     <ListBlock
                       title="Provider notes"
-                      items={providerSummary.summaryLines || []}
+                      items={providerSummaryLines}
                       emptyText="No provider issues were stored for this snapshot."
                       color="#9bd7ff"
                       styles={styles}
@@ -147,10 +156,10 @@ export default function TimelinePanel({
         </div>
       ) : null}
 
-      {timelinePageInfo?.nextCursor ? (
+      {safePageInfo?.nextCursor ? (
         <div style={styles.timelineActionRow}>
           <button
-            onClick={() => loadTimeline(query || latestTimelineSnapshot?.query || asset?.query, { cursor: timelinePageInfo.nextCursor, append: true })}
+            onClick={() => loadTimeline(query || latestTimelineSnapshot?.query || asset?.query, { cursor: safePageInfo.nextCursor, append: true })}
             style={styles.secondaryButton}
             disabled={timelineLoadingMore}
           >
