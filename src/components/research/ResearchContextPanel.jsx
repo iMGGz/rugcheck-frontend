@@ -21,8 +21,8 @@ export default function ResearchContextPanel({
 
   return (
     <Card
-      title="Research context"
-      subtitle="Secondary detail about data quality, provider coverage, and upstream visibility."
+      title="Evidence provenance"
+      subtitle="Audit-only detail about data quality, external coverage, and diagnostics."
       styles={styles}
     >
       <AnalysisQualityNote explanation={analysisQualityExplanation} styles={styles} />
@@ -45,10 +45,10 @@ export default function ResearchContextPanel({
         <div style={styles.contextCard}>
           <div style={styles.metaLabel}>How to read this</div>
           <div style={styles.contextLead}>
-            Treat the score as a screening signal. Missing data means the backend could not confirm it, and unsupported sections are not treated as negatives.
+            Treat the score as a secondary structural signal. The decision memo and investability call remain the primary answer.
           </div>
           <div style={styles.contextMuted}>
-            Best use: filter candidates quickly, then verify tokenomics, unlocks, governance, and official docs manually before acting.
+            Missing evidence increases conservatism. Unsupported sections are not treated as negatives, but they do weaken conviction.
           </div>
         </div>
       </div>

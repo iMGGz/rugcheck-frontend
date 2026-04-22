@@ -927,6 +927,32 @@ export function normalizeSignalList(value) {
   return [];
 }
 
+const TECHNICAL_NOISE_PATTERNS = [
+  /provider/i,
+  /api\b/i,
+  /auth/i,
+  /upstream/i,
+  /timeout/i,
+  /missing[_\s-]?key/i,
+  /rate[_\s-]?limit/i,
+  /mapping[_\s-]?failed/i,
+  /empty[_\s-]?payload/i,
+  /unsupported[_\s-]?asset/i,
+  /diagnostic/i,
+];
+
+export function isTechnicalNoiseText(value) {
+  const text = extractRenderableText(value, "");
+  if (!text) return false;
+  return TECHNICAL_NOISE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+export function filterUserFacingItems(items, limit = null) {
+  const filtered = normalizeRenderableList(items).filter((entry) => !isTechnicalNoiseText(entry));
+  if (limit === null) return filtered;
+  return filtered.slice(0, limit);
+}
+
 export function deriveAllocationOutcome(analysis, scores) {
   const safeAnalysis = safeObject(analysis);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
@@ -988,15 +1014,15 @@ export function deriveAllocationOutcome(analysis, scores) {
 }
 
 function buildDecisionDrivers({ contributors, prioritySignals, primaryStrength, primaryWeakness, blockers }) {
-  const topDrivers = safeArray(contributors?.topDrivers).map((entry) => extractRenderableText(entry, null)).filter(Boolean);
-  const negativeDrivers = normalizeRenderableList(contributors?.negatives)
+  const topDrivers = filterUserFacingItems(safeArray(contributors?.topDrivers), null);
+  const negativeDrivers = filterUserFacingItems(contributors?.negatives, null)
     .map((entry) => entry.replace(/^\-\s*/, ""))
     .slice(0, 2);
-  const positiveDrivers = normalizeRenderableList(contributors?.positives)
+  const positiveDrivers = filterUserFacingItems(contributors?.positives, null)
     .map((entry) => entry.replace(/^\-\s*/, ""))
     .slice(0, 2);
-  const signals = normalizeRenderableList(prioritySignals).slice(0, 3);
-  const gatingBlockers = normalizeRenderableList(blockers).slice(0, 2);
+  const signals = filterUserFacingItems(prioritySignals, 3);
+  const gatingBlockers = filterUserFacingItems(blockers, 2);
 
   const merged = [
     ...topDrivers,
@@ -1009,6 +1035,21 @@ function buildDecisionDrivers({ contributors, prioritySignals, primaryStrength, 
   ];
 
   return [...new Set(merged)].filter(Boolean).slice(0, 3);
+}
+
+function buildConfidenceSupportLabel(confidenceModel) {
+  if (typeof confidenceModel?.level === "string" && confidenceModel.level.trim()) {
+    return `${titleCase(confidenceModel.level)} evidence support`;
+  }
+
+  if (typeof confidenceModel?.label === "string" && confidenceModel.label.trim()) {
+    return confidenceModel.label
+      .replace(/confidence/gi, "evidence support")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  return "Evidence support unavailable";
 }
 
 export function buildDecisionTerminalModel({
@@ -1033,17 +1074,17 @@ export function buildDecisionTerminalModel({
   const confidenceModel = safeObject(confidence || safeAnalysis.confidence);
   const policySignals = normalizeSignalList(safeAnalysis.policySignals);
   const warningsList = normalizeRenderableList(warnings);
-  const blockers = normalizeRenderableList(investability.blockers);
-  const requiredConditions = normalizeRenderableList(investability.requiredConditions);
+  const userFacingWarnings = filterUserFacingItems(warningsList);
+  const blockers = filterUserFacingItems(investability.blockers);
+  const requiredConditions = filterUserFacingItems(investability.requiredConditions);
   const missingCritical = normalizeRenderableList(evidenceQuality.missingCritical).slice(0, 3);
   const primaryStrength = extractRenderableText(thesisCore.primaryStrength, null);
   const primaryWeakness = extractRenderableText(thesisCore.primaryWeakness, "No dominant structural weakness was surfaced.");
   const allocationOutcome = deriveAllocationOutcome(safeAnalysis, scores);
   const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
   const confidenceScore = confidenceModel?.score ?? null;
-  const confidenceLabelText = confidenceModel?.label
-    || (confidenceModel?.level ? `${titleCase(confidenceModel.level)} confidence in thesis support` : "Confidence in thesis support unavailable");
-  const prioritySignals = normalizeRenderableList(decisionLayer.prioritySignals);
+  const confidenceLabelText = buildConfidenceSupportLabel(confidenceModel);
+  const prioritySignals = filterUserFacingItems(decisionLayer.prioritySignals);
   const decisionDrivers = buildDecisionDrivers({
     contributors,
     prioritySignals,
@@ -1056,23 +1097,26 @@ export function buildDecisionTerminalModel({
   const earlySignals = normalizeRenderableList(failureMode.earlySignals).slice(0, 3);
   const contradictionApplies = Boolean(
     overallScore !== null
-    && overallScore >= 70
-    && ["do_not_allocate", "tradable_only"].includes(allocationOutcome.key),
+    && overallScore >= 65
+    && allocationOutcome.key !== "capital_worthy",
   );
   const contradictionNote = contradictionApplies
-    ? `${overallScore}/100 surface metrics are overridden by ${primaryWeakness.toLowerCase()}.`
+    ? `Surface metrics are overridden by failed token-thesis conditions. Dominant constraint: ${primaryWeakness}.`
     : null;
-  const summaryMemo = extractRenderableText(decisionFrame.whyNow, null)
-    || extractRenderableText(decisionFrame.whyNotNow, null)
-    || primaryWeakness;
+  const summaryMemo = allocationOutcome.key === "capital_worthy"
+    ? extractRenderableText(decisionFrame.whyNow, null) || primaryStrength || primaryWeakness
+    : extractRenderableText(decisionFrame.whyNotNow, null) || primaryWeakness || failurePrimary;
   const tokenDemandTruth = primaryStrength
-    ? "Token-demand support is evidenced, but it still must survive policy and failure-mode review."
+    ? "Token-demand support is evidenced, but it does not override structural constraints."
     : allocationOutcome.key === "tradable_only"
-      ? "Token demand reads as speculative or liquidity-led rather than allocator-grade."
+      ? "Token demand is speculative or liquidity-led rather than allocator-grade."
       : allocationOutcome.key === "do_not_allocate"
-        ? "Token-demand support does not clear the allocation bar on current evidence."
+        ? "Token-demand support does not clear the allocation bar."
         : "Token-demand support remains conditional on stronger structural confirmation.";
-  const auditAlerts = [...new Set([...policySignals, ...warningsList])].slice(0, 6);
+  const auditAlerts = [...new Set([...policySignals, ...userFacingWarnings])].slice(0, 6);
+  const evidenceConstraintNote = missingCritical.length || evidenceQuality.conflicts || warningsList.some((entry) => isTechnicalNoiseText(entry))
+    ? "Incomplete external evidence increases conservatism in this assessment."
+    : null;
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -1100,8 +1144,9 @@ export function buildDecisionTerminalModel({
     summaryMemo,
     tokenDemandTruth,
     policySignals,
-    warnings: warningsList,
+    warnings: userFacingWarnings,
     auditAlerts,
+    evidenceConstraintNote,
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
@@ -1111,10 +1156,10 @@ export function buildDecisionTerminalModel({
     whatMustBeTrue: normalizeRenderableList(decisionFrame.whatMustBeTrue).slice(0, 4),
     whatCouldBreak: normalizeRenderableList(decisionFrame.whatCouldBreak).slice(0, 4),
     nextCheckpoints: normalizeRenderableList(decisionFrame.nextCheckpoints).slice(0, 4),
-    topPositiveDrivers: normalizeRenderableList(contributors.positives).slice(0, 4),
-    topNegativeDrivers: normalizeRenderableList(contributors.negatives).slice(0, 4),
-    topNeutralDrivers: normalizeRenderableList(contributors.neutralOrMissing).slice(0, 4),
-    keyAlerts: normalizeRenderableList(fundamentals?.risks?.keyAlerts).slice(0, 4),
+    topPositiveDrivers: filterUserFacingItems(contributors.positives, 4),
+    topNegativeDrivers: filterUserFacingItems(contributors.negatives, 4),
+    topNeutralDrivers: filterUserFacingItems(contributors.neutralOrMissing, 4),
+    keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
 }
 

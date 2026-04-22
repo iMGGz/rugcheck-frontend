@@ -69,12 +69,12 @@ function resolveApiBase() {
 const API_BASE = resolveApiBase();
 const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
 const RESEARCH_TABS = [
-  { key: "overview", label: "Overview" },
+  { key: "overview", label: "Decision" },
   { key: "thesis", label: "Thesis" },
-  { key: "risks", label: "Failure Modes" },
+  { key: "risks", label: "Risks" },
   { key: "evidence", label: "Evidence" },
   { key: "history", label: "History" },
-  { key: "drift", label: "Thesis Drift" },
+  { key: "drift", label: "Drift" },
 ];
 const SEARCH_HISTORY_KEY = "rugcheck-history-v1";
 const WATCHLIST_KEY = "rugcheck-watchlist-v2";
@@ -1060,10 +1060,21 @@ export default function App() {
           <>
             <div style={styles.advancedGrid}>
               <AllocationOutcomeCard model={decisionModel} styles={styles} />
-              <EvidenceConfidenceCard model={decisionModel} styles={styles} />
-              <Card title="Decision Memo" subtitle="1 answer first. 2 reasoning second. 3 full audit third." styles={styles}>
+              <Card title="Decision Memo" subtitle="Answer first. Reasoning second. Audit third." styles={styles}>
+                <SectionRow label="Primary Weakness" value={decisionModel.primaryWeakness} styles={styles} />
+                <SectionRow label="Failure Mode" value={decisionModel.failureMode?.primary || "Unavailable"} styles={styles} />
+                {decisionModel.whyNotNow ? (
+                  <SectionRow label="Why Not Now" value={decisionModel.whyNotNow} styles={styles} />
+                ) : null}
                 <SectionRow label="Structured Thesis Summary" value={decisionModel.summaryMemo} styles={styles} />
-                <SectionRow label="Primary Strength" value={decisionModel.primaryStrength || "No durable strength is strong enough to support full conviction."} styles={styles} />
+              </Card>
+              <EvidenceConfidenceCard model={decisionModel} styles={styles} />
+            </div>
+
+            <div style={styles.advancedGrid}>
+              <Card title="Structural Signals" subtitle="Score stays visible, but it does not lead the decision." styles={styles}>
+                <SectionRow label="Structural Quality Score" value={decisionModel.overallScore !== null ? `${decisionModel.overallScore}/100` : "Unavailable"} styles={styles} />
+                <SectionRow label="Confidence in Thesis Support" value={decisionModel.confidenceLabel || "Unavailable"} styles={styles} />
                 <SectionRow label="Primary Weakness" value={decisionModel.primaryWeakness} styles={styles} />
                 <ListBlock
                   title="Top decision drivers"
@@ -1072,6 +1083,10 @@ export default function App() {
                   color="#9bd7ff"
                   styles={styles}
                 />
+              </Card>
+              <Card title="Constraint Summary" subtitle="What blocks full conviction right now." styles={styles}>
+                <ListBlock title="Blockers" items={decisionModel.blockers} emptyText="No explicit blockers were surfaced." color="#ffb6b6" styles={styles} />
+                <ListBlock title="Required conditions" items={decisionModel.requiredConditions} emptyText="No additional conditions were recorded." color="#9bd7ff" styles={styles} />
               </Card>
             </div>
 
@@ -1326,7 +1341,14 @@ export default function App() {
 
         {data ? (
           <ResearchErrorBoundary styles={styles} areaName="research-results">
-            <DecisionHeroCard asset={asset} model={decisionModel} styles={styles} />
+            <DecisionHeroCard
+              asset={asset}
+              model={decisionModel}
+              styles={styles}
+              sections={RESEARCH_TABS}
+              activeSection={activeTab}
+              onSelectSection={setActiveTab}
+            />
 
             <div style={styles.resultActions}>
               <button onClick={toggleFavorite} style={styles.actionButton}>
@@ -1340,6 +1362,10 @@ export default function App() {
 
             <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
 
+            <div style={styles.terminalNavHeader}>
+              <div style={styles.terminalNavTitle}>Decision Navigation</div>
+              <div style={styles.terminalNavHint}>Decision, thesis, risks, evidence, history, and drift stay available without burying the answer.</div>
+            </div>
             <div style={styles.terminalNav}>
               {RESEARCH_TABS.map((tab) => (
                 <TabButton

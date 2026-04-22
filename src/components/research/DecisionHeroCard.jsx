@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, SectionRow } from "./researchPrimitives";
+import { Card } from "./researchPrimitives";
 import { titleCase } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
@@ -9,13 +9,14 @@ function outcomeColor(outcomeKey) {
   return "#ff6b6b";
 }
 
-export default function DecisionHeroCard({ asset, model, styles }) {
+export default function DecisionHeroCard({ asset, model, styles, sections = [], activeSection = null, onSelectSection = null }) {
   const outcomeColorValue = outcomeColor(model?.allocationOutcome?.key);
   const assetBadges = [
     model?.assetClass ? titleCase(model.assetClass) : null,
     model?.assetSubtype && model.assetSubtype !== "unknown" ? titleCase(model.assetSubtype) : null,
     model?.primarySector && model.primarySector !== "Unknown" ? model.primarySector : null,
   ].filter(Boolean);
+  const showWhyNotNow = Boolean(model?.whyNotNow) && model?.allocationOutcome?.key === "conditional_allocation";
 
   return (
     <div style={styles.decisionHeroWrap}>
@@ -25,35 +26,28 @@ export default function DecisionHeroCard({ asset, model, styles }) {
         styles={styles}
       >
         <div style={styles.decisionHeroTopRow}>
-          <div>
+          <div style={styles.decisionHeroPrimaryColumn}>
             <div style={styles.decisionHeroEyebrow}>Allocation Outcome</div>
             <div style={{ ...styles.decisionHeroOutcome, color: outcomeColorValue }}>
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
-            <div style={styles.decisionHeroSubtext}>
-              {model?.investabilityStatus ? `Investability: ${titleCase(model.investabilityStatus)}` : "Investability status unavailable"}
+            <div style={styles.decisionHeroInvestabilityBadge}>
+              <span style={styles.decisionHeroInvestabilityLabel}>Investability</span>
+              <span style={styles.decisionHeroInvestabilityValue}>
+                {model?.investabilityStatus ? titleCase(model.investabilityStatus) : "Unavailable"}
+              </span>
             </div>
           </div>
-
-          <div style={styles.decisionHeroScoreRow}>
-            <div style={styles.decisionHeroScoreBlock}>
-              <div style={styles.decisionHeroMetricLabel}>Overall Score</div>
-              <div style={styles.decisionHeroMetricValue}>{model?.overallScore ?? "?"}/100</div>
-            </div>
-            <div style={styles.decisionHeroScoreBlock}>
-              <div style={styles.decisionHeroMetricLabel}>Confidence in Thesis Support</div>
-              <div style={styles.decisionHeroMetricValueSmall}>{model?.confidenceScore ?? "?"}/100</div>
-            </div>
+          <div style={styles.decisionHeroMetaColumn}>
+            {assetBadges.length ? (
+              <div style={styles.decisionHeroBadgeRow}>
+                {assetBadges.map((badge) => (
+                  <span key={badge} style={styles.institutionalBadge}>{badge}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
-
-        {assetBadges.length ? (
-          <div style={styles.decisionHeroBadgeRow}>
-            {assetBadges.map((badge) => (
-              <span key={badge} style={styles.institutionalBadge}>{badge}</span>
-            ))}
-          </div>
-        ) : null}
 
         {model?.contradictionNote ? (
           <div style={styles.contradictionBanner}>
@@ -62,15 +56,73 @@ export default function DecisionHeroCard({ asset, model, styles }) {
           </div>
         ) : null}
 
-        <div style={styles.decisionHeroGrid}>
-          <SectionRow label="Primary Strength" value={model?.primaryStrength || "No strength is strong enough to support conviction."} styles={styles} />
-          <SectionRow label="Primary Weakness" value={model?.primaryWeakness || "Unavailable"} styles={styles} />
-          <SectionRow label="Failure Mode" value={model?.failureMode?.primary || "Unavailable"} styles={styles} />
-          <SectionRow label="Structured Thesis Summary" value={model?.summaryMemo || "No memo summary is available from the current analysis."} styles={styles} />
+        {model?.evidenceConstraintNote ? (
+          <div style={styles.evidenceConstraintBanner}>
+            <div style={styles.evidenceConstraintTitle}>Evidence Constraint</div>
+            <div style={styles.evidenceConstraintText}>{model.evidenceConstraintNote}</div>
+          </div>
+        ) : null}
+
+        <div style={styles.decisionDominanceGrid}>
+          <div style={styles.decisionDominanceBlock}>
+            <div style={styles.decisionDominanceLabel}>Primary Weakness</div>
+            <div style={styles.decisionDominanceValue}>{model?.primaryWeakness || "Unavailable"}</div>
+          </div>
+          <div style={styles.decisionDominanceBlock}>
+            <div style={styles.decisionDominanceLabel}>Failure Mode</div>
+            <div style={styles.decisionDominanceValue}>{model?.failureMode?.primary || "Unavailable"}</div>
+          </div>
+          {showWhyNotNow ? (
+            <div style={styles.decisionDominanceBlock}>
+              <div style={styles.decisionDominanceLabel}>Why Not Now</div>
+              <div style={styles.decisionDominanceValue}>{model?.whyNotNow}</div>
+            </div>
+          ) : null}
+          <div style={styles.decisionDominanceBlock}>
+            <div style={styles.decisionDominanceLabel}>Primary Strength</div>
+            <div style={styles.decisionDominanceMutedValue}>
+              {model?.primaryStrength || "No strength is strong enough to override the current constraints."}
+            </div>
+          </div>
         </div>
 
+        <div style={styles.decisionHeroSecondaryBand}>
+          <div style={styles.decisionHeroSecondaryMetric}>
+            <div style={styles.decisionHeroSecondaryLabel}>Structural Quality Score</div>
+            <div style={styles.decisionHeroSecondaryValue}>{model?.overallScore ?? "?"}/100</div>
+          </div>
+          <div style={styles.decisionHeroSecondaryMetric}>
+            <div style={styles.decisionHeroSecondaryLabel}>Evidence Support</div>
+            <div style={styles.decisionHeroSecondaryValue}>{model?.confidenceScore ?? "?"}/100</div>
+          </div>
+          <div style={styles.decisionHeroSecondaryNarrative}>
+            {model?.summaryMemo || "No structured thesis summary is available from the current analysis."}
+          </div>
+        </div>
+
+        {sections.length ? (
+          <div style={styles.decisionNavigatorWrap}>
+            <div style={styles.decisionNavigatorTitle}>Navigate reasoning</div>
+            <div style={styles.decisionNavigatorRow}>
+              {sections.map((section) => (
+                <button
+                  key={section.key}
+                  type="button"
+                  onClick={() => onSelectSection?.(section.key)}
+                  style={{
+                    ...styles.decisionNavigatorButton,
+                    ...(activeSection === section.key ? styles.decisionNavigatorButtonActive : {}),
+                  }}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div style={styles.decisionDriverPanel}>
-          <div style={styles.decisionDriverTitle}>Top 3 Decision Drivers</div>
+          <div style={styles.decisionDriverTitle}>Top Decision Drivers</div>
           <div style={styles.decisionHeroBadgeRow}>
             {(model?.decisionDrivers || []).map((driver) => (
               <span key={driver} style={styles.decisionDriverChip}>{driver}</span>
