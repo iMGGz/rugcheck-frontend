@@ -3,7 +3,7 @@ import { Card } from "./researchPrimitives";
 import AnalysisQualityNote from "./AnalysisQualityNote";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
 import ProviderHealthPanel from "./ProviderHealthPanel";
-import { safeArray, sourceColor, titleCase } from "./researchUtils";
+import { extractRenderableText, safeArray, sourceColor, titleCase } from "./researchUtils";
 
 export default function ResearchContextPanel({
   analysisQualityExplanation,
@@ -31,7 +31,7 @@ export default function ResearchContextPanel({
         <div style={styles.contextCard}>
           <div style={styles.metaLabel}>Source clarity</div>
           <div style={styles.contextLead}>
-            {confidence?.sourceAgreementSummary || "Source agreement summary unavailable."}
+            {extractRenderableText(confidence?.sourceAgreementSummary, "Source agreement summary unavailable.")}
           </div>
           <div style={styles.providerList}>
             {providerNotes.length ? providerNotes.map((note) => (

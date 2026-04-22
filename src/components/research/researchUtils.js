@@ -81,6 +81,41 @@ export function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+export function extractRenderableText(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((entry) => extractRenderableText(entry, null))
+      .filter(Boolean);
+    return normalized.length ? normalized.join(", ") : fallback;
+  }
+  if (typeof value === "object") {
+    if (typeof value.summary === "string" && value.summary.trim()) return value.summary;
+    if (typeof value.label === "string" && value.label.trim()) return value.label;
+    if (typeof value.value === "string" && value.value.trim()) return value.value;
+    return fallback;
+  }
+  return fallback;
+}
+
+export function normalizeRenderableList(items) {
+  return safeArray(items)
+    .map((item) => {
+      if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+        if (typeof item.summary === "string" && item.summary.trim()) {
+          const evidence = safeArray(item.evidence)
+            .map((entry) => extractRenderableText(entry, null))
+            .filter(Boolean);
+          return evidence.length ? `${item.summary} (${evidence.join("; ")})` : item.summary;
+        }
+      }
+      return extractRenderableText(item, null);
+    })
+    .filter(Boolean);
+}
+
 const devWarningKeys = new Set();
 
 export function devWarnOnce(key, message, details = undefined) {

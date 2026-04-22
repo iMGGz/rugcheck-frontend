@@ -1,6 +1,6 @@
 import React from "react";
 import { ScorePill, TabButton } from "./researchPrimitives";
-import { confidenceColor, confidenceLabel } from "./researchUtils";
+import { confidenceColor, confidenceLabel, extractRenderableText } from "./researchUtils";
 
 export default function StatusSummary({
   confidence,
@@ -18,7 +18,7 @@ export default function StatusSummary({
           <div style={{ ...styles.metaValue, color: confidenceColor(confidence?.level) }}>
             {confidence ? `${confidenceLabel(confidence.level)} | ${confidence.score}/100` : "Unavailable"}
           </div>
-          <div style={styles.metaText}>{confidence?.summary || "Confidence unavailable."}</div>
+          <div style={styles.metaText}>{extractRenderableText(confidence?.summary, "Confidence unavailable.")}</div>
           <div style={styles.metaSubtext}>
             Data quality: {confidence?.dataQuality || confidence?.marketDataStatus || "unknown"} | Source agreement: {confidence?.sourceAgreement || "unknown"}
           </div>
