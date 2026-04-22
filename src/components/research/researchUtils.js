@@ -303,7 +303,7 @@ export function compareAreaLabel(area) {
     project_credibility: "Project credibility",
     warnings: "Warnings",
     alerts: "Alerts",
-    quick_verdict_note: "Quick verdict",
+    quick_verdict_note: "Decision memo",
   };
   return labels[area] || titleCase(area);
 }
@@ -316,7 +316,7 @@ export function providerLabel(provider) {
     officialLinks: "Official links",
     whitepaperDocs: "Docs / whitepaper",
     onChain: "On-chain provider",
-    ai: "AI provider",
+    ai: "Decision memo service",
     protocolEconomics: "Protocol economics",
     defillama: "DefiLlama",
   };
@@ -426,7 +426,7 @@ export function buildAnalysisQualityExplanation({ confidence, providerDiagnostic
     ["coingecko", "CoinGecko"],
     ["dexscreener", "DexScreener"],
     ["goplus", "GoPlus"],
-    ["anthropic", "AI provider"],
+    ["anthropic", "Decision memo service"],
     ["postgres", "Postgres"],
   ];
 
@@ -863,7 +863,7 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
         || (
           currentState
             ? `${assetLabel} currently maps to ${titleCase(currentState)}.`
-            : "Verdict unavailable from current analysis data."
+            : "Decision memo unavailable from current analysis data."
         ),
       bullCase:
         safeAiReport.bullCase
@@ -895,11 +895,235 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
     }
     return {
       recommendation: null,
-      summary: "Verdict unavailable from current analysis data.",
+      summary: "Decision memo unavailable from current analysis data.",
       bullCase: null,
       bearCase: null,
       rating: null,
       score: null,
     };
   }
+}
+
+export function normalizeSignalList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (typeof entry === "string") return entry;
+        if (entry && typeof entry === "object") {
+          return entry.label || entry.signal || entry.code || entry.id || null;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .map((entry) => titleCase(entry));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .filter(([, entryValue]) => Boolean(entryValue))
+      .map(([key]) => titleCase(key));
+  }
+
+  return [];
+}
+
+export function deriveAllocationOutcome(analysis, scores) {
+  const safeAnalysis = safeObject(analysis);
+  const thesisCore = safeObject(safeAnalysis.thesisCore);
+  const investability = safeObject(thesisCore.investability);
+  const status = investability.status || null;
+  const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
+
+  if (status === "investable") {
+    return {
+      key: "capital_worthy",
+      label: "Capital-Worthy",
+      tone: "positive",
+      shortLabel: "Capital-worthy",
+    };
+  }
+
+  if (status === "conditionally_investable") {
+    return {
+      key: "conditional_allocation",
+      label: "Conditional Allocation",
+      tone: "caution",
+      shortLabel: "Conditional",
+    };
+  }
+
+  if (status === "speculative_only") {
+    return {
+      key: "tradable_only",
+      label: "Tradable Only",
+      tone: "warning",
+      shortLabel: "Tradable only",
+    };
+  }
+
+  if (status === "non_investable" || status === "unassessable") {
+    return {
+      key: "do_not_allocate",
+      label: "Do Not Allocate",
+      tone: "negative",
+      shortLabel: "Do not allocate",
+    };
+  }
+
+  if (overallScore !== null && overallScore >= 70) {
+    return {
+      key: "conditional_allocation",
+      label: "Conditional Allocation",
+      tone: "caution",
+      shortLabel: "Conditional",
+    };
+  }
+
+  return {
+    key: "do_not_allocate",
+    label: "Do Not Allocate",
+    tone: "negative",
+    shortLabel: "Do not allocate",
+  };
+}
+
+function buildDecisionDrivers({ contributors, prioritySignals, primaryStrength, primaryWeakness, blockers }) {
+  const topDrivers = safeArray(contributors?.topDrivers).map((entry) => extractRenderableText(entry, null)).filter(Boolean);
+  const negativeDrivers = normalizeRenderableList(contributors?.negatives)
+    .map((entry) => entry.replace(/^\-\s*/, ""))
+    .slice(0, 2);
+  const positiveDrivers = normalizeRenderableList(contributors?.positives)
+    .map((entry) => entry.replace(/^\-\s*/, ""))
+    .slice(0, 2);
+  const signals = normalizeRenderableList(prioritySignals).slice(0, 3);
+  const gatingBlockers = normalizeRenderableList(blockers).slice(0, 2);
+
+  const merged = [
+    ...topDrivers,
+    ...(primaryWeakness ? [primaryWeakness] : []),
+    ...(primaryStrength ? [primaryStrength] : []),
+    ...gatingBlockers,
+    ...negativeDrivers,
+    ...positiveDrivers,
+    ...signals,
+  ];
+
+  return [...new Set(merged)].filter(Boolean).slice(0, 3);
+}
+
+export function buildDecisionTerminalModel({
+  analysis,
+  scores,
+  confidence,
+  scoreContributors,
+  fundamentals,
+  warnings,
+  asset,
+}) {
+  const safeAnalysis = safeObject(analysis);
+  const thesisCore = safeObject(safeAnalysis.thesisCore);
+  const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const decisionFrame = safeObject(decisionLayer.decisionFrame);
+  const investability = safeObject(thesisCore.investability);
+  const failureMode = safeObject(thesisCore.failureMode);
+  const evidenceQuality = safeObject(thesisCore.evidenceQuality);
+  const contributors = safeObject(safeAnalysis.contributors || scoreContributors);
+  const assetClassification = safeObject(safeAnalysis.assetClassification);
+  const sectorClassification = safeObject(safeAnalysis.sectorClassification);
+  const confidenceModel = safeObject(confidence || safeAnalysis.confidence);
+  const policySignals = normalizeSignalList(safeAnalysis.policySignals);
+  const warningsList = normalizeRenderableList(warnings);
+  const blockers = normalizeRenderableList(investability.blockers);
+  const requiredConditions = normalizeRenderableList(investability.requiredConditions);
+  const missingCritical = normalizeRenderableList(evidenceQuality.missingCritical).slice(0, 3);
+  const primaryStrength = extractRenderableText(thesisCore.primaryStrength, null);
+  const primaryWeakness = extractRenderableText(thesisCore.primaryWeakness, "No dominant structural weakness was surfaced.");
+  const allocationOutcome = deriveAllocationOutcome(safeAnalysis, scores);
+  const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
+  const confidenceScore = confidenceModel?.score ?? null;
+  const confidenceLabelText = confidenceModel?.label
+    || (confidenceModel?.level ? `${titleCase(confidenceModel.level)} confidence in thesis support` : "Confidence in thesis support unavailable");
+  const prioritySignals = normalizeRenderableList(decisionLayer.prioritySignals);
+  const decisionDrivers = buildDecisionDrivers({
+    contributors,
+    prioritySignals,
+    primaryStrength,
+    primaryWeakness,
+    blockers,
+  });
+  const failurePrimary = extractRenderableText(failureMode.primary, primaryWeakness);
+  const failureTrigger = extractRenderableText(failureMode.trigger, "A structural break in the current thesis would invalidate allocation support.");
+  const earlySignals = normalizeRenderableList(failureMode.earlySignals).slice(0, 3);
+  const contradictionApplies = Boolean(
+    overallScore !== null
+    && overallScore >= 70
+    && ["do_not_allocate", "tradable_only"].includes(allocationOutcome.key),
+  );
+  const contradictionNote = contradictionApplies
+    ? `${overallScore}/100 surface metrics are overridden by ${primaryWeakness.toLowerCase()}.`
+    : null;
+  const summaryMemo = extractRenderableText(decisionFrame.whyNow, null)
+    || extractRenderableText(decisionFrame.whyNotNow, null)
+    || primaryWeakness;
+  const tokenDemandTruth = primaryStrength
+    ? "Token-demand support is evidenced, but it still must survive policy and failure-mode review."
+    : allocationOutcome.key === "tradable_only"
+      ? "Token demand reads as speculative or liquidity-led rather than allocator-grade."
+      : allocationOutcome.key === "do_not_allocate"
+        ? "Token-demand support does not clear the allocation bar on current evidence."
+        : "Token-demand support remains conditional on stronger structural confirmation.";
+  const auditAlerts = [...new Set([...policySignals, ...warningsList])].slice(0, 6);
+
+  return {
+    assetName: asset?.name || asset?.symbol || "Asset",
+    overallScore,
+    confidenceScore,
+    confidenceLabel: confidenceLabelText,
+    allocationOutcome,
+    primaryStrength,
+    primaryWeakness,
+    failureMode: {
+      primary: failurePrimary,
+      trigger: failureTrigger,
+      earlySignals,
+    },
+    investabilityStatus: investability.status || null,
+    currentState: extractDecisionLabel(decisionLayer.currentState),
+    posture: extractDecisionLabel(decisionLayer.posture),
+    evidenceStrength: evidenceQuality.strength || null,
+    evidenceConflicts: Boolean(evidenceQuality.conflicts),
+    missingCritical,
+    blockers,
+    requiredConditions,
+    decisionDrivers,
+    contradictionNote,
+    summaryMemo,
+    tokenDemandTruth,
+    policySignals,
+    warnings: warningsList,
+    auditAlerts,
+    assetClass: assetClassification.assetClass || null,
+    assetSubtype: assetClassification.subtype || null,
+    primarySector: sectorClassification.primarySector || null,
+    secondarySectors: safeArray(sectorClassification.secondarySectors),
+    whyNow: extractRenderableText(decisionFrame.whyNow, null),
+    whyNotNow: extractRenderableText(decisionFrame.whyNotNow, null),
+    whatMustBeTrue: normalizeRenderableList(decisionFrame.whatMustBeTrue).slice(0, 4),
+    whatCouldBreak: normalizeRenderableList(decisionFrame.whatCouldBreak).slice(0, 4),
+    nextCheckpoints: normalizeRenderableList(decisionFrame.nextCheckpoints).slice(0, 4),
+    topPositiveDrivers: normalizeRenderableList(contributors.positives).slice(0, 4),
+    topNegativeDrivers: normalizeRenderableList(contributors.negatives).slice(0, 4),
+    topNeutralDrivers: normalizeRenderableList(contributors.neutralOrMissing).slice(0, 4),
+    keyAlerts: normalizeRenderableList(fundamentals?.risks?.keyAlerts).slice(0, 4),
+  };
+}
+
+export function buildMethodologyPrinciples() {
+  return [
+    "Truth before allocation",
+    "False positives are risk",
+    "Protocol quality is not token quality",
+    "Confidence is earned, not assumed",
+    "Capital deserves deterministic judgment",
+  ];
 }

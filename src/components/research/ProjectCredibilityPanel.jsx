@@ -56,10 +56,10 @@ export default function ProjectCredibilityPanel({ projectCredibility, fundamenta
       </Card>
 
       <Card title="Execution and governance read" score={scores?.governanceScore} subtitle={aiReport?.teamGovernance?.dataAvailability || "Governance and identity context"} styles={styles}>
-        <SectionRow label="AI summary" value={aiReport?.teamGovernance?.summary || "Unavailable"} styles={styles} />
+        <SectionRow label="Structured memo" value={aiReport?.teamGovernance?.summary || "Unavailable"} styles={styles} />
         <SectionRow label="Execution risk" value={titleCase(fundamentals?.risks?.executionRisk)} styles={styles} />
         <SectionRow label="Governance risk" value={titleCase(fundamentals?.risks?.governanceRisk)} styles={styles} />
-        <SectionRow label="Quick verdict note" value={fundamentals?.quickVerdictNote || "No project credibility quick verdict note was raised."} styles={styles} />
+        <SectionRow label="Quick memo note" value={fundamentals?.quickVerdictNote || "No project credibility memo note was raised."} styles={styles} />
         <ListBlock title="Risk notes" items={fundamentals?.risks?.notes || []} emptyText="No governance or execution risk notes were returned." color="#9bd7ff" styles={styles} />
       </Card>
     </div>

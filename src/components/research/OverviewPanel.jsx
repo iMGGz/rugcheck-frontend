@@ -36,14 +36,14 @@ export default function OverviewPanel({
           />
         </div>
         <SectionRow
-          label="Quick verdict note"
-          value={fundamentals?.quickVerdictNote || "No quick verdict note was raised by the backend."}
+          label="Decision memo note"
+          value={fundamentals?.quickVerdictNote || "No quick memo note was raised by the backend."}
           styles={styles}
         />
       </Card>
 
-      <Card title="Research summary" score={scores?.overallScore} subtitle={titleCase(verdict.rating || "structured_backend_summary")} styles={styles}>
-        <SectionRow label="Recommendation" value={verdict.recommendation || "Verdict unavailable from current analysis data."} styles={styles} />
+      <Card title="Structured Thesis Summary" score={scores?.overallScore} subtitle={titleCase(verdict.rating || "structured_backend_summary")} styles={styles}>
+        <SectionRow label="Allocation assessment" value={verdict.recommendation || "Decision memo unavailable from current analysis data."} styles={styles} />
         <SectionRow label="Summary" value={verdict.summary} styles={styles} />
         <ListBlock title="Warnings" items={warnings} emptyText="No warnings returned." color="#f9d976" styles={styles} />
       </Card>

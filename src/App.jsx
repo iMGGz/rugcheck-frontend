@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ResearchHeader from "./components/research/ResearchHeader";
 import SearchPanel from "./components/research/SearchPanel";
-import ResultSummary from "./components/research/ResultSummary";
 import ScoreContributorsPanel from "./components/research/ScoreContributorsPanel";
-import StatusSummary from "./components/research/StatusSummary";
-import OverviewPanel from "./components/research/OverviewPanel";
 import MarketPanel from "./components/research/MarketPanel";
 import SourcesPanel from "./components/research/SourcesPanel";
 import FundamentalsPanel from "./components/research/FundamentalsPanel";
@@ -13,19 +10,31 @@ import OnChainPanel from "./components/research/OnChainPanel";
 import ProtocolIntelligencePanel from "./components/research/ProtocolIntelligencePanel";
 import NewsPanel from "./components/research/NewsPanel";
 import RisksPanel from "./components/research/RisksPanel";
-import VerdictPanel from "./components/research/VerdictPanel";
 import TimelinePanel from "./components/research/TimelinePanel";
 import ComparePanel from "./components/research/ComparePanel";
 import SnapshotDetailPanel from "./components/research/SnapshotDetailPanel";
-import TokenPickerPanel from "./components/research/TokenPickerPanel";
 import WatchlistPanel from "./components/research/WatchlistPanel";
 import ResearchContextPanel from "./components/research/ResearchContextPanel";
 import ResearchErrorBoundary from "./components/research/ResearchErrorBoundary";
+import DecisionHeroCard from "./components/research/DecisionHeroCard";
+import AllocationOutcomeCard from "./components/research/AllocationOutcomeCard";
+import TokenDemandCard from "./components/research/TokenDemandCard";
+import FailureModeCard from "./components/research/FailureModeCard";
+import EvidenceConfidenceCard from "./components/research/EvidenceConfidenceCard";
+import ConvictionDriversMatrix from "./components/research/ConvictionDriversMatrix";
+import ThesisDriftTimeline from "./components/research/ThesisDriftTimeline";
+import SearchSelectorPanel from "./components/research/SearchSelectorPanel";
+import RiskFlagsStrip from "./components/research/RiskFlagsStrip";
+import MethodologyPanel from "./components/research/MethodologyPanel";
+import AuditSection from "./components/research/AuditSection";
+import { Card, ListBlock, SectionRow, TabButton } from "./components/research/researchPrimitives";
 import { styles } from "./components/research/researchStyles";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
+  buildDecisionTerminalModel,
   buildAssetLookupQuery,
+  buildMethodologyPrinciples,
   buildWatchlistAssetFromAnalysis,
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
@@ -61,14 +70,11 @@ const API_BASE = resolveApiBase();
 const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
 const RESEARCH_TABS = [
   { key: "overview", label: "Overview" },
-  { key: "market", label: "Market" },
-  { key: "sources", label: "Sources" },
-  { key: "tokenomics", label: "Tokenomics" },
-  { key: "team", label: "Team" },
-  { key: "onchain", label: "On-Chain" },
-  { key: "news", label: "News" },
-  { key: "risks", label: "Risks" },
-  { key: "verdict", label: "Verdict" },
+  { key: "thesis", label: "Thesis" },
+  { key: "risks", label: "Failure Modes" },
+  { key: "evidence", label: "Evidence" },
+  { key: "history", label: "History" },
+  { key: "drift", label: "Thesis Drift" },
 ];
 const SEARCH_HISTORY_KEY = "rugcheck-history-v1";
 const WATCHLIST_KEY = "rugcheck-watchlist-v2";
@@ -396,6 +402,12 @@ export default function App() {
   const snapshotDetailRequestRef = useRef(0);
   const providerHealthRequestRef = useRef(0);
   const watchlistRequestRef = useRef(0);
+  const searchSectionRef = useRef(null);
+  const methodologySectionRef = useRef(null);
+
+  const scrollToRef = useCallback((targetRef) => {
+    targetRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -797,6 +809,16 @@ export default function App() {
     providerHealth,
     sourceStatus,
   }), [confidence, providerDiagnostics, providerHealth, sourceStatus]);
+  const decisionModel = useMemo(() => buildDecisionTerminalModel({
+    analysis,
+    scores,
+    confidence,
+    scoreContributors,
+    fundamentals,
+    warnings,
+    asset,
+  }), [analysis, scores, confidence, scoreContributors, fundamentals, warnings, asset]);
+  const methodologyPrinciples = useMemo(() => buildMethodologyPrinciples(), []);
 
   assertAnalysisShape(data, "live-analysis");
 
@@ -1035,54 +1057,159 @@ export default function App() {
     switch (activeTab) {
       case "overview":
         return (
-          <OverviewPanel
+          <>
+            <div style={styles.advancedGrid}>
+              <AllocationOutcomeCard model={decisionModel} styles={styles} />
+              <EvidenceConfidenceCard model={decisionModel} styles={styles} />
+              <Card title="Decision Memo" subtitle="1 answer first. 2 reasoning second. 3 full audit third." styles={styles}>
+                <SectionRow label="Structured Thesis Summary" value={decisionModel.summaryMemo} styles={styles} />
+                <SectionRow label="Primary Strength" value={decisionModel.primaryStrength || "No durable strength is strong enough to support full conviction."} styles={styles} />
+                <SectionRow label="Primary Weakness" value={decisionModel.primaryWeakness} styles={styles} />
+                <ListBlock
+                  title="Top decision drivers"
+                  items={decisionModel.decisionDrivers}
+                  emptyText="No dominant decision drivers were surfaced."
+                  color="#9bd7ff"
+                  styles={styles}
+                />
+              </Card>
+            </div>
+
+            <details style={styles.auditSection}>
+              <summary style={styles.auditSummary}>
+                <span>Advanced Quant Signals</span>
+                <span style={styles.auditSummaryMeta}>Collapsed by default</span>
+              </summary>
+              <div style={styles.auditBody}>
+                <ListBlock
+                  title=""
+                  items={[
+                    "Max Fib Retracement",
+                    "Drawdown vs ATH",
+                    "Cycle Multiples",
+                    "Unlock Overhang",
+                    "Supply Pressure",
+                    "Relative Valuation",
+                    "Yield Quality",
+                  ]}
+                  emptyText=""
+                  color="#d5dcec"
+                  styles={styles}
+                />
+              </div>
+            </details>
+          </>
+        );
+      case "thesis":
+        return (
+          <>
+            <div style={styles.advancedGrid}>
+              <TokenDemandCard model={decisionModel} styles={styles} />
+              <FailureModeCard model={decisionModel} styles={styles} />
+              <ConvictionDriversMatrix model={decisionModel} styles={styles} />
+            </div>
+            <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
+          </>
+        );
+      case "risks":
+        return (
+          <>
+            <RiskFlagsStrip items={decisionModel.auditAlerts} title="Policy constraints and dominant flags" styles={styles} />
+            <div style={styles.advancedGrid}>
+              <FailureModeCard model={decisionModel} styles={styles} />
+              <Card title="Allocation Constraints" subtitle="When the system refuses softness, it should be obvious why." styles={styles}>
+                <ListBlock title="Blockers" items={decisionModel.blockers} emptyText="No explicit blockers were surfaced." color="#ffb6b6" styles={styles} />
+                <ListBlock title="Required conditions" items={decisionModel.requiredConditions} emptyText="No additional conditions were recorded." color="#9bd7ff" styles={styles} />
+                <ListBlock title="Key alerts" items={decisionModel.keyAlerts} emptyText="No critical alerts were raised." color="#f9d976" styles={styles} />
+              </Card>
+            </div>
+            <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />
+          </>
+        );
+      case "evidence":
+        return (
+          <>
+            <AuditSection title="Market Structure" subtitle="Liquidity, turnover, market context" defaultOpen styles={styles}>
+              <MarketPanel aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.marketData} styles={styles} />
+            </AuditSection>
+            <AuditSection title="Tokenomics" subtitle="Supply, unlocks, dilution, value accrual" defaultOpen styles={styles}>
+              <FundamentalsPanel fundamentals={fundamentals} aiReport={aiReport} marketData={marketData} styles={styles} />
+            </AuditSection>
+            <AuditSection title="Governance" subtitle="Credibility, execution, governance structure" styles={styles}>
+              <ProjectCredibilityPanel projectCredibility={projectCredibility} fundamentals={fundamentals} aiReport={aiReport} scores={scores} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.projectCredibility} styles={styles} />
+            </AuditSection>
+            <AuditSection title="On-Chain" subtitle="Distribution, holder structure, activity" styles={styles}>
+              <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.onChainMetrics} styles={styles} />
+              <ProtocolIntelligencePanel
+                protocolUsage={protocolUsage}
+                protocolEconomics={protocolEconomics}
+                protocolUsageFundamentals={protocolUsageFundamentals}
+                protocolEconomicsFundamentals={protocolEconomicsFundamentals}
+                sourceStatus={sourceStatus}
+                providerDiagnostics={providerDiagnostics}
+                providerHealth={providerHealth}
+                protocolUsageFreshnessEntry={meta?.sectionFreshness?.protocolUsage}
+                protocolEconomicsFreshnessEntry={meta?.sectionFreshness?.protocolEconomics}
+                styles={styles}
+              />
+            </AuditSection>
+            <AuditSection title="Sources" subtitle="Official links, docs, documentation quality" styles={styles}>
+              <SourcesPanel officialLinks={officialLinks} whitepaperDocs={whitepaperDocs} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.officialLinksDocs} styles={styles} />
+            </AuditSection>
+            <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" styles={styles}>
+              <ResearchContextPanel
+                analysisQualityExplanation={analysisQualityExplanation}
+                confidence={confidence}
+                meta={meta}
+                sourceStatus={sourceStatus}
+                notableDiagnostics={notableDiagnostics}
+                providerHealth={providerHealth}
+                providerHealthLoading={providerHealthLoading}
+                providerHealthError={providerHealthError}
+                styles={styles}
+              />
+            </AuditSection>
+            <AuditSection title="Catalysts" subtitle="News and recent changes" styles={styles}>
+              <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />
+            </AuditSection>
+          </>
+        );
+      case "history":
+        return (
+          <TimelinePanel
+            timelineLoading={timelineLoading}
+            timelineError={timelineError}
+            timelineData={timelineData}
+            timelinePageInfo={timelinePageInfo}
+            timelineLoadingMore={timelineLoading}
+            loadTimeline={loadTimeline}
+            latestTimelineSnapshot={latestTimelineSnapshot}
             asset={asset}
-            meta={meta}
-            analysis={analysis}
-            fundamentals={fundamentals}
-            aiReport={aiReport}
-            warnings={warnings}
-            confidence={confidence}
-            officialLinks={officialLinks}
-            snapshot={snapshot}
-            scores={scores}
+            query={timelineQuery}
+            onOpenSnapshot={loadSnapshotDetail}
+            openedSnapshotId={snapshotDetailId}
             styles={styles}
           />
         );
-      case "market":
-        return <MarketPanel aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.marketData} styles={styles} />;
-      case "sources":
-        return <SourcesPanel officialLinks={officialLinks} whitepaperDocs={whitepaperDocs} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.officialLinksDocs} styles={styles} />;
-      case "tokenomics":
-        return <FundamentalsPanel fundamentals={fundamentals} aiReport={aiReport} marketData={marketData} styles={styles} />;
-      case "team":
-        return <ProjectCredibilityPanel projectCredibility={projectCredibility} fundamentals={fundamentals} aiReport={aiReport} scores={scores} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.projectCredibility} styles={styles} />;
-      case "onchain":
+      case "drift":
         return (
-          <>
-            <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.onChainMetrics} styles={styles} />
-            <ProtocolIntelligencePanel
-              protocolUsage={protocolUsage}
-              protocolEconomics={protocolEconomics}
-              protocolUsageFundamentals={protocolUsageFundamentals}
-              protocolEconomicsFundamentals={protocolEconomicsFundamentals}
-              sourceStatus={sourceStatus}
-              providerDiagnostics={providerDiagnostics}
-              providerHealth={providerHealth}
-              protocolUsageFreshnessEntry={meta?.sectionFreshness?.protocolUsage}
-              protocolEconomicsFreshnessEntry={meta?.sectionFreshness?.protocolEconomics}
+          <div style={styles.advancedGrid}>
+            <ThesisDriftTimeline model={decisionModel} compareData={compareData} styles={styles} />
+            <ComparePanel
+              timelineData={timelineData}
+              compareSelectionOptions={compareSelectionOptions}
+              latestTimelineSnapshot={latestTimelineSnapshot}
+              compareAgainstId={compareAgainstId}
+              setCompareAgainstId={setCompareAgainstId}
+              compareLoading={compareLoading}
+              compareError={compareError}
+              compareData={compareData}
               styles={styles}
             />
-          </>
+          </div>
         );
-      case "news":
-        return <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />;
-      case "risks":
-        return <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />;
-      case "verdict":
-        return <VerdictPanel aiReport={aiReport} analysis={analysis} asset={asset} scores={scores} riskVerdict={riskVerdict} styles={styles} />;
       default:
-        return <OverviewPanel asset={asset} meta={meta} analysis={analysis} fundamentals={fundamentals} aiReport={aiReport} warnings={warnings} confidence={confidence} officialLinks={officialLinks} snapshot={snapshot} scores={scores} styles={styles} />;
+        return null;
     }
   }
 
@@ -1091,20 +1218,35 @@ export default function App() {
       <div style={styles.backgroundGlowOne} />
       <div style={styles.backgroundGlowTwo} />
 
-      <ResearchHeader backendMeta={backendMeta} apiBase={API_BASE} styles={styles} />
+      <ResearchHeader
+        backendMeta={backendMeta}
+        apiBase={API_BASE}
+        onRunAnalysis={() => scrollToRef(searchSectionRef)}
+        onViewMethodology={() => scrollToRef(methodologySectionRef)}
+        styles={styles}
+      />
 
       <div style={styles.container}>
-        <SearchPanel
-          query={query}
-          setQuery={setQuery}
-          analyze={analyze}
-          loading={loading}
-          quickSearches={QUICK_SEARCHES}
-          history={history}
-          clearHistory={clearHistory}
-          lastUpdated={lastUpdated}
-          styles={styles}
-        />
+        <div style={styles.trustStrip}>
+          <span style={styles.trustStripItem}>Research Support Only</span>
+          <span style={styles.trustStripItem}>No Investment Advice</span>
+          <span style={styles.trustStripItem}>Independent Verification Required</span>
+          <span style={styles.trustStripItem}>Third-Party Data Dependent</span>
+        </div>
+
+        <div ref={searchSectionRef}>
+          <SearchPanel
+            query={query}
+            setQuery={setQuery}
+            analyze={analyze}
+            loading={loading}
+            quickSearches={QUICK_SEARCHES}
+            history={history}
+            clearHistory={clearHistory}
+            lastUpdated={lastUpdated}
+            styles={styles}
+          />
+        </div>
 
         <WatchlistPanel
           watchlistItems={visibleWatchlistItems}
@@ -1135,7 +1277,7 @@ export default function App() {
             <div style={styles.loadingPulse} />
             <div>
               <div style={styles.loadingTitle}>Building your analysis</div>
-              <div style={styles.loadingText}>Fetching market inputs, scoring risk, and preparing a structured verdict.</div>
+              <div style={styles.loadingText}>Fetching evidence, compressing thesis support, and preparing a deterministic decision memo.</div>
             </div>
           </div>
         ) : null}
@@ -1158,13 +1300,13 @@ export default function App() {
 
         {notice ? (
           <div style={styles.noticeBox}>
-            <div style={styles.noticeTitle}>Analysis loaded</div>
+            <div style={styles.noticeTitle}>Decision memo loaded</div>
             <div style={styles.noticeText}>{notice}</div>
           </div>
         ) : null}
 
         {pendingResolution ? (
-          <TokenPickerPanel
+          <SearchSelectorPanel
             pendingResolution={pendingResolution}
             onSelectCandidate={analyzeSelectedCandidate}
             onDismiss={() => {
@@ -1177,64 +1319,41 @@ export default function App() {
 
         {!data && !loading && !error ? (
           <div style={styles.emptyState}>
-            <div style={styles.emptyTitle}>No analysis loaded yet</div>
-            <div style={styles.emptyText}>Start with a quick search or enter a token manually to generate a report.</div>
+            <div style={styles.emptyTitle}>No allocation memo loaded yet</div>
+            <div style={styles.emptyText}>Start with a symbol, project name, or contract address to generate a deterministic decision memo.</div>
           </div>
         ) : null}
 
         {data ? (
           <ResearchErrorBoundary styles={styles} areaName="research-results">
-            <ResultSummary
-              asset={asset}
-              marketData={marketData}
-              riskVerdict={riskVerdict}
-              scores={scores}
-              confidence={confidence}
-              isFavorite={isFavorite}
-              toggleFavorite={toggleFavorite}
-              copyShareLink={copyShareLink}
-              copyMessage={copyMessage}
-              styles={styles}
-            />
+            <DecisionHeroCard asset={asset} model={decisionModel} styles={styles} />
 
-            <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
-
-            <StatusSummary
-              confidence={confidence}
-              activeTab={activeTab}
-              researchTabs={RESEARCH_TABS}
-              setActiveTab={setActiveTab}
-              scores={scores}
-              styles={styles}
-            />
-            {renderActiveTab()}
-            <div style={styles.advancedGrid}>
-              <TimelinePanel
-                timelineLoading={timelineLoading}
-                timelineError={timelineError}
-                timelineData={timelineData}
-                timelinePageInfo={timelinePageInfo}
-                timelineLoadingMore={timelineLoading}
-                loadTimeline={loadTimeline}
-                latestTimelineSnapshot={latestTimelineSnapshot}
-                asset={asset}
-                query={timelineQuery}
-                onOpenSnapshot={loadSnapshotDetail}
-                openedSnapshotId={snapshotDetailId}
-                styles={styles}
-              />
-              <ComparePanel
-                timelineData={timelineData}
-                compareSelectionOptions={compareSelectionOptions}
-                latestTimelineSnapshot={latestTimelineSnapshot}
-                compareAgainstId={compareAgainstId}
-                setCompareAgainstId={setCompareAgainstId}
-                compareLoading={compareLoading}
-                compareError={compareError}
-                compareData={compareData}
-                styles={styles}
-              />
+            <div style={styles.resultActions}>
+              <button onClick={toggleFavorite} style={styles.actionButton}>
+                {isFavorite ? "Remove from saved history" : "Save to decision history"}
+              </button>
+              <button onClick={copyShareLink} style={styles.actionButton}>
+                Copy memo link
+              </button>
+              {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
             </div>
+
+            <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
+
+            <div style={styles.terminalNav}>
+              {RESEARCH_TABS.map((tab) => (
+                <TabButton
+                  key={tab.key}
+                  label={tab.label}
+                  active={activeTab === tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  styles={styles}
+                />
+              ))}
+            </div>
+
+            {renderActiveTab()}
+
             {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
               <SnapshotDetailPanel
                 snapshotRecord={snapshotDetailData}
@@ -1248,24 +1367,17 @@ export default function App() {
                 styles={styles}
               />
             ) : null}
-            <ResearchContextPanel
-              analysisQualityExplanation={analysisQualityExplanation}
-              confidence={confidence}
-              meta={meta}
-              sourceStatus={sourceStatus}
-              notableDiagnostics={notableDiagnostics}
-              providerHealth={providerHealth}
-              providerHealthLoading={providerHealthLoading}
-              providerHealthError={providerHealthError}
-              styles={styles}
-            />
           </ResearchErrorBoundary>
         ) : null}
 
+        <div ref={methodologySectionRef}>
+          <MethodologyPanel principles={methodologyPrinciples} styles={styles} />
+        </div>
+
         <div style={styles.disclaimer}>
-          <h3 style={{ marginTop: 0, color: "#f9d976" }}>Important note</h3>
+          <h3 style={{ marginTop: 0, color: "#f9d976" }}>Research Support Only</h3>
           <p style={{ color: "#f4f7ff", lineHeight: 1.8, marginBottom: 0 }}>
-            This tool is for research support only. It is not financial, legal, tax, or investment advice. Data quality depends on third-party providers and service availability. Always verify contract addresses and official project sources before making decisions.
+            No investment advice. No performance promises. This terminal is decision-support infrastructure only. Data quality depends on third-party providers and service availability, and every output requires independent verification before capital is allocated.
           </p>
         </div>
       </div>

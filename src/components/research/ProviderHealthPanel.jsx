@@ -39,7 +39,7 @@ export default function ProviderHealthPanel({ providerHealth, providerHealthLoad
               <div key={key} style={styles.providerHealthCard}>
                 <div style={styles.timelineTitleRow}>
                   <strong style={{ color: "#f4f7ff" }}>
-                    {key === "anthropic" ? "AI provider" : providerLabel(key)}
+                    {key === "anthropic" ? "Decision memo service" : providerLabel(key)}
                   </strong>
                   <span style={{ ...styles.riskChip, borderColor: tone.color, color: tone.color }}>
                     {tone.label}

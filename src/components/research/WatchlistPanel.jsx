@@ -63,7 +63,7 @@ export default function WatchlistPanel({
   ];
 
   return (
-    <Card title="Watchlist" subtitle="Saved resolved assets with latest stored snapshot context" styles={styles}>
+    <Card title="Saved Decisions" subtitle="Resolved assets with latest stored memo context" styles={styles}>
       <div style={styles.watchlistToolbar}>
         <button
           onClick={() => onRefreshAll?.()}
@@ -72,7 +72,7 @@ export default function WatchlistPanel({
         >
           {watchlistBatchRefresh
             ? `Refreshing ${watchlistBatchRefresh.completed}/${watchlistBatchRefresh.total}`
-            : "Refresh watchlist"}
+            : "Refresh saved list"}
         </button>
         <select
           value={watchlistSort}
@@ -147,7 +147,7 @@ export default function WatchlistPanel({
 
       {watchlistError ? (
         <div style={styles.inlineErrorBox}>
-          <div style={styles.inlineErrorTitle}>Watchlist preview unavailable</div>
+          <div style={styles.inlineErrorTitle}>Saved list preview unavailable</div>
           <div style={styles.inlineErrorText}>{watchlistError}</div>
         </div>
       ) : null}

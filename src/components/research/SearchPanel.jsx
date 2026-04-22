@@ -15,10 +15,10 @@ export default function SearchPanel({
     <div style={styles.searchPanel}>
       <div style={styles.searchHeader}>
         <div>
-          <div style={styles.searchTitle}>Run analysis</div>
-          <div style={styles.searchHint}>Use a symbol, project name, or EVM contract address.</div>
+          <div style={styles.searchTitle}>Run Allocation Assessment</div>
+          <div style={styles.searchHint}>Use a symbol, canonical project name, or EVM contract address.</div>
         </div>
-        {lastUpdated ? <div style={styles.lastUpdated}>Last result: {lastUpdated}</div> : null}
+        {lastUpdated ? <div style={styles.lastUpdated}>Last memo: {lastUpdated}</div> : null}
       </div>
 
       <div style={styles.searchRow}>
@@ -29,10 +29,10 @@ export default function SearchPanel({
             if (e.key === "Enter") analyze(query, "full");
           }}
           style={styles.input}
-          placeholder="ETH, Pepe, 0x..."
+          placeholder="ETH, AAVE, 0x..."
         />
         <button onClick={() => analyze(query, "full")} style={styles.primaryButton} disabled={loading}>
-          {loading ? "Analyzing..." : "Analyze"}
+          {loading ? "Running..." : "Run Analysis"}
         </button>
       </div>
 
@@ -54,7 +54,7 @@ export default function SearchPanel({
       {history.length ? (
         <div style={styles.historyWrap}>
           <div style={styles.historyHeader}>
-            <div style={styles.historyLabel}>Recent searches</div>
+            <div style={styles.historyLabel}>Recent assessments</div>
             <button onClick={clearHistory} style={styles.ghostButton}>Clear</button>
           </div>
           <div style={styles.historyRow}>

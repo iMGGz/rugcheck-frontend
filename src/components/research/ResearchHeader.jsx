@@ -1,12 +1,16 @@
 import React from "react";
 
-export default function ResearchHeader({ backendMeta, apiBase, styles }) {
+export default function ResearchHeader({ backendMeta, apiBase, onRunAnalysis, onViewMethodology, styles }) {
   return (
     <>
       <div style={styles.topbar}>
         <div>
-          <div style={styles.brandEyebrow}>RugCheck AI</div>
-          <h2 style={styles.brandTitle}>Token research terminal</h2>
+          <div style={styles.brandEyebrow}>ThesisCore</div>
+          <h2 style={styles.brandTitle}>Truth Before Allocation.</h2>
+        </div>
+        <div style={styles.heroNav}>
+          <button onClick={onRunAnalysis} style={styles.quickButton}>Run Analysis</button>
+          <button onClick={onViewMethodology} style={styles.ghostButton}>View Methodology</button>
         </div>
         <div style={{ ...styles.statusBadge, borderColor: backendMeta.color }}>
           <span style={{ ...styles.statusDot, background: backendMeta.color }} />
@@ -19,27 +23,36 @@ export default function ResearchHeader({ backendMeta, apiBase, styles }) {
 
       <div style={styles.heroPanel}>
         <div style={styles.heroCopy}>
-          <div style={styles.heroKicker}>Research faster. Filter noise earlier.</div>
-          <h1 style={styles.heroTitle}>Crypto screening built for fast first-pass conviction.</h1>
+          <div style={styles.heroKicker}>Decision Infrastructure for Digital Assets</div>
+          <h1 style={styles.heroTitle}>Decide What Deserves Capital.</h1>
           <p style={styles.heroSubtitle}>
-            Search a token, pull market structure and security signals, then review a structured verdict without bouncing across five tabs and three data sources.
+            Deterministic investability analysis, token-thesis assessment, and allocator-grade decision support for digital assets.
           </p>
+          <div style={styles.heroButtonRow}>
+            <button onClick={onRunAnalysis} style={styles.primaryButton}>Run Analysis</button>
+            <button onClick={onViewMethodology} style={styles.quickButton}>View Methodology</button>
+          </div>
           <div style={styles.heroBullets}>
-            <span style={styles.heroBullet}>Live market inputs</span>
-            <span style={styles.heroBullet}>Security checks</span>
-            <span style={styles.heroBullet}>AI-assisted summary</span>
-            <span style={styles.heroBullet}>Confidence scoring</span>
+            <span style={styles.heroBullet}>Deterministic</span>
+            <span style={styles.heroBullet}>Explainable</span>
+            <span style={styles.heroBullet}>No Black-Box AI</span>
           </div>
         </div>
 
         <div style={styles.heroSideCard}>
-          <div style={styles.sideCardLabel}>Current setup</div>
-          <div style={styles.sideCardValue}>Frontend and backend are deployed</div>
+          <div style={styles.sideCardLabel}>Positioning</div>
+          <div style={styles.sideCardValue}>Messari helps you research</div>
           <p style={styles.sideCardText}>
-            API base: <code style={styles.inlineCode}>{apiBase}</code>
+            Nansen helps you monitor
           </p>
           <p style={styles.sideCardText}>
-            Best use: quick token triage before deeper manual research.
+            Token Terminal helps you measure
+          </p>
+          <p style={styles.sideCardText}>
+            ThesisCore helps you decide
+          </p>
+          <p style={styles.sideCardText}>
+            API base: <code style={styles.inlineCode}>{apiBase}</code>
           </p>
         </div>
       </div>

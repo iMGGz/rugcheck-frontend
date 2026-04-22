@@ -6,7 +6,7 @@ import SecurityPanel from "./SecurityPanel";
 export default function RisksPanel({ aiReport, fundamentals, security, scores, styles }) {
   return (
     <div style={styles.advancedGrid}>
-      <Card title="Risk matrix" score={aiReport?.riskMatrix?.overallScore} subtitle="AI plus backend risk view" styles={styles}>
+      <Card title="Failure Mode Matrix" score={aiReport?.riskMatrix?.overallScore} subtitle="Deterministic risk synthesis" styles={styles}>
         <SectionRow label="Liquidity risk" value={aiReport?.riskMatrix?.liquidityRisk || "Unavailable"} styles={styles} />
         <SectionRow label="Contract risk" value={aiReport?.riskMatrix?.contractRisk || "Unavailable"} styles={styles} />
         <SectionRow label="Market risk" value={aiReport?.riskMatrix?.marketRisk || "Unavailable"} styles={styles} />
