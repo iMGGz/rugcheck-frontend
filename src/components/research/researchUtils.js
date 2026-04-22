@@ -825,8 +825,16 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
     const decisionFrame = safeObject(decisionLayer.decisionFrame);
     const investability = safeObject(thesisCore.investability);
     const failureMode = safeObject(thesisCore.failureMode);
-    const posture = extractDecisionLabel(decisionLayer.posture);
-    const currentState = extractDecisionLabel(decisionLayer.currentState);
+    const posture = describePosture(extractDecisionLabel(decisionLayer.posture), safeAnalysis?.assetClassification?.assetClass || null);
+    const currentState = describeCurrentState(extractDecisionLabel(decisionLayer.currentState), safeAnalysis?.assetClassification?.assetClass || null);
+    const primaryWeakness = buildPrimaryWeaknessText({
+      primaryWeakness: thesisCore.primaryWeakness,
+      assetClass: safeAnalysis?.assetClassification?.assetClass || null,
+    });
+    const primaryStrength = buildPrimaryStrengthText({
+      primaryStrength: thesisCore.primaryStrength,
+      assetClass: safeAnalysis?.assetClassification?.assetClass || null,
+    });
     const assetLabel = asset?.symbol || asset?.name || "asset";
     const mustBeTrue = safeArray(decisionFrame.whatMustBeTrue);
     const couldBreak = safeArray(decisionFrame.whatCouldBreak);
@@ -858,7 +866,7 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
         ),
       summary:
         finalVerdict.summary
-        || thesisCore.primaryWeakness
+        || primaryWeakness
         || decisionFrame.whyNotNow
         || (
           currentState
@@ -867,7 +875,7 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
         ),
       bullCase:
         safeAiReport.bullCase
-        || thesisCore.primaryStrength
+        || primaryStrength
         || mustBeTrue[0]
         || null,
       bearCase:
@@ -951,6 +959,200 @@ export function filterUserFacingItems(items, limit = null) {
   const filtered = normalizeRenderableList(items).filter((entry) => !isTechnicalNoiseText(entry));
   if (limit === null) return filtered;
   return filtered.slice(0, limit);
+}
+
+const INTERNAL_SEMANTIC_LABELS = new Map([
+  ["none_material", "No dominant structural weakness identified."],
+  ["none material", "No dominant structural weakness identified."],
+  ["fundamentally_supported", "Fundamentally supported"],
+  ["adoption_supported", "Adoption supported"],
+  ["narrative_supported", "Narrative-led support"],
+  ["speculative", "Speculative"],
+  ["structurally_fragile", "Structurally fragile"],
+  ["governance_constrained", "Governance constrained"],
+  ["underverified", "Underverified"],
+  ["deteriorating", "Deteriorating"],
+  ["mixed", "Mixed change"],
+  ["high_conviction_candidate", "High-conviction candidate"],
+  ["constructive_but_needs_confirmation", "Constructive but requires confirmation"],
+  ["watchlist", "Monitor closely"],
+  ["speculative_only", "Speculative only"],
+  ["fragile", "Fragile"],
+  ["avoid_for_now", "Avoid for now"],
+  ["unassessable", "Insufficient verified evidence"],
+  ["investable", "Investable"],
+  ["conditionally_investable", "Conditionally investable"],
+  ["non_investable", "Not investable"],
+]);
+
+function normalizeSemanticKey(value) {
+  if (!value) return "";
+  return String(value).trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+export function sanitizeSemanticLabel(value, fallback = "Unavailable") {
+  const text = extractRenderableText(value, null);
+  if (!text) return fallback;
+  const normalizedKey = normalizeSemanticKey(text);
+  if (INTERNAL_SEMANTIC_LABELS.has(normalizedKey)) {
+    return INTERNAL_SEMANTIC_LABELS.get(normalizedKey);
+  }
+  return text;
+}
+
+export function isNoMaterialWeakness(value) {
+  const text = sanitizeSemanticLabel(value, "");
+  if (!text) return false;
+  return text === "No dominant structural weakness identified.";
+}
+
+export function hasConcreteConflict(evidenceQuality, confidenceModel) {
+  if (Boolean(evidenceQuality?.conflicts)) return true;
+  const summary = extractRenderableText(confidenceModel?.sourceAgreementSummary, "");
+  if (!summary) return false;
+  return /\bconflict|\bdisagree|\binconsistent|\bcontradict/i.test(summary);
+}
+
+export function isBenchmarkAssetClass(assetClass) {
+  return ["native_asset", "gas_asset"].includes(assetClass || "");
+}
+
+function dedupeCaseInsensitive(items) {
+  const seen = new Set();
+  return safeArray(items).filter((item) => {
+    const text = extractRenderableText(item, null);
+    if (!text) return false;
+    const key = text.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function buildAssetBadges({ assetClass, assetSubtype, primarySector }) {
+  const rawBadges = [];
+
+  if (assetClass === "native_asset") rawBadges.push("Benchmark Asset");
+  else if (assetClass === "gas_asset") rawBadges.push("Base-Layer Asset");
+  else if (assetClass) rawBadges.push(titleCase(assetClass));
+
+  if (assetSubtype && assetSubtype !== "unknown") {
+    rawBadges.push(titleCase(assetSubtype));
+  }
+
+  if (primarySector && primarySector !== "Unknown") {
+    rawBadges.push(primarySector);
+  }
+
+  return dedupeCaseInsensitive(rawBadges).map((badge) => extractRenderableText(badge, null)).filter(Boolean);
+}
+
+export function describeCurrentState(currentState, assetClass) {
+  const normalized = normalizeSemanticKey(currentState);
+  if (isBenchmarkAssetClass(assetClass)) {
+    if (normalized === "narrative_supported") return "Benchmark adoption and monetary role";
+    if (normalized === "adoption_supported") return "Benchmark network adoption";
+    if (normalized === "fundamentally_supported") return "Benchmark structural support";
+  }
+  return sanitizeSemanticLabel(currentState, "Unavailable");
+}
+
+export function describePosture(posture, assetClass) {
+  const normalized = normalizeSemanticKey(posture);
+  if (isBenchmarkAssetClass(assetClass) && normalized === "watchlist") {
+    return "Conditionally investable benchmark";
+  }
+  return sanitizeSemanticLabel(posture, "Unavailable");
+}
+
+export function buildPrimaryStrengthText({ primaryStrength, assetClass }) {
+  const text = sanitizeSemanticLabel(primaryStrength, null);
+  if (text) return text;
+
+  if (assetClass === "native_asset") {
+    return "Benchmark liquidity, durability, and monetary role remain the core structural support.";
+  }
+
+  if (assetClass === "gas_asset") {
+    return "Base-layer network role, usage, and settlement demand remain the core structural support.";
+  }
+
+  return null;
+}
+
+export function buildPrimaryWeaknessText({ primaryWeakness, assetClass }) {
+  const text = sanitizeSemanticLabel(primaryWeakness, null);
+  if (text) return text;
+
+  if (isBenchmarkAssetClass(assetClass)) {
+    return "No dominant structural weakness identified.";
+  }
+
+  return "No dominant structural weakness was surfaced.";
+}
+
+export function buildTokenDemandTruth({ allocationOutcomeKey, primaryStrength, assetClass, primaryWeakness }) {
+  if (assetClass === "native_asset") {
+    return primaryStrength
+      ? "The thesis rests on benchmark liquidity, durability, and monetary relevance rather than token-style upside framing."
+      : "Benchmark demand support is present, but the current evidence does not justify a stronger allocation stance.";
+  }
+
+  if (assetClass === "gas_asset") {
+    return primaryStrength
+      ? "The thesis rests on base-layer usage, settlement demand, and network role rather than generic token-narrative support."
+      : "Base-layer demand support is visible, but the structural case is not yet clean enough for stronger conviction.";
+  }
+
+  if (primaryStrength) {
+    return "Token-demand support is evidenced, but it does not override structural constraints.";
+  }
+
+  if (allocationOutcomeKey === "tradable_only") {
+    return "Token demand is speculative or liquidity-led rather than allocator-grade.";
+  }
+
+  if (allocationOutcomeKey === "do_not_allocate") {
+    return "Token-demand support does not clear the allocation bar.";
+  }
+
+  return `Token-demand support remains conditional on stronger structural confirmation${primaryWeakness ? ` against ${primaryWeakness.toLowerCase()}` : ""}.`;
+}
+
+export function buildSummaryMemo({
+  allocationOutcomeKey,
+  whyNow,
+  whyNotNow,
+  primaryStrength,
+  primaryWeakness,
+  failurePrimary,
+  assetClass,
+}) {
+  if (allocationOutcomeKey === "capital_worthy") {
+    return whyNow
+      || primaryStrength
+      || (assetClass === "native_asset"
+        ? "Benchmark durability and liquidity remain the dominant support."
+        : assetClass === "gas_asset"
+          ? "Base-layer role and network usage remain the dominant support."
+          : primaryWeakness);
+  }
+
+  if (allocationOutcomeKey === "conditional_allocation") {
+    return whyNotNow || primaryWeakness || failurePrimary;
+  }
+
+  if (allocationOutcomeKey === "tradable_only") {
+    return primaryWeakness || failurePrimary || "Speculative interest is not enough to support allocation quality.";
+  }
+
+  return primaryWeakness || failurePrimary || whyNotNow;
+}
+
+export function hasRealStructuralInvalidator(primaryWeakness) {
+  const weakness = sanitizeSemanticLabel(primaryWeakness, "");
+  if (!weakness || isNoMaterialWeakness(weakness)) return false;
+  return true;
 }
 
 export function deriveAllocationOutcome(analysis, scores) {
@@ -1078,8 +1280,14 @@ export function buildDecisionTerminalModel({
   const blockers = filterUserFacingItems(investability.blockers);
   const requiredConditions = filterUserFacingItems(investability.requiredConditions);
   const missingCritical = normalizeRenderableList(evidenceQuality.missingCritical).slice(0, 3);
-  const primaryStrength = extractRenderableText(thesisCore.primaryStrength, null);
-  const primaryWeakness = extractRenderableText(thesisCore.primaryWeakness, "No dominant structural weakness was surfaced.");
+  const primaryStrength = buildPrimaryStrengthText({
+    primaryStrength: thesisCore.primaryStrength,
+    assetClass: assetClassification.assetClass || null,
+  });
+  const primaryWeakness = buildPrimaryWeaknessText({
+    primaryWeakness: thesisCore.primaryWeakness,
+    assetClass: assetClassification.assetClass || null,
+  });
   const allocationOutcome = deriveAllocationOutcome(safeAnalysis, scores);
   const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
   const confidenceScore = confidenceModel?.score ?? null;
@@ -1092,31 +1300,47 @@ export function buildDecisionTerminalModel({
     primaryWeakness,
     blockers,
   });
-  const failurePrimary = extractRenderableText(failureMode.primary, primaryWeakness);
-  const failureTrigger = extractRenderableText(failureMode.trigger, "A structural break in the current thesis would invalidate allocation support.");
+  const failurePrimary = sanitizeSemanticLabel(failureMode.primary, primaryWeakness);
+  const failureTrigger = sanitizeSemanticLabel(failureMode.trigger, "A structural break in the current thesis would invalidate allocation support.");
   const earlySignals = normalizeRenderableList(failureMode.earlySignals).slice(0, 3);
   const contradictionApplies = Boolean(
     overallScore !== null
     && overallScore >= 65
-    && allocationOutcome.key !== "capital_worthy",
+    && allocationOutcome.key !== "capital_worthy"
+    && hasRealStructuralInvalidator(primaryWeakness)
   );
   const contradictionNote = contradictionApplies
     ? `Surface metrics are overridden by failed token-thesis conditions. Dominant constraint: ${primaryWeakness}.`
     : null;
-  const summaryMemo = allocationOutcome.key === "capital_worthy"
-    ? extractRenderableText(decisionFrame.whyNow, null) || primaryStrength || primaryWeakness
-    : extractRenderableText(decisionFrame.whyNotNow, null) || primaryWeakness || failurePrimary;
-  const tokenDemandTruth = primaryStrength
-    ? "Token-demand support is evidenced, but it does not override structural constraints."
-    : allocationOutcome.key === "tradable_only"
-      ? "Token demand is speculative or liquidity-led rather than allocator-grade."
-      : allocationOutcome.key === "do_not_allocate"
-        ? "Token-demand support does not clear the allocation bar."
-        : "Token-demand support remains conditional on stronger structural confirmation.";
-  const auditAlerts = [...new Set([...policySignals, ...userFacingWarnings])].slice(0, 6);
+  const summaryMemo = buildSummaryMemo({
+    allocationOutcomeKey: allocationOutcome.key,
+    whyNow: sanitizeSemanticLabel(decisionFrame.whyNow, null),
+    whyNotNow: sanitizeSemanticLabel(decisionFrame.whyNotNow, null),
+    primaryStrength,
+    primaryWeakness,
+    failurePrimary,
+    assetClass: assetClassification.assetClass || null,
+  });
+  const tokenDemandTruth = buildTokenDemandTruth({
+    allocationOutcomeKey: allocationOutcome.key,
+    primaryStrength,
+    assetClass: assetClassification.assetClass || null,
+    primaryWeakness,
+  });
+  const auditAlerts = dedupeCaseInsensitive([...policySignals, ...userFacingWarnings]).slice(0, 6);
+  const evidenceConflicts = hasConcreteConflict(evidenceQuality, confidenceModel);
   const evidenceConstraintNote = missingCritical.length || evidenceQuality.conflicts || warningsList.some((entry) => isTechnicalNoiseText(entry))
     ? "Incomplete external evidence increases conservatism in this assessment."
     : null;
+  const dedupedDrivers = dedupeCaseInsensitive(decisionDrivers).slice(0, 3);
+  const sanitizedWhyNow = sanitizeSemanticLabel(decisionFrame.whyNow, null);
+  const sanitizedWhyNotNow = sanitizeSemanticLabel(decisionFrame.whyNotNow, null);
+  const dedupedSecondarySectors = dedupeCaseInsensitive(safeArray(sectorClassification.secondarySectors));
+  const assetBadges = buildAssetBadges({
+    assetClass: assetClassification.assetClass || null,
+    assetSubtype: assetClassification.subtype || null,
+    primarySector: sectorClassification.primarySector || null,
+  });
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -1132,14 +1356,14 @@ export function buildDecisionTerminalModel({
       earlySignals,
     },
     investabilityStatus: investability.status || null,
-    currentState: extractDecisionLabel(decisionLayer.currentState),
-    posture: extractDecisionLabel(decisionLayer.posture),
+    currentState: describeCurrentState(extractDecisionLabel(decisionLayer.currentState), assetClassification.assetClass || null),
+    posture: describePosture(extractDecisionLabel(decisionLayer.posture), assetClassification.assetClass || null),
     evidenceStrength: evidenceQuality.strength || null,
-    evidenceConflicts: Boolean(evidenceQuality.conflicts),
+    evidenceConflicts,
     missingCritical,
     blockers,
     requiredConditions,
-    decisionDrivers,
+    decisionDrivers: dedupedDrivers,
     contradictionNote,
     summaryMemo,
     tokenDemandTruth,
@@ -1150,9 +1374,10 @@ export function buildDecisionTerminalModel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
-    secondarySectors: safeArray(sectorClassification.secondarySectors),
-    whyNow: extractRenderableText(decisionFrame.whyNow, null),
-    whyNotNow: extractRenderableText(decisionFrame.whyNotNow, null),
+    secondarySectors: dedupedSecondarySectors,
+    assetBadges,
+    whyNow: sanitizedWhyNow,
+    whyNotNow: sanitizedWhyNotNow,
     whatMustBeTrue: normalizeRenderableList(decisionFrame.whatMustBeTrue).slice(0, 4),
     whatCouldBreak: normalizeRenderableList(decisionFrame.whatCouldBreak).slice(0, 4),
     nextCheckpoints: normalizeRenderableList(decisionFrame.nextCheckpoints).slice(0, 4),

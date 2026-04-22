@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { titleCase } from "./researchUtils";
+import { sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -11,12 +11,9 @@ function outcomeColor(outcomeKey) {
 
 export default function DecisionHeroCard({ asset, model, styles, sections = [], activeSection = null, onSelectSection = null }) {
   const outcomeColorValue = outcomeColor(model?.allocationOutcome?.key);
-  const assetBadges = [
-    model?.assetClass ? titleCase(model.assetClass) : null,
-    model?.assetSubtype && model.assetSubtype !== "unknown" ? titleCase(model.assetSubtype) : null,
-    model?.primarySector && model.primarySector !== "Unknown" ? model.primarySector : null,
-  ].filter(Boolean);
+  const assetBadges = model?.assetBadges || [];
   const showWhyNotNow = Boolean(model?.whyNotNow) && model?.allocationOutcome?.key === "conditional_allocation";
+  const showPrimaryStrength = Boolean(model?.primaryStrength) && model?.primaryStrength !== model?.summaryMemo;
 
   return (
     <div style={styles.decisionHeroWrap}>
@@ -34,7 +31,7 @@ export default function DecisionHeroCard({ asset, model, styles, sections = [], 
             <div style={styles.decisionHeroInvestabilityBadge}>
               <span style={styles.decisionHeroInvestabilityLabel}>Investability</span>
               <span style={styles.decisionHeroInvestabilityValue}>
-                {model?.investabilityStatus ? titleCase(model.investabilityStatus) : "Unavailable"}
+                {sanitizeSemanticLabel(model?.investabilityStatus, "Unavailable")}
               </span>
             </div>
           </div>
@@ -78,12 +75,14 @@ export default function DecisionHeroCard({ asset, model, styles, sections = [], 
               <div style={styles.decisionDominanceValue}>{model?.whyNotNow}</div>
             </div>
           ) : null}
-          <div style={styles.decisionDominanceBlock}>
-            <div style={styles.decisionDominanceLabel}>Primary Strength</div>
-            <div style={styles.decisionDominanceMutedValue}>
-              {model?.primaryStrength || "No strength is strong enough to override the current constraints."}
+          {showPrimaryStrength ? (
+            <div style={styles.decisionDominanceBlock}>
+              <div style={styles.decisionDominanceLabel}>Primary Strength</div>
+              <div style={styles.decisionDominanceMutedValue}>
+                {model?.primaryStrength}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <div style={styles.decisionHeroSecondaryBand}>

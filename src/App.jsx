@@ -1075,7 +1075,6 @@ export default function App() {
               <Card title="Structural Signals" subtitle="Score stays visible, but it does not lead the decision." styles={styles}>
                 <SectionRow label="Structural Quality Score" value={decisionModel.overallScore !== null ? `${decisionModel.overallScore}/100` : "Unavailable"} styles={styles} />
                 <SectionRow label="Confidence in Thesis Support" value={decisionModel.confidenceLabel || "Unavailable"} styles={styles} />
-                <SectionRow label="Primary Weakness" value={decisionModel.primaryWeakness} styles={styles} />
                 <ListBlock
                   title="Top decision drivers"
                   items={decisionModel.decisionDrivers}

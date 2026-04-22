@@ -10,7 +10,9 @@ export default function EvidenceConfidenceCard({ model, styles }) {
       styles={styles}
     >
       <SectionRow label="Confidence in Thesis Support" value={model?.confidenceLabel || "Unavailable"} styles={styles} />
-      <SectionRow label="Conflict State" value={model?.evidenceConflicts ? "Conflicting evidence remains unresolved." : "No material evidence conflict was surfaced."} styles={styles} />
+      {model?.evidenceConflicts ? (
+        <SectionRow label="Evidence Conflict" value="Conflicting evidence remains unresolved." styles={styles} />
+      ) : null}
       <ListBlock
         title="Missing critical evidence"
         items={model?.missingCritical || []}

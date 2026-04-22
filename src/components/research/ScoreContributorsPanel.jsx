@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { safeArray, titleCase } from "./researchUtils";
+import { safeArray, sanitizeSemanticLabel, titleCase } from "./researchUtils";
 
 function ContributorGroup({ title, color, items, styles, showStrength = false, emptyText }) {
   const safeItems = safeArray(items);
@@ -25,11 +25,11 @@ function ContributorGroup({ title, color, items, styles, showStrength = false, e
                       color,
                     }}
                   >
-                    {titleCase(item.strength)}
+                    {sanitizeSemanticLabel(item.strength, titleCase(item.strength))}
                   </span>
                 ) : null}
               </div>
-              <div style={styles.scoreContributorSummary}>{item.summary || "No contributor summary recorded."}</div>
+              <div style={styles.scoreContributorSummary}>{sanitizeSemanticLabel(item.summary, "No contributor summary recorded.")}</div>
             </div>
           ))}
         </div>
