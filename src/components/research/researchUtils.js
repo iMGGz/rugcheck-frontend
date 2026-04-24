@@ -1007,10 +1007,16 @@ export function isNoMaterialWeakness(value) {
 }
 
 export function hasConcreteConflict(evidenceQuality, confidenceModel) {
-  if (Boolean(evidenceQuality?.conflicts)) return true;
-  const summary = extractRenderableText(confidenceModel?.sourceAgreementSummary, "");
-  if (!summary) return false;
-  return /\bconflict|\bdisagree|\binconsistent|\bcontradict/i.test(summary);
+  const evidenceSummary = extractRenderableText(evidenceQuality?.summary, "");
+  const confidenceSummary = extractRenderableText(confidenceModel?.sourceAgreementSummary, "");
+  const conflictEvidence = [
+    evidenceSummary,
+    confidenceSummary,
+    ...normalizeRenderableList(evidenceQuality?.conflictEvidence),
+    ...normalizeRenderableList(evidenceQuality?.conflicts),
+  ].filter(Boolean);
+
+  return conflictEvidence.some((entry) => /\bconflict|\bdisagree|\binconsistent|\bcontradict/i.test(entry));
 }
 
 export function isBenchmarkAssetClass(assetClass) {
@@ -1027,6 +1033,64 @@ function dedupeCaseInsensitive(items) {
     seen.add(key);
     return true;
   });
+}
+
+const GENERIC_EPISTEMIC_PATTERNS = [
+  /one or more critical pillars remain unresolved/i,
+  /weakest-link uncertainty constrains conviction/i,
+  /critical parts of the thesis (still )?rely too heavily on inference/i,
+  /evidence quality is insufficient to support top-tier confidence/i,
+  /conflicting evidence remains unresolved/i,
+];
+
+const GENERIC_PLACEHOLDER_PATTERNS = [
+  /^confirm the missing structural support\.?$/i,
+  /^confirm missing structural support\.?$/i,
+  /^show stronger structural support\.?$/i,
+];
+
+function isGenericEpistemicText(value) {
+  const text = extractRenderableText(value, "");
+  return Boolean(text && GENERIC_EPISTEMIC_PATTERNS.some((pattern) => pattern.test(text)));
+}
+
+function replaceGenericCondition(value) {
+  const text = sanitizeSemanticLabel(value, null);
+  if (!text) return null;
+  if (GENERIC_PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(text))) {
+    return "Further direct evidence would increase conviction.";
+  }
+  return text;
+}
+
+function cleanUserFacingList(items, {
+  limit = null,
+  suppressGenericEpistemic = false,
+  replacePlaceholders = false,
+} = {}) {
+  let cleaned = filterUserFacingItems(items, null)
+    .map((item) => (replacePlaceholders ? replaceGenericCondition(item) : sanitizeSemanticLabel(item, null)))
+    .filter(Boolean);
+
+  if (suppressGenericEpistemic) {
+    cleaned = cleaned.filter((item) => !isGenericEpistemicText(item));
+  }
+
+  const deduped = dedupeCaseInsensitive(cleaned).map((item) => extractRenderableText(item, null)).filter(Boolean);
+  if (limit === null) return deduped;
+  return deduped.slice(0, limit);
+}
+
+function chooseEpistemicNote({ isBenchmark, primaryWeakness, evidenceDirectness }) {
+  if (isBenchmark && isNoMaterialWeakness(primaryWeakness)) {
+    return "Benchmark thesis is structurally supported, while confidence remains constrained by evidence completeness.";
+  }
+
+  const directness = evidenceDirectness?.directness;
+  if (directness === "mostly_inferred") return "Critical parts of the thesis rely too heavily on inference.";
+  if (directness === "descriptive_only") return "Evidence quality is insufficient to support top-tier confidence.";
+  if (directness === "critical_gaps") return "Weakest-link uncertainty constrains conviction.";
+  return null;
 }
 
 export function buildAssetBadges({ assetClass, assetSubtype, primarySector }) {
@@ -1089,6 +1153,17 @@ export function buildPrimaryWeaknessText({ primaryWeakness, assetClass }) {
   }
 
   return "No dominant structural weakness was surfaced.";
+}
+
+export function buildFailurePrimaryText({ failurePrimary, primaryWeakness, assetClass }) {
+  const text = sanitizeSemanticLabel(failurePrimary, null);
+  const noMaterialWeakness = isNoMaterialWeakness(primaryWeakness);
+
+  if (isBenchmarkAssetClass(assetClass) && noMaterialWeakness) {
+    return "No dominant failure mode is currently identified for the benchmark thesis.";
+  }
+
+  return text || primaryWeakness || "A structural break in the current thesis would invalidate allocation support.";
 }
 
 export function buildTokenDemandTruth({ allocationOutcomeKey, primaryStrength, assetClass, primaryWeakness }) {
@@ -1159,10 +1234,13 @@ export function deriveAllocationOutcome(analysis, scores) {
   const safeAnalysis = safeObject(analysis);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const investability = safeObject(thesisCore.investability);
+  const mirroredInvestability = safeObject(safeAnalysis.investability);
   const status = investability.status || null;
+  const mirroredStatus = mirroredInvestability.status || null;
+  const resolvedStatus = status || mirroredStatus;
   const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
 
-  if (status === "investable") {
+  if (resolvedStatus === "investable") {
     return {
       key: "capital_worthy",
       label: "Capital-Worthy",
@@ -1171,7 +1249,7 @@ export function deriveAllocationOutcome(analysis, scores) {
     };
   }
 
-  if (status === "conditionally_investable") {
+  if (resolvedStatus === "conditionally_investable") {
     return {
       key: "conditional_allocation",
       label: "Conditional Allocation",
@@ -1180,7 +1258,7 @@ export function deriveAllocationOutcome(analysis, scores) {
     };
   }
 
-  if (status === "speculative_only") {
+  if (resolvedStatus === "speculative_only") {
     return {
       key: "tradable_only",
       label: "Tradable Only",
@@ -1189,7 +1267,7 @@ export function deriveAllocationOutcome(analysis, scores) {
     };
   }
 
-  if (status === "non_investable" || status === "unassessable") {
+  if (resolvedStatus === "non_investable" || resolvedStatus === "unassessable") {
     return {
       key: "do_not_allocate",
       label: "Do Not Allocate",
@@ -1270,6 +1348,7 @@ export function buildDecisionTerminalModel({
   const investability = safeObject(thesisCore.investability);
   const failureMode = safeObject(thesisCore.failureMode);
   const evidenceQuality = safeObject(thesisCore.evidenceQuality);
+  const evidenceDirectness = safeObject(safeAnalysis.evidenceDirectness);
   const contributors = safeObject(safeAnalysis.contributors || scoreContributors);
   const assetClassification = safeObject(safeAnalysis.assetClassification);
   const sectorClassification = safeObject(safeAnalysis.sectorClassification);
@@ -1277,8 +1356,15 @@ export function buildDecisionTerminalModel({
   const policySignals = normalizeSignalList(safeAnalysis.policySignals);
   const warningsList = normalizeRenderableList(warnings);
   const userFacingWarnings = filterUserFacingItems(warningsList);
-  const blockers = filterUserFacingItems(investability.blockers);
-  const requiredConditions = filterUserFacingItems(investability.requiredConditions);
+  const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
+  const blockers = cleanUserFacingList(investability.blockers, {
+    suppressGenericEpistemic: isBenchmark,
+    replacePlaceholders: true,
+  });
+  const requiredConditions = cleanUserFacingList(investability.requiredConditions, {
+    suppressGenericEpistemic: isBenchmark,
+    replacePlaceholders: true,
+  });
   const missingCritical = normalizeRenderableList(evidenceQuality.missingCritical).slice(0, 3);
   const primaryStrength = buildPrimaryStrengthText({
     primaryStrength: thesisCore.primaryStrength,
@@ -1292,7 +1378,9 @@ export function buildDecisionTerminalModel({
   const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
   const confidenceScore = confidenceModel?.score ?? null;
   const confidenceLabelText = buildConfidenceSupportLabel(confidenceModel);
-  const prioritySignals = filterUserFacingItems(decisionLayer.prioritySignals);
+  const prioritySignals = cleanUserFacingList(decisionLayer.prioritySignals, {
+    suppressGenericEpistemic: isBenchmark,
+  });
   const decisionDrivers = buildDecisionDrivers({
     contributors,
     prioritySignals,
@@ -1300,7 +1388,11 @@ export function buildDecisionTerminalModel({
     primaryWeakness,
     blockers,
   });
-  const failurePrimary = sanitizeSemanticLabel(failureMode.primary, primaryWeakness);
+  const failurePrimary = buildFailurePrimaryText({
+    failurePrimary: failureMode.primary,
+    primaryWeakness,
+    assetClass: assetClassification.assetClass || null,
+  });
   const failureTrigger = sanitizeSemanticLabel(failureMode.trigger, "A structural break in the current thesis would invalidate allocation support.");
   const earlySignals = normalizeRenderableList(failureMode.earlySignals).slice(0, 3);
   const contradictionApplies = Boolean(
@@ -1312,10 +1404,23 @@ export function buildDecisionTerminalModel({
   const contradictionNote = contradictionApplies
     ? `Surface metrics are overridden by failed token-thesis conditions. Dominant constraint: ${primaryWeakness}.`
     : null;
-  const summaryMemo = buildSummaryMemo({
+  const sanitizedWhyNow = sanitizeSemanticLabel(decisionFrame.whyNow, null);
+  const rawWhyNotNow = sanitizeSemanticLabel(decisionFrame.whyNotNow, null);
+  const epistemicNote = chooseEpistemicNote({
+    isBenchmark,
+    primaryWeakness,
+    evidenceDirectness,
+  });
+  const sanitizedWhyNotNow =
+    isBenchmark && isNoMaterialWeakness(primaryWeakness) && isGenericEpistemicText(rawWhyNotNow)
+      ? null
+      : rawWhyNotNow;
+  const summaryMemo = isBenchmark && isNoMaterialWeakness(primaryWeakness)
+    ? (sanitizedWhyNow || epistemicNote || primaryStrength)
+    : buildSummaryMemo({
     allocationOutcomeKey: allocationOutcome.key,
-    whyNow: sanitizeSemanticLabel(decisionFrame.whyNow, null),
-    whyNotNow: sanitizeSemanticLabel(decisionFrame.whyNotNow, null),
+    whyNow: sanitizedWhyNow,
+    whyNotNow: sanitizedWhyNotNow,
     primaryStrength,
     primaryWeakness,
     failurePrimary,
@@ -1329,12 +1434,12 @@ export function buildDecisionTerminalModel({
   });
   const auditAlerts = dedupeCaseInsensitive([...policySignals, ...userFacingWarnings]).slice(0, 6);
   const evidenceConflicts = hasConcreteConflict(evidenceQuality, confidenceModel);
-  const evidenceConstraintNote = missingCritical.length || evidenceQuality.conflicts || warningsList.some((entry) => isTechnicalNoiseText(entry))
+  const evidenceConstraintNote = missingCritical.length || warningsList.some((entry) => isTechnicalNoiseText(entry))
     ? "Incomplete external evidence increases conservatism in this assessment."
+    : epistemicNote
+      ? epistemicNote
     : null;
   const dedupedDrivers = dedupeCaseInsensitive(decisionDrivers).slice(0, 3);
-  const sanitizedWhyNow = sanitizeSemanticLabel(decisionFrame.whyNow, null);
-  const sanitizedWhyNotNow = sanitizeSemanticLabel(decisionFrame.whyNotNow, null);
   const dedupedSecondarySectors = dedupeCaseInsensitive(safeArray(sectorClassification.secondarySectors));
   const assetBadges = buildAssetBadges({
     assetClass: assetClassification.assetClass || null,
@@ -1378,12 +1483,28 @@ export function buildDecisionTerminalModel({
     assetBadges,
     whyNow: sanitizedWhyNow,
     whyNotNow: sanitizedWhyNotNow,
-    whatMustBeTrue: normalizeRenderableList(decisionFrame.whatMustBeTrue).slice(0, 4),
-    whatCouldBreak: normalizeRenderableList(decisionFrame.whatCouldBreak).slice(0, 4),
-    nextCheckpoints: normalizeRenderableList(decisionFrame.nextCheckpoints).slice(0, 4),
-    topPositiveDrivers: filterUserFacingItems(contributors.positives, 4),
-    topNegativeDrivers: filterUserFacingItems(contributors.negatives, 4),
-    topNeutralDrivers: filterUserFacingItems(contributors.neutralOrMissing, 4),
+    whatMustBeTrue: cleanUserFacingList(decisionFrame.whatMustBeTrue, {
+      limit: 4,
+      suppressGenericEpistemic: isBenchmark,
+      replacePlaceholders: true,
+    }),
+    whatCouldBreak: cleanUserFacingList(decisionFrame.whatCouldBreak, {
+      limit: 4,
+      suppressGenericEpistemic: isBenchmark,
+      replacePlaceholders: true,
+    }),
+    nextCheckpoints: cleanUserFacingList(decisionFrame.nextCheckpoints, {
+      limit: 4,
+      suppressGenericEpistemic: isBenchmark,
+      replacePlaceholders: true,
+    }),
+    topPositiveDrivers: cleanUserFacingList(contributors.positives, { limit: 4 }),
+    topNegativeDrivers: cleanUserFacingList(contributors.negatives, { limit: 4 }),
+    topNeutralDrivers: cleanUserFacingList(contributors.neutralOrMissing, {
+      limit: 4,
+      suppressGenericEpistemic: isBenchmark,
+      replacePlaceholders: true,
+    }),
     keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
 }

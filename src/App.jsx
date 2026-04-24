@@ -1063,7 +1063,7 @@ export default function App() {
               <Card title="Decision Memo" subtitle="Answer first. Reasoning second. Audit third." styles={styles}>
                 <SectionRow label="Primary Weakness" value={decisionModel.primaryWeakness} styles={styles} />
                 <SectionRow label="Failure Mode" value={decisionModel.failureMode?.primary || "Unavailable"} styles={styles} />
-                {decisionModel.whyNotNow ? (
+                {decisionModel.whyNotNow && decisionModel.whyNotNow !== decisionModel.summaryMemo ? (
                   <SectionRow label="Why Not Now" value={decisionModel.whyNotNow} styles={styles} />
                 ) : null}
                 <SectionRow label="Structured Thesis Summary" value={decisionModel.summaryMemo} styles={styles} />

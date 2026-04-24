@@ -12,7 +12,10 @@ function outcomeColor(outcomeKey) {
 export default function DecisionHeroCard({ asset, model, styles, sections = [], activeSection = null, onSelectSection = null }) {
   const outcomeColorValue = outcomeColor(model?.allocationOutcome?.key);
   const assetBadges = model?.assetBadges || [];
-  const showWhyNotNow = Boolean(model?.whyNotNow) && model?.allocationOutcome?.key === "conditional_allocation";
+  const showWhyNotNow = Boolean(model?.whyNotNow)
+    && model?.allocationOutcome?.key === "conditional_allocation"
+    && model?.whyNotNow !== model?.summaryMemo
+    && model?.whyNotNow !== model?.primaryWeakness;
   const showPrimaryStrength = Boolean(model?.primaryStrength) && model?.primaryStrength !== model?.summaryMemo;
 
   return (
