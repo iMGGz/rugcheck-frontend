@@ -1,13 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ResearchHeader from "./components/research/ResearchHeader";
+import HomepagePositioning from "./components/research/HomepagePositioning";
 import SearchPanel from "./components/research/SearchPanel";
-import ScoreContributorsPanel from "./components/research/ScoreContributorsPanel";
-import MarketPanel from "./components/research/MarketPanel";
-import SourcesPanel from "./components/research/SourcesPanel";
-import FundamentalsPanel from "./components/research/FundamentalsPanel";
-import ProjectCredibilityPanel from "./components/research/ProjectCredibilityPanel";
-import OnChainPanel from "./components/research/OnChainPanel";
-import ProtocolIntelligencePanel from "./components/research/ProtocolIntelligencePanel";
 import NewsPanel from "./components/research/NewsPanel";
 import RisksPanel from "./components/research/RisksPanel";
 import TimelinePanel from "./components/research/TimelinePanel";
@@ -17,24 +11,29 @@ import WatchlistPanel from "./components/research/WatchlistPanel";
 import ResearchContextPanel from "./components/research/ResearchContextPanel";
 import ResearchErrorBoundary from "./components/research/ResearchErrorBoundary";
 import DecisionHeroCard from "./components/research/DecisionHeroCard";
+import EvidenceStatusSummaryCard from "./components/research/EvidenceStatusSummaryCard";
+import EvidenceMapTab from "./components/research/EvidenceMapTab";
+import SourceQueuePanel from "./components/research/SourceQueuePanel";
+import ManualReviewPanel from "./components/research/ManualReviewPanel";
+import InstitutionalChecklistTab from "./components/research/InstitutionalChecklistTab";
 import AllocationOutcomeCard from "./components/research/AllocationOutcomeCard";
-import TokenDemandCard from "./components/research/TokenDemandCard";
-import FailureModeCard from "./components/research/FailureModeCard";
 import EvidenceConfidenceCard from "./components/research/EvidenceConfidenceCard";
-import ConvictionDriversMatrix from "./components/research/ConvictionDriversMatrix";
+import ThesisFalsificationTab from "./components/research/ThesisFalsificationTab";
+import ScoringTransparencyTab from "./components/research/ScoringTransparencyTab";
 import ThesisDriftTimeline from "./components/research/ThesisDriftTimeline";
 import SearchSelectorPanel from "./components/research/SearchSelectorPanel";
 import RiskFlagsStrip from "./components/research/RiskFlagsStrip";
-import MethodologyPanel from "./components/research/MethodologyPanel";
+import HowTheEngineWorksPage from "./components/research/HowTheEngineWorksPage";
+import AnalysisRightRail from "./components/research/AnalysisRightRail";
 import AuditSection from "./components/research/AuditSection";
 import { Card, ListBlock, SectionRow, TabButton } from "./components/research/researchPrimitives";
-import { styles } from "./components/research/researchStyles";
+import { buildResponsiveStyles } from "./components/research/researchStyles";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
   buildDecisionTerminalModel,
+  deriveEvidenceStatusProxy,
   buildAssetLookupQuery,
-  buildMethodologyPrinciples,
   buildWatchlistAssetFromAnalysis,
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
@@ -70,16 +69,23 @@ const API_BASE = resolveApiBase();
 const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
 const RESEARCH_TABS = [
   { key: "overview", label: "Decision" },
-  { key: "thesis", label: "Thesis" },
-  { key: "risks", label: "Risks" },
-  { key: "evidence", label: "Evidence" },
-  { key: "history", label: "History" },
-  { key: "drift", label: "Drift" },
+  { key: "thesis_falsification", label: "Thesis Falsification" },
+  { key: "institutional_checklist", label: "Institutional Checklist" },
+  { key: "evidence_map", label: "Evidence Map" },
+  { key: "scoring_transparency", label: "Scoring Transparency" },
+  { key: "source_queue", label: "Source Queue" },
+  { key: "manual_review", label: "Manual Review" },
+  { key: "audit_raw", label: "Audit / Raw" },
 ];
 const SEARCH_HISTORY_KEY = "rugcheck-history-v1";
 const WATCHLIST_KEY = "rugcheck-watchlist-v2";
 const WATCHLIST_CHECKS_KEY = "rugcheck-watchlist-checks-v1";
 const WATCHLIST_REFRESH_RESULTS_KEY = "rugcheck-watchlist-refresh-results-v1";
+
+function getViewportWidth() {
+  if (typeof window === "undefined") return 1280;
+  return window.innerWidth || 1280;
+}
 
 async function parseJsonResponse(response) {
   const text = await response.text();
@@ -123,6 +129,29 @@ async function fetchJson(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function UnattachedReportLayerNotice({
+  title,
+  description,
+  boundary,
+  bullets = [],
+  status = "Not attached to live response",
+  styles,
+}) {
+  return (
+    <Card title={title} subtitle={description} styles={styles}>
+      <SectionRow label="Current status" value={status} styles={styles} />
+      <SectionRow label="Boundary" value={boundary} styles={styles} />
+      <ListBlock
+        title="What this section will show when attached"
+        items={bullets}
+        emptyText="No live section details are attached yet."
+        color="#7dd3fc"
+        styles={styles}
+      />
+    </Card>
+  );
 }
 
 function isValidAnalysisResponse(payload) {
@@ -357,6 +386,7 @@ function getWatchlistSortTimestamp(statusSnapshot) {
 }
 
 export default function App() {
+  const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
   const [query, setQuery] = useState(readInitialQuery);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -404,6 +434,26 @@ export default function App() {
   const watchlistRequestRef = useRef(0);
   const searchSectionRef = useRef(null);
   const methodologySectionRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    let frameId = 0;
+    const handleResize = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        setViewportWidth(getViewportWidth());
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  const styles = useMemo(() => buildResponsiveStyles(viewportWidth), [viewportWidth]);
 
   const scrollToRef = useCallback((targetRef) => {
     targetRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -818,8 +868,15 @@ export default function App() {
     warnings,
     asset,
   }), [analysis, scores, confidence, scoreContributors, fundamentals, warnings, asset]);
-  const methodologyPrinciples = useMemo(() => buildMethodologyPrinciples(), []);
-
+  const evidenceStatusProxy = useMemo(() => deriveEvidenceStatusProxy({
+    model: decisionModel,
+    analysis,
+    confidence,
+    providerDiagnostics,
+    sourceStatus,
+    meta,
+    providerHealth,
+  }), [decisionModel, analysis, confidence, providerDiagnostics, sourceStatus, meta, providerHealth]);
   assertAnalysisShape(data, "live-analysis");
 
   const visibleWatchlistItems = useMemo(() => {
@@ -1088,7 +1145,129 @@ export default function App() {
                 <ListBlock title="Required conditions" items={decisionModel.requiredConditions} emptyText="No additional conditions were recorded." color="#9bd7ff" styles={styles} />
               </Card>
             </div>
-
+          </>
+        );
+      case "thesis_falsification":
+        return (
+          <ThesisFalsificationTab
+            model={decisionModel}
+            styles={styles}
+            onSelectSection={setActiveTab}
+          />
+        );
+      case "institutional_checklist":
+        return (
+          <InstitutionalChecklistTab
+            model={decisionModel}
+            sourceStatus={sourceStatus}
+            providerDiagnostics={providerDiagnostics}
+            providerHealth={providerHealth}
+            evidenceStatusProxy={evidenceStatusProxy}
+            styles={styles}
+          />
+        );
+      case "evidence_map":
+        return (
+          <EvidenceMapTab
+            model={decisionModel}
+            evidenceStatusProxy={evidenceStatusProxy}
+            analysisQualityExplanation={analysisQualityExplanation}
+            confidence={confidence}
+            meta={meta}
+            sourceStatus={sourceStatus}
+            providerDiagnostics={providerDiagnostics}
+            notableDiagnostics={notableDiagnostics}
+            providerHealth={providerHealth}
+            providerHealthLoading={providerHealthLoading}
+            providerHealthError={providerHealthError}
+            officialLinks={officialLinks}
+            whitepaperDocs={whitepaperDocs}
+            styles={styles}
+          />
+        );
+      case "scoring_transparency":
+        return (
+          <ScoringTransparencyTab
+            analysis={analysis}
+            scores={scores}
+            scoreContributors={scoreContributors}
+            confidence={confidence}
+            model={decisionModel}
+            styles={styles}
+          />
+        );
+      case "source_queue":
+        return (
+          <SourceQueuePanel
+            model={decisionModel}
+            sourceStatus={sourceStatus}
+            providerDiagnostics={providerDiagnostics}
+            styles={styles}
+          />
+        );
+      case "manual_review":
+        return (
+          <>
+            <ManualReviewPanel
+              model={decisionModel}
+              sourceStatus={sourceStatus}
+              providerDiagnostics={providerDiagnostics}
+              evidenceStatusProxy={evidenceStatusProxy}
+              styles={styles}
+            />
+            <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />
+          </>
+        );
+      case "audit_raw":
+        return (
+          <>
+            <Card title="Audit / Raw Details" subtitle="Technical details for verification. Not all raw context affects the final decision." styles={styles}>
+              <SectionRow label="Purpose" value="Keep noisy diagnostics, history, drift, provider health, and raw context available without letting them dominate the decision narrative." styles={styles} />
+            </Card>
+            <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" defaultOpen styles={styles}>
+              <ResearchContextPanel
+                analysisQualityExplanation={analysisQualityExplanation}
+                confidence={confidence}
+                meta={meta}
+                sourceStatus={sourceStatus}
+                notableDiagnostics={notableDiagnostics}
+                providerHealth={providerHealth}
+                providerHealthLoading={providerHealthLoading}
+                providerHealthError={providerHealthError}
+                styles={styles}
+              />
+            </AuditSection>
+            <AuditSection title="Catalysts" subtitle="News and recent changes" styles={styles}>
+              <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />
+            </AuditSection>
+            <TimelinePanel
+              timelineLoading={timelineLoading}
+              timelineError={timelineError}
+              timelineData={timelineData}
+              timelinePageInfo={timelinePageInfo}
+              timelineLoadingMore={timelineLoading}
+              loadTimeline={loadTimeline}
+              latestTimelineSnapshot={latestTimelineSnapshot}
+              asset={asset}
+              query={timelineQuery}
+              onOpenSnapshot={loadSnapshotDetail}
+              openedSnapshotId={snapshotDetailId}
+              styles={styles}
+            />
+          <div style={styles.advancedGrid}>
+            <ThesisDriftTimeline model={decisionModel} compareData={compareData} styles={styles} />
+            <ComparePanel
+              timelineData={timelineData}
+              compareSelectionOptions={compareSelectionOptions}
+              latestTimelineSnapshot={latestTimelineSnapshot}
+              compareAgainstId={compareAgainstId}
+              setCompareAgainstId={setCompareAgainstId}
+              compareLoading={compareLoading}
+              compareError={compareError}
+              compareData={compareData}
+              styles={styles}
+            />
+          </div>
             <details style={styles.auditSection}>
               <summary style={styles.auditSummary}>
                 <span>Advanced Quant Signals</span>
@@ -1113,114 +1292,6 @@ export default function App() {
               </div>
             </details>
           </>
-        );
-      case "thesis":
-        return (
-          <>
-            <div style={styles.advancedGrid}>
-              <TokenDemandCard model={decisionModel} styles={styles} />
-              <FailureModeCard model={decisionModel} styles={styles} />
-              <ConvictionDriversMatrix model={decisionModel} styles={styles} />
-            </div>
-            <ScoreContributorsPanel scoreContributors={scoreContributors} styles={styles} />
-          </>
-        );
-      case "risks":
-        return (
-          <>
-            <RiskFlagsStrip items={decisionModel.auditAlerts} title="Policy constraints and dominant flags" styles={styles} />
-            <div style={styles.advancedGrid}>
-              <FailureModeCard model={decisionModel} styles={styles} />
-              <Card title="Allocation Constraints" subtitle="When the system refuses softness, it should be obvious why." styles={styles}>
-                <ListBlock title="Blockers" items={decisionModel.blockers} emptyText="No explicit blockers were surfaced." color="#ffb6b6" styles={styles} />
-                <ListBlock title="Required conditions" items={decisionModel.requiredConditions} emptyText="No additional conditions were recorded." color="#9bd7ff" styles={styles} />
-                <ListBlock title="Key alerts" items={decisionModel.keyAlerts} emptyText="No critical alerts were raised." color="#f9d976" styles={styles} />
-              </Card>
-            </div>
-            <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />
-          </>
-        );
-      case "evidence":
-        return (
-          <>
-            <AuditSection title="Market Structure" subtitle="Liquidity, turnover, market context" defaultOpen styles={styles}>
-              <MarketPanel aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.marketData} styles={styles} />
-            </AuditSection>
-            <AuditSection title="Tokenomics" subtitle="Supply, unlocks, dilution, value accrual" defaultOpen styles={styles}>
-              <FundamentalsPanel fundamentals={fundamentals} aiReport={aiReport} marketData={marketData} styles={styles} />
-            </AuditSection>
-            <AuditSection title="Governance" subtitle="Credibility, execution, governance structure" styles={styles}>
-              <ProjectCredibilityPanel projectCredibility={projectCredibility} fundamentals={fundamentals} aiReport={aiReport} scores={scores} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.projectCredibility} styles={styles} />
-            </AuditSection>
-            <AuditSection title="On-Chain" subtitle="Distribution, holder structure, activity" styles={styles}>
-              <OnChainPanel onChainMetrics={onChainMetrics} onChainFundamentals={onChainFundamentals} aiReport={aiReport} marketData={marketData} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.onChainMetrics} styles={styles} />
-              <ProtocolIntelligencePanel
-                protocolUsage={protocolUsage}
-                protocolEconomics={protocolEconomics}
-                protocolUsageFundamentals={protocolUsageFundamentals}
-                protocolEconomicsFundamentals={protocolEconomicsFundamentals}
-                sourceStatus={sourceStatus}
-                providerDiagnostics={providerDiagnostics}
-                providerHealth={providerHealth}
-                protocolUsageFreshnessEntry={meta?.sectionFreshness?.protocolUsage}
-                protocolEconomicsFreshnessEntry={meta?.sectionFreshness?.protocolEconomics}
-                styles={styles}
-              />
-            </AuditSection>
-            <AuditSection title="Sources" subtitle="Official links, docs, documentation quality" styles={styles}>
-              <SourcesPanel officialLinks={officialLinks} whitepaperDocs={whitepaperDocs} sourceStatus={sourceStatus} providerDiagnostics={providerDiagnostics} providerHealth={providerHealth} freshnessEntry={meta?.sectionFreshness?.officialLinksDocs} styles={styles} />
-            </AuditSection>
-            <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" styles={styles}>
-              <ResearchContextPanel
-                analysisQualityExplanation={analysisQualityExplanation}
-                confidence={confidence}
-                meta={meta}
-                sourceStatus={sourceStatus}
-                notableDiagnostics={notableDiagnostics}
-                providerHealth={providerHealth}
-                providerHealthLoading={providerHealthLoading}
-                providerHealthError={providerHealthError}
-                styles={styles}
-              />
-            </AuditSection>
-            <AuditSection title="Catalysts" subtitle="News and recent changes" styles={styles}>
-              <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />
-            </AuditSection>
-          </>
-        );
-      case "history":
-        return (
-          <TimelinePanel
-            timelineLoading={timelineLoading}
-            timelineError={timelineError}
-            timelineData={timelineData}
-            timelinePageInfo={timelinePageInfo}
-            timelineLoadingMore={timelineLoading}
-            loadTimeline={loadTimeline}
-            latestTimelineSnapshot={latestTimelineSnapshot}
-            asset={asset}
-            query={timelineQuery}
-            onOpenSnapshot={loadSnapshotDetail}
-            openedSnapshotId={snapshotDetailId}
-            styles={styles}
-          />
-        );
-      case "drift":
-        return (
-          <div style={styles.advancedGrid}>
-            <ThesisDriftTimeline model={decisionModel} compareData={compareData} styles={styles} />
-            <ComparePanel
-              timelineData={timelineData}
-              compareSelectionOptions={compareSelectionOptions}
-              latestTimelineSnapshot={latestTimelineSnapshot}
-              compareAgainstId={compareAgainstId}
-              setCompareAgainstId={setCompareAgainstId}
-              compareLoading={compareLoading}
-              compareError={compareError}
-              compareData={compareData}
-              styles={styles}
-            />
-          </div>
         );
       default:
         return null;
@@ -1247,6 +1318,12 @@ export default function App() {
           <span style={styles.trustStripItem}>Independent Verification Required</span>
           <span style={styles.trustStripItem}>Third-Party Data Dependent</span>
         </div>
+
+        <HomepagePositioning
+          onAnalyzeAsset={() => scrollToRef(searchSectionRef)}
+          onViewMethodology={() => scrollToRef(methodologySectionRef)}
+          styles={styles}
+        />
 
         <div ref={searchSectionRef}>
           <SearchPanel
@@ -1344,10 +1421,11 @@ export default function App() {
               asset={asset}
               model={decisionModel}
               styles={styles}
-              sections={RESEARCH_TABS}
-              activeSection={activeTab}
               onSelectSection={setActiveTab}
+              lastAnalyzed={lastUpdated}
             />
+
+            <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
 
             <div style={styles.resultActions}>
               <button onClick={toggleFavorite} style={styles.actionButton}>
@@ -1363,7 +1441,7 @@ export default function App() {
 
             <div style={styles.terminalNavHeader}>
               <div style={styles.terminalNavTitle}>Decision Navigation</div>
-              <div style={styles.terminalNavHint}>Decision, thesis, risks, evidence, history, and drift stay available without burying the answer.</div>
+              <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
             </div>
             <div style={styles.terminalNav}>
               {RESEARCH_TABS.map((tab) => (
@@ -1377,26 +1455,38 @@ export default function App() {
               ))}
             </div>
 
-            {renderActiveTab()}
+            <div style={styles.analysisWorkbench}>
+              <main style={styles.analysisMainColumn}>
+                {renderActiveTab()}
 
-            {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
-              <SnapshotDetailPanel
-                snapshotRecord={snapshotDetailData}
-                loading={snapshotDetailLoading}
-                error={snapshotDetailError}
-                onClose={() => {
-                  setSnapshotDetailId("");
-                  setSnapshotDetailData(null);
-                  setSnapshotDetailError("");
-                }}
+                {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
+                  <SnapshotDetailPanel
+                    snapshotRecord={snapshotDetailData}
+                    loading={snapshotDetailLoading}
+                    error={snapshotDetailError}
+                    onClose={() => {
+                      setSnapshotDetailId("");
+                      setSnapshotDetailData(null);
+                      setSnapshotDetailError("");
+                    }}
+                    styles={styles}
+                  />
+                ) : null}
+              </main>
+              <AnalysisRightRail
+                model={decisionModel}
+                evidenceStatusProxy={evidenceStatusProxy}
+                activeTab={activeTab}
+                onSelectSection={setActiveTab}
+                onViewMethodology={() => scrollToRef(methodologySectionRef)}
                 styles={styles}
               />
-            ) : null}
+            </div>
           </ResearchErrorBoundary>
         ) : null}
 
         <div ref={methodologySectionRef}>
-          <MethodologyPanel principles={methodologyPrinciples} styles={styles} />
+          <HowTheEngineWorksPage styles={styles} />
         </div>
 
         <div style={styles.disclaimer}>

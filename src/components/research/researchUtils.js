@@ -1293,6 +1293,322 @@ export function deriveAllocationOutcome(analysis, scores) {
   };
 }
 
+function normalizeDecisionCandidates(...groups) {
+  return groups
+    .flatMap((group) => (Array.isArray(group) ? normalizeRenderableList(group) : [extractRenderableText(group, null)]))
+    .map((entry) => sanitizeSemanticLabel(entry, null))
+    .filter(Boolean);
+}
+
+function firstMeaningfulDecisionText(...groups) {
+  return normalizeDecisionCandidates(...groups).find((entry) => !isNoMaterialWeakness(entry)) || null;
+}
+
+export function derivePrimaryBlocker({
+  blockers,
+  primaryWeakness,
+  failureMode,
+  missingCritical,
+  auditAlerts,
+  topNegativeDrivers,
+}) {
+  const label = firstMeaningfulDecisionText(
+    blockers,
+    primaryWeakness,
+    failureMode?.primary,
+    missingCritical,
+    auditAlerts,
+    topNegativeDrivers,
+  );
+
+  return {
+    label: label || "Primary blocker not explicitly available in live response.",
+    explanation: label
+      ? "Derived from live decision, thesis, risk, or missing-evidence fields."
+      : "The live response did not expose a dominant blocker field.",
+    badge: label ? "Derived proxy" : "Unavailable",
+  };
+}
+
+export function deriveWeakestLink({
+  evidenceConstraintNote,
+  primaryWeakness,
+  missingCritical,
+  failureMode,
+  sourceAgreementSummary,
+}) {
+  const label = firstMeaningfulDecisionText(
+    evidenceConstraintNote,
+    primaryWeakness,
+    missingCritical,
+    sourceAgreementSummary,
+    failureMode?.primary,
+  );
+
+  return {
+    label: label || "Weakest link not explicitly available in live response.",
+    explanation: label
+      ? "Weakest-link proxy from live confidence, evidence, and thesis fields."
+      : "The live response did not expose a dedicated weakest-link field.",
+    badge: label ? "Weakest-link proxy" : "Unavailable",
+  };
+}
+
+export function deriveWhatWouldChangeDecision({
+  requiredConditions,
+  nextCheckpoints,
+  missingCritical,
+  whyNotNow,
+}) {
+  const candidates = normalizeDecisionCandidates(requiredConditions, nextCheckpoints, missingCritical, whyNotNow)
+    .filter((entry) => !isNoMaterialWeakness(entry));
+  const items = dedupeCaseInsensitive(candidates).slice(0, 4);
+
+  return {
+    items: items.length ? items : ["Additional verified evidence required."],
+    badge: items.length ? "Live requirements" : "Fallback",
+  };
+}
+
+export function deriveAssetClassLabel({ assetClass, assetSubtype, primarySector }) {
+  const parts = [
+    assetClass ? titleCase(assetClass) : null,
+    assetSubtype && assetSubtype !== "unknown" ? titleCase(assetSubtype) : null,
+    primarySector && primarySector !== "Unknown" ? primarySector : null,
+  ].filter(Boolean);
+
+  return dedupeCaseInsensitive(parts).join(" | ") || "Asset class unavailable";
+}
+
+export function deriveAssetFramingLabel({ assetClass, assetSubtype, primarySector }) {
+  const raw = `${assetClass || ""} ${assetSubtype || ""} ${primarySector || ""}`.toLowerCase();
+  if (raw.includes("stable")) return "Trust / Settlement Asset";
+  if (raw.includes("wrapped") || raw.includes("lst") || raw.includes("liquid staking")) return "Dependency / Redeemability Asset";
+  if (raw.includes("native")) return "Benchmark / Monetary Asset";
+  if (raw.includes("gas")) return "Base-Layer Settlement Asset";
+  if (raw.includes("defi") || raw.includes("yield")) return "Protocol / Tokenholder-Accrual Thesis";
+  if (raw.includes("infrastructure") || raw.includes("oracle") || raw.includes("compute")) return "Infrastructure Utility Thesis";
+  if (raw.includes("meme") || raw.includes("narrative")) return "Narrative / Liquidity Thesis";
+  return "Digital Asset Allocation Thesis";
+}
+
+export function deriveManualReviewStatus({ missingCritical, evidenceConflicts, auditAlerts }) {
+  if (evidenceConflicts) {
+    return {
+      label: "Manual review advised",
+      detail: "Conflicting or unresolved evidence appears in the live response.",
+    };
+  }
+
+  if (safeArray(missingCritical).length) {
+    return {
+      label: "Manual review likely",
+      detail: "Critical missing evidence is present in the live response.",
+    };
+  }
+
+  if (safeArray(auditAlerts).length) {
+    return {
+      label: "Review signals present",
+      detail: "Policy or audit alerts are present in the live response.",
+    };
+  }
+
+  return {
+    label: "No explicit review flag",
+    detail: "Institutional manual-review counts are not attached to this live response.",
+  };
+}
+
+export function formatScoreValue(value) {
+  if (value === null || value === undefined || value === "" || Number.isNaN(Number(value))) {
+    return "Unavailable";
+  }
+  return `${Math.round(Number(value))}/100`;
+}
+
+function sourceStatusEntries(sourceStatus) {
+  return Object.entries(safeObject(sourceStatus))
+    .map(([section, status]) => ({
+      section,
+      status: typeof status === "string" ? status : extractRenderableText(status, null),
+    }))
+    .filter((entry) => entry.status);
+}
+
+function providerDiagnosticLabel(entry) {
+  return providerLabel(entry?.provider || entry?.source || entry?.section || "provider");
+}
+
+export function deriveEvidenceStatusProxy({
+  model,
+  analysis,
+  confidence,
+  providerDiagnostics = [],
+  sourceStatus,
+  meta,
+  providerHealth,
+} = {}) {
+  const safeModel = safeObject(model);
+  const safeAnalysis = safeObject(analysis);
+  const confidenceModel = safeObject(confidence || safeAnalysis.confidence);
+  const evidenceDirectness = safeObject(safeAnalysis.evidenceDirectness);
+  const diagnostics = safeArray(providerDiagnostics);
+  const statusEntries = sourceStatusEntries(sourceStatus);
+  const providerNotes = normalizeRenderableList(safeObject(meta).providerNotes);
+  const providerMap = safeObject(providerHealth?.providers);
+  const items = [];
+  const warnings = [
+    "Live proxy, not full institutional evidence map.",
+    "Report-only source overlays are not connected to live scoring.",
+    "Source candidates require manual review before they become evidence.",
+  ];
+  const unavailable = [
+    "Institutional evidence-map counts are not attached to this live response.",
+    "Source discovery candidate counts are not attached to this live response.",
+    "Manual-source overlay status is not attached to this live response.",
+  ];
+
+  const missingCritical = normalizeRenderableList(safeModel.missingCritical);
+  if (missingCritical.length) {
+    items.push({
+      key: "missing_critical",
+      label: "Missing Critical Evidence",
+      valueLabel: "Detected",
+      severity: "critical",
+      description: missingCritical.slice(0, 2).join("; "),
+      sourceLabel: "thesisCore.evidenceQuality.missingCritical",
+      isProxy: true,
+    });
+  }
+
+  const providerGapDiagnostics = diagnostics.filter((entry) => (
+    entry.status === "failure" ||
+    entry.status === "skipped" ||
+    entry.errorClass === "unsupported" ||
+    ["missing", "unavailable", "unsupported"].includes(entry.coverage || "")
+  ));
+  const providerGapStatuses = statusEntries.filter((entry) => (
+    ["unsupported", "skipped", "unavailable", "missing"].includes(String(entry.status).toLowerCase())
+  ));
+  const unreachableProviders = Object.entries(providerMap)
+    .filter(([, entry]) => entry?.configured && entry?.reachable === false)
+    .map(([key]) => titleCase(key));
+  const providerGapLabels = dedupeCaseInsensitive([
+    ...providerGapDiagnostics.map(providerDiagnosticLabel),
+    ...providerGapStatuses.map((entry) => titleCase(entry.section)),
+    ...unreachableProviders,
+  ]);
+  if (providerGapLabels.length) {
+    items.push({
+      key: "provider_gap",
+      label: "Provider Gap / Not Available",
+      valueLabel: "Present",
+      severity: "warning",
+      description: providerGapLabels.slice(0, 3).join(", "),
+      sourceLabel: "provider diagnostics / source status",
+      isProxy: true,
+    });
+  }
+
+  const weakDiagnostics = diagnostics.filter((entry) => ["partial", "weak"].includes(entry.coverage || ""));
+  const partialStatuses = statusEntries.filter((entry) => (
+    ["partial", "modeled", "weak"].includes(String(entry.status).toLowerCase())
+  ));
+  const directness = evidenceDirectness.directness || evidenceDirectness.status || null;
+  const indirectDirectness = ["mostly_inferred", "descriptive_only", "critical_gaps"].includes(directness);
+  const partialLabels = dedupeCaseInsensitive([
+    ...weakDiagnostics.map(providerDiagnosticLabel),
+    ...partialStatuses.map((entry) => titleCase(entry.section)),
+    indirectDirectness ? titleCase(directness) : null,
+  ].filter(Boolean));
+  if (partialLabels.length) {
+    items.push({
+      key: "partial_indirect",
+      label: "Partial / Indirect Context",
+      valueLabel: "Proxy",
+      severity: "info",
+      description: partialLabels.slice(0, 3).join(", "),
+      sourceLabel: "evidenceDirectness / partial provider coverage",
+      isProxy: true,
+    });
+  }
+
+  const auditAlerts = normalizeRenderableList(safeModel.auditAlerts);
+  const hasConflict = Boolean(safeModel.evidenceConflicts || safeModel.contradictionNote);
+  if (hasConflict || auditAlerts.length) {
+    items.push({
+      key: "contradiction_audit",
+      label: hasConflict ? "Contradiction / Audit Alert" : "Audit Alert",
+      valueLabel: "Review required",
+      severity: "critical",
+      description: hasConflict
+        ? "Conflicting or unresolved evidence appears in the live response."
+        : auditAlerts.slice(0, 2).join("; "),
+      sourceLabel: hasConflict ? "thesisCore/confidence conflict fields" : "policy signals / warnings",
+      isProxy: true,
+    });
+  }
+
+  const manualReviewLabel = safeModel.manualReviewStatus?.label || "";
+  const manualReviewIsActive = manualReviewLabel && !manualReviewLabel.toLowerCase().includes("no explicit");
+  if (manualReviewIsActive || missingCritical.length || hasConflict || providerGapLabels.length || auditAlerts.length) {
+    items.push({
+      key: "manual_review_signal",
+      label: "Manual Review Signal",
+      valueLabel: "Review required",
+      severity: "review",
+      description: safeModel.manualReviewStatus?.detail || "Live proxy signals indicate analyst review may be warranted.",
+      sourceLabel: "manual-review proxy from live response",
+      isProxy: true,
+    });
+  }
+
+  const evidenceStrength = safeModel.evidenceStrength || safeAnalysis?.thesisCore?.evidenceQuality?.strength || null;
+  const successfulDiagnostics = diagnostics.filter((entry) => (
+    entry.status === "success" && ["strong", "available", "complete", "live"].includes(entry.coverage || "available")
+  ));
+  const liveStatuses = statusEntries.filter((entry) => ["live", "available", "success"].includes(String(entry.status).toLowerCase()));
+  if (evidenceStrength || successfulDiagnostics.length || liveStatuses.length) {
+    items.unshift({
+      key: "confirmed_context",
+      label: "Live Context Present",
+      valueLabel: "Present",
+      severity: "info",
+      description: evidenceStrength
+        ? `Live engine context signal: ${titleCase(evidenceStrength)}. This is not institutional question-level support.`
+        : `${dedupeCaseInsensitive([
+          ...successfulDiagnostics.map(providerDiagnosticLabel),
+          ...liveStatuses.map((entry) => titleCase(entry.section)),
+        ]).slice(0, 3).join(", ")}. This is not institutional question-level support.`,
+      sourceLabel: "live engine/provider context only, not institutional support",
+      isProxy: true,
+    });
+  }
+
+  if (!items.length && (confidenceModel.summary || providerNotes.length)) {
+    items.push({
+      key: "partial_indirect",
+      label: "Partial / Indirect Context",
+      valueLabel: "Proxy",
+      severity: "neutral",
+      description: confidenceModel.summary || providerNotes.slice(0, 2).join("; "),
+      sourceLabel: "confidence/provider notes",
+      isProxy: true,
+    });
+  }
+
+  return {
+    label: "Live Evidence Proxy",
+    summary: items.length
+      ? "Derived from the current analysis response. Not the full institutional evidence map."
+      : "No evidence-status proxy signals were attached to this live response.",
+    items,
+    warnings,
+    unavailable,
+  };
+}
+
 function buildDecisionDrivers({ contributors, prioritySignals, primaryStrength, primaryWeakness, blockers }) {
   const topDrivers = filterUserFacingItems(safeArray(contributors?.topDrivers), null);
   const negativeDrivers = filterUserFacingItems(contributors?.negatives, null)
@@ -1446,6 +1762,42 @@ export function buildDecisionTerminalModel({
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
   });
+  const primaryBlocker = derivePrimaryBlocker({
+    blockers,
+    primaryWeakness,
+    failureMode: { primary: failurePrimary },
+    missingCritical,
+    auditAlerts,
+    topNegativeDrivers: contributors.negatives,
+  });
+  const weakestLink = deriveWeakestLink({
+    evidenceConstraintNote,
+    primaryWeakness,
+    missingCritical,
+    failureMode: { primary: failurePrimary },
+    sourceAgreementSummary: confidenceModel.sourceAgreementSummary,
+  });
+  const whatWouldChangeDecision = deriveWhatWouldChangeDecision({
+    requiredConditions,
+    nextCheckpoints: decisionFrame.nextCheckpoints,
+    missingCritical,
+    whyNotNow: sanitizedWhyNotNow,
+  });
+  const manualReviewStatus = deriveManualReviewStatus({
+    missingCritical,
+    evidenceConflicts,
+    auditAlerts,
+  });
+  const assetClassLabel = deriveAssetClassLabel({
+    assetClass: assetClassification.assetClass || null,
+    assetSubtype: assetClassification.subtype || null,
+    primarySector: sectorClassification.primarySector || null,
+  });
+  const assetFramingLabel = deriveAssetFramingLabel({
+    assetClass: assetClassification.assetClass || null,
+    assetSubtype: assetClassification.subtype || null,
+    primarySector: sectorClassification.primarySector || null,
+  });
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -1478,9 +1830,15 @@ export function buildDecisionTerminalModel({
     evidenceConstraintNote,
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
+    assetClassLabel,
+    assetFramingLabel,
     primarySector: sectorClassification.primarySector || null,
     secondarySectors: dedupedSecondarySectors,
     assetBadges,
+    primaryBlocker,
+    weakestLink,
+    whatWouldChangeDecision,
+    manualReviewStatus,
     whyNow: sanitizedWhyNow,
     whyNotNow: sanitizedWhyNotNow,
     whatMustBeTrue: cleanUserFacingList(decisionFrame.whatMustBeTrue, {

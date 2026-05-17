@@ -9,7 +9,7 @@ export default function ResearchHeader({ backendMeta, apiBase, onRunAnalysis, on
           <h2 style={styles.brandTitle}>Truth Before Allocation.</h2>
         </div>
         <div style={styles.heroNav}>
-          <button onClick={onRunAnalysis} style={styles.quickButton}>Run Analysis</button>
+          <button onClick={onRunAnalysis} style={styles.quickButton}>Analyze an Asset</button>
           <button onClick={onViewMethodology} style={styles.ghostButton}>View Methodology</button>
         </div>
         <div style={{ ...styles.statusBadge, borderColor: backendMeta.color }}>
@@ -23,33 +23,36 @@ export default function ResearchHeader({ backendMeta, apiBase, onRunAnalysis, on
 
       <div style={styles.heroPanel}>
         <div style={styles.heroCopy}>
-          <div style={styles.heroKicker}>Decision Infrastructure for Digital Assets</div>
-          <h1 style={styles.heroTitle}>Decide What Deserves Capital.</h1>
+          <div style={styles.heroKicker}>Institutional Due Diligence for Digital Asset Allocation</div>
+          <h1 style={styles.heroTitle}>Truth Before Allocation.</h1>
           <p style={styles.heroSubtitle}>
-            Deterministic investability analysis, token-thesis assessment, and allocator-grade decision support for digital assets.
+            ThesisCore tests whether a digital asset thesis deserves capital by exposing blockers, missing evidence, source gaps, false-positive risk, and what would change the decision.
           </p>
           <div style={styles.heroButtonRow}>
-            <button onClick={onRunAnalysis} style={styles.primaryButton}>Run Analysis</button>
+            <button onClick={onRunAnalysis} style={styles.primaryButton}>Analyze an Asset</button>
             <button onClick={onViewMethodology} style={styles.quickButton}>View Methodology</button>
           </div>
           <div style={styles.heroBullets}>
-            <span style={styles.heroBullet}>Deterministic</span>
-            <span style={styles.heroBullet}>Explainable</span>
-            <span style={styles.heroBullet}>No Black-Box AI</span>
+            <span style={styles.heroBullet}>Thesis Falsification</span>
+            <span style={styles.heroBullet}>Evidence Transparency</span>
+            <span style={styles.heroBullet}>Research Support Only</span>
           </div>
         </div>
 
         <div style={styles.heroSideCard}>
-          <div style={styles.sideCardLabel}>Positioning</div>
-          <div style={styles.sideCardValue}>Messari helps you research</div>
+          <div style={styles.sideCardLabel}>Positioning Boundary</div>
+          <div style={styles.sideCardValue}>Not a crypto dashboard</div>
           <p style={styles.sideCardText}>
-            Nansen helps you monitor
+            Not price prediction.
           </p>
           <p style={styles.sideCardText}>
-            Token Terminal helps you measure
+            Not AI picks.
           </p>
           <p style={styles.sideCardText}>
-            ThesisCore helps you decide
+            Not a generic score.
+          </p>
+          <p style={styles.sideCardText}>
+            It is a deterministic due-diligence and allocation-thesis falsification engine.
           </p>
           <p style={styles.sideCardText}>
             API base: <code style={styles.inlineCode}>{apiBase}</code>
