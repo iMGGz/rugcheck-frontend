@@ -387,6 +387,7 @@ function getWatchlistSortTimestamp(statusSnapshot) {
 
 export default function App() {
   const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
+  const [activeProductView, setActiveProductView] = useState("analysis");
   const [query, setQuery] = useState(readInitialQuery);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -433,7 +434,6 @@ export default function App() {
   const providerHealthRequestRef = useRef(0);
   const watchlistRequestRef = useRef(0);
   const searchSectionRef = useRef(null);
-  const methodologySectionRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -457,6 +457,22 @@ export default function App() {
 
   const scrollToRef = useCallback((targetRef) => {
     targetRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const openAnalysisView = useCallback((options = {}) => {
+    const { scrollToSearch = false } = options;
+    setActiveProductView("analysis");
+
+    if (scrollToSearch && typeof window !== "undefined") {
+      window.setTimeout(() => scrollToRef(searchSectionRef), 0);
+    }
+  }, [scrollToRef]);
+
+  const openMethodologyView = useCallback(() => {
+    setActiveProductView("methodology");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }, []);
 
   const checkHealth = useCallback(async () => {
@@ -1306,8 +1322,10 @@ export default function App() {
       <ResearchHeader
         backendMeta={backendMeta}
         apiBase={API_BASE}
-        onRunAnalysis={() => scrollToRef(searchSectionRef)}
-        onViewMethodology={() => scrollToRef(methodologySectionRef)}
+        activeProductView={activeProductView}
+        onRunAnalysis={() => openAnalysisView({ scrollToSearch: true })}
+        onViewMethodology={openMethodologyView}
+        onOpenAnalysis={() => openAnalysisView({ scrollToSearch: false })}
         styles={styles}
       />
 
@@ -1319,175 +1337,191 @@ export default function App() {
           <span style={styles.trustStripItem}>Third-Party Data Dependent</span>
         </div>
 
-        <HomepagePositioning
-          onAnalyzeAsset={() => scrollToRef(searchSectionRef)}
-          onViewMethodology={() => scrollToRef(methodologySectionRef)}
-          styles={styles}
-        />
-
-        <div ref={searchSectionRef}>
-          <SearchPanel
-            query={query}
-            setQuery={setQuery}
-            analyze={analyze}
-            loading={loading}
-            quickSearches={QUICK_SEARCHES}
-            history={history}
-            clearHistory={clearHistory}
-            lastUpdated={lastUpdated}
-            styles={styles}
-          />
-        </div>
-
-        <WatchlistPanel
-          watchlistItems={visibleWatchlistItems}
-          watchlistTotalCount={watchlistItems.length}
-          watchlistStates={watchlistStates}
-          watchlistChecks={watchlistChecks}
-          watchlistRefreshResults={watchlistRefreshResults}
-          watchlistLoading={watchlistLoading}
-          watchlistError={watchlistError}
-          watchlistRefreshError={watchlistRefreshError}
-          watchlistRefreshNotice={watchlistRefreshNotice}
-          watchlistBatchSummary={watchlistBatchSummary}
-          watchlistRefreshingKeys={watchlistRefreshingKeys}
-          watchlistBatchRefresh={watchlistBatchRefresh}
-          watchlistFilter={watchlistFilter}
-          watchlistSort={watchlistSort}
-          onChangeWatchlistFilter={setWatchlistFilter}
-          onChangeWatchlistSort={setWatchlistSort}
-          onOpenItem={openWatchlistItem}
-          onRefreshItem={refreshWatchlistItem}
-          onRefreshAll={refreshWatchlistBatch}
-          onRemoveItem={removeWatchlistItem}
-          styles={styles}
-        />
-
-        {loading ? (
-          <div style={styles.loadingCard}>
-            <div style={styles.loadingPulse} />
-            <div>
-              <div style={styles.loadingTitle}>Building your analysis</div>
-              <div style={styles.loadingText}>Fetching evidence, compressing thesis support, and preparing a deterministic decision memo.</div>
-            </div>
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div style={styles.skeletonGrid}>
-            <div style={styles.skeletonCard} />
-            <div style={styles.skeletonCard} />
-            <div style={styles.skeletonCard} />
-          </div>
-        ) : null}
-
-        {error ? (
-          <div style={styles.errorBox}>
-            <div style={styles.errorTitle}>Request failed</div>
-            <div style={styles.errorText}>{error}</div>
-            <button onClick={() => analyze(query, "full")} style={styles.secondaryButton}>Try again</button>
-          </div>
-        ) : null}
-
-        {notice ? (
-          <div style={styles.noticeBox}>
-            <div style={styles.noticeTitle}>Decision memo loaded</div>
-            <div style={styles.noticeText}>{notice}</div>
-          </div>
-        ) : null}
-
-        {pendingResolution ? (
-          <SearchSelectorPanel
-            pendingResolution={pendingResolution}
-            onSelectCandidate={analyzeSelectedCandidate}
-            onDismiss={() => {
-              setPendingResolution(null);
-              setNotice("");
-            }}
-            styles={styles}
-          />
-        ) : null}
-
-        {!data && !loading && !error ? (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyTitle}>No allocation memo loaded yet</div>
-            <div style={styles.emptyText}>Start with a symbol, project name, or contract address to generate a deterministic decision memo.</div>
-          </div>
-        ) : null}
-
-        {data ? (
-          <ResearchErrorBoundary styles={styles} areaName="research-results">
-            <DecisionHeroCard
-              asset={asset}
-              model={decisionModel}
+        {activeProductView === "analysis" ? (
+          <>
+            <HomepagePositioning
+              onAnalyzeAsset={() => openAnalysisView({ scrollToSearch: true })}
+              onViewMethodology={openMethodologyView}
               styles={styles}
-              onSelectSection={setActiveTab}
-              lastAnalyzed={lastUpdated}
             />
 
-            <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
-
-            <div style={styles.resultActions}>
-              <button onClick={toggleFavorite} style={styles.actionButton}>
-                {isFavorite ? "Remove from saved history" : "Save to decision history"}
-              </button>
-              <button onClick={copyShareLink} style={styles.actionButton}>
-                Copy memo link
-              </button>
-              {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
-            </div>
-
-            <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
-
-            <div style={styles.terminalNavHeader}>
-              <div style={styles.terminalNavTitle}>Decision Navigation</div>
-              <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
-            </div>
-            <div style={styles.terminalNav}>
-              {RESEARCH_TABS.map((tab) => (
-                <TabButton
-                  key={tab.key}
-                  label={tab.label}
-                  active={activeTab === tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  styles={styles}
-                />
-              ))}
-            </div>
-
-            <div style={styles.analysisWorkbench}>
-              <main style={styles.analysisMainColumn}>
-                {renderActiveTab()}
-
-                {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
-                  <SnapshotDetailPanel
-                    snapshotRecord={snapshotDetailData}
-                    loading={snapshotDetailLoading}
-                    error={snapshotDetailError}
-                    onClose={() => {
-                      setSnapshotDetailId("");
-                      setSnapshotDetailData(null);
-                      setSnapshotDetailError("");
-                    }}
-                    styles={styles}
-                  />
-                ) : null}
-              </main>
-              <AnalysisRightRail
-                model={decisionModel}
-                evidenceStatusProxy={evidenceStatusProxy}
-                activeTab={activeTab}
-                onSelectSection={setActiveTab}
-                onViewMethodology={() => scrollToRef(methodologySectionRef)}
+            <div ref={searchSectionRef}>
+              <SearchPanel
+                query={query}
+                setQuery={setQuery}
+                analyze={analyze}
+                loading={loading}
+                quickSearches={QUICK_SEARCHES}
+                history={history}
+                clearHistory={clearHistory}
+                lastUpdated={lastUpdated}
                 styles={styles}
               />
             </div>
-          </ResearchErrorBoundary>
-        ) : null}
 
-        <div ref={methodologySectionRef}>
-          <HowTheEngineWorksPage styles={styles} />
-        </div>
+            <WatchlistPanel
+              watchlistItems={visibleWatchlistItems}
+              watchlistTotalCount={watchlistItems.length}
+              watchlistStates={watchlistStates}
+              watchlistChecks={watchlistChecks}
+              watchlistRefreshResults={watchlistRefreshResults}
+              watchlistLoading={watchlistLoading}
+              watchlistError={watchlistError}
+              watchlistRefreshError={watchlistRefreshError}
+              watchlistRefreshNotice={watchlistRefreshNotice}
+              watchlistBatchSummary={watchlistBatchSummary}
+              watchlistRefreshingKeys={watchlistRefreshingKeys}
+              watchlistBatchRefresh={watchlistBatchRefresh}
+              watchlistFilter={watchlistFilter}
+              watchlistSort={watchlistSort}
+              onChangeWatchlistFilter={setWatchlistFilter}
+              onChangeWatchlistSort={setWatchlistSort}
+              onOpenItem={openWatchlistItem}
+              onRefreshItem={refreshWatchlistItem}
+              onRefreshAll={refreshWatchlistBatch}
+              onRemoveItem={removeWatchlistItem}
+              styles={styles}
+            />
+
+            {loading ? (
+              <div style={styles.loadingCard}>
+                <div style={styles.loadingPulse} />
+                <div>
+                  <div style={styles.loadingTitle}>Building your analysis</div>
+                  <div style={styles.loadingText}>Fetching evidence, compressing thesis support, and preparing a deterministic decision memo.</div>
+                </div>
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div style={styles.skeletonGrid}>
+                <div style={styles.skeletonCard} />
+                <div style={styles.skeletonCard} />
+                <div style={styles.skeletonCard} />
+              </div>
+            ) : null}
+
+            {error ? (
+              <div style={styles.errorBox}>
+                <div style={styles.errorTitle}>Request failed</div>
+                <div style={styles.errorText}>{error}</div>
+                <button onClick={() => analyze(query, "full")} style={styles.secondaryButton}>Try again</button>
+              </div>
+            ) : null}
+
+            {notice ? (
+              <div style={styles.noticeBox}>
+                <div style={styles.noticeTitle}>Decision memo loaded</div>
+                <div style={styles.noticeText}>{notice}</div>
+              </div>
+            ) : null}
+
+            {pendingResolution ? (
+              <SearchSelectorPanel
+                pendingResolution={pendingResolution}
+                onSelectCandidate={analyzeSelectedCandidate}
+                onDismiss={() => {
+                  setPendingResolution(null);
+                  setNotice("");
+                }}
+                styles={styles}
+              />
+            ) : null}
+
+            {!data && !loading && !error ? (
+              <div style={styles.emptyState}>
+                <div style={styles.emptyTitle}>No allocation memo loaded yet</div>
+                <div style={styles.emptyText}>Start with a symbol, project name, or contract address to generate a deterministic decision memo.</div>
+              </div>
+            ) : null}
+
+            {data ? (
+              <ResearchErrorBoundary styles={styles} areaName="research-results">
+                <DecisionHeroCard
+                  asset={asset}
+                  model={decisionModel}
+                  styles={styles}
+                  onSelectSection={setActiveTab}
+                  lastAnalyzed={lastUpdated}
+                />
+
+                <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
+
+                <div style={styles.resultActions}>
+                  <button onClick={toggleFavorite} style={styles.actionButton}>
+                    {isFavorite ? "Remove from saved history" : "Save to decision history"}
+                  </button>
+                  <button onClick={copyShareLink} style={styles.actionButton}>
+                    Copy memo link
+                  </button>
+                  {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
+                </div>
+
+                <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
+
+                <div style={styles.terminalNavHeader}>
+                  <div style={styles.terminalNavTitle}>Decision Navigation</div>
+                  <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
+                </div>
+                <div style={styles.terminalNav}>
+                  {RESEARCH_TABS.map((tab) => (
+                    <TabButton
+                      key={tab.key}
+                      label={tab.label}
+                      active={activeTab === tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      styles={styles}
+                    />
+                  ))}
+                </div>
+
+                <div style={styles.analysisWorkbench}>
+                  <main style={styles.analysisMainColumn}>
+                    {renderActiveTab()}
+
+                    {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
+                      <SnapshotDetailPanel
+                        snapshotRecord={snapshotDetailData}
+                        loading={snapshotDetailLoading}
+                        error={snapshotDetailError}
+                        onClose={() => {
+                          setSnapshotDetailId("");
+                          setSnapshotDetailData(null);
+                          setSnapshotDetailError("");
+                        }}
+                        styles={styles}
+                      />
+                    ) : null}
+                  </main>
+                  <AnalysisRightRail
+                    model={decisionModel}
+                    evidenceStatusProxy={evidenceStatusProxy}
+                    activeTab={activeTab}
+                    onSelectSection={setActiveTab}
+                    onViewMethodology={openMethodologyView}
+                    styles={styles}
+                  />
+                </div>
+              </ResearchErrorBoundary>
+            ) : null}
+          </>
+        ) : (
+          <section style={styles.methodologyViewShell}>
+            <div style={styles.methodologyViewHeader}>
+              <div>
+                <div style={styles.productViewEyebrow}>Methodology / How It Works</div>
+                <h1 style={styles.methodologyViewTitle}>How ThesisCore tests allocation theses.</h1>
+                <p style={styles.methodologyViewText}>
+                  A dedicated product view for the engine pipeline, live/report-only boundary, source-backed research workflow, and planned Hybrid Finance thesis layer.
+                </p>
+              </div>
+              <button onClick={() => openAnalysisView({ scrollToSearch: true })} style={styles.primaryButton}>
+                Analyze an Asset
+              </button>
+            </div>
+            <HowTheEngineWorksPage styles={styles} />
+          </section>
+        )}
 
         <div style={styles.disclaimer}>
           <h3 style={{ marginTop: 0, color: "#f9d976" }}>Research Support Only</h3>
