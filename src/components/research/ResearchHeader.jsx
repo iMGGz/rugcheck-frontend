@@ -31,7 +31,7 @@ export default function ResearchHeader({
       <div style={styles.topbar}>
         <div>
           <div style={styles.brandEyebrow}>ThesisCore</div>
-          <h2 style={styles.brandTitle}>Truth Before Allocation.</h2>
+          <h2 style={styles.brandTitle}>Research Terminal</h2>
         </div>
         <nav style={styles.productViewNav} aria-label="Product view navigation">
           <ProductViewButton
@@ -50,8 +50,8 @@ export default function ResearchHeader({
           </ProductViewButton>
         </nav>
         <div style={styles.heroNav}>
-          <button onClick={onRunAnalysis} style={styles.quickButton}>Analyze an Asset</button>
-          <button onClick={onViewMethodology} style={styles.ghostButton}>View Methodology</button>
+          <button onClick={onRunAnalysis} style={styles.quickButton}>Start Analysis</button>
+          <button onClick={onViewMethodology} style={styles.ghostButton}>Learn Methodology</button>
         </div>
         <div style={{ ...styles.statusBadge, borderColor: backendMeta.color }}>
           <span style={{ ...styles.statusDot, background: backendMeta.color }} />
@@ -70,8 +70,8 @@ export default function ResearchHeader({
             ThesisCore tests whether a digital asset thesis deserves capital by exposing blockers, missing evidence, source gaps, false-positive risk, and what would change the decision.
           </p>
           <div style={styles.heroButtonRow}>
-            <button onClick={onRunAnalysis} style={styles.primaryButton}>Analyze an Asset</button>
-            <button onClick={onViewMethodology} style={styles.quickButton}>View Methodology</button>
+            <button onClick={onRunAnalysis} style={styles.primaryButton}>Start Analysis</button>
+            <button onClick={onViewMethodology} style={styles.quickButton}>Learn Methodology</button>
           </div>
           <div style={styles.heroBullets}>
             <span style={styles.heroBullet}>Thesis Falsification</span>

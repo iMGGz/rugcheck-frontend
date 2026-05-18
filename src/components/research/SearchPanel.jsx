@@ -15,8 +15,8 @@ export default function SearchPanel({
     <div style={styles.searchPanel}>
       <div style={styles.searchHeader}>
         <div>
-          <div style={styles.searchTitle}>Run Allocation Assessment</div>
-          <div style={styles.searchHint}>Use a symbol, canonical project name, or EVM contract address.</div>
+          <div style={styles.searchTitle}>Search for the asset to analyze</div>
+          <div style={styles.searchHint}>Use a symbol, project name, or EVM contract address. If multiple assets match, choose the exact asset before the memo updates.</div>
         </div>
         {lastUpdated ? <div style={styles.lastUpdated}>Last memo: {lastUpdated}</div> : null}
       </div>
@@ -32,7 +32,7 @@ export default function SearchPanel({
           placeholder="ETH, AAVE, 0x..."
         />
         <button onClick={() => analyze(query, "full")} style={styles.primaryButton} disabled={loading}>
-          {loading ? "Running..." : "Run Analysis"}
+          {loading ? "Resolving..." : "Find Asset"}
         </button>
       </div>
 

@@ -434,6 +434,7 @@ export default function App() {
   const providerHealthRequestRef = useRef(0);
   const watchlistRequestRef = useRef(0);
   const searchSectionRef = useRef(null);
+  const selectorSectionRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -474,6 +475,12 @@ export default function App() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, []);
+
+  useEffect(() => {
+    if (!pendingResolution || activeProductView !== "analysis" || typeof window === "undefined") return undefined;
+    const timeout = window.setTimeout(() => scrollToRef(selectorSectionRef), 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeProductView, pendingResolution, scrollToRef]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -1359,6 +1366,21 @@ export default function App() {
               />
             </div>
 
+            {pendingResolution ? (
+              <div ref={selectorSectionRef}>
+                <SearchSelectorPanel
+                  pendingResolution={pendingResolution}
+                  onSelectCandidate={analyzeSelectedCandidate}
+                  onDismiss={() => {
+                    setPendingResolution(null);
+                    setNotice("");
+                  }}
+                  hasExistingAnalysis={Boolean(data)}
+                  styles={styles}
+                />
+              </div>
+            ) : null}
+
             <WatchlistPanel
               watchlistItems={visibleWatchlistItems}
               watchlistTotalCount={watchlistItems.length}
@@ -1414,18 +1436,6 @@ export default function App() {
                 <div style={styles.noticeTitle}>Decision memo loaded</div>
                 <div style={styles.noticeText}>{notice}</div>
               </div>
-            ) : null}
-
-            {pendingResolution ? (
-              <SearchSelectorPanel
-                pendingResolution={pendingResolution}
-                onSelectCandidate={analyzeSelectedCandidate}
-                onDismiss={() => {
-                  setPendingResolution(null);
-                  setNotice("");
-                }}
-                styles={styles}
-              />
             ) : null}
 
             {!data && !loading && !error ? (
@@ -1516,7 +1526,7 @@ export default function App() {
                 </p>
               </div>
               <button onClick={() => openAnalysisView({ scrollToSearch: true })} style={styles.primaryButton}>
-                Analyze an Asset
+                Start Analysis
               </button>
             </div>
             <HowTheEngineWorksPage styles={styles} />

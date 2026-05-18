@@ -102,8 +102,8 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
             {labels.map((label) => <Label key={label} styles={styles}>{label}</Label>)}
           </div>
           <div style={styles.homepageCtaRow}>
-            <button onClick={onAnalyzeAsset} style={styles.primaryButton}>Analyze an Asset</button>
-            <button onClick={onViewMethodology} style={styles.quickButton}>View Methodology</button>
+            <button onClick={onAnalyzeAsset} style={styles.primaryButton}>Start Analysis</button>
+            <button onClick={onViewMethodology} style={styles.quickButton}>Learn Methodology</button>
             <button onClick={scrollToWorkflow} style={styles.ghostButton}>See Evidence Workflow</button>
           </div>
         </div>

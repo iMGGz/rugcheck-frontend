@@ -1,13 +1,14 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
+import { normalizeEvidenceProxyDisplayLabel } from "./researchUtils";
 
 const severityColors = {
-  supported: "#2fd67b",
-  info: "#7dd3fc",
+  supported: "#aab7cc",
+  info: "#aab7cc",
   neutral: "#8a94a6",
-  warning: "#ffb020",
-  review: "#ffb020",
-  critical: "#ff6b6b",
+  warning: "#d5dcec",
+  review: "#d5dcec",
+  critical: "#d5dcec",
 };
 
 function toneColor(severity) {
@@ -29,6 +30,10 @@ function ProxyBadge({ label, color, styles }) {
   );
 }
 
+function BoundaryPill({ children, styles }) {
+  return <span style={styles.evidenceStatusBoundaryPill}>{children}</span>;
+}
+
 export default function EvidenceStatusSummaryCard({ proxy, styles }) {
   const items = proxy?.items || [];
   const warnings = proxy?.warnings || [];
@@ -44,51 +49,42 @@ export default function EvidenceStatusSummaryCard({ proxy, styles }) {
         <div style={styles.evidenceStatusHeaderRow}>
           <ProxyBadge label={proxy?.label || "Live Evidence Proxy"} color="#7dd3fc" styles={styles} />
           <div style={styles.evidenceStatusHeaderCopy}>
-            Live proxy, not full institutional evidence map. Report-only source overlays are not connected to live scoring.
+            Qualitative review signals only. Not a count distribution, evidence score, or institutional support rating.
           </div>
         </div>
 
-        {items.length ? (
-          <>
-            <div style={styles.evidenceStatusSegmentRow} aria-label="Live evidence proxy status indicators">
-              {items.map((item) => {
-                const color = toneColor(item.severity);
-                return (
-                  <div
-                    key={item.key}
-                    title={`${item.label}: ${item.valueLabel}`}
-                    style={{
-                      ...styles.evidenceStatusSegment,
-                      background: color,
-                      boxShadow: `0 0 0 1px ${color}55`,
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <div style={styles.evidenceStatusSegmentNote}>
-              Qualitative signal view only - not a count distribution.
-            </div>
-          </>
-        ) : (
+        <div style={styles.evidenceStatusBoundaryPillRow}>
+          <BoundaryPill styles={styles}>Not the full institutional evidence map</BoundaryPill>
+          <BoundaryPill styles={styles}>Qualitative review signals only</BoundaryPill>
+          <BoundaryPill styles={styles}>Not a count distribution</BoundaryPill>
+          <BoundaryPill styles={styles}>Report-only overlays are not connected to live scoring</BoundaryPill>
+        </div>
+
+        {!items.length ? (
           <div style={styles.evidenceStatusUnavailablePanel}>
             No live evidence-status proxy signals were detected.
           </div>
-        )}
+        ) : null}
 
         <div style={styles.evidenceStatusGrid}>
           {items.map((item) => {
-            const color = toneColor(item.severity);
+            const display = normalizeEvidenceProxyDisplayLabel(item);
+            const color = display.tone || toneColor(item.severity);
             return (
               <div key={item.key} style={{ ...styles.evidenceStatusItem, borderColor: `${color}36` }}>
                 <div style={styles.evidenceStatusItemTopline}>
-                  <span style={{ ...styles.evidenceStatusDot, background: color }} />
+                  <span style={{ ...styles.evidenceStatusDot, borderColor: `${color}88` }} />
                   <div style={styles.evidenceStatusItemTitle}>{item.label}</div>
-                  <ProxyBadge label={item.valueLabel} color={color} styles={styles} />
+                  <ProxyBadge label={display.statusLabel} color={color} styles={styles} />
                 </div>
+                <div style={styles.evidenceStatusSignalType}>{display.signalType}</div>
                 <div style={styles.evidenceStatusItemDescription}>{item.description}</div>
+                <div style={styles.evidenceStatusMeaningLine}>{display.meaning}</div>
                 <div style={styles.evidenceStatusSourceLine}>
-                  Source: {item.sourceLabel} - Proxy only
+                  Source basis: {item.sourceLabel} - Live response proxy only
+                </div>
+                <div style={styles.evidenceStatusSourceLine}>
+                  Boundary: {display.boundaryLabel}; not scoring-active evidence.
                 </div>
               </div>
             );

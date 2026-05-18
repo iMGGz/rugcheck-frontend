@@ -1609,6 +1609,67 @@ export function deriveEvidenceStatusProxy({
   };
 }
 
+export function normalizeEvidenceProxyDisplayLabel(item = {}) {
+  const key = String(item.key || "").toLowerCase();
+  const rawLabel = String(item.valueLabel || "").toLowerCase();
+  const rawSignal = String(item.label || "").toLowerCase();
+
+  if (key.includes("provider") || rawSignal.includes("provider gap") || rawLabel.includes("unavailable")) {
+    return {
+      statusLabel: "Provider Gap Flagged",
+      signalType: "Provider coverage signal",
+      meaning: "Provider availability issue or missing provider coverage; not a positive evidence signal.",
+      boundaryLabel: "Not Full Evidence Mapping",
+      tone: "#aab7cc",
+    };
+  }
+
+  if (key.includes("partial") || rawLabel.includes("proxy") || rawSignal.includes("indirect")) {
+    return {
+      statusLabel: "Indirect / Partial Signal",
+      signalType: "Indirect context signal",
+      meaning: "Indirect context only; requires source review before it can support a thesis.",
+      boundaryLabel: "Not Full Evidence Mapping",
+      tone: "#aab7cc",
+    };
+  }
+
+  if (
+    key.includes("manual") ||
+    key.includes("audit") ||
+    key.includes("contradiction") ||
+    key.includes("missing") ||
+    rawLabel.includes("review") ||
+    rawLabel.includes("detected")
+  ) {
+    return {
+      statusLabel: "Review Signal Flagged",
+      signalType: "Review workflow signal",
+      meaning: "Workflow signal only; not automatic proof of failure.",
+      boundaryLabel: "Needs Source Review",
+      tone: "#d5dcec",
+    };
+  }
+
+  if (key.includes("confirmed") || rawLabel.includes("present") || rawLabel.includes("detected")) {
+    return {
+      statusLabel: "Live Context Available",
+      signalType: "Live response context",
+      meaning: "Live context exists, but this is not institutional question-level support.",
+      boundaryLabel: "Not Full Evidence Mapping",
+      tone: "#d5dcec",
+    };
+  }
+
+  return {
+    statusLabel: "Indirect / Partial Signal",
+    signalType: "Qualitative review signal",
+    meaning: "Current response context only; not a score, support rating, or evidence count.",
+    boundaryLabel: "Not Full Evidence Mapping",
+    tone: "#aab7cc",
+  };
+}
+
 function buildDecisionDrivers({ contributors, prioritySignals, primaryStrength, primaryWeakness, blockers }) {
   const topDrivers = filterUserFacingItems(safeArray(contributors?.topDrivers), null);
   const negativeDrivers = filterUserFacingItems(contributors?.negatives, null)

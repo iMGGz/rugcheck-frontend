@@ -56,7 +56,33 @@ function RubricCard({ item, styles }) {
   );
 }
 
+function JumpPill({ href, children, styles }) {
+  return (
+    <a href={href} style={styles.engineJumpPill}>
+      {children}
+    </a>
+  );
+}
+
+function BackToTop({ styles }) {
+  return (
+    <a href="#methodology-top" style={styles.engineBackToTop}>
+      Back to top
+    </a>
+  );
+}
+
 export default function HowTheEngineWorksPage({ styles }) {
+  const jumpItems = [
+    ["#methodology-problem", "Problem"],
+    ["#methodology-pipeline", "Pipeline"],
+    ["#methodology-evidence-layers", "Evidence Layers"],
+    ["#methodology-refusal-rules", "Refusal Rules"],
+    ["#methodology-asset-rubrics", "Asset Rubrics"],
+    ["#methodology-hybrid-finance", "Hybrid Finance"],
+    ["#methodology-disclaimers", "Disclaimers"],
+  ];
+
   const pipeline = [
     ["Asset Input", "Start with a symbol, project name, or contract. The engine resolves identity before reasoning."],
     ["Asset Classification", "Classify the asset so stablecoins, wrapped assets, DeFi tokens, infrastructure tokens, and memes are not judged by the same rubric."],
@@ -205,7 +231,7 @@ export default function HowTheEngineWorksPage({ styles }) {
   ];
 
   return (
-    <section style={styles.enginePageShell}>
+    <section id="methodology-top" style={styles.enginePageShell}>
       <div style={styles.engineHero}>
         <div>
           <div style={styles.engineKicker}>Methodology / How It Works</div>
@@ -229,22 +255,33 @@ export default function HowTheEngineWorksPage({ styles }) {
         </div>
       </div>
 
+      <nav style={styles.engineJumpNav} aria-label="Methodology section navigation">
+        <div style={styles.engineJumpLabel}>Jump to</div>
+        <div style={styles.engineJumpPillRow}>
+          {jumpItems.map(([href, label]) => (
+            <JumpPill key={href} href={href} styles={styles}>{label}</JumpPill>
+          ))}
+        </div>
+      </nav>
+
       <div style={styles.engineTwoColumn}>
-        <Card title="The Problem" subtitle="Why a score is not enough." styles={styles}>
-          <ListBlock
-            title="Research failure modes"
-            items={[
-              "Crypto research is often narrative-heavy, score-heavy, or price-driven.",
-              "Protocols can succeed while tokens fail to capture value.",
-              "Missing evidence is often hidden behind polished dashboards.",
-              "Stablecoins, wrapped assets, and RWA assets require legal, custody, redemption, and attestation evidence.",
-              "Institutions need auditability, not hype.",
-            ]}
-            emptyText=""
-            color="#ffb020"
-            styles={styles}
-          />
-        </Card>
+        <div id="methodology-problem" style={styles.engineAnchorBlock}>
+          <Card title="The Problem" subtitle="Why a score is not enough." styles={styles}>
+            <ListBlock
+              title="Research failure modes"
+              items={[
+                "Crypto research is often narrative-heavy, score-heavy, or price-driven.",
+                "Protocols can succeed while tokens fail to capture value.",
+                "Missing evidence is often hidden behind polished dashboards.",
+                "Stablecoins, wrapped assets, and RWA assets require legal, custody, redemption, and attestation evidence.",
+                "Institutions need auditability, not hype.",
+              ]}
+              emptyText=""
+              color="#ffb020"
+              styles={styles}
+            />
+          </Card>
+        </div>
 
         <Card title="What ThesisCore Is / Is Not" subtitle="Positioning boundary." styles={styles}>
           <div style={styles.engineGrid}>
@@ -258,21 +295,24 @@ export default function HowTheEngineWorksPage({ styles }) {
         </Card>
       </div>
 
-      <Card title="Engine Pipeline" subtitle="From asset input to falsification report." styles={styles}>
-        <div style={styles.enginePipelineGrid}>
-          {pipeline.map(([title, description], index) => (
-            <PipelineStep
-              key={title}
-              index={String(index + 1).padStart(2, "0")}
-              title={title}
-              description={description}
-              styles={styles}
-            />
-          ))}
-        </div>
-      </Card>
+      <div id="methodology-pipeline" style={styles.engineAnchorBlock}>
+        <Card title="Engine Pipeline" subtitle="From asset input to falsification report." styles={styles}>
+          <div style={styles.enginePipelineGrid}>
+            {pipeline.map(([title, description], index) => (
+              <PipelineStep
+                key={title}
+                index={String(index + 1).padStart(2, "0")}
+                title={title}
+                description={description}
+                styles={styles}
+              />
+            ))}
+          </div>
+          <BackToTop styles={styles} />
+        </Card>
+      </div>
 
-      <div style={styles.engineTwoColumn}>
+      <div id="methodology-evidence-layers" style={styles.engineTwoColumn}>
         <Card title="Live Scoring Layer" subtitle="The only layer that affects the current live verdict." styles={styles}>
           <SectionRow label="Boundary" value="Only the live scoring layer affects the current live verdict." styles={styles} />
           <ListBlock
@@ -338,23 +378,30 @@ export default function HowTheEngineWorksPage({ styles }) {
         <div style={styles.engineNotice}>
           Source candidates are not evidence. Manual review is workflow, not automatic proof of failure.
         </div>
+        <BackToTop styles={styles} />
       </Card>
 
-      <Card title="What The Engine Refuses To Infer" subtitle="False-positive discipline." styles={styles}>
-        <div style={styles.engineDoctrineGrid}>
-          {guardrails.map((item) => (
-            <div key={item} style={styles.engineDoctrineCard}>{item}</div>
-          ))}
-        </div>
-      </Card>
+      <div id="methodology-refusal-rules" style={styles.engineAnchorBlock}>
+        <Card title="What The Engine Refuses To Infer" subtitle="False-positive discipline." styles={styles}>
+          <div style={styles.engineDoctrineGrid}>
+            {guardrails.map((item) => (
+              <div key={item} style={styles.engineDoctrineCard}>{item}</div>
+            ))}
+          </div>
+          <BackToTop styles={styles} />
+        </Card>
+      </div>
 
-      <Card title="Asset-Class Specific Rubrics" subtitle="Different assets fail in different ways." styles={styles}>
-        <div style={styles.engineRubricGrid}>
-          {rubrics.map((item) => (
-            <RubricCard key={item.title} item={item} styles={styles} />
-          ))}
-        </div>
-      </Card>
+      <div id="methodology-asset-rubrics" style={styles.engineAnchorBlock}>
+        <Card title="Asset-Class Specific Rubrics" subtitle="Different assets fail in different ways." styles={styles}>
+          <div style={styles.engineRubricGrid}>
+            {rubrics.map((item) => (
+              <RubricCard key={item.title} item={item} styles={styles} />
+            ))}
+          </div>
+          <BackToTop styles={styles} />
+        </Card>
+      </div>
 
       <div style={styles.engineTwoColumn}>
         <Card title="Thesis Falsification Report" subtitle="The report asks better allocation questions." styles={styles}>
@@ -407,6 +454,7 @@ export default function HowTheEngineWorksPage({ styles }) {
         </Card>
 
         <Card title="Future Direction: Hybrid Finance Thesis Testing" subtitle="Planned strategic layer, not live scoring layer." styles={styles}>
+          <div id="methodology-hybrid-finance" style={styles.engineAnchorTarget} />
           <div style={styles.engineFuturePanel}>
             <div style={styles.engineFutureTitle}>Hybrid Finance will be treated as a thesis to falsify, not a narrative to accept.</div>
             <p style={styles.engineMuted}>
@@ -425,23 +473,27 @@ export default function HowTheEngineWorksPage({ styles }) {
             value="Future Hybrid Finance claims require publisher/source, date, freshness, review status, mapped thesis question, verification requirements, contradiction checks, and evidence requirements."
             styles={styles}
           />
+          <BackToTop styles={styles} />
         </Card>
       </div>
 
-      <Card title="Disclaimers" subtitle="Boundary conditions." styles={styles}>
-        <div style={styles.engineDoctrineGrid}>
-          {[
-            "Research support only.",
-            "Not financial advice.",
-            "No price prediction.",
-            "Source evidence requires review.",
-            "Report-only evidence does not affect scoring unless future calibrated integration occurs.",
-            "Future Hybrid Finance layer is planned, not live.",
-          ].map((item) => (
-            <div key={item} style={styles.engineDoctrineCard}>{item}</div>
-          ))}
-        </div>
-      </Card>
+      <div id="methodology-disclaimers" style={styles.engineAnchorBlock}>
+        <Card title="Disclaimers" subtitle="Boundary conditions." styles={styles}>
+          <div style={styles.engineDoctrineGrid}>
+            {[
+              "Research support only.",
+              "Not financial advice.",
+              "No price prediction.",
+              "Source evidence requires review.",
+              "Report-only evidence does not affect scoring unless future calibrated integration occurs.",
+              "Future Hybrid Finance layer is planned, not live.",
+            ].map((item) => (
+              <div key={item} style={styles.engineDoctrineCard}>{item}</div>
+            ))}
+          </div>
+          <BackToTop styles={styles} />
+        </Card>
+      </div>
     </section>
   );
 }

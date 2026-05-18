@@ -51,6 +51,7 @@ export default function SearchSelectorPanel({
   pendingResolution,
   onSelectCandidate,
   onDismiss,
+  hasExistingAnalysis = false,
   styles,
 }) {
   const [activeFilter, setActiveFilter] = useState("all");
@@ -74,12 +75,22 @@ export default function SearchSelectorPanel({
       <div style={styles.selectorHeader}>
         <div>
           <div style={styles.selectorEyebrow}>Canonical identity check</div>
-          <div style={styles.selectorTitle}>Select the exact asset before allocation analysis</div>
+          <div style={styles.selectorTitle}>Select the exact asset to continue</div>
           <div style={styles.selectorText}>
-            {pendingResolution?.ambiguityReason || `Multiple plausible assets matched "${pendingResolution?.query || "your query"}".`}
+            Multiple assets can share a ticker. Choose the exact asset before analysis updates.
+            {pendingResolution?.ambiguityReason ? ` ${pendingResolution.ambiguityReason}` : ` Multiple plausible assets matched "${pendingResolution?.query || "your query"}".`}
           </div>
         </div>
         <button onClick={onDismiss} style={styles.ghostButton}>Dismiss</button>
+      </div>
+
+      <div style={styles.selectorNotice}>
+        <div style={styles.selectorNoticeTitle}>New query pending: select the exact asset before the analysis updates.</div>
+        <div style={styles.selectorNoticeText}>
+          {hasExistingAnalysis
+            ? "Displayed analysis remains the last completed run until a new asset is selected."
+            : "Search query pending selection. No allocation memo will run until you choose one of the matched assets."}
+        </div>
       </div>
 
       <div style={styles.selectorFilterRow}>
@@ -131,7 +142,7 @@ export default function SearchSelectorPanel({
                 {candidate.coinmarketcapId ? ` | cmc:${candidate.coinmarketcapId}` : ""}
               </div>
 
-              <button onClick={() => onSelectCandidate(candidate)} style={styles.primaryButton}>
+              <button onClick={() => onSelectCandidate(candidate)} style={styles.selectorPrimaryButton}>
                 Use this asset
               </button>
             </div>
