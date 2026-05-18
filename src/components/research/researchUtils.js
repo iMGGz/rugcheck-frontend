@@ -1572,7 +1572,7 @@ export function deriveEvidenceStatusProxy({
   if (evidenceStrength || successfulDiagnostics.length || liveStatuses.length) {
     items.unshift({
       key: "confirmed_context",
-      label: "Live Context Present",
+      label: "Live Context Available",
       valueLabel: "Present",
       severity: "info",
       description: evidenceStrength

@@ -1,5 +1,5 @@
 import React from "react";
-import { formatScoreValue, normalizeEvidenceProxyDisplayLabel } from "./researchUtils";
+import { normalizeEvidenceProxyDisplayLabel } from "./researchUtils";
 
 function RailBadge({ children, tone = "#7dd3fc", styles }) {
   return (
@@ -162,7 +162,7 @@ export default function AnalysisRightRail({
             <div style={styles.railChipRow}>
               <RailBadge styles={styles} tone="#d5dcec">{model?.assetClassLabel || "Asset class unavailable"}</RailBadge>
               <RailBadge styles={styles} tone="#ffb020">{model?.confidenceLabel || "Confidence unavailable"}</RailBadge>
-              <RailBadge styles={styles} tone="#7dd3fc">{formatScoreValue(model?.confidenceScore)} evidence proxy</RailBadge>
+              <RailBadge styles={styles} tone="#7dd3fc">Evidence proxy: qualitative</RailBadge>
             </div>
           </RailSection>
 

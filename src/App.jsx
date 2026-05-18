@@ -1181,6 +1181,8 @@ export default function App() {
       case "institutional_checklist":
         return (
           <InstitutionalChecklistTab
+            asset={asset}
+            analysis={analysis}
             model={decisionModel}
             sourceStatus={sourceStatus}
             providerDiagnostics={providerDiagnostics}
