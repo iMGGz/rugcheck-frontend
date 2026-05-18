@@ -103,9 +103,68 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
   ]).slice(0, 8);
 }
 
-function suggestedResearchDomains(model) {
-  const raw = `${model?.assetClass || ""} ${model?.assetSubtype || ""} ${model?.assetFramingLabel || ""} ${model?.primarySector || ""}`.toLowerCase();
-  if (raw.includes("stable") || raw.includes("trust") || raw.includes("settlement")) {
+function suggestedResearchDomains(model, displayIdentity = null) {
+  if (displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
+    return [
+      "Reserve attestations and reserve composition disclosures",
+      "Redemption terms, issuer disclosures, and legal/counterparty structure",
+      "Bankruptcy-remoteness, custodian, and concentration-risk evidence",
+    ];
+  }
+  if (["WRAPPED_ASSET", "LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(displayIdentity?.lensId)) {
+    return [
+      "Custody, backing, proof-of-reserves, staking, or operator documentation",
+      "Redemption path, withdrawal process, wrapper contract, and admin controls",
+      "Dependency, slashing, bridge, depeg, or smart-contract risk evidence",
+    ];
+  }
+  if (["DEFI_PROTOCOL_TOKEN", "DERIVATIVES_OR_PERPS_PROTOCOL"].includes(displayIdentity?.lensId)) {
+    return [
+      "Tokenholder accrual, fee switch, and revenue-routing evidence",
+      "Governance proposals, admin controls, and upgrade authority",
+      "Audit history, liquidation/risk module design, and protocol financials",
+    ];
+  }
+  if (["ORACLE_OR_INFRASTRUCTURE", "COMPUTE_STORAGE_DEPIN"].includes(displayIdentity?.lensId)) {
+    return [
+      "Payer mapping and customer/payment evidence",
+      "Staking/security role and slashing or service-level guarantees",
+      "Token utility and tokenholder accrual limits",
+    ];
+  }
+  if (displayIdentity?.lensId === "PAYMENTS_OR_SETTLEMENT_NETWORK") {
+    return [
+      "Production payment usage and customer/partner evidence",
+      "Token role, fee mechanics, and settlement activity mapping",
+      "Issuer/network dependencies, access, and regulatory status",
+    ];
+  }
+  if (displayIdentity?.lensId === "MEME_OR_NARRATIVE") {
+    return [
+      "Holder concentration, insider/unlock risk, and liquidity durability",
+      "Narrative dependence, exchange liquidity, and downside support",
+      "Evidence that popularity is not being mistaken for fundamentals",
+    ];
+  }
+  if (displayIdentity?.lensId === "RWA_OR_HYBRID_METHODOLOGY") {
+    return [
+      "Underlying asset, issuer, custody, and collateral evidence",
+      "Legal claim, enforceable rights, redemption path, and jurisdictional access",
+      "Yield source, AUM-to-token accrual, and institutional usage evidence",
+    ];
+  }
+
+  const raw = [
+    displayIdentity?.displayAssetClass,
+    displayIdentity?.displayFraming,
+    displayIdentity?.primaryChip,
+    displayIdentity?.secondaryChip,
+    model?.assetClass,
+    model?.assetSubtype,
+    model?.assetFramingLabel,
+    model?.primarySector,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (raw.includes("stable") || raw.includes("trust")) {
     return [
       "Reserve attestations and reserve composition disclosures",
       "Redemption terms, issuer disclosures, and legal/counterparty structure",
@@ -149,12 +208,14 @@ function suggestedResearchDomains(model) {
 
 export default function SourceQueuePanel({
   model,
+  displayIdentity = null,
   sourceStatus,
   providerDiagnostics,
   styles,
 }) {
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
-  const domains = suggestedResearchDomains(model);
+  const domains = suggestedResearchDomains(model, displayIdentity);
+  const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -208,7 +269,7 @@ export default function SourceQueuePanel({
         <Card title="Suggested Research Domains" subtitle="Methodology guidance only, not live facts." styles={styles}>
           <SectionRow
             label="Asset framing"
-            value={extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis")}
+            value={assetFraming}
             styles={styles}
           />
           <ListBlock

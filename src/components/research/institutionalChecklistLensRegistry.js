@@ -647,3 +647,138 @@ export function resolveInstitutionalChecklistLens(asset = {}, analysis = {}, dec
     entry: top.entry,
   };
 }
+
+const IDENTITY_DISPLAY_BY_LENS = {
+  MONETARY_BENCHMARK_NATIVE: {
+    displayAssetClass: "Monetary Benchmark / Native Asset",
+    displayFraming: "Native Monetary Asset",
+    primaryChip: "Monetary Benchmark",
+    secondaryChip: "Native Asset",
+  },
+  BASE_LAYER_SETTLEMENT_L1: {
+    displayAssetClass: "Base-Layer Settlement Asset",
+    displayFraming: "Native Gas / Settlement Asset",
+    primaryChip: "L1",
+    secondaryChip: "Settlement Asset",
+  },
+  L2_SCALING_TOKEN: {
+    displayAssetClass: "L2 / Scaling Token",
+    displayFraming: "Scaling Network Token",
+    primaryChip: "L2 Economics Lens",
+    secondaryChip: "Scaling Token",
+  },
+  STABLECOIN_SETTLEMENT_ASSET: {
+    displayAssetClass: "Stablecoin / Settlement Asset",
+    displayFraming: "Trust / Settlement Asset",
+    primaryChip: "Stablecoin",
+    secondaryChip: "Reserve / Redemption Lens",
+  },
+  WRAPPED_ASSET: {
+    displayAssetClass: "Wrapped Asset / Custody Dependency",
+    displayFraming: "Wrapped BTC Exposure",
+    primaryChip: "Wrapped Asset",
+    secondaryChip: "Custody / Redeemability Lens",
+  },
+  LIQUID_STAKING_TOKEN: {
+    displayAssetClass: "Liquid Staking Token",
+    displayFraming: "Staked ETH Derivative",
+    primaryChip: "LST",
+    secondaryChip: "Staking / Redemption Lens",
+  },
+  RESTAKING_OR_LRT: {
+    displayAssetClass: "Restaking / LRT Asset",
+    displayFraming: "Layered Staking Dependency",
+    primaryChip: "Restaking Lens",
+    secondaryChip: "Slashing / Dependency Risk",
+  },
+  DEFI_PROTOCOL_TOKEN: {
+    displayAssetClass: "DeFi Protocol Token",
+    displayFraming: "Tokenholder Value-Capture Thesis",
+    primaryChip: "DeFi Protocol",
+    secondaryChip: "Protocol Economics Lens",
+  },
+  DERIVATIVES_OR_PERPS_PROTOCOL: {
+    displayAssetClass: "Derivatives / Perps Protocol",
+    displayFraming: "Trading Venue Economics Lens",
+    primaryChip: "Perps Protocol",
+    secondaryChip: "Fee / Risk Engine Lens",
+  },
+  ORACLE_OR_INFRASTRUCTURE: {
+    displayAssetClass: "Oracle / Infrastructure Asset",
+    displayFraming: "Network Infrastructure Token",
+    primaryChip: "Oracle / Infrastructure",
+    secondaryChip: "Token Necessity Lens",
+  },
+  COMPUTE_STORAGE_DEPIN: {
+    displayAssetClass: "Compute / Storage / DePIN Asset",
+    displayFraming: "Resource Network Token",
+    primaryChip: "DePIN / Compute",
+    secondaryChip: "Usage / Payer Mapping Lens",
+  },
+  EXCHANGE_OR_PLATFORM_TOKEN: {
+    displayAssetClass: "Exchange / Platform Token",
+    displayFraming: "Platform Utility / Issuer Dependency Lens",
+    primaryChip: "Platform Token",
+    secondaryChip: "Issuer Dependency Lens",
+  },
+  PAYMENTS_OR_SETTLEMENT_NETWORK: {
+    displayAssetClass: "Payments / Settlement Network",
+    displayFraming: "Payments Network Token",
+    primaryChip: "Payments Network",
+    secondaryChip: "Settlement Network Lens",
+  },
+  PRIVACY_ASSET: {
+    displayAssetClass: "Privacy Asset",
+    displayFraming: "Privacy / Access Risk Lens",
+    primaryChip: "Privacy Asset",
+    secondaryChip: "Access / Regulatory Lens",
+  },
+  MEME_OR_NARRATIVE: {
+    displayAssetClass: "Meme / Narrative Asset",
+    displayFraming: "Narrative / Liquidity Thesis",
+    primaryChip: "Meme / Narrative",
+    secondaryChip: "Reflexivity Lens",
+  },
+  GAMING_METAVERSE_CONSUMER: {
+    displayAssetClass: "Gaming / Metaverse / Consumer Token",
+    displayFraming: "Consumer Adoption / Token Necessity Lens",
+    primaryChip: "Gaming / Consumer",
+    secondaryChip: "Retention / Utility Lens",
+  },
+  RWA_OR_HYBRID_METHODOLOGY: {
+    displayAssetClass: "RWA / Hybrid Methodology Asset",
+    displayFraming: "Tokenized Asset Methodology Lens",
+    primaryChip: "RWA / Hybrid",
+    secondaryChip: "Rights / Redemption Review",
+  },
+  BRIDGE_OR_INTEROPERABILITY: {
+    displayAssetClass: "Bridge / Interoperability Token",
+    displayFraming: "Cross-Chain Dependency Lens",
+    primaryChip: "Bridge / Interop",
+    secondaryChip: "Trust / Security Lens",
+  },
+  GENERAL_LOW_COVERAGE: {
+    displayAssetClass: "General Low-Coverage Asset",
+    displayFraming: "Manual Classification Needed",
+    primaryChip: "General Methodology Lens",
+    secondaryChip: "Low-Coverage Review",
+  },
+};
+
+export function buildInstitutionalAssetIdentity(asset = {}, analysis = {}, decisionModel = {}) {
+  const resolution = resolveInstitutionalChecklistLens(asset, analysis, decisionModel);
+  const display = IDENTITY_DISPLAY_BY_LENS[resolution.lensId] || IDENTITY_DISPLAY_BY_LENS.GENERAL_LOW_COVERAGE;
+
+  return {
+    ...display,
+    lensId: resolution.lensId,
+    lensDisplayName: resolution.displayName,
+    confidence: resolution.confidence,
+    reason: resolution.reason,
+    matchedSignals: resolution.matchedSignals,
+    boundaryCopy: resolution.entry?.boundaryCopy || "Display identity is methodology-only and does not affect scoring.",
+    originalAssetClassLabel: decisionModel?.assetClassLabel || null,
+    originalAssetFramingLabel: decisionModel?.assetFramingLabel || null,
+    originalAssetBadges: decisionModel?.assetBadges || [],
+  };
+}

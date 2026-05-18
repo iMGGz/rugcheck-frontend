@@ -19,15 +19,41 @@ function firstText(items, fallback) {
   return normalizeRenderableList(items)[0] || fallback;
 }
 
-function lensForAsset(model) {
+function lensForAsset(model, displayIdentity = null) {
+  if (displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
+    return "Stablecoin falsification lens: market cap, liquidity, or category does not prove reserve backing, redemption reliability, issuer risk, or legal clarity.";
+  }
+  if (["WRAPPED_ASSET", "LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(displayIdentity?.lensId)) {
+    return "Wrapped/dependency falsification lens: underlying asset strength does not prove wrapper custody, backing, redeemability, slashing, or smart-contract dependency quality.";
+  }
+  if (["DEFI_PROTOCOL_TOKEN", "DERIVATIVES_OR_PERPS_PROTOCOL"].includes(displayIdentity?.lensId)) {
+    return "DeFi/protocol falsification lens: protocol TVL, usage, or fees do not prove durable tokenholder value capture unless the live evidence directly supports accrual.";
+  }
+  if (["ORACLE_OR_INFRASTRUCTURE", "COMPUTE_STORAGE_DEPIN"].includes(displayIdentity?.lensId)) {
+    return "Infrastructure falsification lens: network importance does not automatically prove tokenholder accrual, payer mapping, or durable token demand.";
+  }
+  if (displayIdentity?.lensId === "PAYMENTS_OR_SETTLEMENT_NETWORK") {
+    return "Payments-network falsification lens: payment narrative, settlement volume, or partnerships do not prove measurable adoption or tokenholder value capture.";
+  }
+  if (displayIdentity?.lensId === "MEME_OR_NARRATIVE") {
+    return "Narrative/liquidity falsification lens: liquidity and attention do not prove durable fundamentals or allocation-grade downside protection.";
+  }
+  if (displayIdentity?.lensId === "RWA_OR_HYBRID_METHODOLOGY") {
+    return "RWA/Hybrid methodology lens: tokenized activity does not prove enforceable rights, redemption, custody quality, legal claim, or tokenholder value capture without source-backed evidence.";
+  }
+
   const raw = [
+    displayIdentity?.displayAssetClass,
+    displayIdentity?.displayFraming,
+    displayIdentity?.primaryChip,
+    displayIdentity?.secondaryChip,
     model?.assetClass,
     model?.assetClassLabel,
     model?.assetFramingLabel,
     model?.assetSubtype,
   ].filter(Boolean).join(" ").toLowerCase();
 
-  if (raw.includes("stablecoin") || raw.includes("trust") || raw.includes("settlement")) {
+  if (raw.includes("stablecoin") || raw.includes("trust")) {
     return "Stablecoin falsification lens: market cap, liquidity, or category does not prove reserve backing, redemption reliability, issuer risk, or legal clarity.";
   }
 
@@ -50,7 +76,7 @@ function lensForAsset(model) {
   return "General falsification lens: apparent quality, liquidity, or recognition must not be treated as thesis support without direct live evidence.";
 }
 
-function buildThesisModel(model) {
+function buildThesisModel(model, displayIdentity = null) {
   const allocationThesis = firstText([
     model?.summaryMemo,
     model?.tokenDemandTruth,
@@ -100,7 +126,7 @@ function buildThesisModel(model) {
     supportingContext,
     missingContext,
     manualReviewTriggers,
-    falsePositiveRisk: lensForAsset(model),
+    falsePositiveRisk: lensForAsset(model, displayIdentity),
     weakestLinkLabel: model?.weakestLink?.label || "Weakest link not explicitly available in live response.",
     weakestLinkExplanation: model?.weakestLink?.explanation || "The live response did not expose a dedicated weakest-link field.",
     whatWouldChange: dedupe(
@@ -115,8 +141,9 @@ function BoundaryChip({ children, styles }) {
   return <span style={styles.thesisBoundaryChip}>{children}</span>;
 }
 
-export default function ThesisFalsificationTab({ model, styles, onSelectSection }) {
-  const thesis = buildThesisModel(model || {});
+export default function ThesisFalsificationTab({ model, displayIdentity = null, styles, onSelectSection }) {
+  const thesis = buildThesisModel(model || {}, displayIdentity);
+  const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis";
 
   return (
     <div>
@@ -131,7 +158,7 @@ export default function ThesisFalsificationTab({ model, styles, onSelectSection 
           <BoundaryChip styles={styles}>Falsification lens items explain what the engine refuses to infer</BoundaryChip>
         </div>
         <SectionRow label="Allocation Thesis" value={thesis.allocationThesis} styles={styles} />
-        <SectionRow label="Asset framing" value={model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis"} styles={styles} />
+        <SectionRow label="Asset framing" value={assetFraming} styles={styles} />
       </Card>
 
       <div style={styles.advancedGrid}>

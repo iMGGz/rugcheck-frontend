@@ -115,6 +115,7 @@ function MobileRailSummary({
 
 export default function AnalysisRightRail({
   model,
+  displayIdentity = null,
   evidenceStatusProxy,
   activeTab,
   onSelectSection,
@@ -127,6 +128,9 @@ export default function AnalysisRightRail({
     ? model.whatWouldChangeDecision.items
     : ["Additional verified evidence required."];
   const evidenceItems = evidenceStatusProxy?.items || [];
+  const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || "Asset class unavailable";
+  const assetFramingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
+  const identityChip = displayIdentity?.primaryChip || assetClassLabel;
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],
     ["institutional_checklist", "Institutional Checklist"],
@@ -158,9 +162,10 @@ export default function AnalysisRightRail({
 
           <RailSection title="Decision Snapshot" badge="Live response snapshot" styles={styles}>
             <div style={styles.railDecisionOutcome}>{model?.allocationOutcome?.label || "Decision unavailable"}</div>
-            <div style={styles.railMuted}>{model?.assetFramingLabel || "Digital Asset Allocation Thesis"}</div>
+            <div style={styles.railMuted}>{assetFramingLabel}</div>
             <div style={styles.railChipRow}>
-              <RailBadge styles={styles} tone="#d5dcec">{model?.assetClassLabel || "Asset class unavailable"}</RailBadge>
+              <RailBadge styles={styles} tone="#d5dcec">{assetClassLabel}</RailBadge>
+              <RailBadge styles={styles} tone="#7dd3fc">{identityChip}</RailBadge>
               <RailBadge styles={styles} tone="#ffb020">{model?.confidenceLabel || "Confidence unavailable"}</RailBadge>
               <RailBadge styles={styles} tone="#7dd3fc">Evidence proxy: qualitative</RailBadge>
             </div>

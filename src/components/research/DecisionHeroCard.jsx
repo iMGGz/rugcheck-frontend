@@ -77,12 +77,15 @@ function LayerLegendItem({ title, detail, badge, tone, styles }) {
 export default function DecisionHeroCard({
   asset,
   model,
+  displayIdentity = null,
   styles,
   onSelectSection = null,
   lastAnalyzed = null,
 }) {
   const outcomeColorValue = outcomeColor(model?.allocationOutcome?.key);
-  const assetBadges = model?.assetBadges || [];
+  const assetBadges = displayIdentity
+    ? [displayIdentity.primaryChip, displayIdentity.secondaryChip].filter(Boolean)
+    : model?.assetBadges || [];
   const symbol = asset?.symbol || model?.assetName || "Asset";
   const assetInitial = String(symbol).trim().slice(0, 4).toUpperCase() || "TC";
   const primaryBlocker = model?.primaryBlocker || {};
@@ -90,8 +93,8 @@ export default function DecisionHeroCard({
   const whatWouldChange = model?.whatWouldChangeDecision?.items || ["Additional verified evidence required."];
   const manualReviewStatus = model?.manualReviewStatus || {};
   const finalDecisionSubcopy = model?.summaryMemo || "Live decision layer returned no structured summary.";
-  const assetClassLabel = model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
-  const framingLabel = model?.assetFramingLabel || "Digital Asset Allocation Thesis";
+  const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
+  const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshnessLabel = lastAnalyzed ? `Last analyzed ${lastAnalyzed}` : "Freshness unavailable";
 
   return (

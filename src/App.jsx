@@ -28,6 +28,7 @@ import AnalysisRightRail from "./components/research/AnalysisRightRail";
 import AuditSection from "./components/research/AuditSection";
 import { Card, ListBlock, SectionRow, TabButton } from "./components/research/researchPrimitives";
 import { buildResponsiveStyles } from "./components/research/researchStyles";
+import { buildInstitutionalAssetIdentity } from "./components/research/institutionalChecklistLensRegistry";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -891,6 +892,10 @@ export default function App() {
     warnings,
     asset,
   }), [analysis, scores, confidence, scoreContributors, fundamentals, warnings, asset]);
+  const institutionalAssetIdentity = useMemo(
+    () => buildInstitutionalAssetIdentity(asset, analysis, decisionModel),
+    [asset, analysis, decisionModel],
+  );
   const evidenceStatusProxy = useMemo(() => deriveEvidenceStatusProxy({
     model: decisionModel,
     analysis,
@@ -1174,6 +1179,7 @@ export default function App() {
         return (
           <ThesisFalsificationTab
             model={decisionModel}
+            displayIdentity={institutionalAssetIdentity}
             styles={styles}
             onSelectSection={setActiveTab}
           />
@@ -1225,6 +1231,7 @@ export default function App() {
         return (
           <SourceQueuePanel
             model={decisionModel}
+            displayIdentity={institutionalAssetIdentity}
             sourceStatus={sourceStatus}
             providerDiagnostics={providerDiagnostics}
             styles={styles}
@@ -1452,6 +1459,7 @@ export default function App() {
                 <DecisionHeroCard
                   asset={asset}
                   model={decisionModel}
+                  displayIdentity={institutionalAssetIdentity}
                   styles={styles}
                   onSelectSection={setActiveTab}
                   lastAnalyzed={lastUpdated}
@@ -1507,6 +1515,7 @@ export default function App() {
                   </main>
                   <AnalysisRightRail
                     model={decisionModel}
+                    displayIdentity={institutionalAssetIdentity}
                     evidenceStatusProxy={evidenceStatusProxy}
                     activeTab={activeTab}
                     onSelectSection={setActiveTab}
