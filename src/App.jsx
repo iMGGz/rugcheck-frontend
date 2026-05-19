@@ -417,6 +417,8 @@ export default function App() {
   const [copyMessage, setCopyMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [pendingResolution, setPendingResolution] = useState(null);
+  const [pendingTabFocusTarget, setPendingTabFocusTarget] = useState(null);
+  const [tabFocusPulse, setTabFocusPulse] = useState(false);
   const [activeWatchlistAsset, setActiveWatchlistAsset] = useState(null);
   const [timelineData, setTimelineData] = useState([]);
   const [timelinePageInfo, setTimelinePageInfo] = useState(null);
@@ -437,6 +439,7 @@ export default function App() {
   const watchlistRequestRef = useRef(0);
   const searchSectionRef = useRef(null);
   const selectorSectionRef = useRef(null);
+  const activeTabContentRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -485,11 +488,52 @@ export default function App() {
     }
   }, []);
 
+  const selectAnalysisSection = useCallback((tabKey, options = {}) => {
+    const { scrollToContent = true } = options;
+    setActiveProductView("analysis");
+    setActiveTab(tabKey);
+
+    if (scrollToContent) {
+      setPendingTabFocusTarget({ tabKey, requestedAt: Date.now() });
+    }
+  }, []);
+
   useEffect(() => {
     if (!pendingResolution || activeProductView !== "analysis" || typeof window === "undefined") return undefined;
     const timeout = window.setTimeout(() => scrollToRef(selectorSectionRef), 0);
     return () => window.clearTimeout(timeout);
   }, [activeProductView, pendingResolution, scrollToRef]);
+
+  useEffect(() => {
+    if (
+      !pendingTabFocusTarget ||
+      pendingTabFocusTarget.tabKey !== activeTab ||
+      activeProductView !== "analysis" ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
+
+    let pulseTimeout = 0;
+    const scrollTimeout = window.setTimeout(() => {
+      const target = activeTabContentRef.current;
+      if (!target) {
+        setPendingTabFocusTarget(null);
+        return;
+      }
+
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.focus({ preventScroll: true });
+      setTabFocusPulse(true);
+      setPendingTabFocusTarget(null);
+      pulseTimeout = window.setTimeout(() => setTabFocusPulse(false), 1500);
+    }, 40);
+
+    return () => {
+      window.clearTimeout(scrollTimeout);
+      if (pulseTimeout) window.clearTimeout(pulseTimeout);
+    };
+  }, [activeProductView, activeTab, pendingTabFocusTarget]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -677,6 +721,8 @@ export default function App() {
     setSnapshotDetailId("");
     setSnapshotDetailData(null);
     setSnapshotDetailError("");
+    setPendingTabFocusTarget(null);
+    setTabFocusPulse(false);
   }, []);
 
   const requestAnalysisPayload = useCallback(async (cleanQuery, mode = "full", selection = null) => {
@@ -1219,7 +1265,7 @@ export default function App() {
             model={decisionModel}
             displayIdentity={institutionalAssetIdentity}
             styles={styles}
-            onSelectSection={setActiveTab}
+            onSelectSection={selectAnalysisSection}
           />
         );
       case "institutional_checklist":
@@ -1515,7 +1561,7 @@ export default function App() {
                   model={decisionModel}
                   displayIdentity={institutionalAssetIdentity}
                   styles={styles}
-                  onSelectSection={setActiveTab}
+                  onSelectSection={selectAnalysisSection}
                   lastAnalyzed={lastUpdated}
                 />
 
@@ -1537,7 +1583,17 @@ export default function App() {
 
                 <div style={styles.analysisWorkbench}>
                   <main style={styles.analysisMainColumn}>
-                    {renderActiveTab()}
+                    <div
+                      ref={activeTabContentRef}
+                      tabIndex={-1}
+                      aria-live="polite"
+                      style={{
+                        ...styles.activeTabFocusTarget,
+                        ...(tabFocusPulse ? styles.activeTabFocusTargetActive : null),
+                      }}
+                    >
+                      {renderActiveTab()}
+                    </div>
 
                     {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
                       <SnapshotDetailPanel
@@ -1558,7 +1614,7 @@ export default function App() {
                     displayIdentity={institutionalAssetIdentity}
                     evidenceStatusProxy={evidenceStatusProxy}
                     activeTab={activeTab}
-                    onSelectSection={setActiveTab}
+                    onSelectSection={selectAnalysisSection}
                     onViewMethodology={openMethodologyView}
                     styles={styles}
                   />

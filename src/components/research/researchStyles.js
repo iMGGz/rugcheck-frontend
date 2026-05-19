@@ -1579,6 +1579,20 @@ export const styles = {
     display: "grid",
     gap: 18,
   },
+  activeTabFocusTarget: {
+    minWidth: 0,
+    display: "grid",
+    gap: 18,
+    borderRadius: 24,
+    outline: "1px solid transparent",
+    scrollMarginTop: 18,
+    transition: "outline-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
+  },
+  activeTabFocusTargetActive: {
+    outlineColor: "rgba(125,211,252,0.56)",
+    boxShadow: "0 0 0 4px rgba(125,211,252,0.12), 0 18px 48px rgba(0,0,0,0.2)",
+    background: "rgba(125,211,252,0.025)",
+  },
   analysisRightRail: {
     minWidth: 0,
     width: "100%",
