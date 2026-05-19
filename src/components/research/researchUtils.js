@@ -419,9 +419,90 @@ export function normalizeErrorMessage(message) {
   return message;
 }
 
+function providerHealthKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeProviderHealthEntry(provider, entry) {
+  const safeEntry = safeObject(entry);
+  if (!provider && !safeEntry.provider) return null;
+
+  return {
+    ...safeEntry,
+    provider: safeEntry.provider || provider,
+  };
+}
+
+export function normalizeProviderHealth(providerHealth) {
+  if (!providerHealth) return null;
+
+  const root = safeObject(providerHealth);
+  const rawProviders = root.providers;
+  const providerEntries = Array.isArray(rawProviders)
+    ? rawProviders.map((entry) => normalizeProviderHealthEntry(entry?.provider, entry))
+    : Object.entries(safeObject(rawProviders)).map(([provider, entry]) => normalizeProviderHealthEntry(provider, entry));
+
+  const infraEntries = Object.entries(safeObject(root.infra))
+    .map(([provider, entry]) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+      if (!("status" in entry) && !("coverage" in entry)) return null;
+      return normalizeProviderHealthEntry(provider, entry);
+    });
+
+  const providersList = [...providerEntries, ...infraEntries].filter(Boolean);
+  const providersByName = providersList.reduce((acc, entry) => {
+    const key = providerHealthKey(entry.provider);
+    if (key) acc[key] = entry;
+    return acc;
+  }, {});
+
+  return {
+    ...root,
+    providersList,
+    providersByName,
+  };
+}
+
+export function getProviderHealthEntry(providerHealth, providerName) {
+  const normalized = providerHealth?.providersByName ? providerHealth : normalizeProviderHealth(providerHealth);
+  return normalized?.providersByName?.[providerHealthKey(providerName)] || null;
+}
+
+export function isProviderHealthDegraded(entry) {
+  if (!entry) return false;
+  if (entry.status === "failed") return true;
+  if (entry.status === "live" || entry.status === "missing_key" || entry.status === "skipped") return false;
+  return entry.configured === true && entry.reachable === false;
+}
+
+export function providerHealthDisplayTone(entry) {
+  if (!entry) return { color: "#8a94a6", label: "Unavailable", configuredLabel: "Unknown", statusLabel: "Unavailable" };
+
+  if (entry.status === "live") {
+    return { color: "#d5dcec", label: "Available", configuredLabel: "Yes", statusLabel: "Live" };
+  }
+
+  if (entry.status === "missing_key") {
+    return { color: "#8a94a6", label: "Not configured", configuredLabel: "No", statusLabel: "Missing Key" };
+  }
+
+  if (entry.status === "skipped") {
+    return { color: "#aab7cc", label: "Skipped", configuredLabel: "Contextual", statusLabel: "Skipped" };
+  }
+
+  if (entry.status === "failed" || entry.reachable === false) {
+    return { color: "#ffb020", label: "Provider Issue", configuredLabel: entry.configured === false ? "No" : "Yes", statusLabel: titleCase(entry.status || entry.lastCheckStatus || "failed") };
+  }
+
+  return { color: "#aab7cc", label: titleCase(entry.status || "Diagnostic"), configuredLabel: entry.configured === false ? "No" : "Unknown", statusLabel: titleCase(entry.status || entry.lastCheckStatus || "unknown") };
+}
+
 export function buildAnalysisQualityExplanation({ confidence, providerDiagnostics = [], providerHealth, sourceStatus }) {
   const degradedProviders = [];
-  const healthProviders = providerHealth?.providers || {};
+  const normalizedProviderHealth = normalizeProviderHealth(providerHealth);
   const healthMap = [
     ["coingecko", "CoinGecko"],
     ["dexscreener", "DexScreener"],
@@ -431,8 +512,8 @@ export function buildAnalysisQualityExplanation({ confidence, providerDiagnostic
   ];
 
   for (const [key, label] of healthMap) {
-    const entry = healthProviders[key];
-    if (entry?.configured && entry?.reachable === false) {
+    const entry = getProviderHealthEntry(normalizedProviderHealth, key);
+    if (isProviderHealthDegraded(entry)) {
       degradedProviders.push(label);
     }
   }
@@ -500,13 +581,14 @@ export function buildSectionQualityHint(section, {
   const diagnosticsByProvider = Object.fromEntries(
     providerDiagnostics.map((entry) => [entry.provider, entry]),
   );
-  const providers = providerHealth?.providers || {};
+  const normalizedProviderHealth = normalizeProviderHealth(providerHealth);
+  const providerDown = (name) => isProviderHealthDegraded(getProviderHealthEntry(normalizedProviderHealth, name));
 
   if (section === "market") {
     const geckoDiag = diagnosticsByProvider.coingeckoMarket;
     const dexDiag = diagnosticsByProvider.dexscreener;
-    const geckoDown = providers.coingecko?.configured && providers.coingecko?.reachable === false;
-    const dexDown = providers.dexscreener?.configured && providers.dexscreener?.reachable === false;
+    const geckoDown = providerDown("coingecko");
+    const dexDown = providerDown("dexscreener");
 
     if (geckoDown || dexDown) {
       return {
@@ -526,7 +608,7 @@ export function buildSectionQualityHint(section, {
   if (section === "sources") {
     const linksDiag = diagnosticsByProvider.officialLinks;
     const docsDiag = diagnosticsByProvider.whitepaperDocs;
-    const geckoDown = providers.coingecko?.configured && providers.coingecko?.reachable === false;
+    const geckoDown = providerDown("coingecko");
 
     if (geckoDown && (linksDiag?.status === "failure" || docsDiag?.status === "failure")) {
       return {
@@ -545,7 +627,7 @@ export function buildSectionQualityHint(section, {
 
   if (section === "onchain") {
     const onChainDiag = diagnosticsByProvider.onChain;
-    const goplusDown = providers.goplus?.configured && providers.goplus?.reachable === false;
+    const goplusDown = providerDown("goplus");
 
     if (sourceStatus?.onChain === "unsupported" || availability === "unsupported") {
       return {
@@ -572,7 +654,7 @@ export function buildSectionQualityHint(section, {
   if (section === "credibility") {
     const linksDiag = diagnosticsByProvider.officialLinks;
     const docsDiag = diagnosticsByProvider.whitepaperDocs;
-    const geckoDown = providers.coingecko?.configured && providers.coingecko?.reachable === false;
+    const geckoDown = providerDown("coingecko");
 
     if (geckoDown && (linksDiag?.status === "failure" || docsDiag?.status === "failure")) {
       return {
@@ -599,7 +681,7 @@ export function buildSectionQualityHint(section, {
   if (section === "protocol") {
     const defillamaDiag = diagnosticsByProvider.defillama;
     const economicsDiag = diagnosticsByProvider.protocolEconomics;
-    const defillamaDown = providers.defillama?.configured && providers.defillama?.reachable === false;
+    const defillamaDown = providerDown("defillama");
 
     if (defillamaDown) {
       return {
@@ -1456,7 +1538,7 @@ export function deriveEvidenceStatusProxy({
   const diagnostics = safeArray(providerDiagnostics);
   const statusEntries = sourceStatusEntries(sourceStatus);
   const providerNotes = normalizeRenderableList(safeObject(meta).providerNotes);
-  const providerMap = safeObject(providerHealth?.providers);
+  const normalizedProviderHealth = normalizeProviderHealth(providerHealth);
   const items = [];
   const warnings = [
     "Live proxy, not full institutional evidence map.",
@@ -1491,9 +1573,9 @@ export function deriveEvidenceStatusProxy({
   const providerGapStatuses = statusEntries.filter((entry) => (
     ["unsupported", "skipped", "unavailable", "missing"].includes(String(entry.status).toLowerCase())
   ));
-  const unreachableProviders = Object.entries(providerMap)
-    .filter(([, entry]) => entry?.configured && entry?.reachable === false)
-    .map(([key]) => titleCase(key));
+  const unreachableProviders = safeArray(normalizedProviderHealth?.providersList)
+    .filter((entry) => isProviderHealthDegraded(entry))
+    .map((entry) => providerLabel(entry.provider));
   const providerGapLabels = dedupeCaseInsensitive([
     ...providerGapDiagnostics.map(providerDiagnosticLabel),
     ...providerGapStatuses.map((entry) => titleCase(entry.section)),

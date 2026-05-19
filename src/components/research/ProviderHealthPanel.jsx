@@ -1,22 +1,10 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { providerLabel, titleCase } from "./researchUtils";
-
-function providerHealthTone(entry) {
-  if (!entry?.configured) return { color: "#8a94a6", label: "Not configured" };
-  if (entry?.reachable) return { color: "#2fd67b", label: "Reachable" };
-  if (entry?.lastCheckStatus === "degraded") return { color: "#ffb020", label: "Degraded" };
-  return { color: "#ff6b6b", label: "Unreachable" };
-}
+import { normalizeProviderHealth, providerHealthDisplayTone, providerLabel, safeArray, titleCase } from "./researchUtils";
 
 export default function ProviderHealthPanel({ providerHealth, providerHealthLoading, providerHealthError, styles }) {
-  const providerEntries = [
-    ["coingecko", providerHealth?.providers?.coingecko],
-    ["dexscreener", providerHealth?.providers?.dexscreener],
-    ["goplus", providerHealth?.providers?.goplus],
-    ["anthropic", providerHealth?.providers?.anthropic],
-    ["postgres", providerHealth?.providers?.postgres],
-  ];
+  const normalizedProviderHealth = normalizeProviderHealth(providerHealth);
+  const providerEntries = safeArray(normalizedProviderHealth?.providersList);
 
   return (
     <Card title="Provider health" subtitle="Compact upstream visibility for analysis quality" styles={styles}>
@@ -32,9 +20,16 @@ export default function ProviderHealthPanel({ providerHealth, providerHealthLoad
       ) : null}
 
       {providerHealth ? (
-        <div style={styles.providerHealthGrid}>
-          {providerEntries.map(([key, entry]) => {
-            const tone = providerHealthTone(entry);
+        <>
+          <div style={styles.evidenceMapBoundaryStrip}>
+            <span style={styles.evidenceMapBoundaryChip}>
+              Provider availability is diagnostic context, not thesis evidence quality.
+            </span>
+          </div>
+          <div style={styles.providerHealthGrid}>
+          {providerEntries.map((entry) => {
+            const key = entry?.provider || "provider";
+            const tone = providerHealthDisplayTone(entry);
             return (
               <div key={key} style={styles.providerHealthCard}>
                 <div style={styles.timelineTitleRow}>
@@ -46,23 +41,24 @@ export default function ProviderHealthPanel({ providerHealth, providerHealthLoad
                   </span>
                 </div>
                 <div style={styles.timelineMeta}>
-                  Configured: {entry?.configured ? "Yes" : "No"}
+                  Configured: {tone.configuredLabel}
                 </div>
                 <div style={styles.timelineMeta}>
-                  Last check: {entry?.lastCheckStatus ? titleCase(entry.lastCheckStatus) : "Unavailable"}
+                  Status: {tone.statusLabel}
                 </div>
                 <div style={styles.timelineMeta}>
                   Latency: {entry?.latencyMs !== null && entry?.latencyMs !== undefined ? `${entry.latencyMs} ms` : "Unavailable"}
                 </div>
-                {entry?.error ? (
-                  <div style={styles.providerHealthError}>{entry.error}</div>
+                {entry?.reason ? (
+                  <div style={styles.providerHealthError}>{titleCase(entry.reason)}</div>
                 ) : (
                   <div style={styles.providerHealthOk}>No active provider error reported.</div>
                 )}
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       ) : null}
     </Card>
   );

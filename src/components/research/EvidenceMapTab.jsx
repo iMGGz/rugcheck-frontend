@@ -8,7 +8,10 @@ import SourcesPanel from "./SourcesPanel";
 import {
   diagnosticTone,
   extractRenderableText,
+  normalizeEvidenceProxyDisplayLabel,
+  normalizeProviderHealth,
   normalizeRenderableList,
+  providerHealthDisplayTone,
   providerLabel,
   safeArray,
   safeObject,
@@ -67,19 +70,18 @@ function normalizeDiagnosticRows(providerDiagnostics) {
 }
 
 function normalizeProviderHealthRows(providerHealth) {
-  return Object.entries(safeObject(providerHealth?.providers))
-    .map(([key, entry]) => {
+  const normalizedProviderHealth = normalizeProviderHealth(providerHealth);
+  return safeArray(normalizedProviderHealth?.providersList)
+    .map((entry) => {
       if (!entry) return null;
-      const reachable = entry?.configured && entry?.reachable;
-      const degraded = entry?.lastCheckStatus === "degraded";
-      const color = !entry?.configured ? "#8a94a6" : reachable ? "#2fd67b" : degraded ? "#ffb020" : "#ff6b6b";
-      const label = !entry?.configured ? "Not configured" : reachable ? "Available" : degraded ? "Degraded" : "Unavailable";
+      const tone = providerHealthDisplayTone(entry);
+      const providerName = entry.provider || "provider";
       return {
-        key: `health-${key}`,
-        name: key === "anthropic" ? "Decision memo service" : providerLabel(key),
-        status: label,
-        statusColor: color,
-        contribution: `Provider health check status: ${entry?.lastCheckStatus ? titleCase(entry.lastCheckStatus) : "unknown"}.`,
+        key: `health-${providerName}`,
+        name: providerName === "anthropic" ? "Decision memo service" : providerLabel(providerName),
+        status: tone.label,
+        statusColor: tone.color,
+        contribution: `Provider availability diagnostic: ${tone.statusLabel}${entry?.reason ? ` (${titleCase(entry.reason)})` : ""}. Provider availability is diagnostic context, not thesis evidence quality.`,
         freshness: entry?.latencyMs !== null && entry?.latencyMs !== undefined ? `${entry.latencyMs} ms latency` : "Freshness unavailable",
         sourceLabel: "provider health endpoint",
       };
@@ -142,23 +144,19 @@ function buildProvenanceRows({ officialLinks, whitepaperDocs }) {
 }
 
 function EvidenceSignalRow({ item, styles }) {
-  const colorMap = {
-    critical: "#ff6b6b",
-    warning: "#ffb020",
-    review: "#ffb020",
-    info: "#7dd3fc",
-    neutral: "#8a94a6",
-  };
-  const color = colorMap[item.severity] || "#8a94a6";
+  const display = normalizeEvidenceProxyDisplayLabel(item);
+  const color = display.tone || "#aab7cc";
 
   return (
     <div style={styles.evidenceSignalCard}>
       <div style={styles.timelineTitleRow}>
         <strong style={{ color: "#f4f7ff" }}>{item.label}</strong>
-        {statusChip(styles, item.valueLabel || "Proxy", color)}
+        {statusChip(styles, display.statusLabel, color)}
       </div>
-      <div style={styles.timelineSummary}>{item.description || "Live qualitative signal only."}</div>
-      <div style={styles.timelineMeta}>{item.sourceLabel || "current live response"} - qualitative signal view, not count distribution</div>
+      <div style={styles.timelineSummary}>{display.meaning}</div>
+      <div style={styles.timelineMeta}>
+        {display.signalType} - {item.sourceLabel || "current live response"} - {display.boundaryLabel}
+      </div>
     </div>
   );
 }

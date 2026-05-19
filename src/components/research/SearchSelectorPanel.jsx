@@ -1,17 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { shortenAddress, titleCase } from "./researchUtils";
 
-function classifyCandidate(candidate) {
-  const labelSource = `${candidate?.symbol || ""} ${candidate?.name || ""} ${candidate?.category || ""}`.toLowerCase();
-
-  if (["btc", "bitcoin"].some((entry) => labelSource.includes(entry))) return "benchmark";
-  if (["eth", "ethereum", "sol", "solana", "arb", "optimism"].some((entry) => labelSource.includes(entry))) return "protocol";
-  if (["usd", "usdt", "usdc", "dai", "stable"].some((entry) => labelSource.includes(entry))) return "stablecoin";
-  if (["wrapped", "wbtc", "weth"].some((entry) => labelSource.includes(entry))) return "wrapped";
-  if (["pepe", "doge", "wif", "meme", "dogelon", "floki"].some((entry) => labelSource.includes(entry))) return "meme";
-  return "high-risk";
-}
-
 function sectorFilter(candidate) {
   const labelSource = `${candidate?.chain || ""} ${candidate?.category || ""} ${candidate?.name || ""}`.toLowerCase();
   if (labelSource.includes("layer 1") || ["ethereum", "bitcoin", "solana", "avalanche"].some((entry) => labelSource.includes(entry))) return "layer1";
@@ -22,17 +11,31 @@ function sectorFilter(candidate) {
   return "all";
 }
 
-function badgeLabel(kind) {
-  const labels = {
-    benchmark: "Benchmark",
-    protocol: "Protocol",
-    meme: "Meme",
-    stablecoin: "Stablecoin",
-    wrapped: "Wrapped",
-    "high-risk": "High-Risk",
-  };
+function normalizeMatchValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
-  return labels[kind] || titleCase(kind);
+function buildCandidateMatchLabels(candidate, query) {
+  const normalizedQuery = normalizeMatchValue(query);
+  const symbol = normalizeMatchValue(candidate?.symbol);
+  const name = normalizeMatchValue(candidate?.name);
+  const labels = ["Candidate Match"];
+
+  if (normalizedQuery && symbol === normalizedQuery) {
+    labels.push("Exact Symbol Match");
+  } else if (normalizedQuery && name === normalizedQuery) {
+    labels.push("Name Match");
+  } else if (candidate?.chain || candidate?.category) {
+    labels.push("Network / Project Match");
+  } else {
+    labels.push("Requires Selection");
+  }
+
+  if (candidate?.coingeckoId || candidate?.coinmarketcapId || candidate?.contractAddress) {
+    labels.push("Use Existing Metadata");
+  }
+
+  return labels.slice(0, 4);
 }
 
 function CandidateLogo({ candidate, styles }) {
@@ -57,11 +60,11 @@ export default function SearchSelectorPanel({
   const [activeFilter, setActiveFilter] = useState("all");
   const filterOptions = [
     { key: "all", label: "All" },
-    { key: "layer1", label: "Layer1" },
-    { key: "defi", label: "DeFi" },
-    { key: "meme", label: "Meme" },
-    { key: "rwa", label: "RWA" },
-    { key: "stablecoins", label: "Stablecoins" },
+    { key: "layer1", label: "Network metadata" },
+    { key: "defi", label: "Project metadata" },
+    { key: "meme", label: "Name/theme match" },
+    { key: "rwa", label: "RWA text match" },
+    { key: "stablecoins", label: "USD text match" },
   ];
 
   const filteredCandidates = useMemo(() => {
@@ -79,6 +82,7 @@ export default function SearchSelectorPanel({
           <div style={styles.selectorText}>
             Multiple assets can share a ticker. Choose the exact asset before analysis updates.
             {pendingResolution?.ambiguityReason ? ` ${pendingResolution.ambiguityReason}` : ` Multiple plausible assets matched "${pendingResolution?.query || "your query"}".`}
+            {" "}Candidate labels help identify search results only. Final institutional asset classification appears after analysis.
           </div>
         </div>
         <button onClick={onDismiss} style={styles.ghostButton}>Dismiss</button>
@@ -110,7 +114,7 @@ export default function SearchSelectorPanel({
 
       <div style={styles.selectorGrid}>
         {filteredCandidates.map((candidate, index) => {
-          const taxonomy = classifyCandidate(candidate);
+          const matchLabels = buildCandidateMatchLabels(candidate, pendingResolution?.query);
           return (
             <div
               key={`${candidate.coingeckoId || candidate.coinmarketcapId || candidate.contractAddress || `${candidate.symbol}-${candidate.name}-${index}`}`}
@@ -130,10 +134,9 @@ export default function SearchSelectorPanel({
               </div>
 
               <div style={styles.selectorChipRow}>
-                <span style={styles.selectorChip}>{badgeLabel(taxonomy)}</span>
-                {candidate.category ? <span style={styles.selectorChip}>{candidate.category}</span> : null}
-                {candidate.coingeckoId ? <span style={styles.selectorChip}>Gecko ID</span> : null}
-                {candidate.coinmarketcapId ? <span style={styles.selectorChip}>CMC ID</span> : null}
+                {matchLabels.map((label) => (
+                  <span key={label} style={styles.selectorChip}>{label}</span>
+                ))}
               </div>
 
               <div style={styles.selectorMeta}>

@@ -38,6 +38,7 @@ import {
   buildWatchlistAssetFromAnalysis,
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
+  normalizeProviderHealth,
   normalizeWatchlistAsset,
   normalizeErrorMessage,
   safeArray,
@@ -500,7 +501,7 @@ export default function App() {
     try {
       const json = await fetchJson(`${API_BASE}/api/health/providers`, {}, 9000);
       if (requestId !== providerHealthRequestRef.current) return;
-      setProviderHealth(json || null);
+      setProviderHealth(normalizeProviderHealth(json) || null);
     } catch (err) {
       if (requestId !== providerHealthRequestRef.current) return;
       setProviderHealth(null);
