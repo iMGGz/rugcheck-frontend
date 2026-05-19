@@ -206,6 +206,56 @@ function suggestedResearchDomains(model, displayIdentity = null) {
   ];
 }
 
+function formatRequirementStatus(value) {
+  if (!value) return "Status unavailable";
+  return titleCase(String(value));
+}
+
+function ResearchRequirementCard({ requirement, styles }) {
+  const priorityColor = requirement.priority === "critical"
+    ? "#ff6b6b"
+    : requirement.priority === "high"
+      ? "#ffb020"
+      : "#7dd3fc";
+
+  return (
+    <div style={styles.sourceLeadCard}>
+      <div style={styles.timelineTitleRow}>
+        <strong style={{ color: "#f4f7ff" }}>{requirement.title || "Research requirement"}</strong>
+        {chip(styles, titleCase(requirement.priority || "review"), priorityColor)}
+      </div>
+      <div style={styles.timelineSummary}>{requirement.reason || "Generated from live gaps and decision semantics."}</div>
+      <div style={styles.timelineMeta}>
+        {requirement.assetClassLens || "Asset-class lens"} - {formatRequirementStatus(requirement.currentStatus)}
+      </div>
+      <ListBlock
+        title="Evidence needed"
+        items={requirement.evidenceNeeded}
+        emptyText="No evidence-needed list was attached."
+        color="#f9d976"
+        styles={styles}
+      />
+      <ListBlock
+        title="Preferred source types"
+        items={requirement.preferredSourceTypes}
+        emptyText="No preferred source types were attached."
+        color="#9bd7ff"
+        styles={styles}
+      />
+      <SectionRow
+        label="Verdict impact"
+        value={requirement.verdictImpact || "Resolve or clarify the live decision requirement."}
+        styles={styles}
+      />
+      <SectionRow
+        label="Can change verdict"
+        value={requirement.canChangeVerdict ? "Potentially, if reviewed source-backed evidence resolves the live gap." : "No, unless durable fundamentals are separately source-backed."}
+        styles={styles}
+      />
+    </div>
+  );
+}
+
 export default function SourceQueuePanel({
   model,
   displayIdentity = null,
@@ -215,6 +265,7 @@ export default function SourceQueuePanel({
 }) {
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
   const domains = suggestedResearchDomains(model, displayIdentity);
+  const researchRequirements = safeArray(model?.researchRequirements);
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
 
   return (
@@ -251,6 +302,19 @@ export default function SourceQueuePanel({
       </Card>
 
       <div style={styles.advancedGrid}>
+        <Card title="Research Requirements" subtitle="Generated from live gaps. These are not reviewed evidence." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, "Research requirements are not evidence.")}
+            {boundaryChip(styles, "A source candidate becomes evidence only after review.")}
+            {boundaryChip(styles, "Report-only evidence does not affect live scoring.")}
+          </div>
+          {researchRequirements.length ? researchRequirements.map((requirement) => (
+            <ResearchRequirementCard key={requirement.id || requirement.title} requirement={requirement} styles={styles} />
+          )) : (
+            <p style={styles.timelineEmptyText}>No backend research requirements were attached to this live response.</p>
+          )}
+        </Card>
+
         <Card title="Live Response Gaps That Need Sources" subtitle="Review leads derived from current live response." styles={styles}>
           {reviewLeads.length ? reviewLeads.map((lead, index) => (
             <div key={`${lead.source}-${lead.label}-${index}`} style={styles.sourceLeadCard}>

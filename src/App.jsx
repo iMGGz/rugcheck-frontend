@@ -389,7 +389,7 @@ function getWatchlistSortTimestamp(statusSnapshot) {
 
 export default function App() {
   const [viewportWidth, setViewportWidth] = useState(getViewportWidth);
-  const [activeProductView, setActiveProductView] = useState("analysis");
+  const [activeProductView, setActiveProductView] = useState("overview");
   const [query, setQuery] = useState(readInitialQuery);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -470,6 +470,13 @@ export default function App() {
       window.setTimeout(() => scrollToRef(searchSectionRef), 0);
     }
   }, [scrollToRef]);
+
+  const openOverviewView = useCallback(() => {
+    setActiveProductView("overview");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
 
   const openMethodologyView = useCallback(() => {
     setActiveProductView("methodology");
@@ -1111,6 +1118,7 @@ export default function App() {
   async function openWatchlistItem(item) {
     const nextQuery = item.symbol || item.name || item.coingeckoId || item.contractAddress || "";
     if (!nextQuery) return;
+    setActiveProductView("analysis");
     setQuery(nextQuery);
     setLoading(true);
     try {
@@ -1144,6 +1152,21 @@ export default function App() {
       case "overview":
         return (
           <>
+            {decisionModel.verdictSemantics?.hasVerdictClass ? (
+              <Card title="Verdict Semantics" subtitle="Backend verdict taxonomy v1. Additive display layer over the live decision." styles={styles}>
+                <SectionRow label="Verdict class" value={decisionModel.verdictSemantics.label} styles={styles} />
+                <SectionRow label="Interpretation" value={decisionModel.verdictSemantics.summary} styles={styles} />
+                <SectionRow label="Boundary" value={decisionModel.verdictSemantics.boundary} styles={styles} />
+                <ListBlock
+                  title="Evidence still needed"
+                  items={decisionModel.verdictSemantics.missingEvidence}
+                  emptyText="No evidence-blocked items were surfaced separately."
+                  color="#f9d976"
+                  styles={styles}
+                />
+              </Card>
+            ) : null}
+
             <div style={styles.advancedGrid}>
               <AllocationOutcomeCard model={decisionModel} styles={styles} />
               <Card title="Decision Memo" subtitle="Answer first. Reasoning second. Audit third." styles={styles}>
@@ -1338,8 +1361,8 @@ export default function App() {
 
       <ResearchHeader
         backendMeta={backendMeta}
-        apiBase={API_BASE}
         activeProductView={activeProductView}
+        onOpenOverview={openOverviewView}
         onRunAnalysis={() => openAnalysisView({ scrollToSearch: true })}
         onViewMethodology={openMethodologyView}
         onOpenAnalysis={() => openAnalysisView({ scrollToSearch: false })}
@@ -1354,13 +1377,53 @@ export default function App() {
           <span style={styles.trustStripItem}>Third-Party Data Dependent</span>
         </div>
 
-        {activeProductView === "analysis" ? (
+        {activeProductView === "overview" ? (
           <>
             <HomepagePositioning
               onAnalyzeAsset={() => openAnalysisView({ scrollToSearch: true })}
               onViewMethodology={openMethodologyView}
               styles={styles}
             />
+
+            <WatchlistPanel
+              watchlistItems={visibleWatchlistItems}
+              watchlistTotalCount={watchlistItems.length}
+              watchlistStates={watchlistStates}
+              watchlistChecks={watchlistChecks}
+              watchlistRefreshResults={watchlistRefreshResults}
+              watchlistLoading={watchlistLoading}
+              watchlistError={watchlistError}
+              watchlistRefreshError={watchlistRefreshError}
+              watchlistRefreshNotice={watchlistRefreshNotice}
+              watchlistBatchSummary={watchlistBatchSummary}
+              watchlistRefreshingKeys={watchlistRefreshingKeys}
+              watchlistBatchRefresh={watchlistBatchRefresh}
+              watchlistFilter={watchlistFilter}
+              watchlistSort={watchlistSort}
+              onChangeWatchlistFilter={setWatchlistFilter}
+              onChangeWatchlistSort={setWatchlistSort}
+              onOpenItem={openWatchlistItem}
+              onRefreshItem={refreshWatchlistItem}
+              onRefreshAll={refreshWatchlistBatch}
+              onRemoveItem={removeWatchlistItem}
+              styles={styles}
+            />
+          </>
+        ) : null}
+
+        {activeProductView === "analysis" ? (
+          <>
+            <Card
+              title="Analysis Terminal"
+              subtitle="Search, select an exact asset when needed, and inspect the active decision cockpit. Product positioning and methodology live in separate top-level views."
+              styles={styles}
+            >
+              <SectionRow
+                label="Boundary"
+                value="Analysis Terminal shows the live asset workflow only: search, asset selection, result state, decision cockpit, evidence status, canonical tabs, and right rail."
+                styles={styles}
+              />
+            </Card>
 
             <div ref={searchSectionRef}>
               <SearchPanel
@@ -1390,30 +1453,6 @@ export default function App() {
                 />
               </div>
             ) : null}
-
-            <WatchlistPanel
-              watchlistItems={visibleWatchlistItems}
-              watchlistTotalCount={watchlistItems.length}
-              watchlistStates={watchlistStates}
-              watchlistChecks={watchlistChecks}
-              watchlistRefreshResults={watchlistRefreshResults}
-              watchlistLoading={watchlistLoading}
-              watchlistError={watchlistError}
-              watchlistRefreshError={watchlistRefreshError}
-              watchlistRefreshNotice={watchlistRefreshNotice}
-              watchlistBatchSummary={watchlistBatchSummary}
-              watchlistRefreshingKeys={watchlistRefreshingKeys}
-              watchlistBatchRefresh={watchlistBatchRefresh}
-              watchlistFilter={watchlistFilter}
-              watchlistSort={watchlistSort}
-              onChangeWatchlistFilter={setWatchlistFilter}
-              onChangeWatchlistSort={setWatchlistSort}
-              onOpenItem={openWatchlistItem}
-              onRefreshItem={refreshWatchlistItem}
-              onRefreshAll={refreshWatchlistBatch}
-              onRemoveItem={removeWatchlistItem}
-              styles={styles}
-            />
 
             {loading ? (
               <div style={styles.loadingCard}>
@@ -1466,20 +1505,6 @@ export default function App() {
                   lastAnalyzed={lastUpdated}
                 />
 
-                <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
-
-                <div style={styles.resultActions}>
-                  <button onClick={toggleFavorite} style={styles.actionButton}>
-                    {isFavorite ? "Remove from saved history" : "Save to decision history"}
-                  </button>
-                  <button onClick={copyShareLink} style={styles.actionButton}>
-                    Copy memo link
-                  </button>
-                  {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
-                </div>
-
-                <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
-
                 <div style={styles.terminalNavHeader}>
                   <div style={styles.terminalNavTitle}>Decision Navigation</div>
                   <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
@@ -1498,6 +1523,20 @@ export default function App() {
 
                 <div style={styles.analysisWorkbench}>
                   <main style={styles.analysisMainColumn}>
+                    <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
+
+                    <div style={styles.resultActions}>
+                      <button onClick={toggleFavorite} style={styles.actionButton}>
+                        {isFavorite ? "Remove from saved history" : "Save to decision history"}
+                      </button>
+                      <button onClick={copyShareLink} style={styles.actionButton}>
+                        Copy memo link
+                      </button>
+                      {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
+                    </div>
+
+                    <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
+
                     {renderActiveTab()}
 
                     {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
@@ -1527,7 +1566,9 @@ export default function App() {
               </ResearchErrorBoundary>
             ) : null}
           </>
-        ) : (
+        ) : null}
+
+        {activeProductView === "methodology" ? (
           <section style={styles.methodologyViewShell}>
             <div style={styles.methodologyViewHeader}>
               <div>
@@ -1543,7 +1584,7 @@ export default function App() {
             </div>
             <HowTheEngineWorksPage styles={styles} />
           </section>
-        )}
+        ) : null}
 
         <div style={styles.disclaimer}>
           <h3 style={{ marginTop: 0, color: "#f9d976" }}>Research Support Only</h3>

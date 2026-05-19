@@ -141,6 +141,78 @@ function BoundaryChip({ children, styles }) {
   return <span style={styles.thesisBoundaryChip}>{children}</span>;
 }
 
+function AllocationCaseSection({ model, styles }) {
+  const allocationCase = model?.allocationCase || {};
+  const verdictReasons = model?.verdictReasons || {};
+  const columns = [
+    {
+      title: "Why allocation could make sense",
+      items: allocationCase.forAllocation || verdictReasons.positiveThesisEvidence || [],
+      color: "#a6f3c2",
+      emptyText: "No positive allocation case was surfaced by the live response.",
+    },
+    {
+      title: "Why allocation is blocked",
+      items: allocationCase.againstAllocation || verdictReasons.realBlockers || [],
+      color: "#ffb6b6",
+      emptyText: "No material blocker was surfaced by the live response.",
+    },
+    {
+      title: "Evidence still needed",
+      items: allocationCase.missingEvidence || verdictReasons.evidenceGaps || [],
+      color: "#f9d976",
+      emptyText: "No missing-evidence list was surfaced.",
+    },
+    {
+      title: "What would change the decision",
+      items: allocationCase.whatWouldChange || verdictReasons.whatWouldChangeDecision || [],
+      color: "#9bd7ff",
+      emptyText: "No decision-change requirements were surfaced.",
+    },
+  ];
+
+  return (
+    <Card
+      title="Allocation Case Semantics"
+      subtitle="Backend verdict taxonomy v1. Research requirements and missing evidence are not completed evidence."
+      styles={styles}
+    >
+      <div style={styles.thesisBoundaryStrip}>
+        <BoundaryChip styles={styles}>Research requirements are not evidence</BoundaryChip>
+        <BoundaryChip styles={styles}>Evidence gaps are separated from confirmed failure</BoundaryChip>
+        <BoundaryChip styles={styles}>Only live scoring affects the current verdict</BoundaryChip>
+      </div>
+      <div style={styles.allocationCaseGrid}>
+        {columns.map((column) => (
+          <div key={column.title} style={styles.allocationCaseCard}>
+            <ListBlock
+              title={column.title}
+              items={column.items}
+              emptyText={column.emptyText}
+              color={column.color}
+              styles={styles}
+            />
+          </div>
+        ))}
+      </div>
+      <ListBlock
+        title="Review-only cautions"
+        items={verdictReasons.reviewOnlyCautions}
+        emptyText="No review-only cautions were surfaced separately."
+        color="#d5dcec"
+        styles={styles}
+      />
+      <ListBlock
+        title="Not-applicable items"
+        items={verdictReasons.notApplicableItems}
+        emptyText="No not-applicable items were surfaced separately."
+        color="#8a94a6"
+        styles={styles}
+      />
+    </Card>
+  );
+}
+
 export default function ThesisFalsificationTab({ model, displayIdentity = null, styles, onSelectSection }) {
   const thesis = buildThesisModel(model || {}, displayIdentity);
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis";
@@ -160,6 +232,10 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         <SectionRow label="Allocation Thesis" value={thesis.allocationThesis} styles={styles} />
         <SectionRow label="Asset framing" value={assetFraming} styles={styles} />
       </Card>
+
+      {model?.verdictSemantics?.hasVerdictClass ? (
+        <AllocationCaseSection model={model} styles={styles} />
+      ) : null}
 
       <div style={styles.advancedGrid}>
         <Card title="What Must Be True" subtitle="Conditions required for thesis confidence." styles={styles}>

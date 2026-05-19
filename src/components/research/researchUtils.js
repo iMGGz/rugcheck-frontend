@@ -907,6 +907,7 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
     const decisionFrame = safeObject(decisionLayer.decisionFrame);
     const investability = safeObject(thesisCore.investability);
     const failureMode = safeObject(thesisCore.failureMode);
+    const verdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
     const posture = describePosture(extractDecisionLabel(decisionLayer.posture), safeAnalysis?.assetClassification?.assetClass || null);
     const currentState = describeCurrentState(extractDecisionLabel(decisionLayer.currentState), safeAnalysis?.assetClassification?.assetClass || null);
     const primaryWeakness = buildPrimaryWeaknessText({
@@ -935,7 +936,8 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
 
     return {
       recommendation:
-        finalVerdict.recommendation
+        verdictSemantics.summary
+        || finalVerdict.recommendation
         || decisionFrame.whyNow
         || (
           posture && investability.status
@@ -947,7 +949,8 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
                 : null
         ),
       summary:
-        finalVerdict.summary
+        verdictSemantics.boundary
+        || finalVerdict.summary
         || primaryWeakness
         || decisionFrame.whyNotNow
         || (
@@ -956,17 +959,20 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
             : "Decision memo unavailable from current analysis data."
         ),
       bullCase:
-        safeAiReport.bullCase
+        verdictSemantics.positiveCase?.[0]
+        || safeAiReport.bullCase
         || primaryStrength
         || mustBeTrue[0]
         || null,
       bearCase:
-        safeAiReport.bearCase
+        verdictSemantics.blockedCase?.[0]
+        || safeAiReport.bearCase
         || failureMode.primary
         || couldBreak[0]
         || null,
       rating:
-        finalVerdict.rating
+        verdictSemantics.label
+        || finalVerdict.rating
         || posture
         || currentState
         || null,
@@ -1265,11 +1271,19 @@ export function buildTokenDemandTruth({ allocationOutcomeKey, primaryStrength, a
     return "Token-demand support is evidenced, but it does not override structural constraints.";
   }
 
-  if (allocationOutcomeKey === "tradable_only") {
+  if (allocationOutcomeKey === "tradable_only" || allocationOutcomeKey === "tradable_only_narrative") {
     return "Token demand is speculative or liquidity-led rather than allocator-grade.";
   }
 
-  if (allocationOutcomeKey === "do_not_allocate") {
+  if (allocationOutcomeKey === "do_not_allocate_value_capture_failure") {
+    return "Protocol or network relevance is not enough; tokenholder value capture remains unproven.";
+  }
+
+  if (allocationOutcomeKey === "do_not_allocate_dependency_failure") {
+    return "The token thesis is blocked by custody, redemption, backing, wrapper, or other dependency evidence.";
+  }
+
+  if (allocationOutcomeKey === "do_not_allocate" || String(allocationOutcomeKey || "").startsWith("do_not_allocate")) {
     return "Token-demand support does not clear the allocation bar.";
   }
 
@@ -1299,8 +1313,28 @@ export function buildSummaryMemo({
     return whyNotNow || primaryWeakness || failurePrimary;
   }
 
-  if (allocationOutcomeKey === "tradable_only") {
+  if (allocationOutcomeKey === "evidence_blocked" || allocationOutcomeKey === "manual_review_required") {
+    return whyNotNow || "Allocation is blocked until asset-class-critical evidence is reviewed; this is not confirmed fundamental failure.";
+  }
+
+  if (allocationOutcomeKey === "not_allocation_ready") {
+    return whyNotNow || primaryWeakness || "Current evidence is not allocation-ready.";
+  }
+
+  if (allocationOutcomeKey === "tradable_only" || allocationOutcomeKey === "tradable_only_narrative") {
     return primaryWeakness || failurePrimary || "Speculative interest is not enough to support allocation quality.";
+  }
+
+  if (allocationOutcomeKey === "do_not_allocate_value_capture_failure") {
+    return primaryWeakness || "Protocol or network relevance is not enough; tokenholder value capture remains unproven.";
+  }
+
+  if (allocationOutcomeKey === "do_not_allocate_dependency_failure") {
+    return primaryWeakness || "Allocation is blocked by unresolved dependency evidence such as custody, redemption, backing, or wrapper risk.";
+  }
+
+  if (allocationOutcomeKey === "avoid_critical_risk") {
+    return primaryWeakness || failurePrimary || "A critical live risk dominates the current thesis.";
   }
 
   return primaryWeakness || failurePrimary || whyNotNow;
@@ -1314,6 +1348,16 @@ export function hasRealStructuralInvalidator(primaryWeakness) {
 
 export function deriveAllocationOutcome(analysis, scores) {
   const safeAnalysis = safeObject(analysis);
+  const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const verdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, safeAnalysis.thesisCore, safeAnalysis);
+  if (verdictSemantics?.hasVerdictClass) {
+    return {
+      key: verdictSemantics.key,
+      label: verdictSemantics.label,
+      tone: verdictSemantics.tone,
+      shortLabel: verdictSemantics.shortLabel,
+    };
+  }
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const investability = safeObject(thesisCore.investability);
   const mirroredInvestability = safeObject(safeAnalysis.investability);
@@ -1372,6 +1416,172 @@ export function deriveAllocationOutcome(analysis, scores) {
     label: "Do Not Allocate",
     tone: "negative",
     shortLabel: "Do not allocate",
+  };
+}
+
+const VERDICT_CLASS_DISPLAY = {
+  capital_worthy: {
+    label: "Capital-Worthy",
+    shortLabel: "Capital-worthy",
+    tone: "positive",
+    summary: "Direct thesis support is present and no material blocker is currently evidenced.",
+    boundary: "Investable framing still requires independent verification before capital allocation.",
+  },
+  investable_medium_confidence: {
+    label: "Investable - Medium Confidence",
+    shortLabel: "Investable / medium",
+    tone: "positive",
+    summary: "Core thesis support is constructive, while evidence completeness remains partial.",
+    boundary: "Medium confidence is a caution label, not evidence completeness.",
+  },
+  conditional_allocation: {
+    label: "Conditional Allocation",
+    shortLabel: "Conditional",
+    tone: "caution",
+    summary: "Allocation depends on named conditions being verified or remaining true.",
+    boundary: "Conditions must be source-backed before conviction increases.",
+  },
+  evidence_blocked: {
+    label: "Evidence-Blocked",
+    shortLabel: "Evidence-blocked",
+    tone: "caution",
+    summary: "Allocation is blocked by missing asset-class-critical evidence, not confirmed fundamental failure.",
+    boundary: "Research requirements identify evidence still needed; they are not reviewed evidence.",
+  },
+  manual_review_required: {
+    label: "Manual Review Required",
+    shortLabel: "Manual review",
+    tone: "caution",
+    summary: "Human/source review is required before the asset can be treated as allocation-ready.",
+    boundary: "Manual review is workflow, not automatic proof of failure.",
+  },
+  not_allocation_ready: {
+    label: "Not Allocation-Ready",
+    shortLabel: "Not ready",
+    tone: "warning",
+    summary: "The current evidence does not justify allocation today.",
+    boundary: "Not allocation-ready is a current evidence state, not a permanent verdict.",
+  },
+  do_not_allocate_fundamental_blocker: {
+    label: "Do Not Allocate - Fundamental Blocker",
+    shortLabel: "Fundamental blocker",
+    tone: "negative",
+    summary: "A material fundamental blocker prevents allocation support.",
+    boundary: "The blocker must be resolved with live/source-backed evidence before reconsideration.",
+  },
+  do_not_allocate_value_capture_failure: {
+    label: "Do Not Allocate - Value Capture Failure",
+    shortLabel: "Value-capture failure",
+    tone: "negative",
+    summary: "Protocol or network relevance is not enough; tokenholder value capture remains unproven.",
+    boundary: "TVL, usage, fees, or network importance do not automatically accrue to tokenholders.",
+  },
+  do_not_allocate_dependency_failure: {
+    label: "Do Not Allocate - Dependency Failure",
+    shortLabel: "Dependency failure",
+    tone: "negative",
+    summary: "Allocation is blocked by unresolved dependency evidence such as custody, redemption, backing, wrapper, or legal-claim risk.",
+    boundary: "Dependency assets do not inherit the underlying asset thesis automatically.",
+  },
+  tradable_only_narrative: {
+    label: "Tradable-Only / Narrative-Only",
+    shortLabel: "Narrative-only",
+    tone: "warning",
+    summary: "Narrative and liquidity may make the asset tradable, but durable fundamentals are not established.",
+    boundary: "Attention, volume, or community activity is not institutional thesis support.",
+  },
+  avoid_critical_risk: {
+    label: "Avoid - Critical Risk",
+    shortLabel: "Avoid",
+    tone: "negative",
+    summary: "A critical live risk or blocker dominates the current analysis.",
+    boundary: "Critical risk must be resolved before allocation review continues.",
+  },
+};
+
+export function buildVerdictSemanticsDisplay(decisionLayer, thesisCore, analysis) {
+  const safeDecisionLayer = safeObject(decisionLayer);
+  const safeThesisCore = safeObject(thesisCore);
+  const safeAnalysis = safeObject(analysis);
+  const verdictClass = typeof safeDecisionLayer.verdictClass === "string"
+    ? safeDecisionLayer.verdictClass
+    : null;
+  const base = verdictClass ? VERDICT_CLASS_DISPLAY[verdictClass] : null;
+  const allocationCase = safeObject(safeDecisionLayer.allocationCase);
+  const verdictReasons = safeObject(safeDecisionLayer.verdictReasons);
+  const researchRequirements = safeArray(safeDecisionLayer.researchRequirements);
+
+  if (!base) {
+    return {
+      hasVerdictClass: false,
+      key: null,
+      label: null,
+      shortLabel: null,
+      tone: null,
+      summary: null,
+      boundary: null,
+      positiveCase: [],
+      blockedCase: [],
+      missingEvidence: [],
+      whatWouldChange: [],
+      researchRequirements: [],
+      verdictReasons: {
+        positiveThesisEvidence: [],
+        realBlockers: [],
+        evidenceGaps: [],
+        reviewOnlyCautions: [],
+        notApplicableItems: [],
+        whatWouldChangeDecision: [],
+      },
+    };
+  }
+
+  const normalizedReasons = {
+    positiveThesisEvidence: normalizeRenderableList(verdictReasons.positiveThesisEvidence),
+    realBlockers: normalizeRenderableList(verdictReasons.realBlockers),
+    evidenceGaps: normalizeRenderableList(verdictReasons.evidenceGaps),
+    reviewOnlyCautions: normalizeRenderableList(verdictReasons.reviewOnlyCautions),
+    notApplicableItems: normalizeRenderableList(verdictReasons.notApplicableItems),
+    whatWouldChangeDecision: normalizeRenderableList(verdictReasons.whatWouldChangeDecision),
+  };
+
+  const positiveCase = dedupeCaseInsensitive([
+    ...normalizeRenderableList(allocationCase.forAllocation),
+    ...normalizedReasons.positiveThesisEvidence,
+    safeThesisCore.primaryStrength,
+  ]).slice(0, 5);
+  const blockedCase = dedupeCaseInsensitive([
+    ...normalizeRenderableList(allocationCase.againstAllocation),
+    ...normalizedReasons.realBlockers,
+    safeThesisCore.primaryWeakness,
+  ]).filter((item) => !isNoMaterialWeakness(item)).slice(0, 5);
+  const missingEvidence = dedupeCaseInsensitive([
+    ...normalizeRenderableList(allocationCase.missingEvidence),
+    ...normalizedReasons.evidenceGaps,
+    ...normalizeRenderableList(safeThesisCore.evidenceQuality?.missingCritical),
+  ]).slice(0, 5);
+  const whatWouldChange = dedupeCaseInsensitive([
+    ...normalizeRenderableList(allocationCase.whatWouldChange),
+    ...normalizedReasons.whatWouldChangeDecision,
+    ...normalizeRenderableList(safeDecisionLayer.decisionFrame?.whatMustBeTrue),
+  ]).slice(0, 5);
+
+  return {
+    hasVerdictClass: true,
+    key: verdictClass,
+    verdictClass,
+    label: base.label,
+    shortLabel: base.shortLabel,
+    tone: base.tone,
+    summary: base.summary,
+    boundary: base.boundary,
+    finalVerdictRating: safeAnalysis.aiReport?.finalVerdict?.rating || null,
+    positiveCase,
+    blockedCase,
+    missingEvidence,
+    whatWouldChange,
+    researchRequirements,
+    verdictReasons: normalizedReasons,
   };
 }
 
@@ -1931,6 +2141,7 @@ export function buildDecisionTerminalModel({
     evidenceConflicts,
     auditAlerts,
   });
+  const verdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
   const assetClassLabel = deriveAssetClassLabel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
@@ -1948,6 +2159,16 @@ export function buildDecisionTerminalModel({
     confidenceScore,
     confidenceLabel: confidenceLabelText,
     allocationOutcome,
+    verdictSemantics,
+    verdictClass: verdictSemantics.verdictClass || null,
+    allocationCase: verdictSemantics.hasVerdictClass ? {
+      forAllocation: verdictSemantics.positiveCase,
+      againstAllocation: verdictSemantics.blockedCase,
+      missingEvidence: verdictSemantics.missingEvidence,
+      whatWouldChange: verdictSemantics.whatWouldChange,
+    } : null,
+    researchRequirements: verdictSemantics.researchRequirements,
+    verdictReasons: verdictSemantics.verdictReasons,
     primaryStrength,
     primaryWeakness,
     failureMode: {

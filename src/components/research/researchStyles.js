@@ -1899,6 +1899,36 @@ export const styles = {
     fontSize: 13,
     lineHeight: 1.6,
   },
+  decisionSemanticMiniGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 10,
+    marginTop: 14,
+  },
+  decisionSemanticMiniCard: {
+    padding: 12,
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(138,148,166,0.14)",
+  },
+  verdictBoundaryBanner: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 18,
+    background: "linear-gradient(135deg, rgba(125,211,252,0.08), rgba(249,217,118,0.06))",
+    border: "1px solid rgba(125,211,252,0.18)",
+  },
+  verdictBoundaryTitle: {
+    color: "#f9d976",
+    fontWeight: 900,
+    marginBottom: 6,
+    letterSpacing: "0.02em",
+  },
+  verdictBoundaryText: {
+    color: "#d5dcec",
+    lineHeight: 1.65,
+    fontSize: 14,
+  },
   decisionChangeCard: {
     borderColor: "rgba(125,211,252,0.2)",
   },
@@ -1926,6 +1956,18 @@ export const styles = {
     border: "1px solid rgba(125,211,252,0.2)",
     fontSize: 11,
     fontWeight: 900,
+  },
+  allocationCaseGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 12,
+    marginTop: 14,
+  },
+  allocationCaseCard: {
+    padding: 12,
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.035)",
+    border: "1px solid rgba(138,148,166,0.14)",
   },
   decisionScoreStrip: {
     marginTop: 16,

@@ -4,8 +4,14 @@ import { formatScoreValue, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
+  if (outcomeKey === "investable_medium_confidence") return "#2fd67b";
   if (outcomeKey === "conditional_allocation") return "#ffb020";
-  if (outcomeKey === "tradable_only") return "#ff8a4c";
+  if (outcomeKey === "evidence_blocked") return "#ffb020";
+  if (outcomeKey === "manual_review_required") return "#ffb020";
+  if (outcomeKey === "not_allocation_ready") return "#ff8a4c";
+  if (outcomeKey === "tradable_only" || outcomeKey === "tradable_only_narrative") return "#ff8a4c";
+  if (String(outcomeKey || "").startsWith("do_not_allocate")) return "#ff6b6b";
+  if (outcomeKey === "avoid_critical_risk") return "#ff6b6b";
   return "#ff6b6b";
 }
 
@@ -92,7 +98,11 @@ export default function DecisionHeroCard({
   const weakestLink = model?.weakestLink || {};
   const whatWouldChange = model?.whatWouldChangeDecision?.items || ["Additional verified evidence required."];
   const manualReviewStatus = model?.manualReviewStatus || {};
-  const finalDecisionSubcopy = model?.summaryMemo || "Live decision layer returned no structured summary.";
+  const verdictSemantics = model?.verdictSemantics || {};
+  const finalDecisionSubcopy = verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
+  const primaryPositiveCase = verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
+  const primaryBlockedCase = verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
+  const semanticBoundary = verdictSemantics.boundary || "Research support only. No price prediction or investment advice.";
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshnessLabel = lastAnalyzed ? `Last analyzed ${lastAnalyzed}` : "Freshness unavailable";
@@ -134,15 +144,27 @@ export default function DecisionHeroCard({
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
             <div style={styles.decisionFinalSubcopy}>{finalDecisionSubcopy}</div>
+            {verdictSemantics.hasVerdictClass ? (
+              <div style={styles.decisionSemanticMiniGrid}>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Why allocation could make sense</div>
+                  <div style={styles.contextMuted}>{primaryPositiveCase || "No positive allocation case was surfaced by the live response."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Why allocation is blocked</div>
+                  <div style={styles.contextMuted}>{primaryBlockedCase || "No material blocker is currently evidenced by the live response."}</div>
+                </div>
+              </div>
+            ) : null}
             <div style={styles.decisionFinalActions}>
               <StatusBadge
-                label={sanitizeSemanticLabel(model?.investabilityStatus, "Scoring-active")}
+                label={verdictSemantics.hasVerdictClass ? "Verdict taxonomy v1" : sanitizeSemanticLabel(model?.investabilityStatus, "Scoring-active")}
                 styles={styles}
                 color={outcomeColorValue}
               />
               <button
                 type="button"
-                onClick={() => onSelectSection?.("overview")}
+                onClick={() => onSelectSection?.("scoring_transparency")}
                 style={styles.decisionHeaderPrimaryButton}
               >
                 View final verdict logic -&gt;
@@ -150,6 +172,17 @@ export default function DecisionHeroCard({
             </div>
           </div>
         </div>
+
+        {verdictSemantics.hasVerdictClass ? (
+          <div style={styles.verdictBoundaryBanner}>
+            <div style={styles.verdictBoundaryTitle}>
+              {verdictSemantics.key === "evidence_blocked" || verdictSemantics.key === "manual_review_required"
+                ? "Evidence-blocked, not confirmed failure"
+                : "Verdict semantics boundary"}
+            </div>
+            <div style={styles.verdictBoundaryText}>{semanticBoundary}</div>
+          </div>
+        ) : null}
 
         {(model?.contradictionNote || model?.evidenceConstraintNote) ? (
           <div style={styles.decisionNoticeGrid}>
@@ -176,7 +209,7 @@ export default function DecisionHeroCard({
             badge={primaryBlocker.badge || "Derived proxy"}
             accent="#ff6b6b"
             cta="Inspect blocker"
-            onClick={() => onSelectSection?.("manual_review")}
+            onClick={() => onSelectSection?.("thesis_falsification")}
             styles={styles}
           />
           <DecisionInsightCard
@@ -204,7 +237,7 @@ export default function DecisionHeroCard({
             </div>
             <button
               type="button"
-              onClick={() => onSelectSection?.("thesis_falsification")}
+              onClick={() => onSelectSection?.("source_queue")}
               style={styles.decisionHeaderTextButton}
             >
               View requirements -&gt;

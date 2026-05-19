@@ -17,13 +17,15 @@ function ProductViewButton({ active, children, onClick, styles }) {
 
 export default function ResearchHeader({
   backendMeta,
-  apiBase,
-  activeProductView = "analysis",
+  activeProductView = "overview",
+  onOpenOverview,
   onRunAnalysis,
   onViewMethodology,
   onOpenAnalysis,
   styles,
 }) {
+  const isAnalysisView = activeProductView === "analysis";
+  const isOverviewView = activeProductView === "overview";
   const isMethodologyView = activeProductView === "methodology";
 
   return (
@@ -35,7 +37,14 @@ export default function ResearchHeader({
         </div>
         <nav style={styles.productViewNav} aria-label="Product view navigation">
           <ProductViewButton
-            active={!isMethodologyView}
+            active={isOverviewView}
+            onClick={onOpenOverview}
+            styles={styles}
+          >
+            Overview
+          </ProductViewButton>
+          <ProductViewButton
+            active={isAnalysisView}
             onClick={onOpenAnalysis || onRunAnalysis}
             styles={styles}
           >
@@ -61,45 +70,6 @@ export default function ResearchHeader({
           </div>
         </div>
       </div>
-
-      {!isMethodologyView ? <div style={styles.heroPanel}>
-        <div style={styles.heroCopy}>
-          <div style={styles.heroKicker}>Institutional Due Diligence for Digital Asset Allocation</div>
-          <h1 style={styles.heroTitle}>Truth Before Allocation.</h1>
-          <p style={styles.heroSubtitle}>
-            ThesisCore tests whether a digital asset thesis deserves capital by exposing blockers, missing evidence, source gaps, false-positive risk, and what would change the decision.
-          </p>
-          <div style={styles.heroButtonRow}>
-            <button onClick={onRunAnalysis} style={styles.primaryButton}>Start Analysis</button>
-            <button onClick={onViewMethodology} style={styles.quickButton}>Learn Methodology</button>
-          </div>
-          <div style={styles.heroBullets}>
-            <span style={styles.heroBullet}>Thesis Falsification</span>
-            <span style={styles.heroBullet}>Evidence Transparency</span>
-            <span style={styles.heroBullet}>Research Support Only</span>
-          </div>
-        </div>
-
-        <div style={styles.heroSideCard}>
-          <div style={styles.sideCardLabel}>Positioning Boundary</div>
-          <div style={styles.sideCardValue}>Not a crypto dashboard</div>
-          <p style={styles.sideCardText}>
-            Not price prediction.
-          </p>
-          <p style={styles.sideCardText}>
-            Not AI picks.
-          </p>
-          <p style={styles.sideCardText}>
-            Not a generic score.
-          </p>
-          <p style={styles.sideCardText}>
-            It is a deterministic due-diligence and allocation-thesis falsification engine.
-          </p>
-          <p style={styles.sideCardText}>
-            API base: <code style={styles.inlineCode}>{apiBase}</code>
-          </p>
-        </div>
-      </div> : null}
     </>
   );
 }
