@@ -28,65 +28,113 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
   };
 
   const labels = [
-    "Institutional Due Diligence",
+    "Live Decision Support",
     "Thesis Falsification",
-    "Evidence Transparency",
+    "Asset-Class Lenses",
+    "Evidence Boundaries",
     "False-Positive Discipline",
-    "Source-Backed Research",
   ];
 
   const valueCards = [
     {
       title: "Decision-first analysis",
-      text: "Final decision, primary blocker, weakest link, and what would change the decision are surfaced before secondary scores.",
+      text: "Final verdict, primary blocker, weakest link, and what would change the decision appear before secondary scores.",
     },
     {
-      title: "Evidence transparency",
-      text: "Live provider context, missing evidence, provider gaps, and source trace are visible instead of buried in a generic score.",
+      title: "Evidence gaps, not mystery scores",
+      text: "Live outputs separate direct evidence, provider gaps, missing critical support, source candidates, and review-only cautions.",
     },
     {
-      title: "Institutional questions",
-      text: "Asset-class-specific questions structure the analysis. Live per-question mapping only appears when attached.",
+      title: "Asset-class-aware lenses",
+      text: "BTC, ETH, stablecoins, wrapped assets, DeFi tokens, L2s, infrastructure tokens, RWA assets, and memes are not judged by one generic rubric.",
     },
     {
-      title: "Source-backed workflow",
-      text: "Source candidates, manual intake, reviewed evidence items, and report-only overlays support deeper diligence without contaminating live scoring.",
+      title: "Research requirements",
+      text: "The engine generates what still needs review from live gaps. Those requirements are not reviewed evidence until a source workflow promotes them.",
     },
     {
-      title: "Scoring transparency",
-      text: "Only live scoring affects the current verdict. Report-only evidence and source candidates do not affect scoring unless future calibrated integration occurs.",
+      title: "Verdict semantics",
+      text: "The frontend now distinguishes investable, evidence-blocked, manual-review, value-capture failure, dependency failure, narrative-only, and critical-risk cases.",
     },
   ];
 
   const pipeline = [
-    "Asset Input",
-    "Classification",
-    "Institutional Questions",
-    "Evidence / Sources",
-    "Missing Evidence + Provider Gaps",
-    "Caps / Guardrails",
-    "Decision",
+    "Asset",
+    "Lens",
+    "Evidence",
+    "Blockers",
+    "Research Requirements",
+    "Verdict",
     "What Would Change",
   ];
 
-  const providerCategories = [
-    "market context",
-    "DEX liquidity context",
-    "protocol context",
-    "security/admin signals",
-    "provider diagnostics",
+  const institutionalQuestions = [
+    "What must be true for this asset to deserve capital?",
+    "What evidence directly supports that thesis?",
+    "What evidence is missing, stale, indirect, or contradicted?",
+    "Does protocol usage translate into tokenholder value capture?",
+    "Does TVL, volume, or AUM create enforceable economic rights?",
+    "Who controls custody, redemption, reserves, upgrades, or admin keys?",
+    "Is this evidence, a source candidate, or an unreviewed claim?",
+    "What would break the thesis under stress?",
+    "What would change the verdict?",
   ];
 
-  const manualResearchDomains = [
-    "reserves",
-    "redemption",
-    "legal claim",
-    "custody",
-    "attestations",
-    "governance",
-    "tokenholder accrual",
-    "audits",
-    "NAV / proof-of-reserves",
+  const currentAnswers = [
+    "Why allocation could make sense",
+    "Why allocation is blocked",
+    "What evidence is missing",
+    "What research is required",
+    "What would change the decision",
+    "Whether the issue is fundamental failure or evidence-blocked",
+  ];
+
+  const institutionalRisks = [
+    "Crypto has too many false positives.",
+    "Usage does not always mean tokenholder value.",
+    "TVL does not always mean accrual.",
+    "AUM does not always mean token rights.",
+    "Wrapped exposure is not native exposure.",
+    "Stablecoin settlement depends on reserves, redemption, legal claim, and issuer risk.",
+    "RWA and tokenized assets require issuer, custody, collateral, redemption, jurisdiction, and legal-rights review.",
+    "Meme and narrative assets should not receive fake fundamentals.",
+  ];
+
+  const assetCoverage = [
+    "BTC / monetary benchmarks",
+    "ETH / base-layer settlement",
+    "SOL / L1 settlement networks",
+    "stablecoins",
+    "wrapped assets",
+    "LST / restaking assets",
+    "DeFi protocol tokens",
+    "L2 governance/economics tokens",
+    "oracle / infrastructure assets",
+    "payments / settlement networks",
+    "RWA / Hybrid Finance assets",
+    "meme / narrative assets",
+    "low-coverage assets",
+  ];
+
+  const currentLive = [
+    "thesis-falsification workflow",
+    "live scoring / decision layer",
+    "asset-class lenses",
+    "verdict taxonomy",
+    "allocation case",
+    "research requirements",
+    "evidence boundaries",
+    "source/manual review separation",
+  ];
+
+  const plannedLayers = [
+    "Source Intelligence",
+    "Evidence Registry",
+    "Question-Level Evidence Mapping",
+    "reviewed evidence promotion",
+    "contradiction / freshness / reliability checks",
+    "calibrated scoring integration",
+    "Hybrid Finance strategic layer",
   ];
 
   return (
@@ -96,7 +144,10 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
           <div style={styles.homepageKicker}>Institutional Digital Asset Due Diligence</div>
           <h1 style={styles.homepageTitle}>Truth Before Allocation.</h1>
           <p style={styles.homepageSubtitle}>
-            ThesisCore does not predict price or generate AI picks. It tests whether a digital asset allocation thesis survives evidence, missing data, contradictions, and asset-class-specific institutional due diligence.
+            Most crypto tools rank what looks attractive. ThesisCore tries to break the allocation thesis before capital is exposed.
+          </p>
+          <p style={styles.homepageSubtitleSmall}>
+            Before an asset earns capital, ThesisCore asks what would break the thesis, what evidence is missing, and what would change the decision.
           </p>
           <div style={styles.homepageLabelRow}>
             {labels.map((label) => <Label key={label} styles={styles}>{label}</Label>)}
@@ -104,17 +155,18 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
           <div style={styles.homepageCtaRow}>
             <button onClick={onAnalyzeAsset} style={styles.primaryButton}>Start Analysis</button>
             <button onClick={onViewMethodology} style={styles.quickButton}>Learn Methodology</button>
-            <button onClick={scrollToWorkflow} style={styles.ghostButton}>See Evidence Workflow</button>
+            <button onClick={scrollToWorkflow} style={styles.ghostButton}>See Asset Lenses</button>
           </div>
         </div>
 
         <div style={styles.homepageDecisionCard}>
           <div style={styles.metaLabel}>What the engine exposes</div>
-          <div style={styles.homepageDecisionLine}>Final decision</div>
-          <div style={styles.homepageDecisionLineMuted}>Primary blocker</div>
-          <div style={styles.homepageDecisionLineMuted}>Weakest link</div>
-          <div style={styles.homepageDecisionLineMuted}>Missing evidence</div>
-          <div style={styles.homepageDecisionLineMuted}>What would change the decision</div>
+          <div style={styles.homepageDecisionLine}>Allocation thesis under stress</div>
+          <div style={styles.homepageDecisionLineMuted}>Final semantic verdict</div>
+          <div style={styles.homepageDecisionLineMuted}>Why allocation could make sense</div>
+          <div style={styles.homepageDecisionLineMuted}>Why allocation is blocked</div>
+          <div style={styles.homepageDecisionLineMuted}>Evidence still needed</div>
+          <div style={styles.homepageDecisionLineMuted}>What would change the verdict</div>
           <div style={styles.homepageBoundaryNote}>Research support only. Not financial advice. No price prediction.</div>
         </div>
       </div>
@@ -128,10 +180,10 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
       <div style={styles.homepagePanel}>
         <div style={styles.homepageSectionHeader}>
           <div>
-            <div style={styles.homepageKicker}>Engine Pipeline Preview</div>
-            <h2 style={styles.homepageSectionTitle}>From asset input to falsifiable decision.</h2>
+            <div style={styles.homepageKicker}>Engine Workflow</div>
+            <h2 style={styles.homepageSectionTitle}>From asset identity to falsifiable verdict.</h2>
           </div>
-          <div style={styles.homepageMuted}>Compact workflow only. No fake metrics or counts.</div>
+          <div style={styles.homepageMuted}>Research requirements are generated from live gaps. They are not reviewed evidence.</div>
         </div>
         <div style={styles.homepagePipeline}>
           {pipeline.map((step, index) => (
@@ -145,38 +197,89 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
 
       <div style={styles.homepageTwoColumn}>
         <div style={styles.homepagePanel}>
+          <div style={styles.homepageKicker}>Institutional Questions</div>
+          <h2 style={styles.homepageSectionTitle}>Built to ask the questions a score cannot answer.</h2>
+          <div style={styles.homepageBoundaryList}>
+            {institutionalQuestions.map((question) => (
+              <BoundaryItem key={question} styles={styles}>{question}</BoundaryItem>
+            ))}
+          </div>
+          <div style={styles.homepageBoundaryNote}>
+            Current live outputs generate research requirements and evidence gaps. They do not claim every question is fully source-reviewed today.
+          </div>
+        </div>
+
+        <div style={styles.homepagePanel}>
+          <div style={styles.homepageKicker}>What ThesisCore Answers Today</div>
+          <h2 style={styles.homepageSectionTitle}>A decision cockpit for allocation blockers.</h2>
+          <div style={styles.homepageWorkflowGrid}>
+            {currentAnswers.map((answer) => (
+              <ValueCard key={answer} title={answer} text="Generated from live scoring, verdict semantics, evidence gaps, and research requirement fields when available." styles={styles} />
+            ))}
+          </div>
+          <div style={styles.homepageBoundaryNote}>
+            Research requirements are generated from live gaps. They are not reviewed evidence until reviewed and promoted by a source workflow.
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.homepageTwoColumn}>
+        <div style={styles.homepagePanel}>
+          <div style={styles.homepageKicker}>Why Institutions Need This</div>
+          <h2 style={styles.homepageSectionTitle}>The dangerous cases are usually not obvious.</h2>
+          <div style={styles.homepageBoundaryList}>
+            {institutionalRisks.map((risk) => (
+              <BoundaryItem key={risk} styles={styles}>{risk}</BoundaryItem>
+            ))}
+          </div>
+        </div>
+
+        <div ref={workflowRef} style={styles.homepagePanel}>
+          <div style={styles.homepageKicker}>Asset Coverage Doctrine</div>
+          <h2 style={styles.homepageSectionTitle}>Different assets require different evidence.</h2>
+          <p style={styles.homepageMuted}>
+            A single generic score is not enough. ThesisCore routes assets through conservative lenses so wrong questions do not create false confidence.
+          </p>
+          <div style={styles.homepageTagRow}>
+            {assetCoverage.map((item) => <span key={item} style={styles.homepageTag}>{item}</span>)}
+          </div>
+          <div style={styles.homepageBoundaryNote}>
+            Category-aware does not mean source-complete. Low-confidence or ambiguous assets still fall back to conservative low-coverage treatment.
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.homepageTwoColumn}>
+        <div style={styles.homepagePanel}>
           <div style={styles.homepageKicker}>Product Differentiation</div>
           <h2 style={styles.homepageSectionTitle}>Not a screener. Not price prediction. Not AI picks.</h2>
           <div style={styles.homepageBoundaryList}>
             <BoundaryItem styles={styles}>Screeners rank assets.</BoundaryItem>
             <BoundaryItem styles={styles}>Price tools forecast markets.</BoundaryItem>
             <BoundaryItem styles={styles}>AI-pick apps generate recommendations.</BoundaryItem>
-            <BoundaryItem styles={styles}>ThesisCore tests allocation theses against evidence and falsification rules.</BoundaryItem>
+            <BoundaryItem styles={styles}>ThesisCore tests allocation theses against evidence, blockers, and falsification rules.</BoundaryItem>
           </div>
         </div>
 
-        <div ref={workflowRef} style={styles.homepagePanel}>
-          <div style={styles.homepageKicker}>Research Workflow</div>
-          <h2 style={styles.homepageSectionTitle}>Transparent live data plus auditable source-backed research.</h2>
-          <p style={styles.homepageMuted}>
-            ThesisCore prioritizes currently available live providers and source-backed manual research over opaque paid-provider dependency.
-          </p>
+        <div style={styles.homepagePanel}>
+          <div style={styles.homepageKicker}>Current vs Next Layers</div>
+          <h2 style={styles.homepageSectionTitle}>Live decision support now. Source intelligence next.</h2>
           <div style={styles.homepageWorkflowGrid}>
             <div>
-              <div style={styles.homepageMiniTitle}>Live providers help with</div>
+              <div style={styles.homepageMiniTitle}>Current live layer</div>
               <div style={styles.homepageTagRow}>
-                {providerCategories.map((item) => <span key={item} style={styles.homepageTag}>{item}</span>)}
+                {currentLive.map((item) => <span key={item} style={styles.homepageTag}>{item}</span>)}
               </div>
             </div>
             <div>
-              <div style={styles.homepageMiniTitle}>Source-backed research handles</div>
+              <div style={styles.homepageMiniTitle}>Planned next layer</div>
               <div style={styles.homepageTagRow}>
-                {manualResearchDomains.map((item) => <span key={item} style={styles.homepageTag}>{item}</span>)}
+                {plannedLayers.map((item) => <span key={item} style={styles.homepageTag}>{item}</span>)}
               </div>
             </div>
           </div>
           <div style={styles.homepageBoundaryNote}>
-            Source candidates are not evidence. Report-only evidence does not affect live scoring.
+            Planned layers are not live scoring today. Source candidates, research requirements, and report-only context do not change the current verdict unless a future calibrated integration explicitly promotes them.
           </div>
         </div>
       </div>
@@ -184,15 +287,15 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
       <div style={styles.homepageFuturePanel}>
         <div>
           <div style={styles.homepageKicker}>Planned Strategic Layer</div>
-          <h2 style={styles.homepageSectionTitle}>Designed for the next thesis: Hybrid Finance.</h2>
+          <h2 style={styles.homepageSectionTitle}>Designed to extend into Hybrid Finance.</h2>
           <p style={styles.homepageSubtitleSmall}>
-            ThesisCore is designed to evolve from asset-level analysis into institutional macro thesis testing, including Hybrid Finance: Bitcoin as institutional foundation, tokenized real-world assets, stablecoin settlement rails, institutional blockchain infrastructure, and on-chain trading rails.
+            ThesisCore is designed to extend into Hybrid Finance: tokenized funds, stablecoin settlement rails, RWA protocols, tokenized yield, and institutional DeFi infrastructure.
           </p>
         </div>
         <div style={styles.homepageFutureBoundary}>
           <div style={styles.homepageMiniTitle}>Boundary</div>
           <p style={styles.homepageMuted}>
-            Planned strategic layer. Not live scoring. Not current registry. Not source fetching. Claims will require source, date, freshness, review status, mapped thesis question, verification requirements, contradiction checks, and evidence requirements.
+            Planned strategic layer only. Not live scoring today. Not current source fetching. Not proof of legal claim, redemption, custody, or institutional rights. Hybrid Finance claims require source-backed evidence registry, claim review, freshness checks, contradiction checks, and calibrated scoring integration before they can affect verdicts.
           </p>
         </div>
       </div>

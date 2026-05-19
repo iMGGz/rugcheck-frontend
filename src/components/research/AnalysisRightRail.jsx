@@ -29,14 +29,30 @@ function RailSection({ title, badge, children, styles }) {
 }
 
 function RailTextButton({ children, onClick, active = false, styles }) {
+  const [interactiveState, setInteractiveState] = React.useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
       style={{
         ...styles.railNavButton,
         ...(active ? styles.railNavButtonActive : null),
+        ...(interactiveState.hover ? styles.railNavButtonHover : null),
+        ...(interactiveState.focus ? styles.railNavButtonFocus : null),
+        ...(interactiveState.pressed ? styles.railNavButtonPressed : null),
       }}
+      aria-pressed={active}
     >
       {children}
     </button>

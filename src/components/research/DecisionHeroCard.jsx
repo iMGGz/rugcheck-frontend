@@ -39,6 +39,40 @@ function StatusBadge({ label, styles, color = null }) {
   );
 }
 
+function InteractiveActionButton({ children, onClick, styles, variant = "secondary" }) {
+  const [interactiveState, setInteractiveState] = React.useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+  const isPrimary = variant === "primary";
+  const baseStyle = isPrimary ? styles.decisionHeaderPrimaryButton : styles.decisionHeaderTextButton;
+  const hoverStyle = isPrimary ? styles.decisionHeaderPrimaryButtonHover : styles.decisionHeaderTextButtonHover;
+  const focusStyle = isPrimary ? styles.decisionHeaderPrimaryButtonFocus : styles.decisionHeaderTextButtonFocus;
+  const pressedStyle = isPrimary ? styles.decisionHeaderPrimaryButtonPressed : styles.decisionHeaderTextButtonPressed;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...baseStyle,
+        ...(interactiveState.hover ? hoverStyle : null),
+        ...(interactiveState.focus ? focusStyle : null),
+        ...(interactiveState.pressed ? pressedStyle : null),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 function DecisionInsightCard({ title, value, detail, badge, accent, cta, onClick, styles }) {
   return (
     <div style={{ ...styles.decisionInsightCard, borderColor: `${accent}33` }}>
@@ -49,9 +83,9 @@ function DecisionInsightCard({ title, value, detail, badge, accent, cta, onClick
       <div style={styles.decisionInsightValue}>{value}</div>
       {detail ? <div style={styles.decisionInsightDetail}>{detail}</div> : null}
       {cta ? (
-        <button type="button" onClick={onClick} style={styles.decisionHeaderTextButton}>
+        <InteractiveActionButton onClick={onClick} styles={styles}>
           {cta} -&gt;
-        </button>
+        </InteractiveActionButton>
       ) : null}
     </div>
   );
@@ -162,13 +196,13 @@ export default function DecisionHeroCard({
                 styles={styles}
                 color={outcomeColorValue}
               />
-              <button
-                type="button"
+              <InteractiveActionButton
                 onClick={() => onSelectSection?.("scoring_transparency")}
-                style={styles.decisionHeaderPrimaryButton}
+                styles={styles}
+                variant="primary"
               >
                 View final verdict logic -&gt;
-              </button>
+              </InteractiveActionButton>
             </div>
           </div>
         </div>
@@ -235,13 +269,9 @@ export default function DecisionHeroCard({
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => onSelectSection?.("source_queue")}
-              style={styles.decisionHeaderTextButton}
-            >
+            <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
               View requirements -&gt;
-            </button>
+            </InteractiveActionButton>
           </div>
         </div>
 

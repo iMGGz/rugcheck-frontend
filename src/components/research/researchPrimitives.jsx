@@ -53,8 +53,31 @@ export function ListBlock({ title, items, emptyText, color = "#d5dcec" }) {
 }
 
 export function TabButton({ active, label, onClick, styles }) {
+  const [interactiveState, setInteractiveState] = React.useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+
   return (
-    <button onClick={onClick} style={{ ...styles.tabButton, ...(active ? styles.tabButtonActive : {}) }}>
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState({ hover: false, focus: interactiveState.focus, pressed: false })}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...styles.tabButton,
+        ...(active ? styles.tabButtonActive : {}),
+        ...(interactiveState.hover ? styles.tabButtonHover : {}),
+        ...(interactiveState.focus ? styles.tabButtonFocus : {}),
+        ...(interactiveState.pressed ? styles.tabButtonPressed : {}),
+      }}
+      aria-pressed={active}
+    >
       {label}
     </button>
   );

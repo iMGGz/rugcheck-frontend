@@ -1,13 +1,63 @@
 import React from "react";
 
 function ProductViewButton({ active, children, onClick, styles }) {
+  const [interactiveState, setInteractiveState] = React.useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
       style={{
         ...styles.productViewButton,
         ...(active ? styles.productViewButtonActive : null),
+        ...(interactiveState.hover ? styles.productViewButtonHover : null),
+        ...(interactiveState.focus ? styles.productViewButtonFocus : null),
+        ...(interactiveState.pressed ? styles.productViewButtonPressed : null),
+      }}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
+    </button>
+  );
+}
+
+function HeaderActionButton({ children, onClick, styles, variant = "quick" }) {
+  const [interactiveState, setInteractiveState] = React.useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+  const isGhost = variant === "ghost";
+  const baseStyle = isGhost ? styles.ghostButton : styles.quickButton;
+  const hoverStyle = isGhost ? styles.ghostButtonHover : styles.quickButtonHover;
+  const focusStyle = isGhost ? styles.ghostButtonFocus : styles.quickButtonFocus;
+  const pressedStyle = isGhost ? styles.ghostButtonPressed : styles.quickButtonPressed;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...baseStyle,
+        ...(interactiveState.hover ? hoverStyle : null),
+        ...(interactiveState.focus ? focusStyle : null),
+        ...(interactiveState.pressed ? pressedStyle : null),
       }}
     >
       {children}
@@ -59,8 +109,8 @@ export default function ResearchHeader({
           </ProductViewButton>
         </nav>
         <div style={styles.heroNav}>
-          <button onClick={onRunAnalysis} style={styles.quickButton}>Start Analysis</button>
-          <button onClick={onViewMethodology} style={styles.ghostButton}>Learn Methodology</button>
+          <HeaderActionButton onClick={onRunAnalysis} styles={styles}>Start Analysis</HeaderActionButton>
+          <HeaderActionButton onClick={onViewMethodology} styles={styles} variant="ghost">Learn Methodology</HeaderActionButton>
         </div>
         <div style={{ ...styles.statusBadge, borderColor: backendMeta.color }}>
           <span style={{ ...styles.statusDot, background: backendMeta.color }} />

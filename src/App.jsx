@@ -1167,6 +1167,20 @@ export default function App() {
               </Card>
             ) : null}
 
+            <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
+
+            <div style={styles.resultActions}>
+              <button onClick={toggleFavorite} style={styles.actionButton}>
+                {isFavorite ? "Remove from saved history" : "Save to decision history"}
+              </button>
+              <button onClick={copyShareLink} style={styles.actionButton}>
+                Copy memo link
+              </button>
+              {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
+            </div>
+
+            <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
+
             <div style={styles.advancedGrid}>
               <AllocationOutcomeCard model={decisionModel} styles={styles} />
               <Card title="Decision Memo" subtitle="Answer first. Reasoning second. Audit third." styles={styles}>
@@ -1523,20 +1537,6 @@ export default function App() {
 
                 <div style={styles.analysisWorkbench}>
                   <main style={styles.analysisMainColumn}>
-                    <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
-
-                    <div style={styles.resultActions}>
-                      <button onClick={toggleFavorite} style={styles.actionButton}>
-                        {isFavorite ? "Remove from saved history" : "Save to decision history"}
-                      </button>
-                      <button onClick={copyShareLink} style={styles.actionButton}>
-                        Copy memo link
-                      </button>
-                      {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
-                    </div>
-
-                    <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
-
                     {renderActiveTab()}
 
                     {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
@@ -1578,11 +1578,20 @@ export default function App() {
                   A dedicated product view for the engine pipeline, live/report-only boundary, source-backed research workflow, and planned Hybrid Finance thesis layer.
                 </p>
               </div>
-              <button onClick={() => openAnalysisView({ scrollToSearch: true })} style={styles.primaryButton}>
-                Start Analysis
-              </button>
             </div>
             <HowTheEngineWorksPage styles={styles} />
+            <div style={styles.methodologyBottomCta}>
+              <div>
+                <div style={styles.productViewEyebrow}>Run the methodology</div>
+                <h2 style={styles.methodologyViewTitle}>Put an asset through the terminal.</h2>
+                <p style={styles.methodologyViewText}>
+                  Switch back to Analysis Terminal without resetting the current query, loaded result, active tab, or local watchlist state.
+                </p>
+              </div>
+              <button onClick={() => openAnalysisView({ scrollToSearch: true })} style={styles.primaryButton}>
+                Run an Asset Through ThesisCore
+              </button>
+            </div>
           </section>
         ) : null}
 
