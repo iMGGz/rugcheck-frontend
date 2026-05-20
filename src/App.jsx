@@ -10,7 +10,7 @@ import SnapshotDetailPanel from "./components/research/SnapshotDetailPanel";
 import WatchlistPanel from "./components/research/WatchlistPanel";
 import ResearchContextPanel from "./components/research/ResearchContextPanel";
 import ResearchErrorBoundary from "./components/research/ResearchErrorBoundary";
-import DecisionHeroCard from "./components/research/DecisionHeroCard";
+import DecisionHeroCard, { DecisionHeroSupportSections } from "./components/research/DecisionHeroCard";
 import EvidenceStatusSummaryCard from "./components/research/EvidenceStatusSummaryCard";
 import EvidenceMapTab from "./components/research/EvidenceMapTab";
 import SourceQueuePanel from "./components/research/SourceQueuePanel";
@@ -1213,6 +1213,12 @@ export default function App() {
               </Card>
             ) : null}
 
+            <DecisionHeroSupportSections
+              model={decisionModel}
+              styles={styles}
+              onSelectSection={selectAnalysisSection}
+            />
+
             <EvidenceStatusSummaryCard proxy={evidenceStatusProxy} styles={styles} />
 
             <div style={styles.resultActions}>
@@ -1473,18 +1479,6 @@ export default function App() {
 
         {activeProductView === "analysis" ? (
           <>
-            <Card
-              title="Analysis Terminal"
-              subtitle="Search, select an exact asset when needed, and inspect the active decision cockpit. Product positioning and methodology live in separate top-level views."
-              styles={styles}
-            >
-              <SectionRow
-                label="Boundary"
-                value="Analysis Terminal shows the live asset workflow only: search, asset selection, result state, decision cockpit, evidence status, canonical tabs, and right rail."
-                styles={styles}
-              />
-            </Card>
-
             <div ref={searchSectionRef}>
               <SearchPanel
                 query={query}
@@ -1563,6 +1557,7 @@ export default function App() {
                   styles={styles}
                   onSelectSection={selectAnalysisSection}
                   lastAnalyzed={lastUpdated}
+                  showSupportSections={false}
                 />
 
                 <div style={styles.terminalNavHeader}>

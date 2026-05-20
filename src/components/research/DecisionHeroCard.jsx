@@ -114,6 +114,129 @@ function LayerLegendItem({ title, detail, badge, tone, styles }) {
   );
 }
 
+export function DecisionHeroSupportSections({ model, styles, onSelectSection = null }) {
+  const primaryBlocker = model?.primaryBlocker || {};
+  const weakestLink = model?.weakestLink || {};
+  const whatWouldChange = model?.whatWouldChangeDecision?.items || ["Additional verified evidence required."];
+  const manualReviewStatus = model?.manualReviewStatus || {};
+  const verdictSemantics = model?.verdictSemantics || {};
+  const semanticBoundary = verdictSemantics.boundary || "Research support only. No price prediction or investment advice.";
+
+  return (
+    <>
+      {verdictSemantics.hasVerdictClass ? (
+        <div style={styles.verdictBoundaryBanner}>
+          <div style={styles.verdictBoundaryTitle}>
+            {verdictSemantics.key === "evidence_blocked" || verdictSemantics.key === "manual_review_required"
+              ? "Evidence-blocked, not confirmed failure"
+              : "Verdict semantics boundary"}
+          </div>
+          <div style={styles.verdictBoundaryText}>{semanticBoundary}</div>
+        </div>
+      ) : null}
+
+      {(model?.contradictionNote || model?.evidenceConstraintNote) ? (
+        <div style={styles.decisionNoticeGrid}>
+          {model?.contradictionNote ? (
+            <div style={styles.contradictionBanner}>
+              <div style={styles.contradictionTitle}>Override Explanation</div>
+              <div style={styles.contradictionText}>{model.contradictionNote}</div>
+            </div>
+          ) : null}
+          {model?.evidenceConstraintNote ? (
+            <div style={styles.evidenceConstraintBanner}>
+              <div style={styles.evidenceConstraintTitle}>Evidence Constraint</div>
+              <div style={styles.evidenceConstraintText}>{model.evidenceConstraintNote}</div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div style={styles.decisionInsightGrid}>
+        <DecisionInsightCard
+          title="Primary Blocker"
+          value={primaryBlocker.label || "Primary blocker not explicitly available in live response."}
+          detail={primaryBlocker.explanation}
+          badge={primaryBlocker.badge || "Derived proxy"}
+          accent="#ff6b6b"
+          cta="Inspect blocker"
+          onClick={() => onSelectSection?.("thesis_falsification")}
+          styles={styles}
+        />
+        <DecisionInsightCard
+          title="Weakest Link"
+          value={weakestLink.label || "Weakest link not explicitly available in live response."}
+          detail={weakestLink.explanation}
+          badge={weakestLink.badge || "Weakest-link proxy"}
+          accent="#ffb020"
+          cta="Trace evidence"
+          onClick={() => onSelectSection?.("evidence_map")}
+          styles={styles}
+        />
+        <div style={{ ...styles.decisionInsightCard, ...styles.decisionChangeCard }}>
+          <div style={styles.decisionInsightHeader}>
+            <div style={styles.decisionInsightTitle}>What Would Change The Decision</div>
+            <StatusBadge label={model?.whatWouldChangeDecision?.badge || "Live requirements"} styles={styles} color="#7dd3fc" />
+          </div>
+          <div style={styles.decisionRequirementList}>
+            {whatWouldChange.slice(0, 4).map((item, index) => (
+              <div key={`${item}-${index}`} style={styles.decisionRequirementItem}>
+                <span style={styles.decisionRequirementIndex}>{index + 1}</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
+            View requirements -&gt;
+          </InteractiveActionButton>
+        </div>
+      </div>
+
+      <div style={styles.decisionScoreStrip}>
+        <ScoreTile label="Structural Quality" value={formatScoreValue(model?.overallScore)} detail="Live score bundle" styles={styles} />
+        <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
+        <ScoreTile label="Confidence" value={model?.confidenceLabel || "Unavailable"} detail={model?.evidenceStrength ? `Evidence strength: ${sanitizeSemanticLabel(model.evidenceStrength, "Unavailable")}` : null} styles={styles} />
+        <ScoreTile label="Overall Score" value={formatScoreValue(model?.overallScore)} detail="Secondary signal" styles={styles} />
+        <ScoreTile label="Manual Review" value={manualReviewStatus.label || "No explicit review flag"} detail={manualReviewStatus.detail} styles={styles} />
+      </div>
+
+      <div style={styles.decisionLayerLegend}>
+        <div style={styles.decisionLayerLegendHeader}>
+          <div>
+            <div style={styles.decisionLayerLegendEyebrow}>Evidence Layer Legend</div>
+            <div style={styles.decisionLayerLegendCopy}>
+              Layer labels explain boundaries only. Report-only and candidate layers are not integrated into live scoring here.
+            </div>
+          </div>
+        </div>
+        <div style={styles.decisionLayerLegendGrid}>
+          <LayerLegendItem
+            title="Live Scoring Layer"
+            detail="Current engine fields used by the final decision."
+            badge="Affects final decision"
+            tone="#2fd67b"
+            styles={styles}
+          />
+          <LayerLegendItem
+            title="Report-Only Evidence Layer"
+            detail="Institutional artifacts and overlays remain context-only until separately integrated."
+            badge="Not scoring input"
+            tone="#ffb020"
+            styles={styles}
+          />
+          <LayerLegendItem
+            title="Source Candidate Layer"
+            detail="Candidate sources require human review before evidence promotion."
+            badge="Requires review"
+            tone="#7dd3fc"
+            styles={styles}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function DecisionHeroCard({
   asset,
   model,
@@ -121,6 +244,7 @@ export default function DecisionHeroCard({
   styles,
   onSelectSection = null,
   lastAnalyzed = null,
+  showSupportSections = true,
 }) {
   const outcomeColorValue = outcomeColor(model?.allocationOutcome?.key);
   const assetBadges = displayIdentity
@@ -128,15 +252,10 @@ export default function DecisionHeroCard({
     : model?.assetBadges || [];
   const symbol = asset?.symbol || model?.assetName || "Asset";
   const assetInitial = String(symbol).trim().slice(0, 4).toUpperCase() || "TC";
-  const primaryBlocker = model?.primaryBlocker || {};
-  const weakestLink = model?.weakestLink || {};
-  const whatWouldChange = model?.whatWouldChangeDecision?.items || ["Additional verified evidence required."];
-  const manualReviewStatus = model?.manualReviewStatus || {};
   const verdictSemantics = model?.verdictSemantics || {};
   const finalDecisionSubcopy = verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
   const primaryPositiveCase = verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
   const primaryBlockedCase = verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
-  const semanticBoundary = verdictSemantics.boundary || "Research support only. No price prediction or investment advice.";
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshnessLabel = lastAnalyzed ? `Last analyzed ${lastAnalyzed}` : "Freshness unavailable";
@@ -203,119 +322,20 @@ export default function DecisionHeroCard({
               >
                 View final verdict logic -&gt;
               </InteractiveActionButton>
+              <InteractiveActionButton onClick={() => onSelectSection?.("thesis_falsification")} styles={styles}>
+                Inspect blocker -&gt;
+              </InteractiveActionButton>
+              <InteractiveActionButton onClick={() => onSelectSection?.("evidence_map")} styles={styles}>
+                Trace evidence -&gt;
+              </InteractiveActionButton>
+              <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
+                View requirements -&gt;
+              </InteractiveActionButton>
             </div>
           </div>
         </div>
 
-        {verdictSemantics.hasVerdictClass ? (
-          <div style={styles.verdictBoundaryBanner}>
-            <div style={styles.verdictBoundaryTitle}>
-              {verdictSemantics.key === "evidence_blocked" || verdictSemantics.key === "manual_review_required"
-                ? "Evidence-blocked, not confirmed failure"
-                : "Verdict semantics boundary"}
-            </div>
-            <div style={styles.verdictBoundaryText}>{semanticBoundary}</div>
-          </div>
-        ) : null}
-
-        {(model?.contradictionNote || model?.evidenceConstraintNote) ? (
-          <div style={styles.decisionNoticeGrid}>
-            {model?.contradictionNote ? (
-              <div style={styles.contradictionBanner}>
-                <div style={styles.contradictionTitle}>Override Explanation</div>
-                <div style={styles.contradictionText}>{model.contradictionNote}</div>
-              </div>
-            ) : null}
-            {model?.evidenceConstraintNote ? (
-              <div style={styles.evidenceConstraintBanner}>
-                <div style={styles.evidenceConstraintTitle}>Evidence Constraint</div>
-                <div style={styles.evidenceConstraintText}>{model.evidenceConstraintNote}</div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div style={styles.decisionInsightGrid}>
-          <DecisionInsightCard
-            title="Primary Blocker"
-            value={primaryBlocker.label || "Primary blocker not explicitly available in live response."}
-            detail={primaryBlocker.explanation}
-            badge={primaryBlocker.badge || "Derived proxy"}
-            accent="#ff6b6b"
-            cta="Inspect blocker"
-            onClick={() => onSelectSection?.("thesis_falsification")}
-            styles={styles}
-          />
-          <DecisionInsightCard
-            title="Weakest Link"
-            value={weakestLink.label || "Weakest link not explicitly available in live response."}
-            detail={weakestLink.explanation}
-            badge={weakestLink.badge || "Weakest-link proxy"}
-            accent="#ffb020"
-            cta="Trace evidence"
-            onClick={() => onSelectSection?.("evidence_map")}
-            styles={styles}
-          />
-          <div style={{ ...styles.decisionInsightCard, ...styles.decisionChangeCard }}>
-            <div style={styles.decisionInsightHeader}>
-              <div style={styles.decisionInsightTitle}>What Would Change The Decision</div>
-              <StatusBadge label={model?.whatWouldChangeDecision?.badge || "Live requirements"} styles={styles} color="#7dd3fc" />
-            </div>
-            <div style={styles.decisionRequirementList}>
-              {whatWouldChange.slice(0, 4).map((item, index) => (
-                <div key={`${item}-${index}`} style={styles.decisionRequirementItem}>
-                  <span style={styles.decisionRequirementIndex}>{index + 1}</span>
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-            <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
-              View requirements -&gt;
-            </InteractiveActionButton>
-          </div>
-        </div>
-
-        <div style={styles.decisionScoreStrip}>
-          <ScoreTile label="Structural Quality" value={formatScoreValue(model?.overallScore)} detail="Live score bundle" styles={styles} />
-          <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
-          <ScoreTile label="Confidence" value={model?.confidenceLabel || "Unavailable"} detail={model?.evidenceStrength ? `Evidence strength: ${sanitizeSemanticLabel(model.evidenceStrength, "Unavailable")}` : null} styles={styles} />
-          <ScoreTile label="Overall Score" value={formatScoreValue(model?.overallScore)} detail="Secondary signal" styles={styles} />
-          <ScoreTile label="Manual Review" value={manualReviewStatus.label || "No explicit review flag"} detail={manualReviewStatus.detail} styles={styles} />
-        </div>
-
-        <div style={styles.decisionLayerLegend}>
-          <div style={styles.decisionLayerLegendHeader}>
-            <div>
-              <div style={styles.decisionLayerLegendEyebrow}>Evidence Layer Legend</div>
-              <div style={styles.decisionLayerLegendCopy}>
-                Layer labels explain boundaries only. Report-only and candidate layers are not integrated into live scoring here.
-              </div>
-            </div>
-          </div>
-          <div style={styles.decisionLayerLegendGrid}>
-            <LayerLegendItem
-              title="Live Scoring Layer"
-              detail="Current engine fields used by the final decision."
-              badge="Affects final decision"
-              tone="#2fd67b"
-              styles={styles}
-            />
-            <LayerLegendItem
-              title="Report-Only Evidence Layer"
-              detail="Institutional artifacts and overlays remain context-only until separately integrated."
-              badge="Not scoring input"
-              tone="#ffb020"
-              styles={styles}
-            />
-            <LayerLegendItem
-              title="Source Candidate Layer"
-              detail="Candidate sources require human review before evidence promotion."
-              badge="Requires review"
-              tone="#7dd3fc"
-              styles={styles}
-            />
-          </div>
-        </div>
+        {showSupportSections ? <DecisionHeroSupportSections model={model} styles={styles} onSelectSection={onSelectSection} /> : null}
       </Card>
     </div>
   );

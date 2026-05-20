@@ -81,12 +81,30 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
   ];
 
   const currentAnswers = [
-    "Why allocation could make sense",
-    "Why allocation is blocked",
-    "What evidence is missing",
-    "What research is required",
-    "What would change the decision",
-    "Whether the issue is fundamental failure or evidence-blocked",
+    {
+      title: "Why allocation could make sense",
+      text: "Surfaces the strongest live thesis-support signals.",
+    },
+    {
+      title: "Why allocation is blocked",
+      text: "Separates real blockers from cautionary or incomplete evidence.",
+    },
+    {
+      title: "What evidence is missing",
+      text: "Shows unresolved asset-class-critical evidence gaps.",
+    },
+    {
+      title: "What research is required",
+      text: "Turns gaps into source-review requirements.",
+    },
+    {
+      title: "What would change the decision",
+      text: "Names the conditions that could move the verdict.",
+    },
+    {
+      title: "Fundamental failure or evidence-blocked",
+      text: "Distinguishes failed thesis from insufficient proof.",
+    },
   ];
 
   const institutionalRisks = [
@@ -211,14 +229,17 @@ export default function HomepagePositioning({ onAnalyzeAsset, onViewMethodology,
 
         <div style={styles.homepagePanel}>
           <div style={styles.homepageKicker}>What ThesisCore Answers Today</div>
-          <h2 style={styles.homepageSectionTitle}>A decision cockpit for allocation blockers.</h2>
+          <h2 style={styles.homepageSectionTitle}>A decision cockpit for allocation blockers, evidence gaps, and decision-change conditions.</h2>
+          <p style={styles.homepageMuted}>
+            Generated from live scoring, verdict semantics, evidence gaps, and research requirement fields when available. Research requirements are not reviewed evidence.
+          </p>
           <div style={styles.homepageWorkflowGrid}>
             {currentAnswers.map((answer) => (
-              <ValueCard key={answer} title={answer} text="Generated from live scoring, verdict semantics, evidence gaps, and research requirement fields when available." styles={styles} />
+              <ValueCard key={answer.title} title={answer.title} text={answer.text} styles={styles} />
             ))}
           </div>
           <div style={styles.homepageBoundaryNote}>
-            Research requirements are generated from live gaps. They are not reviewed evidence until reviewed and promoted by a source workflow.
+            A source candidate becomes evidence only after review; report-only context does not affect live scoring.
           </div>
         </div>
       </div>
