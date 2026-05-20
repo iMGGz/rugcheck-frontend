@@ -50,6 +50,60 @@ function CandidateLogo({ candidate, styles }) {
   );
 }
 
+function buildCandidateMeta(candidate) {
+  const parts = [];
+  if (candidate?.symbol) parts.push(candidate.symbol);
+  if (candidate?.chain) parts.push(titleCase(candidate.chain));
+  if (!candidate?.chain && candidate?.category) parts.push(titleCase(candidate.category));
+  if (candidate?.contractAddress) parts.push(shortenAddress(candidate.contractAddress));
+  return parts.length ? parts.join(" - ") : "Metadata available after selection";
+}
+
+function SelectorActionButton({
+  children,
+  onClick,
+  baseStyle,
+  hoverStyle,
+  focusStyle,
+  pressedStyle,
+  activeStyle,
+  disabledStyle,
+  active = false,
+  disabled = false,
+  ariaPressed,
+}) {
+  const [interactiveState, setInteractiveState] = useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={ariaPressed}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...baseStyle,
+        ...(active ? activeStyle : null),
+        ...(interactiveState.hover && !disabled ? hoverStyle : null),
+        ...(interactiveState.focus && !disabled ? focusStyle : null),
+        ...(interactiveState.pressed && !disabled ? pressedStyle : null),
+        ...(disabled ? disabledStyle : null),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function SearchSelectorPanel({
   pendingResolution,
   onSelectCandidate,
@@ -78,37 +132,51 @@ export default function SearchSelectorPanel({
       <div style={styles.selectorHeader}>
         <div>
           <div style={styles.selectorEyebrow}>Canonical identity check</div>
-          <div style={styles.selectorTitle}>Select the exact asset to continue</div>
+          <div style={styles.selectorTitle}>Select exact asset</div>
           <div style={styles.selectorText}>
-            Multiple assets can share a ticker. Choose the exact asset before analysis updates.
-            {pendingResolution?.ambiguityReason ? ` ${pendingResolution.ambiguityReason}` : ` Multiple plausible assets matched "${pendingResolution?.query || "your query"}".`}
-            {" "}Candidate labels help identify search results only. Final institutional asset classification appears after analysis.
+            Multiple assets can share a ticker. Pick one to continue.
+          </div>
+          <div style={styles.selectorBoundaryText}>
+            Candidate labels help matching only. Final institutional classification appears after analysis.
           </div>
         </div>
-        <button onClick={onDismiss} style={styles.ghostButton}>Dismiss</button>
+        <SelectorActionButton
+          onClick={onDismiss}
+          baseStyle={styles.ghostButton}
+          hoverStyle={styles.ghostButtonHover}
+          focusStyle={styles.ghostButtonFocus}
+          pressedStyle={styles.ghostButtonPressed}
+          disabledStyle={styles.selectorButtonDisabled}
+        >
+          Dismiss
+        </SelectorActionButton>
       </div>
 
       <div style={styles.selectorNotice}>
-        <div style={styles.selectorNoticeTitle}>New query pending: select the exact asset before the analysis updates.</div>
+        <div style={styles.selectorNoticeTitle}>New query pending.</div>
         <div style={styles.selectorNoticeText}>
           {hasExistingAnalysis
-            ? "Displayed analysis remains the last completed run until a new asset is selected."
-            : "Search query pending selection. No allocation memo will run until you choose one of the matched assets."}
+            ? "Current memo stays visible until you select an asset."
+            : "Pick one matched asset before the memo runs."}
         </div>
       </div>
 
       <div style={styles.selectorFilterRow}>
         {filterOptions.map((option) => (
-          <button
+          <SelectorActionButton
             key={option.key}
             onClick={() => setActiveFilter(option.key)}
-            style={{
-              ...styles.selectorFilterButton,
-              ...(activeFilter === option.key ? styles.selectorFilterButtonActive : null),
-            }}
+            baseStyle={styles.selectorFilterButton}
+            activeStyle={styles.selectorFilterButtonActive}
+            hoverStyle={styles.selectorFilterButtonHover}
+            focusStyle={styles.selectorFilterButtonFocus}
+            pressedStyle={styles.selectorFilterButtonPressed}
+            disabledStyle={styles.selectorButtonDisabled}
+            active={activeFilter === option.key}
+            ariaPressed={activeFilter === option.key}
           >
             {option.label}
-          </button>
+          </SelectorActionButton>
         ))}
       </div>
 
@@ -120,17 +188,29 @@ export default function SearchSelectorPanel({
               key={`${candidate.coingeckoId || candidate.coinmarketcapId || candidate.contractAddress || `${candidate.symbol}-${candidate.name}-${index}`}`}
               style={styles.selectorCard}
             >
-              <div style={styles.selectorIdentity}>
-                <CandidateLogo candidate={candidate} styles={styles} />
-                <div>
-                  <div style={styles.selectorName}>
-                    {candidate.name || "Unknown"} {candidate.symbol ? `(${candidate.symbol})` : ""}
-                  </div>
-                  <div style={styles.selectorMeta}>
-                    {titleCase(candidate.chain || "unknown")}
-                    {candidate.contractAddress ? ` | ${shortenAddress(candidate.contractAddress)}` : ""}
+              <div style={styles.selectorCandidateHeader}>
+                <div style={styles.selectorIdentity}>
+                  <CandidateLogo candidate={candidate} styles={styles} />
+                  <div style={styles.selectorCandidateMain}>
+                    <div style={styles.selectorName}>
+                      {candidate.name || "Unknown"}
+                    </div>
+                    <div style={styles.selectorMeta}>
+                      {buildCandidateMeta(candidate)}
+                    </div>
                   </div>
                 </div>
+
+                <SelectorActionButton
+                  onClick={() => onSelectCandidate(candidate)}
+                  baseStyle={styles.selectorPrimaryButton}
+                  hoverStyle={styles.selectorPrimaryButtonHover}
+                  focusStyle={styles.selectorPrimaryButtonFocus}
+                  pressedStyle={styles.selectorPrimaryButtonPressed}
+                  disabledStyle={styles.selectorButtonDisabled}
+                >
+                  Use this asset
+                </SelectorActionButton>
               </div>
 
               <div style={styles.selectorChipRow}>
@@ -139,15 +219,11 @@ export default function SearchSelectorPanel({
                 ))}
               </div>
 
-              <div style={styles.selectorMeta}>
+              <div style={styles.selectorCanonicalMeta}>
                 Canonical identity:
                 {candidate.coingeckoId ? ` gecko:${candidate.coingeckoId}` : ""}
                 {candidate.coinmarketcapId ? ` | cmc:${candidate.coinmarketcapId}` : ""}
               </div>
-
-              <button onClick={() => onSelectCandidate(candidate)} style={styles.selectorPrimaryButton}>
-                Use this asset
-              </button>
             </div>
           );
         })}

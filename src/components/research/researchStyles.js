@@ -3320,7 +3320,7 @@ export const styles = {
   },
   selectorPanel: {
     marginTop: 22,
-    padding: 18,
+    padding: 16,
     borderRadius: 22,
     background: "rgba(255,255,255,0.04)",
     border: "1px solid rgba(138,148,166,0.14)",
@@ -3341,30 +3341,38 @@ export const styles = {
   },
   selectorTitle: {
     color: "#f4f7ff",
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 800,
     marginBottom: 6,
   },
   selectorText: {
     color: "#c5d0e0",
-    lineHeight: 1.7,
+    lineHeight: 1.45,
+    fontSize: 14,
+  },
+  selectorBoundaryText: {
+    color: "#8a94a6",
+    lineHeight: 1.45,
+    fontSize: 12,
+    marginTop: 6,
   },
   selectorNotice: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 16,
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 14,
     background: "linear-gradient(135deg, rgba(255,176,32,0.13), rgba(125,211,252,0.08))",
     border: "1px solid rgba(255,176,32,0.24)",
   },
   selectorNoticeTitle: {
     color: "#f9d976",
     fontWeight: 900,
-    marginBottom: 6,
+    marginBottom: 3,
+    fontSize: 13,
   },
   selectorNoticeText: {
     color: "#f4f7ff",
-    lineHeight: 1.6,
-    fontSize: 14,
+    lineHeight: 1.45,
+    fontSize: 13,
   },
   selectorFilterRow: {
     display: "flex",
@@ -3383,11 +3391,25 @@ export const styles = {
     cursor: "pointer",
     fontWeight: 800,
     boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+    transition: "transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease",
+    outline: "none",
   },
   selectorFilterButtonActive: {
     background: "rgba(70,184,255,0.14)",
     border: "1px solid rgba(70,184,255,0.48)",
     color: "#f8fbff",
+  },
+  selectorFilterButtonHover: {
+    borderColor: "rgba(125,211,252,0.46)",
+    background: "rgba(125,211,252,0.1)",
+    transform: "translateY(-1px)",
+  },
+  selectorFilterButtonFocus: {
+    boxShadow: "0 0 0 3px rgba(125,211,252,0.16), 0 8px 20px rgba(0,0,0,0.16)",
+  },
+  selectorFilterButtonPressed: {
+    transform: "translateY(0)",
+    background: "rgba(125,211,252,0.14)",
   },
   selectorGrid: {
     display: "grid",
@@ -3399,11 +3421,21 @@ export const styles = {
     borderRadius: 16,
     border: "1px solid rgba(138,148,166,0.14)",
     background: "#08111f",
+    display: "flex",
+    flexDirection: "column",
+  },
+  selectorCandidateHeader: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    gap: 12,
+    alignItems: "center",
+  },
+  selectorCandidateMain: {
+    minWidth: 0,
   },
   selectorPrimaryButton: {
-    width: "100%",
-    marginTop: 14,
-    padding: "14px 18px",
+    minHeight: 44,
+    padding: "12px 16px",
     borderRadius: 14,
     background: "linear-gradient(135deg, #f9d976, #46b8ff)",
     color: "#05111e",
@@ -3411,6 +3443,27 @@ export const styles = {
     border: 0,
     cursor: "pointer",
     boxShadow: "0 14px 34px rgba(70,184,255,0.16)",
+    transition: "transform 120ms ease, box-shadow 120ms ease, filter 120ms ease",
+    outline: "none",
+  },
+  selectorPrimaryButtonHover: {
+    transform: "translateY(-1px)",
+    filter: "brightness(1.04)",
+    boxShadow: "0 18px 42px rgba(70,184,255,0.24)",
+  },
+  selectorPrimaryButtonFocus: {
+    boxShadow: "0 0 0 3px rgba(249,217,118,0.22), 0 18px 42px rgba(70,184,255,0.24)",
+  },
+  selectorPrimaryButtonPressed: {
+    transform: "translateY(0)",
+    filter: "brightness(0.96)",
+    boxShadow: "0 10px 26px rgba(70,184,255,0.16)",
+  },
+  selectorButtonDisabled: {
+    cursor: "not-allowed",
+    opacity: 0.58,
+    transform: "none",
+    filter: "grayscale(0.2)",
   },
   selectorIdentity: {
     display: "flex",
@@ -3446,7 +3499,7 @@ export const styles = {
     color: "#8a94a6",
     fontSize: 13,
     lineHeight: 1.6,
-    marginTop: 10,
+    marginTop: 0,
   },
   selectorChipRow: {
     display: "flex",
@@ -3463,6 +3516,12 @@ export const styles = {
     color: "#d5dcec",
     fontSize: 12,
     fontWeight: 700,
+  },
+  selectorCanonicalMeta: {
+    color: "#667085",
+    fontSize: 12,
+    lineHeight: 1.5,
+    marginTop: 2,
   },
   auditSection: {
     marginTop: 14,
@@ -4034,6 +4093,31 @@ export function buildResponsiveStyles(viewportWidth = 1280) {
     selectorGrid: {
       ...styles.selectorGrid,
       gridTemplateColumns: isMobile ? "1fr" : styles.selectorGrid.gridTemplateColumns,
+    },
+    selectorFilterRow: {
+      ...styles.selectorFilterRow,
+      flexWrap: isMobile ? "nowrap" : styles.selectorFilterRow.flexWrap,
+      overflowX: isMobile ? "auto" : undefined,
+      paddingBottom: isMobile ? 4 : undefined,
+      marginTop: isMobile ? 12 : styles.selectorFilterRow.marginTop,
+      marginBottom: isMobile ? 12 : styles.selectorFilterRow.marginBottom,
+    },
+    selectorFilterButton: {
+      ...styles.selectorFilterButton,
+      flex: isMobile ? "0 0 auto" : undefined,
+      minHeight: isMobile ? 32 : styles.selectorFilterButton.minHeight,
+      padding: isMobile ? "7px 11px" : styles.selectorFilterButton.padding,
+      fontSize: isMobile ? 12 : styles.selectorFilterButton.fontSize,
+    },
+    selectorCandidateHeader: {
+      ...styles.selectorCandidateHeader,
+      gridTemplateColumns: isMobile ? "1fr" : styles.selectorCandidateHeader.gridTemplateColumns,
+      alignItems: isMobile ? "stretch" : styles.selectorCandidateHeader.alignItems,
+    },
+    selectorPrimaryButton: {
+      ...styles.selectorPrimaryButton,
+      width: isMobile ? "100%" : undefined,
+      minHeight: isMobile ? 48 : styles.selectorPrimaryButton.minHeight,
     },
     auditSummary: {
       ...styles.auditSummary,
