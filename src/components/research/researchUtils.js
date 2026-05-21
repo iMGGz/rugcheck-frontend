@@ -2167,6 +2167,8 @@ export function buildDecisionTerminalModel({
       missingEvidence: verdictSemantics.missingEvidence,
       whatWouldChange: verdictSemantics.whatWouldChange,
     } : null,
+    institutionalQuestions: safeArray(safeAnalysis.institutionalQuestions),
+    institutionalQuestionsProvenance: safeAnalysis.institutionalQuestionsProvenance || null,
     researchRequirements: verdictSemantics.researchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
     primaryStrength,

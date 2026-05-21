@@ -26,6 +26,162 @@ function evidenceTag(styles, label) {
   return <span style={styles.checklistEvidenceTag}>{label}</span>;
 }
 
+function labelize(value) {
+  return titleCase(String(value || "").replace(/_/g, " "));
+}
+
+function questionStatusTone(status) {
+  switch (status) {
+    case "supported":
+      return { label: "Supported", color: "#2fd67b" };
+    case "partially_supported":
+      return { label: "Partially supported", color: "#7dd3fc" };
+    case "contradicted":
+      return { label: "Contradicted", color: "#ff6b6b" };
+    case "evidence_missing":
+      return { label: "Evidence missing", color: "#ffb020" };
+    case "evidence_stale":
+      return { label: "Evidence stale", color: "#ffb020" };
+    case "evidence_indirect":
+      return { label: "Evidence indirect", color: "#9bd7ff" };
+    case "manual_review_required":
+      return { label: "Manual review", color: "#ffb020" };
+    case "source_candidate_only":
+      return { label: "Source candidate only", color: "#aab7cc" };
+    case "reviewed_evidence_required":
+      return { label: "Reviewed evidence required", color: "#ffb020" };
+    case "not_applicable":
+      return { label: "Not applicable", color: "#8a94a6" };
+    default:
+      return { label: labelize(status || "Unknown"), color: "#8a94a6" };
+  }
+}
+
+function verdictImpactTone(impact) {
+  switch (impact) {
+    case "supports_allocation":
+    case "raises_confidence":
+      return { label: labelize(impact), color: "#2fd67b" };
+    case "blocks_allocation":
+      return { label: labelize(impact), color: "#ff6b6b" };
+    case "caps_confidence":
+    case "lowers_confidence":
+    case "requires_manual_review":
+      return { label: labelize(impact), color: "#ffb020" };
+    default:
+      return { label: labelize(impact || "No scoring impact"), color: "#aab7cc" };
+  }
+}
+
+function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
+  const normalized = normalizeRenderableList(items).slice(0, 5);
+  if (!normalized.length && !emptyText) return null;
+  return (
+    <div>
+      <div style={styles.metaLabel}>{title}</div>
+      {normalized.length ? (
+        <div style={styles.institutionalQuestionChipList}>
+          {normalized.map((item) => (
+            <span key={item} style={{ ...styles.checklistEvidenceTag, color, borderColor: `${color}55` }}>
+              {item}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={styles.timelineEmptyText}>{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function InstitutionalQuestionAnswerCard({ question, styles }) {
+  const status = questionStatusTone(question.answerStatus);
+  const impact = verdictImpactTone(question.verdictImpact);
+  const boundaries = normalizeRenderableList(question.sourceBoundary).map(labelize);
+  return (
+    <div style={styles.institutionalQuestionAnswerCard}>
+      <div style={styles.checklistQuestionHeader}>
+        <div>
+          <div style={styles.metaLabel}>{question.questionId}</div>
+          <div style={styles.checklistQuestionText}>{question.questionText}</div>
+        </div>
+        <div style={styles.checklistStatusStack}>
+          {statusChip(styles, status.label, status.color)}
+          {statusChip(styles, impact.label, impact.color)}
+        </div>
+      </div>
+
+      <p style={styles.institutionalQuestionSummary}>{question.answerSummary}</p>
+
+      <div style={styles.institutionalQuestionDetailGrid}>
+        <InlineList
+          title="Evidence used / supporting signals"
+          items={question.supportingSignals}
+          emptyText="No support signal attached."
+          styles={styles}
+          color="#7dd3fc"
+        />
+        <InlineList
+          title="Missing evidence"
+          items={question.missingEvidence}
+          emptyText="No missing-evidence field attached."
+          styles={styles}
+          color="#ffb020"
+        />
+        <InlineList
+          title="Contradictions / blockers"
+          items={question.contradictionSignals}
+          emptyText="No contradiction signal attached."
+          styles={styles}
+          color="#ff6b6b"
+        />
+        <InlineList
+          title="What would change"
+          items={question.whatWouldChange}
+          emptyText="No decision-change condition attached."
+          styles={styles}
+          color="#d5dcec"
+        />
+      </div>
+
+      <div style={styles.sourceBoundaryStrip}>
+        {boundaryChip(styles, `Lens: ${question.assetClassLens}`)}
+        {boundaryChip(styles, `MVP: ${labelize(question.currentMvpCapability)}`)}
+        {boundaries.slice(0, 4).map((item) => boundaryChip(styles, item))}
+      </div>
+    </div>
+  );
+}
+
+function InstitutionalQuestionAnswersSection({ questions, provenance, styles }) {
+  const isReconstructed = provenance === "reconstructed_from_snapshot";
+  return (
+    <Card
+      title="Live Institutional Question Answers"
+      subtitle="Deterministic answers generated from current live ThesisCore fields."
+      styles={styles}
+    >
+      <div style={styles.engineNotice}>
+        Answers use current live scoring/provider fields. They are not reviewed external evidence unless explicitly stated.
+      </div>
+      {isReconstructed ? (
+        <div style={styles.institutionalQuestionsProvenanceNote}>
+          Historical answers may be reconstructed from stored analysis fields.
+        </div>
+      ) : null}
+      <div style={styles.institutionalQuestionAnswerGrid}>
+        {questions.map((question) => (
+          <InstitutionalQuestionAnswerCard
+            key={question.questionId}
+            question={question}
+            styles={styles}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function normalizeChecklistSignalStatus(value) {
   const raw = String(value || "").toLowerCase();
   if (raw.includes("provider") || raw.includes("gap") || raw.includes("unavailable")) {
@@ -364,6 +520,13 @@ export default function InstitutionalChecklistTab({
   evidenceStatusProxy,
   styles,
 }) {
+  const institutionalQuestions = safeArray(analysis?.institutionalQuestions).length
+    ? safeArray(analysis.institutionalQuestions)
+    : safeArray(model?.institutionalQuestions);
+  const institutionalQuestionsProvenance = analysis?.institutionalQuestionsProvenance
+    || model?.institutionalQuestionsProvenance
+    || null;
+  const hasInstitutionalAnswers = institutionalQuestions.length > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
   const selectedLensGroup = lensSpecificGroup(lensResolution);
@@ -383,14 +546,16 @@ export default function InstitutionalChecklistTab({
     <div style={styles.institutionalChecklistShell}>
       <Card title="Institutional Checklist" subtitle="Methodology / Report Layer" styles={styles}>
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, "Live per-question evidence mapping is only shown when attached to the response.")}
+          {boundaryChip(styles, hasInstitutionalAnswers ? "Live deterministic question answers are attached." : "Live per-question evidence mapping is only shown when attached to the response.")}
           {boundaryChip(styles, "This checklist is methodology/report-layer guidance, not a fake evidence map.")}
           {boundaryChip(styles, "Missing evidence is a verification gap, not automatic proof of failure.")}
           {boundaryChip(styles, "Report-only source evidence does not affect live scoring unless future calibrated integration occurs.")}
         </div>
         <SectionRow
           label="Registry boundary"
-          value="The Institutional Question Registry defines the questions ThesisCore uses to test asset classes. Question-level answers, evidence statuses, source traces, and verdict impacts will appear here only when attached by a live or report endpoint."
+          value={hasInstitutionalAnswers
+            ? "The backend attached deterministic institutional question answers for this asset. They explain current live scoring and evidence gaps; they do not override scoring or verdicts."
+            : "The Institutional Question Registry defines the questions ThesisCore uses to test asset classes. Question-level answers, evidence statuses, source traces, and verdict impacts will appear here only when attached by a live or report endpoint."}
           styles={styles}
         />
         <SectionRow
@@ -410,6 +575,14 @@ export default function InstitutionalChecklistTab({
         />
       </Card>
 
+      {hasInstitutionalAnswers ? (
+        <InstitutionalQuestionAnswersSection
+          questions={institutionalQuestions}
+          provenance={institutionalQuestionsProvenance}
+          styles={styles}
+        />
+      ) : (
+        <>
       <Card title="Engine-to-UI Bridge" subtitle="Future connection between questions, evidence, sources, and verdict impact." styles={styles}>
         <div style={styles.checklistBridgeGrid}>
           {bridgeSteps.map((step) => (
@@ -472,6 +645,8 @@ export default function InstitutionalChecklistTab({
       {groups.map((group) => (
         <ChecklistGroup key={group.title} group={group} signals={signals} styles={styles} />
       ))}
+        </>
+      )}
     </div>
   );
 }
