@@ -81,6 +81,21 @@ export function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+export function normalizeInstitutionalQuestionsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootQuestions = safeArray(root.institutionalQuestions);
+  const nestedQuestions = safeArray(nestedAnalysis.institutionalQuestions);
+
+  return {
+    institutionalQuestions: rootQuestions.length ? rootQuestions : nestedQuestions,
+    institutionalQuestionsProvenance:
+      root.institutionalQuestionsProvenance ||
+      nestedAnalysis.institutionalQuestionsProvenance ||
+      null,
+  };
+}
+
 export function extractRenderableText(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -2152,6 +2167,7 @@ export function buildDecisionTerminalModel({
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
   });
+  const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(safeAnalysis);
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -2167,8 +2183,8 @@ export function buildDecisionTerminalModel({
       missingEvidence: verdictSemantics.missingEvidence,
       whatWouldChange: verdictSemantics.whatWouldChange,
     } : null,
-    institutionalQuestions: safeArray(safeAnalysis.institutionalQuestions),
-    institutionalQuestionsProvenance: safeAnalysis.institutionalQuestionsProvenance || null,
+    institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
+    institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     researchRequirements: verdictSemantics.researchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
     primaryStrength,

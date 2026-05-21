@@ -2,6 +2,7 @@ import React from "react";
 import { Card, ListBlock, SectionRow } from "./researchPrimitives";
 import {
   extractRenderableText,
+  normalizeInstitutionalQuestionsPayload,
   normalizeRenderableList,
   providerLabel,
   safeArray,
@@ -520,11 +521,13 @@ export default function InstitutionalChecklistTab({
   evidenceStatusProxy,
   styles,
 }) {
-  const institutionalQuestions = safeArray(analysis?.institutionalQuestions).length
-    ? safeArray(analysis.institutionalQuestions)
-    : safeArray(model?.institutionalQuestions);
-  const institutionalQuestionsProvenance = analysis?.institutionalQuestionsProvenance
-    || model?.institutionalQuestionsProvenance
+  const analysisQuestionPayload = normalizeInstitutionalQuestionsPayload(analysis);
+  const modelQuestionPayload = normalizeInstitutionalQuestionsPayload(model);
+  const institutionalQuestions = analysisQuestionPayload.institutionalQuestions.length
+    ? analysisQuestionPayload.institutionalQuestions
+    : modelQuestionPayload.institutionalQuestions;
+  const institutionalQuestionsProvenance = analysisQuestionPayload.institutionalQuestionsProvenance
+    || modelQuestionPayload.institutionalQuestionsProvenance
     || null;
   const hasInstitutionalAnswers = institutionalQuestions.length > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });

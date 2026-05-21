@@ -39,6 +39,7 @@ import {
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
   normalizeProviderHealth,
+  normalizeInstitutionalQuestionsPayload,
   normalizeWatchlistAsset,
   normalizeErrorMessage,
   safeArray,
@@ -895,7 +896,16 @@ export default function App() {
     void loadComparison(latestSnapshotId, compareAgainstId);
   }, [timelineData, compareAgainstId, loadComparison]);
 
-  const analysis = data?.analysis || null;
+  const analysis = useMemo(() => {
+    if (!data) return null;
+    const analysisBlock = data.analysis || {};
+    const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(data);
+    return {
+      ...analysisBlock,
+      institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
+      institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
+    };
+  }, [data]);
   const asset = data?.asset;
   const marketData = data?.marketData;
   const security = data?.security;
