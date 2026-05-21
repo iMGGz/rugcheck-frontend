@@ -135,11 +135,49 @@ function analystVerificationItems(model) {
   ].slice(0, 6);
 }
 
+function CalibrationWarningsCard({ warnings, styles }) {
+  const items = safeArray(warnings);
+  if (!items.length) return null;
+
+  return (
+    <Card title="Calibration Warnings" subtitle="Diagnostic guardrails, not final verdicts." styles={styles}>
+      <div style={styles.engineNotice}>
+        Calibration warnings flag live-path presentation or routing risks. They do not create evidence and do not change scoring by themselves.
+      </div>
+      <div style={styles.institutionalQuestionAnswerGrid}>
+        {items.map((warning, index) => (
+          <div key={`${warning.id || "warning"}-${index}`} style={styles.reviewSignalCard}>
+            <div style={styles.timelineTitleRow}>
+              <strong style={{ color: "#f4f7ff" }}>{titleCase(String(warning.id || "calibration warning").replace(/_/g, " "))}</strong>
+              {chip(styles, titleCase(warning.severity || "review"), warning.severity === "critical" || warning.severity === "high" ? "#ffb020" : "#7dd3fc")}
+            </div>
+            <div style={styles.timelineSummary}>{warning.issue || "Calibration warning requires review."}</div>
+            <div style={styles.timelineMeta}>
+              {warning.affectsVerdict ? "May affect verdict semantics" : "Diagnostic only"} - {warning.sourceBoundary || "source boundary unavailable"}
+            </div>
+            <SectionRow
+              label="Expected behavior"
+              value={warning.expectedBehavior || "Follow asset-class guardrail behavior."}
+              styles={styles}
+            />
+            <SectionRow
+              label="Recommended action"
+              value={warning.recommendedAction || "Manual verification required."}
+              styles={styles}
+            />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function ManualReviewPanel({
   model,
   sourceStatus,
   providerDiagnostics,
   evidenceStatusProxy,
+  calibrationWarnings,
   styles,
 }) {
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
@@ -173,6 +211,8 @@ export default function ManualReviewPanel({
           styles={styles}
         />
       </Card>
+
+      <CalibrationWarningsCard warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
 
       <div style={styles.advancedGrid}>
         <Card title="Live Review Signals" subtitle="Qualitative workflow signals from the current live response. No fake counts." styles={styles}>

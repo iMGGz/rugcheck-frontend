@@ -38,6 +38,7 @@ import {
   buildWatchlistAssetFromAnalysis,
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
+  normalizeCalibrationWarningsPayload,
   normalizeProviderHealth,
   normalizeInstitutionalQuestionsPayload,
   normalizeWatchlistAsset,
@@ -900,10 +901,12 @@ export default function App() {
     if (!data) return null;
     const analysisBlock = data.analysis || {};
     const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(data);
+    const calibrationWarnings = normalizeCalibrationWarningsPayload(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
       institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
+      calibrationWarnings,
     };
   }, [data]);
   const asset = data?.asset;
@@ -1294,6 +1297,7 @@ export default function App() {
             providerDiagnostics={providerDiagnostics}
             providerHealth={providerHealth}
             evidenceStatusProxy={evidenceStatusProxy}
+            calibrationWarnings={decisionModel.calibrationWarnings}
             styles={styles}
           />
         );
@@ -1345,6 +1349,7 @@ export default function App() {
               sourceStatus={sourceStatus}
               providerDiagnostics={providerDiagnostics}
               evidenceStatusProxy={evidenceStatusProxy}
+              calibrationWarnings={decisionModel.calibrationWarnings}
               styles={styles}
             />
             <RisksPanel aiReport={aiReport} fundamentals={fundamentals} security={security} scores={scores} styles={styles} />

@@ -3059,6 +3059,16 @@ export const styles = {
     fontSize: 12,
     lineHeight: 1.45,
   },
+  calibrationWarningNote: {
+    marginTop: 10,
+    padding: "10px 12px",
+    borderRadius: 14,
+    color: "#f5d28c",
+    background: "rgba(255,176,32,0.08)",
+    border: "1px solid rgba(255,176,32,0.2)",
+    fontSize: 12,
+    lineHeight: 1.45,
+  },
   institutionalQuestionAnswerCard: {
     padding: 16,
     borderRadius: 20,

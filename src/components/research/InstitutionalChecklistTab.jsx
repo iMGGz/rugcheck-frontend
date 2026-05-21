@@ -154,8 +154,11 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   );
 }
 
-function InstitutionalQuestionAnswersSection({ questions, provenance, styles }) {
+function InstitutionalQuestionAnswersSection({ questions, provenance, calibrationWarnings, styles }) {
   const isReconstructed = provenance === "reconstructed_from_snapshot";
+  const questionWarnings = safeArray(calibrationWarnings)
+    .filter((warning) => safeArray(warning.relatedQuestionIds)
+      .some((questionId) => questions.some((question) => question.questionId === questionId)));
   return (
     <Card
       title="Live Institutional Question Answers"
@@ -168,6 +171,11 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, styles }) 
       {isReconstructed ? (
         <div style={styles.institutionalQuestionsProvenanceNote}>
           Historical answers may be reconstructed from stored analysis fields.
+        </div>
+      ) : null}
+      {questionWarnings.length ? (
+        <div style={styles.calibrationWarningNote}>
+          Calibration note: LST scanner-like risk is treated as technical verification until confirmed by stronger evidence. This is diagnostic, not a scoring signal.
         </div>
       ) : null}
       <div style={styles.institutionalQuestionAnswerGrid}>
@@ -519,6 +527,7 @@ export default function InstitutionalChecklistTab({
   providerDiagnostics,
   providerHealth,
   evidenceStatusProxy,
+  calibrationWarnings,
   styles,
 }) {
   const analysisQuestionPayload = normalizeInstitutionalQuestionsPayload(analysis);
@@ -582,6 +591,7 @@ export default function InstitutionalChecklistTab({
         <InstitutionalQuestionAnswersSection
           questions={institutionalQuestions}
           provenance={institutionalQuestionsProvenance}
+          calibrationWarnings={calibrationWarnings || model?.calibrationWarnings}
           styles={styles}
         />
       ) : (

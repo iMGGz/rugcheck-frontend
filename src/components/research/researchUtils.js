@@ -96,6 +96,15 @@ export function normalizeInstitutionalQuestionsPayload(responseLike) {
   };
 }
 
+export function normalizeCalibrationWarningsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootWarnings = safeArray(root.calibrationWarnings);
+  const nestedWarnings = safeArray(nestedAnalysis.calibrationWarnings);
+
+  return rootWarnings.length ? rootWarnings : nestedWarnings;
+}
+
 export function extractRenderableText(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -2039,6 +2048,7 @@ export function buildDecisionTerminalModel({
   const confidenceModel = safeObject(confidence || safeAnalysis.confidence);
   const policySignals = normalizeSignalList(safeAnalysis.policySignals);
   const warningsList = normalizeRenderableList(warnings);
+  const calibrationWarnings = normalizeCalibrationWarningsPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
   const blockers = cleanUserFacingList(investability.blockers, {
@@ -2185,6 +2195,7 @@ export function buildDecisionTerminalModel({
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
+    calibrationWarnings,
     researchRequirements: verdictSemantics.researchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
     primaryStrength,
