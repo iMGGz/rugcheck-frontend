@@ -4,6 +4,7 @@ import {
   extractRenderableText,
   normalizeInstitutionalQuestionsPayload,
   normalizeRenderableList,
+  normalizeResolvedInstitutionalLensPayload,
   providerLabel,
   safeArray,
   safeObject,
@@ -159,6 +160,8 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
   const questionWarnings = safeArray(calibrationWarnings)
     .filter((warning) => safeArray(warning.relatedQuestionIds)
       .some((questionId) => questions.some((question) => question.questionId === questionId)));
+  const hasLensMismatchWarning = questionWarnings.some((warning) => warning.id === "question_lens_mismatch");
+  const hasLstWarning = questionWarnings.some((warning) => warning.id === "lst_scanner_over_escalation_possible");
   return (
     <Card
       title="Live Institutional Question Answers"
@@ -173,7 +176,12 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
           Historical answers may be reconstructed from stored analysis fields.
         </div>
       ) : null}
-      {questionWarnings.length ? (
+      {hasLensMismatchWarning ? (
+        <div style={styles.calibrationWarningNote}>
+          Calibration note: provider-grounded lens routing and question group should be reviewed before relying on this checklist. This warning is diagnostic, not a scoring signal.
+        </div>
+      ) : null}
+      {hasLstWarning ? (
         <div style={styles.calibrationWarningNote}>
           Calibration note: LST scanner-like risk is treated as technical verification until confirmed by stronger evidence. This is diagnostic, not a scoring signal.
         </div>
@@ -186,6 +194,66 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
             styles={styles}
           />
         ))}
+      </div>
+    </Card>
+  );
+}
+
+function ResolvedLensPanel({ resolvedLens, styles }) {
+  if (!resolvedLens?.lensId) return null;
+  const providerEvidence = safeArray(resolvedLens.providerClassificationEvidence)
+    .slice(0, 5)
+    .map((item) => `${providerLabel(item.provider)} ${item.field}: ${extractRenderableText(item.value, "Unspecified")}`);
+  const routingSource = safeArray(resolvedLens.routingSource)
+    .slice(0, 8)
+    .map((item) => extractRenderableText(item, null))
+    .filter(Boolean);
+  const sourceBoundaries = safeArray(resolvedLens.sourceBoundary)
+    .slice(0, 5)
+    .map((item) => extractRenderableText(item, null))
+    .filter(Boolean);
+  return (
+    <Card title="Provider-Grounded Research Lens" subtitle="Single lens used for institutional question routing." styles={styles}>
+      <div style={styles.sourceBoundaryStrip}>
+        {boundaryChip(styles, resolvedLens.lensId)}
+        {boundaryChip(styles, `${labelize(resolvedLens.confidence)} confidence`)}
+        {boundaryChip(styles, `Question group: ${resolvedLens.questionGroupId}`)}
+      </div>
+      <SectionRow label="Resolved lens" value={resolvedLens.label || "Unavailable"} styles={styles} />
+      <SectionRow label="Asset-class group" value={resolvedLens.assetClassGroup || "Unavailable"} styles={styles} />
+      <SectionRow
+        label="Matched signals"
+        value={safeArray(resolvedLens.matchedSignals).length ? resolvedLens.matchedSignals.join("; ") : "No matched signal attached."}
+        styles={styles}
+      />
+      <SectionRow
+        label="Ambiguity flags"
+        value={safeArray(resolvedLens.ambiguityFlags).length ? resolvedLens.ambiguityFlags.join("; ") : "No ambiguity flags attached."}
+        styles={styles}
+      />
+      <ListBlock
+        title="Provider classification evidence"
+        items={providerEvidence}
+        emptyText="No provider classification evidence was attached."
+        color="#7dd3fc"
+        styles={styles}
+      />
+      <ListBlock
+        title="Routing source"
+        items={routingSource}
+        emptyText="No routing source path was attached."
+        color="#9bd7ff"
+        styles={styles}
+      />
+      <ListBlock
+        title="Source boundary"
+        items={sourceBoundaries}
+        emptyText="No source boundary text was attached."
+        color="#ffb020"
+        styles={styles}
+      />
+      <div style={styles.engineNotice}>
+        Provider category metadata is classification evidence only. It is not reviewed proof of legal rights, reserves, redemption, backing, or tokenholder accrual.
       </div>
     </Card>
   );
@@ -538,6 +606,8 @@ export default function InstitutionalChecklistTab({
   const institutionalQuestionsProvenance = analysisQuestionPayload.institutionalQuestionsProvenance
     || modelQuestionPayload.institutionalQuestionsProvenance
     || null;
+  const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(analysis)
+    || normalizeResolvedInstitutionalLensPayload(model);
   const hasInstitutionalAnswers = institutionalQuestions.length > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
@@ -572,20 +642,26 @@ export default function InstitutionalChecklistTab({
         />
         <SectionRow
           label="Current asset lens"
-          value={`${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
+          value={resolvedInstitutionalLens
+            ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+            : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
           styles={styles}
         />
         <SectionRow
           label="Resolver reason"
-          value={lensResolution.reason}
+          value={resolvedInstitutionalLens?.fallbackReason || lensResolution.reason}
           styles={styles}
         />
         <SectionRow
           label="Matched routing signals"
-          value={lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
+          value={resolvedInstitutionalLens?.matchedSignals?.length
+            ? resolvedInstitutionalLens.matchedSignals.join("; ")
+            : lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
           styles={styles}
         />
       </Card>
+
+      <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
 
       {hasInstitutionalAnswers ? (
         <InstitutionalQuestionAnswersSection

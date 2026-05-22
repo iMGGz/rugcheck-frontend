@@ -39,6 +39,7 @@ import {
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
   normalizeCalibrationWarningsPayload,
+  normalizeResolvedInstitutionalLensPayload,
   normalizeProviderHealth,
   normalizeInstitutionalQuestionsPayload,
   normalizeWatchlistAsset,
@@ -902,10 +903,12 @@ export default function App() {
     const analysisBlock = data.analysis || {};
     const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(data);
     const calibrationWarnings = normalizeCalibrationWarningsPayload(data);
+    const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
       institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
+      resolvedInstitutionalLens,
       calibrationWarnings,
     };
   }, [data]);

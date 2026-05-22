@@ -105,6 +105,22 @@ export function normalizeCalibrationWarningsPayload(responseLike) {
   return rootWarnings.length ? rootWarnings : nestedWarnings;
 }
 
+export function normalizeResolvedInstitutionalLensPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootLens = safeObject(root.resolvedInstitutionalLens);
+  const nestedLens = safeObject(nestedAnalysis.resolvedInstitutionalLens);
+  const lens = rootLens.lensId ? rootLens : nestedLens;
+  return lens.lensId ? {
+    ...lens,
+    providerClassificationEvidence: safeArray(lens.providerClassificationEvidence),
+    matchedSignals: safeArray(lens.matchedSignals),
+    ambiguityFlags: safeArray(lens.ambiguityFlags),
+    routingSource: safeArray(lens.routingSource),
+    sourceBoundary: safeArray(lens.sourceBoundary),
+  } : null;
+}
+
 export function extractRenderableText(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -2049,6 +2065,7 @@ export function buildDecisionTerminalModel({
   const policySignals = normalizeSignalList(safeAnalysis.policySignals);
   const warningsList = normalizeRenderableList(warnings);
   const calibrationWarnings = normalizeCalibrationWarningsPayload(safeAnalysis);
+  const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
   const blockers = cleanUserFacingList(investability.blockers, {
@@ -2195,6 +2212,7 @@ export function buildDecisionTerminalModel({
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
+    resolvedInstitutionalLens,
     calibrationWarnings,
     researchRequirements: verdictSemantics.researchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
