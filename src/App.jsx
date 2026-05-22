@@ -35,6 +35,7 @@ import {
   buildDecisionTerminalModel,
   deriveEvidenceStatusProxy,
   buildAssetLookupQuery,
+  buildReviewBundleText,
   buildWatchlistAssetFromAnalysis,
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
@@ -1203,6 +1204,57 @@ export default function App() {
     }
   }
 
+  async function writeClipboardText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    if (!copied) throw new Error("Clipboard fallback failed");
+  }
+
+  async function copyReviewBundle() {
+    try {
+      const bundle = buildReviewBundleText({
+        asset,
+        analysis,
+        data,
+        model: decisionModel,
+        displayIdentity: institutionalAssetIdentity,
+        evidenceStatusProxy,
+        analysisQualityExplanation,
+        sourceStatus,
+        providerDiagnostics,
+        notableDiagnostics,
+        providerHealth,
+        officialLinks,
+        whitepaperDocs,
+        scores,
+        confidence,
+        meta,
+        snapshot,
+        timelineData,
+        compareData,
+        aiReport,
+        fundamentals,
+        security,
+      });
+      await writeClipboardText(bundle);
+      setCopyMessage("Review bundle copied");
+    } catch {
+      setCopyMessage("Could not copy review bundle");
+    }
+  }
+
   function clearHistory() {
     clearSearchHistory();
     setHistory([]);
@@ -1244,7 +1296,6 @@ export default function App() {
               <button onClick={copyShareLink} style={styles.actionButton}>
                 Copy memo link
               </button>
-              {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
             </div>
 
             <RiskFlagsStrip items={decisionModel.auditAlerts} styles={styles} />
@@ -1579,8 +1630,17 @@ export default function App() {
                 />
 
                 <div style={styles.terminalNavHeader}>
-                  <div style={styles.terminalNavTitle}>Decision Navigation</div>
-                  <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
+                  <div>
+                    <div style={styles.terminalNavTitle}>Decision Navigation</div>
+                    <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
+                  </div>
+                  <div style={styles.reviewBundleActionGroup}>
+                    <button type="button" onClick={copyReviewBundle} style={styles.reviewBundleButton}>
+                      Copy Review Bundle
+                    </button>
+                    <div style={styles.reviewBundleHint}>Copies cross-tab QA fields for review.</div>
+                    {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
+                  </div>
                 </div>
                 <div style={styles.terminalNav}>
                   {RESEARCH_TABS.map((tab) => (

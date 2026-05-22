@@ -2340,6 +2340,503 @@ export function buildDecisionTerminalModel({
   };
 }
 
+function bundleValue(value, fallback = "Unavailable in current frontend model") {
+  return extractRenderableText(value, fallback) || fallback;
+}
+
+function bundleList(items, fallback = "Unavailable in current frontend model", limit = null) {
+  const normalized = normalizeRenderableList(items);
+  const limited = limit ? normalized.slice(0, limit) : normalized;
+  return limited.length ? limited.map((item) => `- ${item}`).join("\n") : `- ${fallback}`;
+}
+
+function bundleField(label, value) {
+  return `${label}: ${bundleValue(value)}`;
+}
+
+function bundleSection(title, lines = []) {
+  return [
+    "",
+    `=== ${title} ===`,
+    ...lines.filter((line) => line !== null && line !== undefined && line !== ""),
+  ].join("\n");
+}
+
+function bundleObjectRows(objectValue, fallback = "Unavailable in current frontend model", limit = null) {
+  const entries = Object.entries(safeObject(objectValue))
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => `${key}: ${extractRenderableText(value, JSON.stringify(value))}`);
+  const limited = limit ? entries.slice(0, limit) : entries;
+  return limited.length ? limited.map((item) => `- ${item}`).join("\n") : `- ${fallback}`;
+}
+
+function bundleProviderDiagnostics(providerDiagnostics, limit = 12) {
+  const rows = safeArray(providerDiagnostics).slice(0, limit).map((entry, index) => {
+    const provider = entry?.provider || entry?.source || entry?.section || `provider_${index + 1}`;
+    const status = entry?.status || entry?.coverage || entry?.reason || "diagnostic";
+    const reason = entry?.reason || entry?.safeReason || entry?.message || "No reason attached.";
+    return `- ${provider}: ${status} | ${reason}`;
+  });
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
+}
+
+function bundleProviderHealth(providerHealth, limit = 12) {
+  const normalized = normalizeProviderHealth(providerHealth);
+  const rows = safeArray(normalized?.providersList).slice(0, limit).map((entry) => {
+    const provider = entry?.provider || "provider";
+    const status = entry?.status || entry?.state || "unknown";
+    const reason = entry?.reason || entry?.message || "No reason attached.";
+    return `- ${provider}: ${status} | ${reason}`;
+  });
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
+}
+
+function bundleProviderEvidence(evidence = []) {
+  const rows = safeArray(evidence).map((entry) => {
+    const provider = entry?.provider || "provider";
+    const field = entry?.field || "field";
+    const value = entry?.value || "Unavailable";
+    const weight = entry?.weight !== undefined ? ` | weight ${entry.weight}` : "";
+    return `- ${provider}.${field}: ${value}${weight}`;
+  });
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
+}
+
+function bundleQuestions(questions = []) {
+  const rows = safeArray(questions).map((question, index) => [
+    `Question ${index + 1}`,
+    `  id: ${bundleValue(question?.questionId)}`,
+    `  question: ${bundleValue(question?.questionText)}`,
+    `  lens: ${bundleValue(question?.assetClassLens)}`,
+    `  answerStatus: ${bundleValue(question?.answerStatus)}`,
+    `  verdictImpact: ${bundleValue(question?.verdictImpact)}`,
+    `  currentMvpCapability: ${bundleValue(question?.currentMvpCapability)}`,
+    `  answerSummary: ${bundleValue(question?.answerSummary)}`,
+    `  supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Unavailable in current frontend model"}`,
+    `  missingEvidence: ${normalizeRenderableList(question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+    `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Unavailable in current frontend model"}`,
+    `  whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    `  scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+  ].join("\n"));
+  return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
+}
+
+function questionGroupMatchesLens(questions, lens) {
+  const safeQuestions = safeArray(questions);
+  if (!lens?.questionGroupId || !safeQuestions.length) return "unknown";
+  const group = String(lens.questionGroupId || "").toLowerCase();
+  const lensId = String(lens.lensId || "").toLowerCase();
+  const mismatches = safeQuestions.filter((question) => {
+    const id = String(question?.questionId || "").toLowerCase();
+    const questionLens = String(question?.assetClassLens || "").toLowerCase();
+    return !id.includes(group.replace(/_/g, "")) &&
+      !id.includes(group) &&
+      questionLens !== lensId &&
+      questionLens !== group;
+  });
+  return mismatches.length ? "unknown" : "yes";
+}
+
+function includesGenericPrimaryCopy(text) {
+  return /vesting schedule|next unlock magnitude|protocol revenue|fee\/revenue accrual|tokenholder value capture|token necessity and tokenholder value capture/i.test(String(text || ""));
+}
+
+function yesNoUnknown(value) {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "unknown";
+}
+
+export function buildReviewBundleText({
+  asset,
+  analysis,
+  data,
+  model,
+  displayIdentity,
+  evidenceStatusProxy,
+  analysisQualityExplanation,
+  sourceStatus,
+  providerDiagnostics,
+  notableDiagnostics,
+  providerHealth,
+  officialLinks,
+  whitepaperDocs,
+  scores,
+  confidence,
+  meta,
+  snapshot,
+  timelineData,
+  compareData,
+  aiReport,
+  fundamentals,
+  security,
+} = {}) {
+  const safeData = safeObject(data);
+  const safeAnalysis = safeObject(analysis || safeData.analysis);
+  const safeModel = safeObject(model);
+  const safeAsset = safeObject(asset || safeData.asset);
+  const safeMeta = safeObject(meta || safeData.meta);
+  const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
+  const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
+  const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const decisionFrame = safeObject(decisionLayer.decisionFrame);
+  const thesisCore = safeObject(safeAnalysis.thesisCore);
+  const verdictReasons = safeObject(decisionLayer.verdictReasons || safeModel.verdictReasons);
+  const allocationCase = safeObject(decisionLayer.allocationCase || safeModel.allocationCase);
+  const scoringPolicy = safeObject(safeAnalysis.scoringPolicy);
+  const sourceStatusObject = safeObject(sourceStatus || safeData.sourceStatus);
+  const providerDiagnosticsList = safeArray(providerDiagnostics || safeMeta.providerDiagnostics);
+  const providerNotes = normalizeRenderableList(safeMeta.providerNotes);
+  const warnings = normalizeRenderableList(safeData.warnings);
+  const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
+  const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
+  const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
+  const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
+  const questionMismatchWarnings = safeArray(calibrationWarnings).filter((warning) => warning?.id === "question_lens_mismatch");
+  const providerInternalFlags = safeArray(lens?.ambiguityFlags).filter((flag) => /provider|internal|disagree|conflict|mismatch/i.test(flag));
+  const visiblePrimaryText = [
+    safeModel.primaryBlocker?.label,
+    safeModel.weakestLink?.label,
+    ...(safeModel.whatWouldChangeDecision?.items || []),
+    ...(safeModel.missingCritical || []),
+    ...(safeModel.requiredConditions || []),
+    ...(safeModel.whatMustBeTrue || []),
+    ...(safeModel.nextCheckpoints || []),
+    ...safeArray(safeModel.researchRequirements).flatMap((requirement) => [
+      requirement?.title,
+      requirement?.reason,
+      ...(requirement?.evidenceNeeded || []),
+    ]),
+  ].filter(Boolean).join(" ");
+  const rawDecisionText = [
+    ...(decisionFrame.whatMustBeTrue || []).map((item) => extractRenderableText(item, null)),
+    ...(decisionFrame.nextCheckpoints || []).map((item) => extractRenderableText(item, null)),
+    ...(decisionLayer.researchRequirements || []).flatMap((requirement) => [
+      requirement?.title,
+      ...(requirement?.evidenceNeeded || []),
+    ]),
+  ].filter(Boolean).join(" ");
+  const rawGenericVisible = includesGenericPrimaryCopy(visiblePrimaryText);
+  const rawGenericAudit = includesGenericPrimaryCopy(rawDecisionText);
+  const questionMatchStatus = questionGroupMatchesLens(questions, lens);
+  const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
+  const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
+  const lastAnalyzed = safeData.lastAnalyzed || safeData.generatedAt || snapshot?.generatedAt || safeData.snapshot?.generatedAt || safeMeta.generatedAt;
+  const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
+  const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
+  const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
+
+  const sections = [
+    bundleSection("1. QA Bundle Header", [
+      bundleField("Asset symbol", safeAsset.symbol),
+      bundleField("Asset name", safeAsset.name || safeModel.assetName),
+      bundleField("Canonical identity", safeAsset.id || safeAsset.coingeckoId || safeAsset.cmcId || safeAsset.canonicalId),
+      bundleField("Chain / network", assetChain),
+      bundleField("Contract", assetContract),
+      bundleField("Last analyzed timestamp", lastAnalyzed),
+      bundleField("Final decision / verdictClass", verdictClass),
+      bundleField("Verdict label", verdictLabel),
+      bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
+      bundleField("Confidence", `${safeModel.confidenceLabel || safeConfidence.level || "Unavailable"}${safeModel.confidenceScore !== null && safeModel.confidenceScore !== undefined ? ` (${safeModel.confidenceScore})` : ""}`),
+      bundleField("Asset framing", displayIdentity?.displayFraming || safeModel.assetFramingLabel),
+      bundleField("Asset class label", displayIdentity?.displayAssetClass || safeModel.assetClassLabel || safeModel.assetClass),
+      bundleField("Sector/lens label", lens?.label || safeModel.primarySector),
+      bundleField("Boundary", boundary),
+    ]),
+    bundleSection("2. Resolved Institutional Lens Contract", [
+      bundleField("lensId", lens?.lensId),
+      bundleField("label", lens?.label),
+      bundleField("assetClassGroup", lens?.assetClassGroup),
+      bundleField("confidence", lens?.confidence),
+      bundleField("questionGroupId", lens?.questionGroupId),
+      "matchedSignals:",
+      bundleList(lens?.matchedSignals),
+      "routingSource:",
+      bundleList(lens?.routingSource),
+      "providerClassificationEvidence:",
+      bundleProviderEvidence(lens?.providerClassificationEvidence),
+      "ambiguityFlags:",
+      bundleList(lens?.ambiguityFlags),
+      bundleField("fallbackReason", lens?.fallbackReason),
+      "sourceBoundary:",
+      bundleList(lens?.sourceBoundary),
+      bundleField("Institutional question IDs/group match resolved lens", questionMatchStatus),
+      "question_lens_mismatch warnings:",
+      bundleList(questionMismatchWarnings.map((warning) => `${warning.issue || warning.id}: ${warning.recommendedAction || warning.expectedBehavior || "Review required."}`)),
+      "Provider/internal disagreement flags:",
+      bundleList(providerInternalFlags),
+    ]),
+    bundleSection("3. Decision Header / Command Header", [
+      bundleField("Why allocation could make sense", safeModel.verdictSemantics?.positiveCase?.[0] || safeModel.primaryStrength),
+      bundleField("Why allocation is blocked", safeModel.verdictSemantics?.blockedCase?.[0] || safeModel.primaryWeakness),
+      bundleField("Final Decision", safeModel.allocationOutcome?.label),
+      bundleField("Verdict interpretation", safeModel.verdictSemantics?.summary || safeModel.summaryMemo),
+      bundleField("Boundary copy", safeModel.verdictSemantics?.boundary || boundary),
+      "CTA/navigation labels carrying decision semantics:",
+      bundleList(["View final verdict logic", "Inspect blocker", "Trace evidence", "View requirements"]),
+    ]),
+    bundleSection("4. Decision Tab / Decision Snapshot", [
+      bundleField("Verdict semantics", `${safeModel.verdictSemantics?.label || "Unavailable"} - ${safeModel.verdictSemantics?.summary || "Unavailable"}`),
+      "Evidence still needed:",
+      bundleList(safeModel.verdictSemantics?.missingEvidence || safeModel.missingCritical),
+      bundleField("Primary blocker", safeModel.primaryBlocker?.label),
+      bundleField("Primary blocker detail", safeModel.primaryBlocker?.explanation),
+      bundleField("Weakest link", safeModel.weakestLink?.label),
+      bundleField("Weakest link detail", safeModel.weakestLink?.explanation),
+      "What Would Change The Decision:",
+      bundleList(safeModel.whatWouldChangeDecision?.items),
+      bundleField("Structural quality", safeModel.overallScore),
+      bundleField("Evidence support", safeModel.confidenceScore),
+      bundleField("Confidence", safeModel.confidenceLabel),
+      bundleField("Manual review signal", `${safeModel.manualReviewStatus?.label || "Unavailable"} - ${safeModel.manualReviewStatus?.detail || "Unavailable"}`),
+      bundleField("Allocation Decision", safeModel.allocationOutcome?.label),
+      bundleField("Current state", safeModel.currentState),
+      bundleField("Why Now", safeModel.whyNow || decisionFrame.whyNow),
+      bundleField("Why Not Now", safeModel.whyNotNow || decisionFrame.whyNotNow),
+      bundleField("Decision Memo", safeModel.summaryMemo),
+      bundleField("Primary Weakness", safeModel.primaryWeakness),
+      bundleField("Failure Mode", safeModel.failureMode?.primary),
+      bundleField("Structured Thesis Summary", safeModel.summaryMemo),
+      "Missing critical evidence:",
+      bundleList(safeModel.missingCritical),
+      "Required conditions:",
+      bundleList(safeModel.requiredConditions),
+      "Constraint Summary / blockers:",
+      bundleList(safeModel.blockers),
+      "Top decision drivers:",
+      bundleList(safeModel.decisionDrivers),
+      "Lens-aware display text:",
+      bundleList([
+        lensAware?.primaryBlocker,
+        ...(lensAware?.evidenceNeeded || []),
+        ...(lensAware?.whatWouldChange || []),
+        ...(lensAware?.requiredConditions || []),
+      ]),
+      "Raw/fallback audit text still present in backend fields:",
+      bundleList([
+        ...(decisionFrame.whatMustBeTrue || []),
+        ...(decisionFrame.nextCheckpoints || []),
+        ...safeArray(decisionLayer.researchRequirements).map((requirement) => requirement?.title),
+      ]),
+      bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
+      bundleField("Raw generic copy present in audit/backend fields", yesNoUnknown(rawGenericAudit)),
+    ]),
+    bundleSection("5. Thesis Falsification Tab", [
+      bundleField("Allocation thesis", safeModel.summaryMemo),
+      bundleField("Asset framing", displayIdentity?.displayFraming || safeModel.assetFramingLabel),
+      bundleField("Why allocation could make sense", allocationCase.forAllocation?.[0] || safeModel.primaryStrength),
+      bundleField("Why allocation is blocked", allocationCase.againstAllocation?.[0] || safeModel.primaryWeakness),
+      "Evidence still needed:",
+      bundleList(allocationCase.missingEvidence || safeModel.missingCritical),
+      "What would change the decision:",
+      bundleList(allocationCase.whatWouldChange || safeModel.whatWouldChangeDecision?.items),
+      "Review-only cautions:",
+      bundleList(verdictReasons.reviewOnlyCautions),
+      "What Must Be True:",
+      bundleList(safeModel.whatMustBeTrue),
+      "What Could Break The Thesis:",
+      bundleList(safeModel.whatCouldBreak),
+      "Live Context Supporting The Thesis:",
+      bundleList(verdictReasons.positiveThesisEvidence || safeModel.topPositiveDrivers),
+      "Evidence Missing / Provider Gaps:",
+      bundleList(verdictReasons.evidenceGaps || safeModel.missingCritical),
+      bundleField("Weakest Link", safeModel.weakestLink?.label),
+      bundleField("False-Positive Risk / Refusal to infer", safeModel.tokenDemandTruth),
+      "Manual-review triggers:",
+      bundleList([safeModel.manualReviewStatus?.detail, ...safeModel.auditAlerts]),
+      bundleField("Token Demand Truth", safeModel.tokenDemandTruth),
+      bundleField("Failure Modes", safeModel.failureMode?.primary),
+      "Conviction Drivers:",
+      bundleList(safeModel.decisionDrivers),
+      "Blockers:",
+      bundleList(safeModel.blockers),
+    ]),
+    bundleSection("6. Institutional Checklist", [
+      bundleField("Current asset lens text", lens?.label || displayIdentity?.displayFraming),
+      bundleField("Resolver reason", lens?.fallbackReason || safeArray(lens?.routingSource).join("; ")),
+      "Provider-grounded lens panel:",
+      bundleList([
+        `lensId: ${bundleValue(lens?.lensId)}`,
+        `questionGroupId: ${bundleValue(lens?.questionGroupId)}`,
+        `confidence: ${bundleValue(lens?.confidence)}`,
+        `matchedSignals: ${safeArray(lens?.matchedSignals).join("; ") || "Unavailable"}`,
+        `ambiguityFlags: ${safeArray(lens?.ambiguityFlags).join("; ") || "Unavailable"}`,
+      ]),
+      "Registry / source boundary text:",
+      bundleList(lens?.sourceBoundary || lensAware?.boundaryNotes),
+      "Institutional questions:",
+      bundleQuestions(questions),
+    ]),
+    bundleSection("7. Evidence Map / Source Trace", [
+      "Live provider evidence rows / source statuses:",
+      bundleObjectRows(sourceStatusObject),
+      "Provider diagnostics summary:",
+      bundleProviderDiagnostics(providerDiagnosticsList),
+      "Provider notes:",
+      bundleList(providerNotes),
+      "Evidence coverage signals:",
+      bundleList(safeArray(evidenceStatusProxy?.items).map((item) => `${item.label}: ${item.statusLabel || item.status || item.sourceLabel || "context"}`)),
+      "Unavailable in live response:",
+      bundleList(evidenceStatusProxy?.unavailable),
+      "Official links / source trace:",
+      bundleObjectRows(officialLinks || safeData.officialLinks),
+      "Docs / whitepaper summary:",
+      bundleObjectRows(whitepaperDocs || safeData.whitepaperDocs),
+      "Provider diagnostics notes:",
+      bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
+      bundleField("Boundary notices", "Provider metadata/live provider signal/source candidate/reviewed evidence/report-only overlay/scoring-active evidence must remain distinct."),
+    ]),
+    bundleSection("8. Scoring Transparency", [
+      bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
+      bundleField("Structural quality", safeModel.overallScore),
+      bundleField("Evidence support/confidence proxy", `${safeModel.confidenceScore ?? safeConfidence.score ?? "Unavailable"} / ${safeModel.confidenceLabel || safeConfidence.level || "Unavailable"}`),
+      "Scores:",
+      bundleObjectRows(safeScores),
+      "tokenDemandQuality:",
+      bundleObjectRows(safeAnalysis.tokenDemandQuality),
+      "evidenceDirectness:",
+      bundleObjectRows(safeAnalysis.evidenceDirectness),
+      "Policy signals:",
+      bundleList(safeModel.policySignals || safeAnalysis.policySignals),
+      "Scoring policy / caps / gates / blockers:",
+      bundleObjectRows(scoringPolicy),
+      "Decision layer:",
+      bundleObjectRows({
+        verdictClass,
+        currentState: safeModel.currentState,
+        posture: safeModel.posture,
+      }),
+      "Unavailable modules / neutral missing:",
+      bundleList(safeModel.topNeutralDrivers),
+      "What engine refused to infer:",
+      bundleList([safeModel.tokenDemandTruth, ...(verdictReasons.notApplicableItems || [])]),
+      "Score drivers - positives:",
+      bundleList(safeModel.topPositiveDrivers),
+      "Score drivers - negatives:",
+      bundleList(safeModel.topNegativeDrivers),
+      "Caveats / warnings:",
+      bundleList([...safeModel.auditAlerts, ...warnings]),
+    ]),
+    bundleSection("9. Source Queue", [
+      bundleField("Source lifecycle explainer", "Candidate -> Manual intake -> ManualSourceEvidenceItem -> Mapping -> Report-only overlay. Candidate/report-only layers are not live scoring input."),
+      "Research requirements:",
+      bundleList(safeArray(safeModel.researchRequirements).map((requirement) => `${requirement?.title || "Requirement"} | ${requirement?.reason || "No reason"} | impact: ${requirement?.verdictImpact || "Unavailable"}`)),
+      "Lens-aware source priorities:",
+      bundleList(lensAware?.sourceQueueRequirements),
+      "Evidence needed:",
+      bundleList(safeArray(safeModel.researchRequirements).flatMap((requirement) => requirement?.evidenceNeeded || [])),
+      "Preferred source types:",
+      bundleList(safeArray(safeModel.researchRequirements).flatMap((requirement) => requirement?.preferredSourceTypes || [])),
+      "Live response gaps that need sources:",
+      bundleList([
+        ...safeModel.requiredConditions,
+        ...safeModel.missingCritical,
+        ...(safeModel.whatWouldChangeDecision?.items || []),
+      ]),
+      "Suggested research domains:",
+      bundleList([displayIdentity?.displayFraming, safeModel.assetFramingLabel, safeModel.primarySector, ...safeArray(safeModel.secondarySectors)]),
+      bundleField("Source boundary", "Research requirements are not evidence. Report-only evidence does not affect live scoring."),
+    ]),
+    bundleSection("10. Manual Review", [
+      bundleField("Manual review status", safeModel.manualReviewStatus?.label),
+      bundleField("Reason", safeModel.manualReviewStatus?.detail),
+      "Live review signals:",
+      bundleList([
+        ...safeModel.missingCritical,
+        ...safeModel.requiredConditions,
+        ...safeModel.auditAlerts,
+      ]),
+      "Provider gaps:",
+      bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
+      "Calibration warnings:",
+      bundleList(safeArray(calibrationWarnings).map((warning) => `${warning.id || "warning"} | ${warning.severity || "severity unavailable"} | ${warning.issue || warning.observedBehavior || "Review required"} | ${warning.recommendedAction || "Manual review required"}`)),
+      "Verification checklist:",
+      bundleList([
+        "Confirm source authenticity, freshness, scope, and contradictions.",
+        "Do not treat provider metadata as reviewed evidence.",
+        "Do not promote source candidates or report-only overlays into live scoring.",
+        ...safeModel.requiredConditions,
+      ]),
+      "Review outcome legend:",
+      bundleList(["requires_review", "accepted_for_report", "stale", "rejected", "duplicate", "low_relevance", "contradiction_review"]),
+      bundleField("Failure mode matrix", safeModel.failureMode?.primary),
+      "Backend risk engine summary / security checks:",
+      bundleObjectRows(security || safeData.security),
+      "Key alerts:",
+      bundleList(safeModel.keyAlerts),
+      "Green flags:",
+      bundleList(safeModel.topPositiveDrivers),
+      "Red flags:",
+      bundleList([...safeModel.topNegativeDrivers, ...safeModel.auditAlerts]),
+    ]),
+    bundleSection("11. Audit / Raw Key Fields", [
+      "Provider diagnostics summary:",
+      bundleProviderDiagnostics(providerDiagnosticsList),
+      "Provider health:",
+      bundleProviderHealth(providerHealth),
+      "Snapshot/drift summary:",
+      bundleObjectRows(snapshot || safeData.snapshot),
+      "Latest stored snapshot:",
+      bundleField("latest snapshot id", safeArray(timelineData)[0]?.snapshotId),
+      "Historical snapshot deltas if visible:",
+      bundleObjectRows(compareData?.compactImpact || compareData?.delta || compareData),
+      "Thesis drift:",
+      bundleObjectRows(compareData?.thesisDrift || compareData?.thesis),
+      "Raw field availability summary:",
+      bundleList([
+        `analysis: ${Object.keys(safeAnalysis).length ? "present" : "missing"}`,
+        `decisionLayer: ${Object.keys(decisionLayer).length ? "present" : "missing"}`,
+        `thesisCore: ${Object.keys(thesisCore).length ? "present" : "missing"}`,
+        `resolvedInstitutionalLens: ${lens ? "present" : "missing"}`,
+        `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
+        `institutionalQuestions: ${safeArray(questions).length}`,
+        `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
+      ]),
+      "Failed/skipped provider list with reasons:",
+      bundleProviderDiagnostics(providerDiagnosticsList.filter((entry) => entry?.status !== "success" || ["failed", "skipped", "unavailable", "partial"].includes(entry?.coverage || ""))),
+      bundleField("Anthropic fallback status if visible", aiReport?.providerStatus || aiReport?.fallbackReason || safeMeta.aiFallbackStatus),
+      "Warnings/errors:",
+      bundleList(warnings),
+      "Raw fields that may confuse user-facing copy:",
+      bundleList([
+        rawGenericAudit ? "Generic protocol/unlock/vesting wording exists in raw backend/audit fields." : "No obvious generic raw copy detected by frontend heuristic.",
+      ]),
+    ]),
+    bundleSection("12. Cross-Tab Consistency Checklist", [
+      bundleField("Resolved lens matches Decision Header lens", lens && displayIdentity ? yesNoUnknown(String(displayIdentity.displayFraming || displayIdentity.displayAssetClass || "").toLowerCase().includes(String(lens.label || lens.lensId || "").split("/")[0].trim().toLowerCase())) : "unknown"),
+      bundleField("Institutional question group matches resolved lens", questionMatchStatus),
+      bundleField("Decision wording is lens-specific", yesNoUnknown(Boolean(lensAware))),
+      bundleField("Thesis Falsification wording is lens-specific", yesNoUnknown(Boolean(lensAware))),
+      bundleField("Source Queue requirements are lens-specific", yesNoUnknown(Boolean(lensAware?.sourceQueueRequirements?.length))),
+      bundleField("Manual Review requirements are lens-specific", yesNoUnknown(Boolean(lensAware))),
+      bundleField("Evidence Map preserves metadata/evidence boundary", "unknown"),
+      bundleField("Scoring Transparency avoids unsupported inference", "unknown"),
+      bundleField("Provider metadata is not presented as reviewed evidence", safeArray(lens?.sourceBoundary).length ? "yes" : "unknown"),
+      bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
+      bundleField("Calibration warnings visible if present", safeArray(calibrationWarnings).length ? "yes" : "unknown"),
+      bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),
+      bundleField("Any obvious institutional-quality wording issues", rawGenericVisible ? "yes" : "unknown"),
+    ]),
+    bundleSection("13. Institutional QA Notes", [
+      bundleField("Potentially embarrassing wording", rawGenericVisible ? "Generic protocol/tokenomics wording appears in primary display fields." : "No obvious generic primary-display wording detected by frontend heuristic."),
+      bundleField("Generic copy still visible", rawGenericVisible ? "yes" : rawGenericAudit ? "raw/audit only" : "unknown"),
+      bundleField("Lens mismatch risk", questionMismatchWarnings.length ? "question_lens_mismatch warning present" : questionMatchStatus === "yes" ? "low from current frontend model" : "unknown"),
+      bundleField("Evidence-overclaim risk", safeArray(lens?.sourceBoundary).length ? "source boundary visible; still verify browser copy" : "unknown"),
+      bundleField("Provider gap risk", notableDiagnostics?.length ? `${notableDiagnostics.length} notable provider diagnostics` : "unknown"),
+      bundleField("UI clarity risk", "Review in browser; bundle is a QA aid and does not replace visual inspection."),
+      bundleField("Recommended follow-up", "Run live cross-tab QA for LINK, ONDO, RENDER, USDC, WBTC, stETH, PEPE, RIO/NAKA, ETH/DAG controls."),
+    ]),
+  ];
+
+  return [
+    "ThesisCore Cross-Tab QA Review Bundle",
+    `Generated: ${new Date().toISOString()}`,
+    "Purpose: paste this bundle into review to detect lens routing, wording, evidence-boundary, scoring/explanation, and frontend visibility issues.",
+    ...sections,
+  ].join("\n");
+}
+
 export function buildMethodologyPrinciples() {
   return [
     "Truth before allocation",

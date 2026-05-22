@@ -2669,6 +2669,30 @@ export const styles = {
     color: "#aab7cc",
     fontSize: 13,
   },
+  reviewBundleActionGroup: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  reviewBundleButton: {
+    padding: "10px 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(47,214,123,0.34)",
+    background: "linear-gradient(135deg, rgba(47,214,123,0.18), rgba(125,211,252,0.1))",
+    color: "#e9fff3",
+    cursor: "pointer",
+    fontWeight: 900,
+    minHeight: 40,
+    boxShadow: "0 10px 26px rgba(0,0,0,0.18)",
+  },
+  reviewBundleHint: {
+    color: "#8a94a6",
+    fontSize: 12,
+    maxWidth: 190,
+    lineHeight: 1.45,
+  },
   decisionNavigatorWrap: {
     marginTop: 18,
   },
@@ -3915,6 +3939,19 @@ export function buildResponsiveStyles(viewportWidth = 1280) {
     terminalNavHeader: {
       ...styles.terminalNavHeader,
       alignItems: isMobile ? "flex-start" : styles.terminalNavHeader.alignItems,
+    },
+    reviewBundleActionGroup: {
+      ...styles.reviewBundleActionGroup,
+      justifyContent: isMobile ? "flex-start" : styles.reviewBundleActionGroup.justifyContent,
+      width: isMobile ? "100%" : undefined,
+    },
+    reviewBundleButton: {
+      ...styles.reviewBundleButton,
+      width: isMobile ? "100%" : undefined,
+    },
+    reviewBundleHint: {
+      ...styles.reviewBundleHint,
+      maxWidth: isMobile ? "100%" : styles.reviewBundleHint.maxWidth,
     },
     terminalNav: {
       ...styles.terminalNav,
