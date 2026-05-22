@@ -303,11 +303,16 @@ export default function SourceQueuePanel({
 
       <div style={styles.advancedGrid}>
         <Card title="Research Requirements" subtitle="Generated from live gaps. These are not reviewed evidence." styles={styles}>
-          <div style={styles.sourceBoundaryStrip}>
-            {boundaryChip(styles, "Research requirements are not evidence.")}
-            {boundaryChip(styles, "A source candidate becomes evidence only after review.")}
-            {boundaryChip(styles, "Report-only evidence does not affect live scoring.")}
-          </div>
+        <div style={styles.sourceBoundaryStrip}>
+          {boundaryChip(styles, "Research requirements are not evidence.")}
+          {boundaryChip(styles, "A source candidate becomes evidence only after review.")}
+          {boundaryChip(styles, "Report-only evidence does not affect live scoring.")}
+        </div>
+          {model?.lensAwareExplanations ? (
+            <p style={styles.timelineMeta}>
+              Lens-aware display priorities use the resolved institutional lens. Raw backend requirements remain available in Audit / Raw; scores and verdicts are unchanged.
+            </p>
+          ) : null}
           {researchRequirements.length ? researchRequirements.map((requirement) => (
             <ResearchRequirementCard key={requirement.id || requirement.title} requirement={requirement} styles={styles} />
           )) : (

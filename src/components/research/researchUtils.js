@@ -121,6 +121,22 @@ export function normalizeResolvedInstitutionalLensPayload(responseLike) {
   } : null;
 }
 
+export function normalizeLensAwareExplanationsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootExplanations = safeObject(root.lensAwareExplanations);
+  const nestedExplanations = safeObject(nestedAnalysis.lensAwareExplanations);
+  const explanations = rootExplanations.lensId ? rootExplanations : nestedExplanations;
+  return explanations.lensId ? {
+    ...explanations,
+    evidenceNeeded: safeArray(explanations.evidenceNeeded),
+    whatWouldChange: safeArray(explanations.whatWouldChange),
+    requiredConditions: safeArray(explanations.requiredConditions),
+    sourceQueueRequirements: safeArray(explanations.sourceQueueRequirements),
+    boundaryNotes: safeArray(explanations.boundaryNotes),
+  } : null;
+}
+
 export function extractRenderableText(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -2066,6 +2082,7 @@ export function buildDecisionTerminalModel({
   const warningsList = normalizeRenderableList(warnings);
   const calibrationWarnings = normalizeCalibrationWarningsPayload(safeAnalysis);
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(safeAnalysis);
+  const lensAwareExplanations = normalizeLensAwareExplanationsPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
   const blockers = cleanUserFacingList(investability.blockers, {
@@ -2195,6 +2212,46 @@ export function buildDecisionTerminalModel({
     primarySector: sectorClassification.primarySector || null,
   });
   const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(safeAnalysis);
+  const displayEvidenceNeeded = lensAwareExplanations?.evidenceNeeded?.length
+    ? lensAwareExplanations.evidenceNeeded
+    : missingCritical;
+  const displayRequiredConditions = lensAwareExplanations?.requiredConditions?.length
+    ? lensAwareExplanations.requiredConditions
+    : requiredConditions;
+  const displayWhatWouldChangeDecision = lensAwareExplanations?.whatWouldChange?.length
+    ? {
+      items: lensAwareExplanations.whatWouldChange,
+      badge: "Lens-aware requirements",
+      explanation: "Display wording from resolvedInstitutionalLens; scoring and verdicts are unchanged.",
+    }
+    : whatWouldChangeDecision;
+  const displayPrimaryBlocker = lensAwareExplanations?.primaryBlocker
+    ? {
+      ...primaryBlocker,
+      label: lensAwareExplanations.primaryBlocker,
+      explanation: "Lens-aware display wording from resolvedInstitutionalLens. Raw decision-layer blockers remain available in audit context.",
+      badge: "Lens-aware requirement",
+    }
+    : primaryBlocker;
+  const displayResearchRequirements = lensAwareExplanations?.sourceQueueRequirements?.length
+    ? lensAwareExplanations.sourceQueueRequirements.map((requirement, index) => ({
+      id: `lens-aware-${lensAwareExplanations.lensId}-${index}`,
+      title: requirement,
+      assetClassLens: lensAwareExplanations.lensId,
+      reason: "Lens-aware source priority derived from resolvedInstitutionalLens. It does not change scoring.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
+      priority: index < 2 ? "high" : "medium",
+      verdictImpact: "Could clarify allocation thesis support or blockers if independently verified.",
+      currentStatus: "review_required",
+      canChangeVerdict: true,
+    }))
+    : verdictSemantics.researchRequirements;
+  const displayVerdictSemantics = lensAwareExplanations ? {
+    ...verdictSemantics,
+    missingEvidence: displayEvidenceNeeded,
+    whatWouldChange: displayWhatWouldChangeDecision.items,
+  } : verdictSemantics;
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -2202,19 +2259,20 @@ export function buildDecisionTerminalModel({
     confidenceScore,
     confidenceLabel: confidenceLabelText,
     allocationOutcome,
-    verdictSemantics,
-    verdictClass: verdictSemantics.verdictClass || null,
+    verdictSemantics: displayVerdictSemantics,
+    verdictClass: displayVerdictSemantics.verdictClass || null,
     allocationCase: verdictSemantics.hasVerdictClass ? {
       forAllocation: verdictSemantics.positiveCase,
       againstAllocation: verdictSemantics.blockedCase,
-      missingEvidence: verdictSemantics.missingEvidence,
-      whatWouldChange: verdictSemantics.whatWouldChange,
+      missingEvidence: displayEvidenceNeeded,
+      whatWouldChange: displayWhatWouldChangeDecision.items,
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     resolvedInstitutionalLens,
+    lensAwareExplanations,
     calibrationWarnings,
-    researchRequirements: verdictSemantics.researchRequirements,
+    researchRequirements: displayResearchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
     primaryStrength,
     primaryWeakness,
@@ -2228,9 +2286,9 @@ export function buildDecisionTerminalModel({
     posture: describePosture(extractDecisionLabel(decisionLayer.posture), assetClassification.assetClass || null),
     evidenceStrength: evidenceQuality.strength || null,
     evidenceConflicts,
-    missingCritical,
+    missingCritical: displayEvidenceNeeded,
     blockers,
-    requiredConditions,
+    requiredConditions: displayRequiredConditions,
     decisionDrivers: dedupedDrivers,
     contradictionNote,
     summaryMemo,
@@ -2246,27 +2304,31 @@ export function buildDecisionTerminalModel({
     primarySector: sectorClassification.primarySector || null,
     secondarySectors: dedupedSecondarySectors,
     assetBadges,
-    primaryBlocker,
+    primaryBlocker: displayPrimaryBlocker,
     weakestLink,
-    whatWouldChangeDecision,
+    whatWouldChangeDecision: displayWhatWouldChangeDecision,
     manualReviewStatus,
     whyNow: sanitizedWhyNow,
     whyNotNow: sanitizedWhyNotNow,
-    whatMustBeTrue: cleanUserFacingList(decisionFrame.whatMustBeTrue, {
-      limit: 4,
-      suppressGenericEpistemic: isBenchmark,
-      replacePlaceholders: true,
-    }),
+    whatMustBeTrue: lensAwareExplanations?.requiredConditions?.length
+      ? displayRequiredConditions
+      : cleanUserFacingList(decisionFrame.whatMustBeTrue, {
+        limit: 4,
+        suppressGenericEpistemic: isBenchmark,
+        replacePlaceholders: true,
+      }),
     whatCouldBreak: cleanUserFacingList(decisionFrame.whatCouldBreak, {
       limit: 4,
       suppressGenericEpistemic: isBenchmark,
       replacePlaceholders: true,
     }),
-    nextCheckpoints: cleanUserFacingList(decisionFrame.nextCheckpoints, {
-      limit: 4,
-      suppressGenericEpistemic: isBenchmark,
-      replacePlaceholders: true,
-    }),
+    nextCheckpoints: lensAwareExplanations?.whatWouldChange?.length
+      ? displayWhatWouldChangeDecision.items
+      : cleanUserFacingList(decisionFrame.nextCheckpoints, {
+        limit: 4,
+        suppressGenericEpistemic: isBenchmark,
+        replacePlaceholders: true,
+      }),
     topPositiveDrivers: cleanUserFacingList(contributors.positives, { limit: 4 }),
     topNegativeDrivers: cleanUserFacingList(contributors.negatives, { limit: 4 }),
     topNeutralDrivers: cleanUserFacingList(contributors.neutralOrMissing, {
