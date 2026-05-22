@@ -1,4 +1,33 @@
-import React from "react";
+import React, { useState } from "react";
+
+function SearchShortcutChip({ item, onClick, styles }) {
+  const [interactiveState, setInteractiveState] = useState({
+    hover: false,
+    focus: false,
+    pressed: false,
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState((state) => ({ ...state, hover: false, pressed: false }))}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...styles.quickButton,
+        ...(interactiveState.hover ? styles.quickButtonHover : null),
+        ...(interactiveState.focus ? styles.quickButtonFocus : null),
+        ...(interactiveState.pressed ? styles.quickButtonPressed : null),
+      }}
+    >
+      {item}
+    </button>
+  );
+}
 
 export default function SearchPanel({
   query,
@@ -36,19 +65,26 @@ export default function SearchPanel({
         </button>
       </div>
 
-      <div style={styles.quickRow}>
-        {quickSearches.map((item) => (
-          <button
-            key={item}
-            onClick={() => {
-              setQuery(item);
-              analyze(item, "full");
-            }}
-            style={styles.quickButton}
-          >
-            {item}
-          </button>
-        ))}
+      <div style={styles.quickSearchWrap}>
+        <div style={styles.quickSearchHeader}>
+          <div style={styles.quickSearchTitle}>Research Shortcuts</div>
+          <div style={styles.quickSearchSubtitle}>
+            Representative assets for testing different asset-class lenses. Not recommendations.
+          </div>
+        </div>
+        <div style={styles.quickRow}>
+          {quickSearches.map((item) => (
+            <SearchShortcutChip
+              key={item}
+              item={item}
+              styles={styles}
+              onClick={() => {
+                setQuery(item);
+                analyze(item, "full");
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {history.length ? (

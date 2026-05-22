@@ -71,7 +71,7 @@ function resolveApiBase() {
 }
 
 const API_BASE = resolveApiBase();
-const QUICK_SEARCHES = ["ETH", "BTC", "PEPE", "SOL", "WIF"];
+const QUICK_SEARCHES = ["BTC", "WBTC", "ETH", "XRP", "ADA", "UNI", "RENDER", "LINK", "AVAX", "ONDO", "USDT", "USDC", "RIO", "NAKA", "SOL", "PEPE"];
 const RESEARCH_TABS = [
   { key: "overview", label: "Decision" },
   { key: "thesis_falsification", label: "Thesis Falsification" },
