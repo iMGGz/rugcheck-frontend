@@ -137,6 +137,41 @@ export function normalizeLensAwareExplanationsPayload(responseLike) {
   } : null;
 }
 
+export function normalizeAssetIdentityResolutionPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const asset = safeObject(root.asset || nestedAnalysis.asset);
+  const rootIdentity = safeObject(root.assetIdentityResolution);
+  const nestedIdentity = safeObject(nestedAnalysis.assetIdentityResolution);
+  const assetIdentity = safeObject(asset.assetIdentityResolution);
+  const identity = rootIdentity.canonicalAssetName || rootIdentity.canonicalAssetSymbol
+    ? rootIdentity
+    : nestedIdentity.canonicalAssetName || nestedIdentity.canonicalAssetSymbol
+      ? nestedIdentity
+      : assetIdentity.canonicalAssetName || assetIdentity.canonicalAssetSymbol
+        ? assetIdentity
+        : null;
+
+  if (!identity) return null;
+
+  return {
+    ...identity,
+    canonicalProviderIds: safeObject(identity.canonicalProviderIds),
+    allKnownContracts: safeArray(identity.allKnownContracts),
+    platformContracts: safeObject(identity.platformContracts),
+    oldContracts: safeArray(identity.oldContracts),
+    newContracts: safeArray(identity.newContracts),
+    explorerLinks: safeArray(identity.explorerLinks),
+    officialLinks: safeArray(identity.officialLinks),
+    identityWarnings: safeArray(identity.identityWarnings),
+    chainWarnings: safeArray(identity.chainWarnings),
+    contractWarnings: safeArray(identity.contractWarnings),
+    sourceRequirements: safeArray(identity.sourceRequirements),
+    sourceBoundary: safeArray(identity.sourceBoundary),
+    evidenceSourceSummary: safeArray(identity.evidenceSourceSummary),
+  };
+}
+
 function firstPresent(...values) {
   return values.find((value) => value !== null && value !== undefined && value !== "");
 }
@@ -2271,6 +2306,7 @@ export function buildDecisionTerminalModel({
   const calibrationWarnings = normalizeCalibrationWarningsPayload(safeAnalysis);
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const lensAwareExplanations = normalizeLensAwareExplanationsPayload(safeAnalysis);
+  const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -2460,6 +2496,7 @@ export function buildDecisionTerminalModel({
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     resolvedInstitutionalLens,
     lensAwareExplanations,
+    assetIdentityResolution,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -2700,6 +2737,7 @@ export function buildReviewBundleText({
   const warnings = normalizeRenderableList(safeData.warnings);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
+  const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
@@ -2748,12 +2786,24 @@ export function buildReviewBundleText({
       bundleField("Asset symbol", safeAsset.symbol),
       bundleField("Asset name", safeAsset.name || safeModel.assetName),
       bundleField("Canonical identity", safeAsset.id || safeAsset.coingeckoId || safeAsset.cmcId || safeAsset.canonicalId),
+      bundleField("Canonical asset", `${assetIdentityResolution?.canonicalAssetName || "Unavailable"} (${assetIdentityResolution?.canonicalAssetSymbol || "Unavailable"})`),
+      bundleField("Canonical/native network candidate", assetIdentityResolution?.canonicalNetworkCandidate || assetIdentityResolution?.nativeNetworkCandidate),
       bundleField("Chain / network", assetChain),
       bundleField("Contract", assetContract),
+      bundleField("Analyzed network", assetIdentityResolution?.analyzedNetwork),
+      bundleField("Analyzed contract", assetIdentityResolution?.analyzedContract),
+      bundleField("Representation type", assetIdentityResolution?.representationType),
+      bundleField("Wrong-asset risk", assetIdentityResolution?.wrongAssetRisk),
       bundleField("Provider IDs", providerIds.join("; ")),
       bundleField("Identity confidence", lens?.confidence),
+      bundleField("Canonical identity confidence", assetIdentityResolution?.identityConfidence),
       "Identity warnings:",
-      bundleList(identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`)),
+      bundleList([
+        ...safeArray(assetIdentityResolution?.identityWarnings),
+        ...safeArray(assetIdentityResolution?.chainWarnings),
+        ...safeArray(assetIdentityResolution?.contractWarnings),
+        ...identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`),
+      ]),
       bundleField("Last analyzed timestamp", lastAnalyzed),
       bundleField("Analysis freshness", `${analysisFreshness.freshnessLabel} - ${analysisFreshness.summary}`),
       bundleField("Delivery source", analysisFreshness.analysisSource),
@@ -2767,6 +2817,35 @@ export function buildReviewBundleText({
       bundleField("Asset class label", displayIdentity?.displayAssetClass || safeModel.assetClassLabel || safeModel.assetClass),
       bundleField("Sector/lens label", lens?.label || safeModel.primarySector),
       bundleField("Boundary", boundary),
+    ]),
+    bundleSection("1A. Asset Identity Resolution / Canonical Chain Guardrail", [
+      bundleField("Selected asset", `${safeAsset.name || "Unavailable"} (${safeAsset.symbol || "Unavailable"})`),
+      bundleField("Canonical provider IDs", [
+        assetIdentityResolution?.canonicalProviderIds?.coingeckoId ? `coingecko:${assetIdentityResolution.canonicalProviderIds.coingeckoId}` : null,
+        assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId ? `cmc:${assetIdentityResolution.canonicalProviderIds.coinmarketcapId}` : null,
+      ].filter(Boolean).join("; ")),
+      bundleField("Canonical network candidate", assetIdentityResolution?.canonicalNetworkCandidate),
+      bundleField("Native network candidate", assetIdentityResolution?.nativeNetworkCandidate),
+      bundleField("Selected network", assetIdentityResolution?.selectedNetwork),
+      bundleField("Analyzed representation", `${assetIdentityResolution?.analyzedNetwork || "Unavailable"} ${assetIdentityResolution?.analyzedContract || "no contract"}`),
+      bundleField("Contract scan applicability", assetIdentityResolution?.contractScanApplicability),
+      bundleField("Migration status", assetIdentityResolution?.migrationStatus),
+      bundleField("Wrapped/bridged status", assetIdentityResolution?.bridgedOrWrappedStatus),
+      bundleField("Multi-chain", yesNoUnknown(assetIdentityResolution?.isMultichain)),
+      bundleField("Chain confidence", assetIdentityResolution?.chainConfidence),
+      bundleField("Contract confidence", assetIdentityResolution?.contractConfidence),
+      "All known provider contracts:",
+      bundleList(safeArray(assetIdentityResolution?.allKnownContracts).map((entry) => `${entry.provider}:${entry.network}:${entry.contractAddress} | ${entry.sourceField} | confidence:${entry.confidence}`)),
+      "Old contracts:",
+      bundleList(assetIdentityResolution?.oldContracts),
+      "New contracts:",
+      bundleList(assetIdentityResolution?.newContracts),
+      "Identity source requirements:",
+      bundleList(assetIdentityResolution?.sourceRequirements),
+      "Identity source boundary:",
+      bundleList(assetIdentityResolution?.sourceBoundary),
+      "Evidence source summary:",
+      bundleList(assetIdentityResolution?.evidenceSourceSummary),
     ]),
     bundleSection("2. Resolved Institutional Lens Contract", [
       bundleField("lensId", lens?.lensId),
@@ -3040,6 +3119,7 @@ export function buildReviewBundleText({
         `decisionLayer: ${Object.keys(decisionLayer).length ? "present" : "missing"}`,
         `thesisCore: ${Object.keys(thesisCore).length ? "present" : "missing"}`,
         `resolvedInstitutionalLens: ${lens ? "present" : "missing"}`,
+        `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,

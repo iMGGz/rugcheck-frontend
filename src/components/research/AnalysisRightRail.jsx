@@ -77,6 +77,7 @@ function EvidenceSignal({ item, styles }) {
 
 function LensIdentityRailSection({ model, displayIdentity, styles }) {
   const lens = model?.resolvedInstitutionalLens || {};
+  const identity = model?.assetIdentityResolution || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged|lens|mapping/i.test(String(warning?.id || warning?.issue || "")));
   if (!lens?.lensId && !identityWarnings.length && !displayIdentity?.displayFraming) return null;
@@ -91,10 +92,17 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
         <div style={styles.railMiniLabel}>Question group</div>
         <div style={styles.railMiniValue}>{lens.questionGroupId || "Question group unavailable"}</div>
       </div>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Analyzed representation</div>
+        <div style={styles.railMiniValue}>
+          {identity.analyzedNetwork || "Network unavailable"}; {identity.analyzedContract || "no contract"}
+        </div>
+      </div>
       <div style={styles.railBoundaryGrid}>
         <div style={styles.railBoundaryPill}>Provider metadata only</div>
         <div style={styles.railBoundaryPill}>Source requirement, not evidence</div>
         <div style={styles.railBoundaryPill}>Identity warnings require manual review</div>
+        <div style={styles.railBoundaryPill}>Wrong-asset risk: {identity.wrongAssetRisk || "unknown"}</div>
       </div>
       {identityWarnings.length ? (
         <div style={styles.railBoundaryText}>

@@ -100,6 +100,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       color: item.severity === "critical" ? "#ff6b6b" : "#ffb020",
     }));
   const freshness = model?.analysisFreshness || {};
+  const identity = model?.assetIdentityResolution || {};
   const freshnessSignals = safeArray(freshness.freshnessWarnings).map((entry) => ({
     label: "Analysis freshness",
     description: entry,
@@ -107,9 +108,21 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     source: "decisionModel.analysisFreshness",
     color: freshness.isFreshLive ? "#7dd3fc" : "#ffb020",
   }));
+  const identitySignals = [
+    ...safeArray(identity.identityWarnings),
+    ...safeArray(identity.chainWarnings),
+    ...safeArray(identity.contractWarnings),
+  ].map((entry) => ({
+    label: "Asset identity guardrail",
+    description: entry,
+    status: "Identity review",
+    source: "decisionModel.assetIdentityResolution",
+    color: "#ffb020",
+  }));
 
   const combined = [
     ...manual,
+    ...identitySignals,
     ...freshnessSignals,
     ...conflicts,
     ...missing,
@@ -238,6 +251,30 @@ export default function ManualReviewPanel({
           title="Freshness warnings"
           items={model?.analysisFreshness?.freshnessWarnings}
           emptyText="No freshness warning was attached."
+          color="#f9d976"
+          styles={styles}
+        />
+      </Card>
+
+      <Card title="Asset Identity / Chain Review" subtitle="Selected asset and analyzed representation guardrails." styles={styles}>
+        <SectionRow
+          label="Wrong-asset risk"
+          value={model?.assetIdentityResolution?.wrongAssetRisk || "Unknown"}
+          styles={styles}
+        />
+        <SectionRow
+          label="Analyzed representation"
+          value={`${model?.assetIdentityResolution?.analyzedNetwork || "Network unavailable"} ${model?.assetIdentityResolution?.analyzedContract || "no contract"}`}
+          styles={styles}
+        />
+        <ListBlock
+          title="Identity warnings"
+          items={[
+            ...safeArray(model?.assetIdentityResolution?.identityWarnings),
+            ...safeArray(model?.assetIdentityResolution?.chainWarnings),
+            ...safeArray(model?.assetIdentityResolution?.contractWarnings),
+          ]}
+          emptyText="No identity warning was attached."
           color="#f9d976"
           styles={styles}
         />

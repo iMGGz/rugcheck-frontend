@@ -103,6 +103,7 @@ function ScoreTile({ label, value, detail, styles }) {
 
 function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const lens = model?.resolvedInstitutionalLens || {};
+  const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
@@ -135,9 +136,16 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
         />
         <LayerLegendItem
           title="Selected identity"
-          detail={`Chain: ${asset?.chain || "unavailable"}; contract: ${asset?.contractAddress || "unavailable"}; providers: ${providerIds.join(", ") || "unavailable"}.`}
-          badge={identityWarnings.length ? "Manual review required" : "Identity context"}
-          tone={identityWarnings.length ? "#ffb020" : "#d5dcec"}
+          detail={`Canonical network: ${identity.canonicalNetworkCandidate || "unavailable"}; analyzed: ${identity.analyzedNetwork || asset?.chain || "unavailable"} ${identity.analyzedContract || asset?.contractAddress || "no contract"}.`}
+          badge={identity.wrongAssetRisk ? `Wrong-asset risk: ${identity.wrongAssetRisk}` : identityWarnings.length ? "Manual review required" : "Identity context"}
+          tone={identity.wrongAssetRisk === "high" || identityWarnings.length ? "#ffb020" : "#d5dcec"}
+          styles={styles}
+        />
+        <LayerLegendItem
+          title={identity.representationType ? `Representation: ${identity.representationType}` : "Representation unavailable"}
+          detail={`Providers: ${providerIds.join(", ") || "unavailable"}; contract scan: ${identity.contractScanApplicability || "unknown"}.`}
+          badge={identity.isNativeAsset ? "Native/no contract" : identity.isMultichain ? "Multi-chain review" : identity.isContractRepresentation ? "Representation review" : "Identity context"}
+          tone={identity.isNativeAsset ? "#2fd67b" : identity.isContractRepresentation || identity.isMultichain ? "#ffb020" : "#7dd3fc"}
           styles={styles}
         />
         {identityWarnings.slice(0, 1).map((warning) => (
@@ -146,6 +154,16 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             title="Diagnostic warning"
             detail={warning.issue || warning.recommendedAction || "Identity or variant warning requires review."}
             badge={warning.affectsScoring ? "Affects scoring" : "Diagnostic only"}
+            tone="#ffb020"
+            styles={styles}
+          />
+        ))}
+        {[...safeArray(identity.identityWarnings), ...safeArray(identity.chainWarnings), ...safeArray(identity.contractWarnings)].slice(0, 1).map((warning) => (
+          <LayerLegendItem
+            key={`asset-identity-${warning}`}
+            title="Identity guardrail"
+            detail={warning}
+            badge="Manual verification"
             tone="#ffb020"
             styles={styles}
           />

@@ -41,6 +41,7 @@ import {
   buildWatchlistKey,
   normalizeCalibrationWarningsPayload,
   normalizeAnalysisFreshnessPayload,
+  normalizeAssetIdentityResolutionPayload,
   normalizeResolvedInstitutionalLensPayload,
   normalizeProviderHealth,
   normalizeInstitutionalQuestionsPayload,
@@ -906,12 +907,14 @@ export default function App() {
     const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(data);
     const calibrationWarnings = normalizeCalibrationWarningsPayload(data);
     const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(data);
+    const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(data);
     const analysisFreshness = normalizeAnalysisFreshnessPayload(data, data.snapshot);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
       institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
       resolvedInstitutionalLens,
+      assetIdentityResolution,
       calibrationWarnings,
       analysisFreshness,
     };
@@ -1425,6 +1428,7 @@ export default function App() {
               <SectionRow label="Institutional questions" value={safeArray(decisionModel.institutionalQuestions).length} styles={styles} />
               <SectionRow label="Calibration warnings" value={safeArray(decisionModel.calibrationWarnings).length} styles={styles} />
               <SectionRow label="Analysis freshness" value={decisionModel.analysisFreshness?.freshnessLabel || "Unavailable"} styles={styles} />
+              <SectionRow label="Asset identity resolution" value={decisionModel.assetIdentityResolution ? "Present" : "Unavailable"} styles={styles} />
               <ListBlock
                 title="Resolved lens source boundary"
                 items={decisionModel.resolvedInstitutionalLens?.sourceBoundary}
@@ -1455,6 +1459,17 @@ export default function App() {
               <ListBlock title="Stale sections" items={decisionModel.analysisFreshness?.staleSections} emptyText="No stale section list was attached." color="#f9d976" styles={styles} />
               <ListBlock title="Missing sections" items={decisionModel.analysisFreshness?.missingSections} emptyText="No missing section list was attached." color="#f9d976" styles={styles} />
               <ListBlock title="Freshness warnings" items={decisionModel.analysisFreshness?.freshnessWarnings} emptyText="No freshness warning was attached." color="#f9d976" styles={styles} />
+            </Card>
+            <Card title="Asset Identity / Canonical Chain Details" subtitle="Selected asset, analyzed representation, and provider contract mapping." styles={styles}>
+              <SectionRow label="Canonical asset" value={`${decisionModel.assetIdentityResolution?.canonicalAssetName || "Unavailable"} (${decisionModel.assetIdentityResolution?.canonicalAssetSymbol || "Unavailable"})`} styles={styles} />
+              <SectionRow label="Canonical network candidate" value={decisionModel.assetIdentityResolution?.canonicalNetworkCandidate || "Unavailable"} styles={styles} />
+              <SectionRow label="Analyzed network" value={decisionModel.assetIdentityResolution?.analyzedNetwork || "Unavailable"} styles={styles} />
+              <SectionRow label="Analyzed contract" value={decisionModel.assetIdentityResolution?.analyzedContract || "No contract"} styles={styles} />
+              <SectionRow label="Representation type" value={decisionModel.assetIdentityResolution?.representationType || "Unknown"} styles={styles} />
+              <SectionRow label="Contract scan applicability" value={decisionModel.assetIdentityResolution?.contractScanApplicability || "Unknown"} styles={styles} />
+              <SectionRow label="Wrong-asset risk" value={decisionModel.assetIdentityResolution?.wrongAssetRisk || "Unknown"} styles={styles} />
+              <ListBlock title="Known provider contracts" items={safeArray(decisionModel.assetIdentityResolution?.allKnownContracts).map((entry) => `${entry.provider}: ${entry.network} ${entry.contractAddress}`)} emptyText="No provider contract mappings were attached." color="#9bd7ff" styles={styles} />
+              <ListBlock title="Identity warnings" items={[...safeArray(decisionModel.assetIdentityResolution?.identityWarnings), ...safeArray(decisionModel.assetIdentityResolution?.chainWarnings), ...safeArray(decisionModel.assetIdentityResolution?.contractWarnings)]} emptyText="No identity warnings were attached." color="#f9d976" styles={styles} />
             </Card>
             <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" defaultOpen styles={styles}>
               <ResearchContextPanel

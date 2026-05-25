@@ -181,6 +181,36 @@ function buildCalibrationWarningRows(model) {
     }));
 }
 
+function buildAssetIdentityRows(model) {
+  const identity = model?.assetIdentityResolution || {};
+  const contracts = safeArray(identity.allKnownContracts).map((entry, index) => ({
+    key: `asset-identity-contract-${index}`,
+    label: `Known contract mapping: ${entry.network || "unknown"}`,
+    value: entry.contractAddress || "Unavailable",
+    sourceType: `${entry.provider || "provider"} identity metadata`,
+    boundary: "Provider contract mapping is identity context, not reviewed proof of canonical chain or economic rights.",
+  }));
+  const warnings = [
+    ...safeArray(identity.identityWarnings),
+    ...safeArray(identity.chainWarnings),
+    ...safeArray(identity.contractWarnings),
+  ].map((entry, index) => ({
+    key: `asset-identity-warning-${index}`,
+    label: "Asset identity warning",
+    value: entry,
+    sourceType: "Manual review guardrail",
+    boundary: "Identity warning does not change scoring by itself.",
+  }));
+  const summary = identity.canonicalAssetName || identity.representationType ? [{
+    key: "asset-identity-summary",
+    label: "Selected/analyzed identity",
+    value: `${identity.canonicalAssetName || "Asset"} (${identity.canonicalAssetSymbol || "symbol unavailable"}) | canonical network: ${identity.canonicalNetworkCandidate || "unavailable"} | analyzed: ${identity.analyzedNetwork || "unknown"} ${identity.analyzedContract || "no contract"}`,
+    sourceType: "Asset identity resolution",
+    boundary: "Shows selected representation and canonical-network candidate when connected metadata supports it.",
+  }] : [];
+  return [...summary, ...contracts, ...warnings];
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -229,7 +259,9 @@ export default function EvidenceMapTab({
   const lensEvidenceRows = buildLensEvidenceRows(model);
   const lensBoundaryRows = buildLensSourceBoundaryRows(model);
   const calibrationWarningRows = buildCalibrationWarningRows(model);
+  const assetIdentityRows = buildAssetIdentityRows(model);
   const lensBoundaryDisplayRows = [
+    ...assetIdentityRows,
     ...lensEvidenceRows,
     ...lensBoundaryRows,
     ...calibrationWarningRows,

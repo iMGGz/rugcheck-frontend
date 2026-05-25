@@ -59,6 +59,15 @@ function buildCandidateMeta(candidate) {
   return parts.length ? parts.join(" - ") : "Metadata available after selection";
 }
 
+function candidateIdentityChips(candidate) {
+  const summary = candidate?.identitySummary || {};
+  return [
+    ...(summary.badges || []),
+    summary.networkLabel ? `Network: ${summary.networkLabel}` : null,
+    summary.confidence ? `Identity confidence: ${summary.confidence}` : null,
+  ].filter(Boolean).slice(0, 5);
+}
+
 function SelectorActionButton({
   children,
   onClick,
@@ -224,6 +233,19 @@ export default function SearchSelectorPanel({
                 {candidate.coingeckoId ? ` gecko:${candidate.coingeckoId}` : ""}
                 {candidate.coinmarketcapId ? ` | cmc:${candidate.coinmarketcapId}` : ""}
               </div>
+              <div style={styles.selectorCanonicalMeta}>
+                Network/contract:
+                {` ${candidate.identitySummary?.networkLabel || candidate.chain || "network unknown"}`}
+                {` | ${candidate.identitySummary?.contractLabel || candidate.contractAddress || "contract unavailable or not applicable"}`}
+              </div>
+              <div style={styles.selectorChipRow}>
+                {candidateIdentityChips(candidate).map((label) => (
+                  <span key={label} style={styles.selectorChip}>{label}</span>
+                ))}
+              </div>
+              {candidate.identitySummary?.warning ? (
+                <div style={styles.selectorBoundaryText}>{candidate.identitySummary.warning}</div>
+              ) : null}
             </div>
           );
         })}

@@ -93,6 +93,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     color: "#ff6b6b",
   }));
   const freshness = model?.analysisFreshness || {};
+  const identity = model?.assetIdentityResolution || {};
   const freshnessLeads = [
     ...safeArray(freshness.staleSections).map((section) => ({
       label: "Refresh stale section",
@@ -116,8 +117,16 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       color: "#ffb020",
     }] : []),
   ];
+  const identityLeads = safeArray(identity.sourceRequirements).map((entry) => ({
+    label: "Identity / contract verification",
+    description: entry,
+    status: "Identity review",
+    source: "decisionModel.assetIdentityResolution.sourceRequirements",
+    color: "#ffb020",
+  }));
 
   return dedupeByText([
+    ...identityLeads,
     ...freshnessLeads,
     ...missing,
     ...required,
@@ -441,6 +450,21 @@ export default function SourceQueuePanel({
             title="Missing sections to verify"
             items={model?.analysisFreshness?.missingSections}
             emptyText="No missing sections were attached to the display model."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+
+        <Card title="Identity / Chain / Contract Requirements" subtitle="Wrong-asset and representation guardrails. Not scoring input by themselves." styles={styles}>
+          <SectionRow
+            label="Analyzed representation"
+            value={`${model?.assetIdentityResolution?.analyzedNetwork || "Network unavailable"} ${model?.assetIdentityResolution?.analyzedContract || "no contract"}`}
+            styles={styles}
+          />
+          <ListBlock
+            title="Identity verification requirements"
+            items={model?.assetIdentityResolution?.sourceRequirements}
+            emptyText="No identity-specific source requirements were attached."
             color="#f9d976"
             styles={styles}
           />
