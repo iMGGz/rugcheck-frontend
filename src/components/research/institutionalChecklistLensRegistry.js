@@ -765,7 +765,125 @@ const IDENTITY_DISPLAY_BY_LENS = {
   },
 };
 
+const BACKEND_IDENTITY_DISPLAY_BY_LENS = {
+  NATIVE_MONETARY_BENCHMARK: {
+    displayAssetClass: "Base-Layer / Monetary Benchmark Asset",
+    displayFraming: "Monetary Benchmark Thesis",
+    primaryChip: "Monetary Benchmark",
+    secondaryChip: "Native Asset",
+  },
+  BASE_LAYER_SETTLEMENT: {
+    displayAssetClass: "Base-Layer / Settlement Asset",
+    displayFraming: "Base-Layer Settlement Thesis",
+    primaryChip: "Base Layer",
+    secondaryChip: "Settlement / Security Lens",
+  },
+  PAYMENTS_SETTLEMENT: {
+    displayAssetClass: "Payments / Settlement Network Token",
+    displayFraming: "Payments Settlement Network Thesis",
+    primaryChip: "Payments Network",
+    secondaryChip: "Fees / Finality Lens",
+  },
+  GAMING_METAVERSE_CONSUMER: {
+    displayAssetClass: "Gaming / GameFi Utility Token",
+    displayFraming: "Gaming Demand / Token Sink Thesis",
+    primaryChip: "Gaming / GameFi",
+    secondaryChip: "Users / Emissions Lens",
+  },
+  RWA_HYBRID_INFRASTRUCTURE: {
+    displayAssetClass: "RWA Infrastructure / Hybrid Utility Token",
+    displayFraming: "RWA Infrastructure Utility Thesis",
+    primaryChip: "RWA Infrastructure",
+    secondaryChip: "Utility vs Rights Lens",
+  },
+  RWA_HYBRID_ASSET: {
+    displayAssetClass: "Tokenized Asset / RWA Thesis",
+    displayFraming: "RWA Rights / Redemption Thesis",
+    primaryChip: "RWA / Hybrid",
+    secondaryChip: "Legal / Custody Lens",
+  },
+  DEFI_PROTOCOL_TOKEN: {
+    displayAssetClass: "DeFi Protocol Token / Value-Capture Thesis",
+    displayFraming: "Protocol Tokenholder Accrual Thesis",
+    primaryChip: "DeFi Protocol",
+    secondaryChip: "Fee / Governance Lens",
+  },
+  L2_GOVERNANCE_TOKEN: {
+    displayAssetClass: "L2 Governance Token / Value-Capture Thesis",
+    displayFraming: "L2 Governance Economics Thesis",
+    primaryChip: "L2 Governance",
+    secondaryChip: "Sequencer / Fee Lens",
+  },
+  STABLECOIN_SETTLEMENT: {
+    displayAssetClass: "Stablecoin / Settlement Trust Asset",
+    displayFraming: "Stablecoin Trust / Redemption Thesis",
+    primaryChip: "Stablecoin",
+    secondaryChip: "Reserve / Issuer Lens",
+  },
+  WRAPPED_ASSET: {
+    displayAssetClass: "Wrapped Asset / Backing & Redemption Thesis",
+    displayFraming: "Wrapped Representation Dependency Thesis",
+    primaryChip: "Wrapped Asset",
+    secondaryChip: "Backing / Redemption Lens",
+  },
+  LST_STAKING_DERIVATIVE: {
+    displayAssetClass: "Liquid Staking Token / Redemption & Slashing Thesis",
+    displayFraming: "Liquid Staking Derivative Thesis",
+    primaryChip: "LST",
+    secondaryChip: "Withdrawal / Slashing Lens",
+  },
+  ORACLE_INFRASTRUCTURE: {
+    displayAssetClass: "Oracle / Infrastructure Token",
+    displayFraming: "Oracle Token Necessity Thesis",
+    primaryChip: "Oracle / Infrastructure",
+    secondaryChip: "Service Payment Lens",
+  },
+  DEPENDENCY_INFRASTRUCTURE: {
+    displayAssetClass: "Dependency Infrastructure Token",
+    displayFraming: "Infrastructure Token Necessity Thesis",
+    primaryChip: "Infrastructure",
+    secondaryChip: "Payer Mapping Lens",
+  },
+  DEPIN_COMPUTE_STORAGE: {
+    displayAssetClass: "DePIN Infrastructure Token",
+    displayFraming: "Resource Network Demand Thesis",
+    primaryChip: "DePIN / Resource",
+    secondaryChip: "Payer / Provider Lens",
+  },
+  MEME_NARRATIVE: {
+    displayAssetClass: "Meme / Narrative Asset",
+    displayFraming: "Narrative / Liquidity Thesis",
+    primaryChip: "Meme / Narrative",
+    secondaryChip: "Tradability Boundary",
+  },
+};
+
+function backendLensIsUsable(lens) {
+  return Boolean(
+    lens?.lensId &&
+    lens.confidence === "high" &&
+    !["GENERAL_LOW_COVERAGE", "AMBIGUOUS_MANUAL_CLASSIFICATION"].includes(lens.lensId),
+  );
+}
+
 export function buildInstitutionalAssetIdentity(asset = {}, analysis = {}, decisionModel = {}) {
+  const backendLens = decisionModel?.resolvedInstitutionalLens || analysis?.resolvedInstitutionalLens;
+  if (backendLensIsUsable(backendLens) && BACKEND_IDENTITY_DISPLAY_BY_LENS[backendLens.lensId]) {
+    const display = BACKEND_IDENTITY_DISPLAY_BY_LENS[backendLens.lensId];
+    return {
+      ...display,
+      lensId: backendLens.lensId,
+      lensDisplayName: backendLens.label || display.displayAssetClass,
+      confidence: backendLens.confidence,
+      reason: "Using high-confidence backend resolvedInstitutionalLens for primary product framing.",
+      matchedSignals: backendLens.matchedSignals || [],
+      boundaryCopy: "Resolved lens controls display framing only; provider metadata is classification context, not reviewed evidence or scoring input.",
+      originalAssetClassLabel: decisionModel?.assetClassLabel || null,
+      originalAssetFramingLabel: decisionModel?.assetFramingLabel || null,
+      originalAssetBadges: decisionModel?.assetBadges || [],
+    };
+  }
+
   const resolution = resolveInstitutionalChecklistLens(asset, analysis, decisionModel);
   const display = IDENTITY_DISPLAY_BY_LENS[resolution.lensId] || IDENTITY_DISPLAY_BY_LENS.GENERAL_LOW_COVERAGE;
 

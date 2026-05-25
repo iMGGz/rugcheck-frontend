@@ -1963,6 +1963,265 @@ export function deriveAssetFramingLabel({ assetClass, assetSubtype, primarySecto
   return "Digital Asset Allocation Thesis";
 }
 
+const RESOLVED_LENS_DISPLAY_LABELS = {
+  PAYMENTS_SETTLEMENT: {
+    assetClassLabel: "Payments / Settlement Network Token",
+    assetFramingLabel: "Payments Settlement Network Thesis",
+  },
+  GAMING_METAVERSE_CONSUMER: {
+    assetClassLabel: "Gaming / GameFi Utility Token",
+    assetFramingLabel: "Gaming Demand / Token Sink Thesis",
+  },
+  RWA_HYBRID_INFRASTRUCTURE: {
+    assetClassLabel: "RWA Infrastructure / Hybrid Utility Token",
+    assetFramingLabel: "RWA Infrastructure Utility Thesis",
+  },
+  RWA_HYBRID_ASSET: {
+    assetClassLabel: "Tokenized Asset / RWA Thesis",
+    assetFramingLabel: "RWA Rights / Redemption Thesis",
+  },
+  DEFI_PROTOCOL_TOKEN: {
+    assetClassLabel: "DeFi Protocol Token / Value-Capture Thesis",
+    assetFramingLabel: "Protocol Tokenholder Accrual Thesis",
+  },
+  STABLECOIN_SETTLEMENT: {
+    assetClassLabel: "Stablecoin / Settlement Trust Asset",
+    assetFramingLabel: "Stablecoin Trust / Redemption Thesis",
+  },
+  WRAPPED_ASSET: {
+    assetClassLabel: "Wrapped Asset / Backing & Redemption Thesis",
+    assetFramingLabel: "Wrapped Representation Dependency Thesis",
+  },
+  LST_STAKING_DERIVATIVE: {
+    assetClassLabel: "Liquid Staking Token / Redemption & Slashing Thesis",
+    assetFramingLabel: "Liquid Staking Derivative Thesis",
+  },
+  ORACLE_INFRASTRUCTURE: {
+    assetClassLabel: "Oracle / Infrastructure Token",
+    assetFramingLabel: "Oracle Token Necessity Thesis",
+  },
+  DEPENDENCY_INFRASTRUCTURE: {
+    assetClassLabel: "Dependency Infrastructure Token",
+    assetFramingLabel: "Infrastructure Token Necessity Thesis",
+  },
+  DEPIN_COMPUTE_STORAGE: {
+    assetClassLabel: "DePIN Infrastructure Token",
+    assetFramingLabel: "Resource Network Demand Thesis",
+  },
+  MEME_NARRATIVE: {
+    assetClassLabel: "Meme / Narrative Asset",
+    assetFramingLabel: "Narrative / Liquidity Thesis",
+  },
+  BASE_LAYER_SETTLEMENT: {
+    assetClassLabel: "Base-Layer / Settlement Asset",
+    assetFramingLabel: "Base-Layer Settlement Thesis",
+  },
+  NATIVE_MONETARY_BENCHMARK: {
+    assetClassLabel: "Base-Layer / Monetary Benchmark Asset",
+    assetFramingLabel: "Monetary Benchmark Thesis",
+  },
+};
+
+const LENS_PRIMARY_COPY = {
+  PAYMENTS_SETTLEMENT: {
+    positive: "Payment-ledger utility can be evaluated through verified settlement usage, fee/reserve mechanics, validator/finality design, and distribution evidence.",
+    blocked: "Allocation confidence depends on verified payment/settlement usage, reserve/fee/burn materiality, validator/finality assumptions, escrow/distribution overhang, and ecosystem dependency.",
+  },
+  GAMING_METAVERSE_CONSUMER: {
+    positive: "Gaming adoption can support the thesis only if gameplay activity creates durable token demand after rewards, emissions, and subsidies are reviewed.",
+    blocked: "Gaming activity must be separated from incentive-funded usage; active users, paying users, token sinks, emissions, mintability, and unlocks require reviewed evidence.",
+  },
+  RWA_HYBRID_INFRASTRUCTURE: {
+    positive: "RWA infrastructure relevance can be evaluated only after utility-token economics, fee/staking/gas demand, and canonical network/contract mapping are verified.",
+    blocked: "RWA infrastructure relevance does not prove tokenholder value capture. Utility-token economics, legal/RWA rights separation, fee/staking/gas demand, and canonical network/contract mapping require reviewed evidence.",
+  },
+  RWA_HYBRID_ASSET: {
+    positive: "Tokenized-asset classification can support review only if legal claim, redemption, issuer, custodian, collateral, and jurisdiction evidence is source-backed.",
+    blocked: "RWA/category metadata is not enforceable rights; legal claim, redemption enforceability, issuer/custodian/collateral, and jurisdiction evidence remain primary requirements.",
+  },
+  DEFI_PROTOCOL_TOKEN: {
+    positive: "Protocol success can support the token thesis only when fee routing, governance rights, buyback/burn, staking, treasury, or other accrual mechanics are source-backed.",
+    blocked: "Protocol success does not automatically accrue to tokenholders. Fee switch, fee routing, buyback/burn, treasury, staking, and governance durability must be source-backed.",
+  },
+  STABLECOIN_SETTLEMENT: {
+    positive: "Stablecoin utility is a trust thesis, not an upside thesis; reserve quality, redemption rights, issuer/custodian dependency, peg stress, and controls determine support.",
+    blocked: "Reserve quality, redemption rights, issuer/custodian dependency, peg stress, and admin/freeze controls determine trust.",
+  },
+  WRAPPED_ASSET: {
+    positive: "Wrapped exposure can be evaluated only through backing, custodian/merchant model, mint/burn controls, redemption path, and proof-of-reserves.",
+    blocked: "Backing, custodian/merchant model, mint/burn, redemption path, and proof-of-reserves determine whether the representation is safe.",
+  },
+  LST_STAKING_DERIVATIVE: {
+    positive: "Liquid staking exposure depends on verified withdrawal/redemption mechanics, slashing/operator risk, depeg/liquidity depth, scanner review, and admin controls.",
+    blocked: "Withdrawal queue, slashing/operator risk, depeg/liquidity risk, and protocol/admin controls determine the thesis.",
+  },
+  ORACLE_INFRASTRUCTURE: {
+    positive: "Oracle infrastructure relevance must be tied to token-required service payment, staking, collateral, security, or service-operation mechanics.",
+    blocked: "Infrastructure adoption is not tokenholder demand by itself; oracle usage, payment/staking/security mechanics, and durable token necessity require source-backed evidence.",
+  },
+  DEPIN_COMPUTE_STORAGE: {
+    positive: "Resource-network relevance can support the thesis only if payer demand, provider incentives, and token settlement/payment role are durable and source-backed.",
+    blocked: "Resource demand, payer mapping, provider incentives, subsidy dependency, and compute/storage usage must be verified before stronger conviction.",
+  },
+  MEME_NARRATIVE: {
+    positive: "Liquidity and narrative can explain tradability, but allocation support requires durable non-narrative utility or enforceable economic rights.",
+    blocked: "Narrative and liquidity are tradability context, not durable allocation-thesis support without non-narrative utility or rights.",
+  },
+  BASE_LAYER_SETTLEMENT: {
+    positive: "Base-layer support depends on settlement/gas demand, validator/security economics, issuance/burn/staking mechanics, liveness, and network survivability.",
+    blocked: "Settlement/gas demand, validator/security role, issuance/burn/staking economics, liveness, and protocol-upgrade risk require direct evidence.",
+  },
+  NATIVE_MONETARY_BENCHMARK: {
+    positive: "Monetary benchmark support depends on monetary policy, market depth, security budget, settlement reliability, and censorship-resistance evidence.",
+    blocked: "Benchmark recognition alone is not enough; monetary policy, market depth, security budget, and settlement resilience still define the thesis.",
+  },
+};
+
+function resolvedLensIsDisplayAuthoritative(lens) {
+  return Boolean(
+    lens?.lensId &&
+    lens.confidence === "high" &&
+    !["GENERAL_LOW_COVERAGE", "AMBIGUOUS_MANUAL_CLASSIFICATION"].includes(lens.lensId),
+  );
+}
+
+function displayLabelsForResolvedLens(lens) {
+  return resolvedLensIsDisplayAuthoritative(lens) ? RESOLVED_LENS_DISPLAY_LABELS[lens.lensId] || null : null;
+}
+
+function buildLensAwareVerdictSemantics(baseSemantics, lens, lensAware) {
+  if (!resolvedLensIsDisplayAuthoritative(lens) || !lensAware) return baseSemantics;
+  const copy = LENS_PRIMARY_COPY[lens.lensId] || {};
+  const positiveCase = dedupeCaseInsensitive([
+    copy.positive,
+    ...(baseSemantics.positiveCase || []),
+  ]).slice(0, 5);
+  const blockedCase = dedupeCaseInsensitive([
+    copy.blocked,
+    lensAware.primaryBlocker,
+    ...(baseSemantics.blockedCase || []),
+  ]).slice(0, 5);
+
+  return {
+    ...baseSemantics,
+    positiveCase,
+    blockedCase,
+    summary: copy.blocked || baseSemantics.summary,
+    boundary: "Primary display copy is lens-aware and derived from resolvedInstitutionalLens; raw fallback fields remain available in Audit / Raw.",
+  };
+}
+
+export function buildLensSpecificResearchDomains(model = {}, displayIdentity = null) {
+  const resolvedLensId = model?.resolvedInstitutionalLens?.lensId || displayIdentity?.lensId;
+  const identity = model?.assetIdentityResolution || {};
+  const identityNeeds = [
+    identity?.canonicalNetworkCandidate || identity?.nativeNetworkCandidate ? `Canonical / analyzed representation: ${identity.canonicalNetworkCandidate || identity.nativeNetworkCandidate}` : null,
+    identity?.isMultichain ? "Supported network / contract mapping" : null,
+    identity?.migrationStatus && identity.migrationStatus !== "none_detected" ? "Migration / old-new contract mapping" : null,
+  ].filter(Boolean);
+
+  const map = {
+    PAYMENTS_SETTLEMENT: [
+      "Payments / Settlement",
+      "Validator / UNL / Finality",
+      "Escrow / Distribution",
+      "Fee Burn / Reserve Mechanics",
+      "Issuer / Ecosystem Dependency",
+    ],
+    GAMING_METAVERSE_CONSUMER: [
+      "Gaming / GameFi",
+      "Active Users / Retention",
+      "Marketplace / Tournament / In-Game Demand",
+      "Token Sinks / Reward Emissions",
+      "Mintability / Unlocks",
+    ],
+    RWA_HYBRID_INFRASTRUCTURE: [
+      "RWA Infrastructure",
+      "Tokenized Assets",
+      "Utility Token vs Security Token Rights",
+      "Canonical Chain / Contract Migration",
+      "Supply Cap / Emissions",
+      ...identityNeeds,
+    ],
+    DEFI_PROTOCOL_TOKEN: [
+      "DeFi Protocol Token",
+      "AMM / DEX",
+      "Protocol Fees / Fee Switch",
+      "Governance Rights",
+      "Tokenholder Value Capture",
+      "Protocol Revenue / TVL / Volume",
+    ],
+    RWA_HYBRID_ASSET: [
+      "Legal / Economic Claim",
+      "Redemption Enforceability",
+      "Issuer / Custodian / Collateral",
+      "Jurisdiction",
+      "Attestations / Backing",
+    ],
+    ORACLE_INFRASTRUCTURE: [
+      "Oracle Service Payment",
+      "Staking / Collateral / Security",
+      "Data Feed / Network Usage",
+      "Token Necessity",
+      "Infrastructure Adoption vs Token Demand",
+    ],
+    DEPIN_COMPUTE_STORAGE: [
+      "Resource Demand",
+      "Payer Mapping",
+      "Provider Incentives",
+      "Subsidy Dependency",
+      "Token Settlement / Payment Role",
+    ],
+    STABLECOIN_SETTLEMENT: [
+      "Reserve Attestation",
+      "Redemption Eligibility",
+      "Holder Legal Claim",
+      "Issuer / Custodian / Admin Controls",
+      "Peg Stress",
+    ],
+    WRAPPED_ASSET: [
+      "Proof-of-Reserves / Backing",
+      "Custodian / Merchant Model",
+      "Mint / Burn Controls",
+      "Redemption Path",
+      "Native-Asset Inheritance Boundary",
+    ],
+    LST_STAKING_DERIVATIVE: [
+      "Withdrawal Queue / Redemption",
+      "Slashing / Operator Risk",
+      "Depeg / Liquidity Depth",
+      "Scanner Verification",
+      "Protocol / Admin Controls",
+    ],
+    BASE_LAYER_SETTLEMENT: [
+      "Network Activity / Fees",
+      "Validator / Security Model",
+      "Issuance / Burn / Staking",
+      "Liveness / Congestion / Client Risk",
+      "Protocol Upgrade Risk",
+    ],
+    NATIVE_MONETARY_BENCHMARK: [
+      "Monetary Policy",
+      "Market Depth",
+      "Security Budget",
+      "Settlement Reliability",
+      "Censorship Resistance",
+    ],
+    MEME_NARRATIVE: [
+      "Narrative / Liquidity Tradability",
+      "Holder Concentration",
+      "Durable Non-Narrative Utility",
+      "Economic Rights Boundary",
+    ],
+  };
+
+  return dedupeCaseInsensitive(map[resolvedLensId] || [
+    "Primary-source documentation for the current thesis blockers",
+    "Freshness, publisher authenticity, and claim-scope verification",
+    "Contradiction checks against provider diagnostics and audit alerts",
+  ]);
+}
+
 export function deriveManualReviewStatus({ missingCritical, evidenceConflicts, auditAlerts }) {
   if (evidenceConflicts) {
     return {
@@ -2425,17 +2684,19 @@ export function buildDecisionTerminalModel({
     evidenceConflicts,
     auditAlerts,
   });
-  const verdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
-  const assetClassLabel = deriveAssetClassLabel({
+  const rawVerdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
+  const lensDisplayLabels = displayLabelsForResolvedLens(resolvedInstitutionalLens);
+  const assetClassLabel = lensDisplayLabels?.assetClassLabel || deriveAssetClassLabel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
   });
-  const assetFramingLabel = deriveAssetFramingLabel({
+  const assetFramingLabel = lensDisplayLabels?.assetFramingLabel || deriveAssetFramingLabel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
   });
+  const verdictSemantics = buildLensAwareVerdictSemantics(rawVerdictSemantics, resolvedInstitutionalLens, lensAwareExplanations);
   const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(safeAnalysis);
   const displayEvidenceNeeded = lensAwareExplanations?.evidenceNeeded?.length
     ? lensAwareExplanations.evidenceNeeded
@@ -2767,6 +3028,22 @@ export function buildReviewBundleText({
   ].filter(Boolean).join(" ");
   const rawGenericVisible = includesGenericPrimaryCopy(visiblePrimaryText);
   const rawGenericAudit = includesGenericPrimaryCopy(rawDecisionText);
+  const suggestedResearchDomains = buildLensSpecificResearchDomains(safeModel, displayIdentity);
+  const primaryAssetFramingText = [
+    displayIdentity?.displayFraming,
+    displayIdentity?.displayAssetClass,
+    safeModel.assetFramingLabel,
+    safeModel.assetClassLabel,
+  ].filter(Boolean).join(" ");
+  const manualFramingWhileLensResolved = resolvedLensIsDisplayAuthoritative(lens) && /manual classification needed|general low-coverage asset/i.test(primaryAssetFramingText);
+  const staleResearchDomains = resolvedLensIsDisplayAuthoritative(lens)
+    && suggestedResearchDomains.some((domain) => /manual classification needed|\bAI\b|\bL1\b/i.test(String(domain)))
+    && !["BASE_LAYER_SETTLEMENT", "NATIVE_MONETARY_BENCHMARK"].includes(lens?.lensId);
+  const genericPrimaryDespiteLens = resolvedLensIsDisplayAuthoritative(lens) && rawGenericVisible;
+  const protocolMappingSkipped = lens?.lensId === "DEFI_PROTOCOL_TOKEN" && (
+    safeArray(calibrationWarnings).some((warning) => warning?.id === "protocol_mapping_failure_for_major_protocol")
+    || /skipped|unavailable|missing|unsupported|unmapped/i.test(String(sourceStatusObject.protocolUsage || sourceStatusObject.protocolEconomics || ""))
+  );
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
   const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
@@ -3045,7 +3322,7 @@ export function buildReviewBundleText({
         ...(safeModel.whatWouldChangeDecision?.items || []),
       ]),
       "Suggested research domains:",
-      bundleList([displayIdentity?.displayFraming, safeModel.assetFramingLabel, safeModel.primarySector, ...safeArray(safeModel.secondarySectors)]),
+      bundleList(suggestedResearchDomains),
       bundleField("Source boundary", "Research requirements are not evidence. Report-only evidence does not affect live scoring."),
     ]),
     bundleSection("10. Manual Review", [
@@ -3145,6 +3422,10 @@ export function buildReviewBundleText({
       bundleField("Scoring Transparency avoids unsupported inference", "unknown"),
       bundleField("Provider metadata is not presented as reviewed evidence", safeArray(lens?.sourceBoundary).length ? "yes" : "unknown"),
       bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
+      bundleField("High-confidence lens but manual/low-coverage primary framing", yesNoUnknown(manualFramingWhileLensResolved)),
+      bundleField("Suggested research domains contain stale fallback labels", yesNoUnknown(staleResearchDomains)),
+      bundleField("Primary copy uses generic fallback despite lens-aware copy", yesNoUnknown(genericPrimaryDespiteLens)),
+      bundleField("Protocol economics mapping skipped for major protocol token", yesNoUnknown(protocolMappingSkipped)),
       bundleField("Calibration warnings visible if present", safeArray(calibrationWarnings).length ? "yes" : "unknown"),
       bundleField("Analysis freshness visible in live tabs", analysisFreshness.freshnessStatus !== "unknown" || analysisFreshness.freshnessWarnings.length ? "yes" : "unknown"),
       bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),
@@ -3153,6 +3434,9 @@ export function buildReviewBundleText({
     bundleSection("13. Institutional QA Notes", [
       bundleField("Potentially embarrassing wording", rawGenericVisible ? "Generic protocol/tokenomics wording appears in primary display fields." : "No obvious generic primary-display wording detected by frontend heuristic."),
       bundleField("Generic copy still visible", rawGenericVisible ? "yes" : rawGenericAudit ? "raw/audit only" : "unknown"),
+      bundleField("High-confidence lens framing issue", manualFramingWhileLensResolved ? "Resolved lens is high confidence but primary framing still looks manual/low-coverage." : "No high-confidence lens/manual-framing conflict detected."),
+      bundleField("Stale research-domain issue", staleResearchDomains ? "Suggested research domains still include stale Manual Classification/AI/L1 fallback language." : "No stale research-domain fallback detected."),
+      bundleField("Protocol economics mapping issue", protocolMappingSkipped ? "Major DeFi protocol mapping appears skipped/unavailable; treat as evidence-blocked, not confirmed absence." : "No major-protocol mapping issue detected by frontend heuristic."),
       bundleField("Lens mismatch risk", questionMismatchWarnings.length ? "question_lens_mismatch warning present" : questionMatchStatus === "yes" ? "low from current frontend model" : "unknown"),
       bundleField("Evidence-overclaim risk", safeArray(lens?.sourceBoundary).length ? "source boundary visible; still verify browser copy" : "unknown"),
       bundleField("Provider gap risk", notableDiagnostics?.length ? `${notableDiagnostics.length} notable provider diagnostics` : "unknown"),

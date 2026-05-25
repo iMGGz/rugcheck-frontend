@@ -59,26 +59,46 @@ function lensAwarePrimaryItems(model, field) {
 }
 
 function lensForAsset(model, displayIdentity = null) {
-  if (displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
+  const lensId = model?.resolvedInstitutionalLens?.lensId || displayIdentity?.lensId;
+
+  if (["STABLECOIN_SETTLEMENT", "STABLECOIN_SETTLEMENT_ASSET"].includes(lensId)) {
     return "Stablecoin falsification lens: market cap, liquidity, or category does not prove reserve backing, redemption reliability, issuer risk, or legal clarity.";
   }
-  if (["WRAPPED_ASSET", "LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(displayIdentity?.lensId)) {
+  if (lensId === "WRAPPED_ASSET") {
+    return "Wrapped-asset falsification lens: underlying asset strength does not prove proof-of-reserves, custodian quality, mint/burn controls, or redemption reliability.";
+  }
+  if (["LST_STAKING_DERIVATIVE", "LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(lensId)) {
+    return "Liquid-staking falsification lens: staked-asset exposure does not prove withdrawal reliability, slashing/operator resilience, depeg protection, or scanner/security clarity.";
+  }
+  if (["DEPENDENCY_BRIDGE_WRAPPED", "DEPENDENCY_BRIDGE"].includes(lensId)) {
     return "Wrapped/dependency falsification lens: underlying asset strength does not prove wrapper custody, backing, redeemability, slashing, or smart-contract dependency quality.";
   }
-  if (["DEFI_PROTOCOL_TOKEN", "DERIVATIVES_OR_PERPS_PROTOCOL"].includes(displayIdentity?.lensId)) {
+  if (["DEFI_PROTOCOL_TOKEN", "L2_GOVERNANCE_TOKEN", "EXCHANGE_PLATFORM", "DERIVATIVES_OR_PERPS_PROTOCOL"].includes(lensId)) {
     return "DeFi/protocol falsification lens: protocol TVL, usage, or fees do not prove durable tokenholder value capture unless the live evidence directly supports accrual.";
   }
-  if (["ORACLE_OR_INFRASTRUCTURE", "COMPUTE_STORAGE_DEPIN"].includes(displayIdentity?.lensId)) {
+  if (["ORACLE_INFRASTRUCTURE", "DEPENDENCY_INFRASTRUCTURE", "ORACLE_OR_INFRASTRUCTURE"].includes(lensId)) {
+    return "Oracle/infrastructure falsification lens: network importance does not prove token necessity, service-payment demand, staking/security mechanics, or durable tokenholder demand.";
+  }
+  if (["DEPIN_COMPUTE_STORAGE", "COMPUTE_STORAGE_DEPIN"].includes(lensId)) {
     return "Infrastructure falsification lens: network importance does not automatically prove tokenholder accrual, payer mapping, or durable token demand.";
   }
-  if (displayIdentity?.lensId === "PAYMENTS_OR_SETTLEMENT_NETWORK") {
+  if (["PAYMENTS_SETTLEMENT", "PAYMENTS_OR_SETTLEMENT_NETWORK"].includes(lensId)) {
     return "Payments-network falsification lens: payment narrative, settlement volume, or partnerships do not prove measurable adoption or tokenholder value capture.";
   }
-  if (displayIdentity?.lensId === "MEME_OR_NARRATIVE") {
+  if (["GAMING_METAVERSE_CONSUMER", "GAMING_CONSUMER"].includes(lensId)) {
+    return "Gaming/GameFi falsification lens: player activity or narrative does not prove durable token demand unless sinks, paying users, retention, and emissions are source-backed.";
+  }
+  if (["RWA_HYBRID_INFRASTRUCTURE", "RWA_INFRASTRUCTURE_NATIVE_TOKEN"].includes(lensId)) {
+    return "RWA infrastructure falsification lens: platform relevance does not prove utility-token value capture or legal/economic rights in tokenized assets without reviewed source evidence.";
+  }
+  if (["MEME_NARRATIVE", "MEME_OR_NARRATIVE"].includes(lensId)) {
     return "Narrative/liquidity falsification lens: liquidity and attention do not prove durable fundamentals or allocation-grade downside protection.";
   }
-  if (displayIdentity?.lensId === "RWA_OR_HYBRID_METHODOLOGY") {
+  if (["RWA_HYBRID_ASSET", "RWA_OR_HYBRID_METHODOLOGY"].includes(lensId)) {
     return "RWA/Hybrid methodology lens: tokenized activity does not prove enforceable rights, redemption, custody quality, legal claim, or tokenholder value capture without source-backed evidence.";
+  }
+  if (["BASE_LAYER_SETTLEMENT", "NATIVE_MONETARY_BENCHMARK"].includes(lensId)) {
+    return "Base-layer falsification lens: recognition, market depth, or ecosystem usage does not prove durable settlement demand, security economics, monetary policy quality, or liveness resilience.";
   }
 
   const raw = [
