@@ -1,5 +1,5 @@
 import React from "react";
-import { normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
+import { formatDateTime, normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
 
 function RailBadge({ children, tone = "#7dd3fc", styles }) {
   return (
@@ -107,6 +107,34 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
   );
 }
 
+function FreshnessRailSection({ model, styles }) {
+  const freshness = model?.analysisFreshness || {};
+  if (!freshness.freshnessLabel) return null;
+
+  return (
+    <RailSection title="Analysis Freshness" badge={freshness.freshnessLabel} styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Source</div>
+        <div style={styles.railMiniValue}>{freshness.analysisSource || "Source unknown"}</div>
+      </div>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Generated / read</div>
+        <div style={styles.railMiniValue}>
+          {freshness.generatedAt ? formatDateTime(freshness.generatedAt) : freshness.readAt ? formatDateTime(freshness.readAt) : "Timestamp unavailable"}
+        </div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Snapshot: {freshness.snapshotShortId || "unavailable"}</div>
+        <div style={styles.railBoundaryPill}>Recomputed: {freshness.recomputed === null || freshness.recomputed === undefined ? "unknown" : freshness.recomputed ? "yes" : "no"}</div>
+        <div style={styles.railBoundaryPill}>{freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness"}</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        {freshness.summary || "Freshness unknown. Verify current provider state before relying on time-sensitive sections."}
+      </div>
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -118,6 +146,7 @@ function MobileRailSummary({
 }) {
   const firstEvidenceSignal = evidenceItems[0] ? normalizeEvidenceProxyDisplayLabel(evidenceItems[0]) : null;
   const resolvedLens = model?.resolvedInstitutionalLens || {};
+  const freshness = model?.analysisFreshness || {};
 
   return (
     <div style={styles.railMobileSummary}>
@@ -144,6 +173,10 @@ function MobileRailSummary({
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Resolved lens</div>
           <div style={styles.railMiniValue}>{resolvedLens.label || "Lens unavailable"}</div>
+        </div>
+        <div style={styles.railMiniCard}>
+          <div style={styles.railMiniLabel}>Freshness</div>
+          <div style={styles.railMiniValue}>{freshness.freshnessLabel || "Freshness unknown"}</div>
         </div>
       </div>
       <div style={styles.railBoundaryGrid}>
@@ -225,6 +258,8 @@ export default function AnalysisRightRail({
           </RailSection>
 
           <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} />
+
+          <FreshnessRailSection model={model} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

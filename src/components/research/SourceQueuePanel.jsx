@@ -92,8 +92,33 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     source: "decisionModel.auditAlerts",
     color: "#ff6b6b",
   }));
+  const freshness = model?.analysisFreshness || {};
+  const freshnessLeads = [
+    ...safeArray(freshness.staleSections).map((section) => ({
+      label: "Refresh stale section",
+      description: `Refresh or verify ${providerLabel(section)} before relying on this section.`,
+      status: "Freshness review",
+      source: "decisionModel.analysisFreshness.staleSections",
+      color: "#ffb020",
+    })),
+    ...safeArray(freshness.missingSections).map((section) => ({
+      label: "Verify missing section",
+      description: `Verify ${providerLabel(section)} separately; missing data is not negative evidence.`,
+      status: "Missing section",
+      source: "decisionModel.analysisFreshness.missingSections",
+      color: "#ffb020",
+    })),
+    ...(freshness.isSnapshot || freshness.isPartialRefresh || freshness.freshnessStatus === "unknown" ? [{
+      label: "Verify analysis freshness",
+      description: freshness.summary || "Analysis source is unclear; verify current provider state before relying on the output.",
+      status: "Freshness review",
+      source: "decisionModel.analysisFreshness",
+      color: "#ffb020",
+    }] : []),
+  ];
 
   return dedupeByText([
+    ...freshnessLeads,
     ...missing,
     ...required,
     ...whatWouldChange,
@@ -397,6 +422,28 @@ export default function SourceQueuePanel({
           )) : (
             <p style={styles.timelineEmptyText}>No live review leads were surfaced. Source discovery candidates are still not attached to this response.</p>
           )}
+        </Card>
+
+        <Card title="Freshness Review Requirements" subtitle="Snapshot and section status. Not negative evidence." styles={styles}>
+          <SectionRow
+            label="Analysis source"
+            value={model?.analysisFreshness?.freshnessLabel || "Freshness unknown"}
+            styles={styles}
+          />
+          <ListBlock
+            title="Stale sections to refresh"
+            items={model?.analysisFreshness?.staleSections}
+            emptyText="No stale sections were attached to the display model."
+            color="#f9d976"
+            styles={styles}
+          />
+          <ListBlock
+            title="Missing sections to verify"
+            items={model?.analysisFreshness?.missingSections}
+            emptyText="No missing sections were attached to the display model."
+            color="#f9d976"
+            styles={styles}
+          />
         </Card>
 
         <Card title="Suggested Research Domains" subtitle="Methodology guidance only, not live facts." styles={styles}>

@@ -99,9 +99,18 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       source: item.sourceLabel || "deriveEvidenceStatusProxy",
       color: item.severity === "critical" ? "#ff6b6b" : "#ffb020",
     }));
+  const freshness = model?.analysisFreshness || {};
+  const freshnessSignals = safeArray(freshness.freshnessWarnings).map((entry) => ({
+    label: "Analysis freshness",
+    description: entry,
+    status: freshness.isFreshLive ? "Freshness context" : "Manual review required",
+    source: "decisionModel.analysisFreshness",
+    color: freshness.isFreshLive ? "#7dd3fc" : "#ffb020",
+  }));
 
   const combined = [
     ...manual,
+    ...freshnessSignals,
     ...conflicts,
     ...missing,
     ...required,
@@ -213,6 +222,26 @@ export default function ManualReviewPanel({
       </Card>
 
       <CalibrationWarningsCard warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
+
+      <Card title="Analysis Freshness Review" subtitle="Snapshot/live status is workflow context, not automatic failure." styles={styles}>
+        <SectionRow
+          label="Status"
+          value={model?.analysisFreshness?.freshnessLabel || "Freshness unknown"}
+          styles={styles}
+        />
+        <SectionRow
+          label="Review meaning"
+          value={model?.analysisFreshness?.summary || "Freshness metadata is unavailable; verify current provider state before relying on this analysis."}
+          styles={styles}
+        />
+        <ListBlock
+          title="Freshness warnings"
+          items={model?.analysisFreshness?.freshnessWarnings}
+          emptyText="No freshness warning was attached."
+          color="#f9d976"
+          styles={styles}
+        />
+      </Card>
 
       <div style={styles.advancedGrid}>
         <Card title="Live Review Signals" subtitle="Qualitative workflow signals from the current live response. No fake counts." styles={styles}>

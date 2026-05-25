@@ -137,6 +137,194 @@ export function normalizeLensAwareExplanationsPayload(responseLike) {
   } : null;
 }
 
+function firstPresent(...values) {
+  return values.find((value) => value !== null && value !== undefined && value !== "");
+}
+
+function normalizeSectionNames(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (value && typeof value === "object") {
+    return Object.entries(value)
+      .filter(([, entry]) => {
+        const status = typeof entry === "string" ? entry : entry?.status || entry?.availability;
+        return status && !["fresh", "live"].includes(String(status).toLowerCase());
+      })
+      .map(([key]) => key);
+  }
+  return [];
+}
+
+function collectSectionNames(sectionFreshness, statusMatcher) {
+  return Object.entries(safeObject(sectionFreshness))
+    .filter(([, entry]) => statusMatcher(String(entry?.status || entry?.availability || "").toLowerCase()))
+    .map(([key]) => key);
+}
+
+function formatSnapshotId(value) {
+  if (!value) return null;
+  const stringValue = String(value);
+  return stringValue.length > 12 ? `${stringValue.slice(0, 8)}...` : stringValue;
+}
+
+function buildFreshnessWarnings({ status, freshSections, staleSections, missingSections, source, recomputed }) {
+  const warnings = [];
+  if (status === "stored_snapshot") {
+    warnings.push("Stored snapshot loaded; provider data may not reflect the latest state.");
+  }
+  if (status === "partial_refresh") {
+    warnings.push("Partial refresh loaded; review stale or missing sections before relying on affected tabs.");
+  }
+  if (status === "cached_recent") {
+    warnings.push("Cached/recent memo loaded; verify current provider state when freshness matters.");
+  }
+  if (status === "unknown") {
+    warnings.push("Analysis freshness is unknown; verify before relying on this analysis.");
+  }
+  if (staleSections.length) {
+    warnings.push(`Stale sections require review: ${staleSections.slice(0, 5).join(", ")}.`);
+  }
+  if (missingSections.length) {
+    warnings.push(`Missing sections are unavailable, not negative evidence: ${missingSections.slice(0, 5).join(", ")}.`);
+  }
+  if (!source) {
+    warnings.push("Delivery source was not attached to the frontend payload.");
+  }
+  if (status !== "fresh_live" && (recomputed === null || recomputed === undefined)) {
+    warnings.push("Recomputed status was not attached to the frontend payload.");
+  }
+  if (!freshSections.length && !staleSections.length && !missingSections.length) {
+    warnings.push("Section-level freshness detail is unavailable in the current frontend model.");
+  }
+  return [...new Set(warnings)];
+}
+
+export function normalizeAnalysisFreshnessPayload(responseLike, fallbackSnapshot = null) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const derivedAnalysis = safeObject(root.derivedAnalysis);
+  const rawData = safeObject(root.rawData);
+  const nestedMeta = safeObject(nestedAnalysis.meta);
+  const derivedMeta = safeObject(derivedAnalysis.meta);
+  const rootMeta = safeObject(root.meta || nestedMeta || derivedMeta);
+  const delivery = safeObject(
+    root.delivery ||
+    rootMeta.delivery ||
+    nestedAnalysis.delivery ||
+    nestedMeta.delivery ||
+    derivedAnalysis.delivery ||
+    derivedMeta.delivery ||
+    rawData.delivery ||
+    rawData.meta?.delivery,
+  );
+  const refreshDecision = safeObject(
+    root.refreshDecision ||
+    rootMeta.refreshDecision ||
+    nestedAnalysis.refreshDecision ||
+    nestedMeta.refreshDecision ||
+    derivedAnalysis.refreshDecision ||
+    derivedMeta.refreshDecision ||
+    rawData.refreshDecision ||
+    rawData.meta?.refreshDecision,
+  );
+  const sectionFreshness = safeObject(
+    root.sectionFreshness ||
+    rootMeta.sectionFreshness ||
+    nestedAnalysis.sectionFreshness ||
+    nestedMeta.sectionFreshness ||
+    derivedAnalysis.sectionFreshness ||
+    derivedMeta.sectionFreshness ||
+    rawData.sectionFreshness ||
+    rawData.meta?.sectionFreshness,
+  );
+  const snapshot = safeObject(fallbackSnapshot || root.snapshot || nestedAnalysis.snapshot || rawData.snapshot);
+  const deliverySource = firstPresent(delivery.source, root.analysisSource, root.source, root.deliverySource);
+  const sourceText = deliverySource ? String(deliverySource).toLowerCase() : "";
+  const refreshMode = firstPresent(refreshDecision.mode, delivery.mode, root.refreshMode);
+  const modeText = refreshMode ? String(refreshMode).toLowerCase() : "";
+  const recomputed = firstPresent(delivery.recomputed, root.recomputed, refreshDecision.recomputed, null);
+  const snapshotId = firstPresent(root.snapshotId, snapshot.snapshotId, delivery.snapshotId, root.analysisSnapshotId);
+  const previousSnapshotId = firstPresent(root.previousSnapshotId, snapshot.previousSnapshotId, delivery.previousSnapshotId);
+  const generatedAt = firstPresent(root.generatedAt, root.lastAnalyzed, nestedAnalysis.generatedAt, rootMeta.generatedAt, snapshot.generatedAt, delivery.generatedAt, delivery.checkedAt, root.cachedAt);
+  const readAt = firstPresent(delivery.readAt, root.readAt, rootMeta.readAt, delivery.checkedAt);
+  const previousSnapshotAt = firstPresent(root.previousSnapshotAt, snapshot.previousSnapshotAt, delivery.previousSnapshotAt);
+  const snapshotAgeMs = firstPresent(delivery.snapshotAgeMs, root.snapshotAgeMs, rootMeta.snapshotAgeMs);
+  const freshnessWindowMs = firstPresent(delivery.freshnessWindowMs, root.freshnessWindowMs, rootMeta.freshnessWindowMs);
+  const freshSections = normalizeSectionNames(refreshDecision.freshSections).length
+    ? normalizeSectionNames(refreshDecision.freshSections)
+    : collectSectionNames(sectionFreshness, (status) => status === "fresh" || status === "live");
+  const staleSections = normalizeSectionNames(refreshDecision.staleSections).length
+    ? normalizeSectionNames(refreshDecision.staleSections)
+    : collectSectionNames(sectionFreshness, (status) => status === "stale");
+  const missingSections = [
+    ...normalizeSectionNames(refreshDecision.missingSections),
+    ...collectSectionNames(sectionFreshness, (status) => status === "missing" || status === "unsupported"),
+  ].filter(Boolean);
+  const fullRegenerationNeeded = firstPresent(refreshDecision.fullRegenerationNeeded, null);
+  const partialRefreshSufficient = firstPresent(refreshDecision.partialRefreshSufficient, null);
+
+  let freshnessStatus = "unknown";
+  if (modeText.includes("partial") || sourceText.includes("partial")) {
+    freshnessStatus = "partial_refresh";
+  } else if (sourceText.includes("snapshot") || modeText.includes("reuse_snapshot") || (snapshotId && recomputed === false)) {
+    freshnessStatus = "stored_snapshot";
+  } else if (sourceText.includes("cache") || sourceText.includes("memo") || sourceText.includes("recent")) {
+    freshnessStatus = "cached_recent";
+  } else if (sourceText.includes("live") || recomputed === true || delivery.isFresh === true) {
+    freshnessStatus = "fresh_live";
+  }
+
+  const freshnessLabel = {
+    fresh_live: "Live analysis",
+    stored_snapshot: "Stored snapshot",
+    partial_refresh: "Partial refresh",
+    cached_recent: "Cached/recent memo",
+    unknown: "Freshness unknown",
+  }[freshnessStatus];
+  const summary = freshnessStatus === "fresh_live"
+    ? `Live analysis${generatedAt ? ` generated at ${formatDateTime(generatedAt)}` : ""}.`
+    : freshnessStatus === "stored_snapshot"
+      ? "Stored snapshot preserves prior analysis state; verify current provider state before relying on time-sensitive sections."
+      : freshnessStatus === "partial_refresh"
+        ? `Partial refresh${freshSections.length ? `: fresh ${freshSections.slice(0, 4).join(", ")}` : ""}${missingSections.length ? `; missing ${missingSections.slice(0, 4).join(", ")}` : ""}.`
+        : freshnessStatus === "cached_recent"
+          ? "Cached/recent memo loaded; freshness should be checked against delivery metadata."
+          : "Freshness unknown. Verify before relying on this analysis.";
+
+  return {
+    freshnessStatus,
+    freshnessLabel,
+    summary,
+    analysisSource: deliverySource || null,
+    generatedAt: generatedAt || null,
+    readAt: readAt || null,
+    snapshotId: snapshotId || null,
+    snapshotShortId: formatSnapshotId(snapshotId),
+    previousSnapshotId: previousSnapshotId || null,
+    previousSnapshotAt: previousSnapshotAt || null,
+    recomputed: recomputed === null || recomputed === undefined ? null : Boolean(recomputed),
+    refreshMode: refreshMode || null,
+    fullRegenerationNeeded,
+    partialRefreshSufficient,
+    freshSections: [...new Set(freshSections)],
+    staleSections: [...new Set(staleSections)],
+    missingSections: [...new Set(missingSections)],
+    sectionFreshness,
+    snapshotAgeMs: snapshotAgeMs ?? null,
+    freshnessWindowMs: freshnessWindowMs ?? null,
+    isSnapshot: freshnessStatus === "stored_snapshot",
+    isPartialRefresh: freshnessStatus === "partial_refresh",
+    isFreshLive: freshnessStatus === "fresh_live",
+    freshnessWarnings: buildFreshnessWarnings({
+      status: freshnessStatus,
+      freshSections: [...new Set(freshSections)],
+      staleSections: [...new Set(staleSections)],
+      missingSections: [...new Set(missingSections)],
+      source: deliverySource,
+      recomputed,
+    }),
+  };
+}
+
 export function extractRenderableText(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -2083,6 +2271,7 @@ export function buildDecisionTerminalModel({
   const calibrationWarnings = normalizeCalibrationWarningsPayload(safeAnalysis);
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const lensAwareExplanations = normalizeLensAwareExplanationsPayload(safeAnalysis);
+  const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
   const blockers = cleanUserFacingList(investability.blockers, {
@@ -2271,6 +2460,7 @@ export function buildDecisionTerminalModel({
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     resolvedInstitutionalLens,
     lensAwareExplanations,
+    analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
@@ -2512,6 +2702,7 @@ export function buildReviewBundleText({
   const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
+  const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
   const questionMismatchWarnings = safeArray(calibrationWarnings).filter((warning) => warning?.id === "question_lens_mismatch");
   const providerInternalFlags = safeArray(lens?.ambiguityFlags).filter((flag) => /provider|internal|disagree|conflict|mismatch/i.test(flag));
   const visiblePrimaryText = [
@@ -2564,6 +2755,10 @@ export function buildReviewBundleText({
       "Identity warnings:",
       bundleList(identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`)),
       bundleField("Last analyzed timestamp", lastAnalyzed),
+      bundleField("Analysis freshness", `${analysisFreshness.freshnessLabel} - ${analysisFreshness.summary}`),
+      bundleField("Delivery source", analysisFreshness.analysisSource),
+      bundleField("Recomputed", analysisFreshness.recomputed === null || analysisFreshness.recomputed === undefined ? "unknown" : analysisFreshness.recomputed ? "yes" : "no"),
+      bundleField("Snapshot ID", analysisFreshness.snapshotId),
       bundleField("Final decision / verdictClass", verdictClass),
       bundleField("Verdict label", verdictLabel),
       bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
@@ -2721,6 +2916,7 @@ export function buildReviewBundleText({
       "Provider diagnostics notes:",
       bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
       bundleField("Boundary notices", "Provider metadata/live provider signal/source candidate/reviewed evidence/report-only overlay/scoring-active evidence must remain distinct."),
+      bundleField("Freshness/source boundary", `${analysisFreshness.freshnessLabel}. Missing or stale provider sections are not negative evidence; they require verification before strong conclusions.`),
     ]),
     bundleSection("8. Scoring Transparency", [
       bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
@@ -2784,6 +2980,8 @@ export function buildReviewBundleText({
       ]),
       "Provider gaps:",
       bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
+      "Analysis freshness review signals:",
+      bundleList(analysisFreshness.freshnessWarnings),
       "Calibration warnings:",
       bundleList(safeArray(calibrationWarnings).map((warning) => `${warning.id || "warning"} | ${warning.severity || "severity unavailable"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"} | boundary: ${warning.sourceBoundary || "Unavailable"} | ${warning.issue || warning.observedBehavior || "Review required"} | ${warning.recommendedAction || "Manual review required"}`)),
       "Verification checklist:",
@@ -2812,6 +3010,24 @@ export function buildReviewBundleText({
       bundleProviderHealth(providerHealth),
       "Snapshot/drift summary:",
       bundleObjectRows(snapshot || safeData.snapshot),
+      "Analysis Freshness / Snapshot Details:",
+      bundleList([
+        `status: ${analysisFreshness.freshnessStatus}`,
+        `label: ${analysisFreshness.freshnessLabel}`,
+        `source: ${analysisFreshness.analysisSource || "unknown"}`,
+        `generatedAt: ${analysisFreshness.generatedAt || "unavailable"}`,
+        `readAt: ${analysisFreshness.readAt || "unavailable"}`,
+        `snapshotId: ${analysisFreshness.snapshotId || "unavailable"}`,
+        `previousSnapshotId: ${analysisFreshness.previousSnapshotId || "unavailable"}`,
+        `previousSnapshotAt: ${analysisFreshness.previousSnapshotAt || "unavailable"}`,
+        `recomputed: ${analysisFreshness.recomputed === null || analysisFreshness.recomputed === undefined ? "unknown" : analysisFreshness.recomputed ? "yes" : "no"}`,
+        `refreshMode: ${analysisFreshness.refreshMode || "unavailable"}`,
+        `fullRegenerationNeeded: ${analysisFreshness.fullRegenerationNeeded === null || analysisFreshness.fullRegenerationNeeded === undefined ? "unknown" : String(analysisFreshness.fullRegenerationNeeded)}`,
+        `partialRefreshSufficient: ${analysisFreshness.partialRefreshSufficient === null || analysisFreshness.partialRefreshSufficient === undefined ? "unknown" : String(analysisFreshness.partialRefreshSufficient)}`,
+        `freshSections: ${safeArray(analysisFreshness.freshSections).join(", ") || "unavailable"}`,
+        `staleSections: ${safeArray(analysisFreshness.staleSections).join(", ") || "unavailable"}`,
+        `missingSections: ${safeArray(analysisFreshness.missingSections).join(", ") || "unavailable"}`,
+      ]),
       "Latest stored snapshot:",
       bundleField("latest snapshot id", safeArray(timelineData)[0]?.snapshotId),
       "Historical snapshot deltas if visible:",
@@ -2850,6 +3066,7 @@ export function buildReviewBundleText({
       bundleField("Provider metadata is not presented as reviewed evidence", safeArray(lens?.sourceBoundary).length ? "yes" : "unknown"),
       bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
       bundleField("Calibration warnings visible if present", safeArray(calibrationWarnings).length ? "yes" : "unknown"),
+      bundleField("Analysis freshness visible in live tabs", analysisFreshness.freshnessStatus !== "unknown" || analysisFreshness.freshnessWarnings.length ? "yes" : "unknown"),
       bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),
       bundleField("Any obvious institutional-quality wording issues", rawGenericVisible ? "yes" : "unknown"),
     ]),

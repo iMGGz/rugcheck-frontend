@@ -40,6 +40,7 @@ import {
   buildWatchlistFreshnessMeta,
   buildWatchlistKey,
   normalizeCalibrationWarningsPayload,
+  normalizeAnalysisFreshnessPayload,
   normalizeResolvedInstitutionalLensPayload,
   normalizeProviderHealth,
   normalizeInstitutionalQuestionsPayload,
@@ -905,12 +906,14 @@ export default function App() {
     const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(data);
     const calibrationWarnings = normalizeCalibrationWarningsPayload(data);
     const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(data);
+    const analysisFreshness = normalizeAnalysisFreshnessPayload(data, data.snapshot);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
       institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
       resolvedInstitutionalLens,
       calibrationWarnings,
+      analysisFreshness,
     };
   }, [data]);
   const asset = data?.asset;
@@ -1421,6 +1424,7 @@ export default function App() {
               <SectionRow label="Lens-aware explanations" value={decisionModel.lensAwareExplanations ? "Present" : "Unavailable"} styles={styles} />
               <SectionRow label="Institutional questions" value={safeArray(decisionModel.institutionalQuestions).length} styles={styles} />
               <SectionRow label="Calibration warnings" value={safeArray(decisionModel.calibrationWarnings).length} styles={styles} />
+              <SectionRow label="Analysis freshness" value={decisionModel.analysisFreshness?.freshnessLabel || "Unavailable"} styles={styles} />
               <ListBlock
                 title="Resolved lens source boundary"
                 items={decisionModel.resolvedInstitutionalLens?.sourceBoundary}
@@ -1428,6 +1432,29 @@ export default function App() {
                 color="#9bd7ff"
                 styles={styles}
               />
+            </Card>
+            <Card title="Analysis Freshness / Snapshot Details" subtitle="Shows live/snapshot/partial state without changing scoring or provider behavior." styles={styles}>
+              <SectionRow label="Analysis source" value={decisionModel.analysisFreshness?.analysisSource || "Analysis source unknown"} styles={styles} />
+              <SectionRow label="Freshness status" value={decisionModel.analysisFreshness?.freshnessLabel || "Freshness unknown"} styles={styles} />
+              <SectionRow label="Generated at" value={decisionModel.analysisFreshness?.generatedAt || "Unavailable"} styles={styles} />
+              <SectionRow label="Read at" value={decisionModel.analysisFreshness?.readAt || "Unavailable"} styles={styles} />
+              <SectionRow label="Snapshot ID" value={decisionModel.analysisFreshness?.snapshotId || "Unavailable"} styles={styles} />
+              <SectionRow label="Previous snapshot" value={decisionModel.analysisFreshness?.previousSnapshotId || "Unavailable"} styles={styles} />
+              <SectionRow
+                label="Recomputed"
+                value={decisionModel.analysisFreshness?.recomputed === null || decisionModel.analysisFreshness?.recomputed === undefined ? "Unknown" : decisionModel.analysisFreshness.recomputed ? "Yes" : "No"}
+                styles={styles}
+              />
+              <SectionRow label="Refresh mode" value={decisionModel.analysisFreshness?.refreshMode || "Unavailable"} styles={styles} />
+              <SectionRow
+                label="Full regeneration needed"
+                value={decisionModel.analysisFreshness?.fullRegenerationNeeded === null || decisionModel.analysisFreshness?.fullRegenerationNeeded === undefined ? "Unknown" : decisionModel.analysisFreshness.fullRegenerationNeeded ? "Yes" : "No"}
+                styles={styles}
+              />
+              <ListBlock title="Fresh sections" items={decisionModel.analysisFreshness?.freshSections} emptyText="No fresh section list was attached." color="#9bd7ff" styles={styles} />
+              <ListBlock title="Stale sections" items={decisionModel.analysisFreshness?.staleSections} emptyText="No stale section list was attached." color="#f9d976" styles={styles} />
+              <ListBlock title="Missing sections" items={decisionModel.analysisFreshness?.missingSections} emptyText="No missing section list was attached." color="#f9d976" styles={styles} />
+              <ListBlock title="Freshness warnings" items={decisionModel.analysisFreshness?.freshnessWarnings} emptyText="No freshness warning was attached." color="#f9d976" styles={styles} />
             </Card>
             <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" defaultOpen styles={styles}>
               <ResearchContextPanel

@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
+import { formatDateTime, formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -103,13 +103,14 @@ function ScoreTile({ label, value, detail, styles }) {
 
 function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const lens = model?.resolvedInstitutionalLens || {};
+  const freshness = model?.analysisFreshness || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const providerIds = [
     asset?.coingeckoId ? `CoinGecko: ${asset.coingeckoId}` : null,
     asset?.coinmarketcapId ? `CoinMarketCap: ${asset.coinmarketcapId}` : null,
   ].filter(Boolean);
-  if (!lens?.lensId && !identityWarnings.length && !asset?.chain && !asset?.contractAddress && !providerIds.length) return null;
+  if (!lens?.lensId && !identityWarnings.length && !asset?.chain && !asset?.contractAddress && !providerIds.length && !freshness.freshnessLabel) return null;
 
   return (
     <div style={styles.decisionLayerLegend}>
@@ -149,6 +150,17 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             styles={styles}
           />
         ))}
+        <LayerLegendItem
+          title={freshness.freshnessLabel || "Freshness unknown"}
+          detail={[
+            freshness.generatedAt ? `Generated: ${formatDateTime(freshness.generatedAt)}` : "Generated: unavailable",
+            freshness.snapshotShortId ? `Snapshot: ${freshness.snapshotShortId}` : "Snapshot: unavailable",
+            `Recomputed: ${freshness.recomputed === null || freshness.recomputed === undefined ? "unknown" : freshness.recomputed ? "yes" : "no"}`,
+          ].join("; ")}
+          badge={freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness"}
+          tone={freshness.isFreshLive ? "#2fd67b" : freshness.isPartialRefresh || freshness.isSnapshot ? "#ffb020" : "#8a94a6"}
+          styles={styles}
+        />
       </div>
     </div>
   );
@@ -310,7 +322,12 @@ export default function DecisionHeroCard({
   const primaryBlockedCase = verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
-  const freshnessLabel = lastAnalyzed ? `Last analyzed ${lastAnalyzed}` : "Freshness unavailable";
+  const freshness = model?.analysisFreshness || {};
+  const freshnessLabel = freshness.freshnessLabel
+    ? `${freshness.freshnessLabel}${freshness.generatedAt ? ` - ${formatDateTime(freshness.generatedAt)}` : ""}`
+    : lastAnalyzed
+      ? `Last analyzed ${lastAnalyzed}`
+      : "Freshness unavailable";
 
   return (
     <div style={styles.decisionHeroWrap}>

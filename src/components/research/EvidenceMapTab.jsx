@@ -234,6 +234,7 @@ export default function EvidenceMapTab({
     ...lensBoundaryRows,
     ...calibrationWarningRows,
   ];
+  const freshness = model?.analysisFreshness || {};
   const providerNotes = normalizeRenderableList(meta?.providerNotes).slice(0, 4);
   const coverageSignals = safeArray(evidenceStatusProxy?.items);
 
@@ -248,10 +249,16 @@ export default function EvidenceMapTab({
           {boundaryChip(styles, "This view maps live provider/source context from the current analysis response. It is not the full institutional evidence map.")}
           {boundaryChip(styles, "Report-only overlays are not connected to live scoring.")}
           {boundaryChip(styles, "Source candidates require review before becoming evidence.")}
+          {boundaryChip(styles, `${freshness.freshnessLabel || "Freshness unknown"}: stale or missing sections require review, not negative inference.`)}
         </div>
         <SectionRow
           label="Read this as"
           value="A source-trace view of live response context, provider availability, and qualitative evidence signals. It does not show institutional question counts or manual-source overlay status."
+          styles={styles}
+        />
+        <SectionRow
+          label="Freshness boundary"
+          value={freshness.summary || "Freshness unknown. Missing provider sections are not proof of negative evidence; verify before relying on section-level conclusions."}
           styles={styles}
         />
       </Card>
