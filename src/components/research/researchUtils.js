@@ -2111,6 +2111,44 @@ function buildLensAwareVerdictSemantics(baseSemantics, lens, lensAware) {
   };
 }
 
+function buildLensAwareSecondaryCopy(lens, lensAware, fallback = {}) {
+  if (!resolvedLensIsDisplayAuthoritative(lens) || !lensAware) return fallback;
+  const copy = LENS_PRIMARY_COPY[lens.lensId] || {};
+  const evidenceNeeded = normalizeRenderableList(lensAware.evidenceNeeded);
+  const whatWouldChange = normalizeRenderableList(lensAware.whatWouldChange);
+  const requiredConditions = normalizeRenderableList(lensAware.requiredConditions);
+  const primaryBlocker = extractRenderableText(lensAware.primaryBlocker, null) || copy.blocked || evidenceNeeded[0] || fallback.primaryWeakness;
+  const positive = copy.positive || requiredConditions[0] || fallback.primaryStrength;
+  const blocked = copy.blocked || primaryBlocker;
+  const driverPool = dedupeCaseInsensitive([
+    positive,
+    primaryBlocker,
+    ...requiredConditions,
+    ...evidenceNeeded,
+    ...whatWouldChange,
+  ]).filter(Boolean);
+  return {
+    ...fallback,
+    whyNow: positive || fallback.whyNow,
+    whyNotNow: blocked || fallback.whyNotNow,
+    summaryMemo: blocked || fallback.summaryMemo,
+    structuredThesisSummary: blocked || fallback.summaryMemo,
+    primaryStrength: positive || fallback.primaryStrength,
+    primaryWeakness: primaryBlocker || fallback.primaryWeakness,
+    failurePrimary: primaryBlocker || fallback.failurePrimary,
+    failureTrigger: whatWouldChange[0] || blocked || fallback.failureTrigger,
+    tokenDemandTruth: positive
+      ? `${positive} Provider metadata and live model outputs remain classification/display context until source-backed evidence confirms the thesis.`
+      : fallback.tokenDemandTruth,
+    decisionDrivers: driverPool.slice(0, 3),
+    blockers: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded]).filter(Boolean).slice(0, 4),
+    whatCouldBreak: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded, ...whatWouldChange]).filter(Boolean).slice(0, 4),
+    topPositiveDrivers: positive ? [positive] : fallback.topPositiveDrivers,
+    topNegativeDrivers: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded]).filter(Boolean).slice(0, 4),
+    topNeutralDrivers: whatWouldChange.length ? whatWouldChange.slice(0, 4) : fallback.topNeutralDrivers,
+  };
+}
+
 export function buildLensSpecificResearchDomains(model = {}, displayIdentity = null) {
   const resolvedLensId = model?.resolvedInstitutionalLens?.lensId || displayIdentity?.lensId;
   const identity = model?.assetIdentityResolution || {};
@@ -2738,6 +2776,25 @@ export function buildDecisionTerminalModel({
     missingEvidence: displayEvidenceNeeded,
     whatWouldChange: displayWhatWouldChangeDecision.items,
   } : verdictSemantics;
+  const lensSecondaryCopy = buildLensAwareSecondaryCopy(resolvedInstitutionalLens, lensAwareExplanations, {
+    whyNow: sanitizedWhyNow,
+    whyNotNow: sanitizedWhyNotNow,
+    summaryMemo,
+    primaryStrength,
+    primaryWeakness,
+    failurePrimary,
+    failureTrigger,
+    tokenDemandTruth,
+    decisionDrivers: dedupedDrivers,
+    blockers,
+    topPositiveDrivers: cleanUserFacingList(contributors.positives, { limit: 4 }),
+    topNegativeDrivers: cleanUserFacingList(contributors.negatives, { limit: 4 }),
+    topNeutralDrivers: cleanUserFacingList(contributors.neutralOrMissing, {
+      limit: 4,
+      suppressGenericEpistemic: isBenchmark,
+      replacePlaceholders: true,
+    }),
+  });
 
   return {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -2762,11 +2819,11 @@ export function buildDecisionTerminalModel({
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
     verdictReasons: verdictSemantics.verdictReasons,
-    primaryStrength,
-    primaryWeakness,
+    primaryStrength: lensSecondaryCopy.primaryStrength || primaryStrength,
+    primaryWeakness: lensSecondaryCopy.primaryWeakness || primaryWeakness,
     failureMode: {
-      primary: failurePrimary,
-      trigger: failureTrigger,
+      primary: lensSecondaryCopy.failurePrimary || failurePrimary,
+      trigger: lensSecondaryCopy.failureTrigger || failureTrigger,
       earlySignals,
     },
     investabilityStatus: investability.status || null,
@@ -2775,12 +2832,13 @@ export function buildDecisionTerminalModel({
     evidenceStrength: evidenceQuality.strength || null,
     evidenceConflicts,
     missingCritical: displayEvidenceNeeded,
-    blockers,
+    blockers: lensSecondaryCopy.blockers || blockers,
     requiredConditions: displayRequiredConditions,
-    decisionDrivers: dedupedDrivers,
+    decisionDrivers: lensSecondaryCopy.decisionDrivers || dedupedDrivers,
     contradictionNote,
-    summaryMemo,
-    tokenDemandTruth,
+    summaryMemo: lensSecondaryCopy.summaryMemo || summaryMemo,
+    structuredThesisSummary: lensSecondaryCopy.structuredThesisSummary || lensSecondaryCopy.summaryMemo || summaryMemo,
+    tokenDemandTruth: lensSecondaryCopy.tokenDemandTruth || tokenDemandTruth,
     policySignals,
     warnings: userFacingWarnings,
     auditAlerts,
@@ -2796,8 +2854,8 @@ export function buildDecisionTerminalModel({
     weakestLink,
     whatWouldChangeDecision: displayWhatWouldChangeDecision,
     manualReviewStatus,
-    whyNow: sanitizedWhyNow,
-    whyNotNow: sanitizedWhyNotNow,
+    whyNow: lensSecondaryCopy.whyNow || sanitizedWhyNow,
+    whyNotNow: lensSecondaryCopy.whyNotNow || sanitizedWhyNotNow,
     whatMustBeTrue: lensAwareExplanations?.requiredConditions?.length
       ? displayRequiredConditions
       : cleanUserFacingList(decisionFrame.whatMustBeTrue, {
@@ -2805,7 +2863,7 @@ export function buildDecisionTerminalModel({
         suppressGenericEpistemic: isBenchmark,
         replacePlaceholders: true,
       }),
-    whatCouldBreak: cleanUserFacingList(decisionFrame.whatCouldBreak, {
+    whatCouldBreak: lensSecondaryCopy.whatCouldBreak || cleanUserFacingList(decisionFrame.whatCouldBreak, {
       limit: 4,
       suppressGenericEpistemic: isBenchmark,
       replacePlaceholders: true,
@@ -2817,9 +2875,9 @@ export function buildDecisionTerminalModel({
         suppressGenericEpistemic: isBenchmark,
         replacePlaceholders: true,
       }),
-    topPositiveDrivers: cleanUserFacingList(contributors.positives, { limit: 4 }),
-    topNegativeDrivers: cleanUserFacingList(contributors.negatives, { limit: 4 }),
-    topNeutralDrivers: cleanUserFacingList(contributors.neutralOrMissing, {
+    topPositiveDrivers: lensSecondaryCopy.topPositiveDrivers || cleanUserFacingList(contributors.positives, { limit: 4 }),
+    topNegativeDrivers: lensSecondaryCopy.topNegativeDrivers || cleanUserFacingList(contributors.negatives, { limit: 4 }),
+    topNeutralDrivers: lensSecondaryCopy.topNeutralDrivers || cleanUserFacingList(contributors.neutralOrMissing, {
       limit: 4,
       suppressGenericEpistemic: isBenchmark,
       replacePlaceholders: true,
@@ -2945,7 +3003,7 @@ function questionGroupMatchesLens(questions, lens) {
 }
 
 function includesGenericPrimaryCopy(text) {
-  return /vesting schedule|next unlock magnitude|protocol revenue|fee\/revenue accrual|tokenholder value capture|token necessity and tokenholder value capture/i.test(String(text || ""));
+  return /critical tokenomics evidence is missing|utility or vesting support|coverage restraint.*unlock|coverage restraint.*vesting|vesting schedule|next unlock magnitude|resolve the critical pillar|close.*weakest-link gaps|token utility matters for protocol use|confirm token utility or vesting coverage/i.test(String(text || ""));
 }
 
 function yesNoUnknown(value) {
@@ -3004,14 +3062,34 @@ export function buildReviewBundleText({
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
   const questionMismatchWarnings = safeArray(calibrationWarnings).filter((warning) => warning?.id === "question_lens_mismatch");
   const providerInternalFlags = safeArray(lens?.ambiguityFlags).filter((flag) => /provider|internal|disagree|conflict|mismatch/i.test(flag));
+  const lensAwarePrimaryDisplayActive = resolvedLensIsDisplayAuthoritative(lens) && Boolean(lensAware);
+  const filterPrimaryBundleItems = (items) => {
+    const normalized = normalizeRenderableList(items);
+    return lensAwarePrimaryDisplayActive
+      ? normalized.filter((item) => !includesGenericPrimaryCopy(item))
+      : normalized;
+  };
   const visiblePrimaryText = [
+    safeModel.whyNow,
+    safeModel.whyNotNow,
+    safeModel.summaryMemo,
+    safeModel.structuredThesisSummary,
+    safeModel.primaryWeakness,
+    safeModel.failureMode?.primary,
+    safeModel.failureMode?.trigger,
+    safeModel.tokenDemandTruth,
     safeModel.primaryBlocker?.label,
     safeModel.weakestLink?.label,
     ...(safeModel.whatWouldChangeDecision?.items || []),
     ...(safeModel.missingCritical || []),
     ...(safeModel.requiredConditions || []),
     ...(safeModel.whatMustBeTrue || []),
+    ...(safeModel.whatCouldBreak || []),
     ...(safeModel.nextCheckpoints || []),
+    ...(safeModel.decisionDrivers || []),
+    ...(safeModel.topPositiveDrivers || []),
+    ...(safeModel.topNegativeDrivers || []),
+    ...(safeModel.blockers || []),
     ...safeArray(safeModel.researchRequirements).flatMap((requirement) => [
       requirement?.title,
       requirement?.reason,
@@ -3177,7 +3255,7 @@ export function buildReviewBundleText({
       bundleField("Decision Memo", safeModel.summaryMemo),
       bundleField("Primary Weakness", safeModel.primaryWeakness),
       bundleField("Failure Mode", safeModel.failureMode?.primary),
-      bundleField("Structured Thesis Summary", safeModel.summaryMemo),
+      bundleField("Structured Thesis Summary", safeModel.structuredThesisSummary || safeModel.summaryMemo),
       "Missing critical evidence:",
       bundleList(safeModel.missingCritical),
       "Required conditions:",
@@ -3212,7 +3290,7 @@ export function buildReviewBundleText({
       "What would change the decision:",
       bundleList(allocationCase.whatWouldChange || safeModel.whatWouldChangeDecision?.items),
       "Review-only cautions:",
-      bundleList(verdictReasons.reviewOnlyCautions),
+      bundleList(filterPrimaryBundleItems(verdictReasons.reviewOnlyCautions)),
       "What Must Be True:",
       bundleList(safeModel.whatMustBeTrue),
       "What Could Break The Thesis:",
@@ -3220,17 +3298,17 @@ export function buildReviewBundleText({
       "Live Context Supporting The Thesis:",
       bundleList(verdictReasons.positiveThesisEvidence || safeModel.topPositiveDrivers),
       "Evidence Missing / Provider Gaps:",
-      bundleList(verdictReasons.evidenceGaps || safeModel.missingCritical),
+      bundleList(filterPrimaryBundleItems(verdictReasons.evidenceGaps || safeModel.missingCritical)),
       bundleField("Weakest Link", safeModel.weakestLink?.label),
       bundleField("False-Positive Risk / Refusal to infer", safeModel.tokenDemandTruth),
       "Manual-review triggers:",
-      bundleList([safeModel.manualReviewStatus?.detail, ...safeModel.auditAlerts]),
+      bundleList(filterPrimaryBundleItems([safeModel.manualReviewStatus?.detail, ...safeModel.auditAlerts])),
       bundleField("Token Demand Truth", safeModel.tokenDemandTruth),
       bundleField("Failure Modes", safeModel.failureMode?.primary),
       "Conviction Drivers:",
-      bundleList(safeModel.decisionDrivers),
+      bundleList(filterPrimaryBundleItems(safeModel.decisionDrivers)),
       "Blockers:",
-      bundleList(safeModel.blockers),
+      bundleList(filterPrimaryBundleItems(safeModel.blockers)),
       "Raw allocation-case fallback text:",
       bundleList([
         ...(rawAllocationCase.missingEvidence || []),

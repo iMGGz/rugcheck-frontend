@@ -19,7 +19,8 @@ function firstText(items, fallback) {
   return normalizeRenderableList(items)[0] || fallback;
 }
 
-const GENERIC_NON_PROTOCOL_COPY = /vesting|unlock|protocol revenue|fee\/revenue|generic defi|confirm token utility|direct accrual or governance|direct accrual|coverage restraint.*vesting|core tokenomics evidence|tokenholder value capture as primary/i;
+const GENERIC_ALL_LENS_COPY = /vesting support|utility or vesting|vesting schedule|next unlock magnitude|coverage restraint.*vesting|core tokenomics evidence|resolve the critical pillar|close.*weakest-link gaps|token utility matters for protocol use|confirm token utility/i;
+const GENERIC_NON_PROTOCOL_COPY = /protocol revenue|fee\/revenue|generic defi|direct accrual or governance|direct accrual|tokenholder value capture as primary/i;
 
 function isProtocolLens(model) {
   const lensId = model?.resolvedInstitutionalLens?.lensId || model?.lensAwareExplanations?.lensId;
@@ -28,8 +29,8 @@ function isProtocolLens(model) {
 
 function filterPrimaryLensCopy(items, model) {
   const normalized = normalizeRenderableList(items);
-  if (isProtocolLens(model)) return normalized;
-  return normalized.filter((item) => !GENERIC_NON_PROTOCOL_COPY.test(item));
+  if (isProtocolLens(model)) return normalized.filter((item) => !GENERIC_ALL_LENS_COPY.test(item));
+  return normalized.filter((item) => !GENERIC_ALL_LENS_COPY.test(item) && !GENERIC_NON_PROTOCOL_COPY.test(item));
 }
 
 function lensAwareQuestionItems(model, field) {
