@@ -1415,6 +1415,20 @@ export default function App() {
             <Card title="Audit / Raw Details" subtitle="Technical details for verification. Not all raw context affects the final decision." styles={styles}>
               <SectionRow label="Purpose" value="Keep noisy diagnostics, history, drift, provider health, and raw context available without letting them dominate the decision narrative." styles={styles} />
             </Card>
+            <Card title="Live Field Availability" subtitle="Compact audit mirror of response-facing fields. Raw arrays stay out of primary decision copy." styles={styles}>
+              <SectionRow label="Resolved lens" value={decisionModel.resolvedInstitutionalLens?.lensId || "Unavailable"} styles={styles} />
+              <SectionRow label="Question group" value={decisionModel.resolvedInstitutionalLens?.questionGroupId || "Unavailable"} styles={styles} />
+              <SectionRow label="Lens-aware explanations" value={decisionModel.lensAwareExplanations ? "Present" : "Unavailable"} styles={styles} />
+              <SectionRow label="Institutional questions" value={safeArray(decisionModel.institutionalQuestions).length} styles={styles} />
+              <SectionRow label="Calibration warnings" value={safeArray(decisionModel.calibrationWarnings).length} styles={styles} />
+              <ListBlock
+                title="Resolved lens source boundary"
+                items={decisionModel.resolvedInstitutionalLens?.sourceBoundary}
+                emptyText="No resolved lens source-boundary entries were attached."
+                color="#9bd7ff"
+                styles={styles}
+              />
+            </Card>
             <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" defaultOpen styles={styles}>
               <ResearchContextPanel
                 analysisQualityExplanation={analysisQualityExplanation}
