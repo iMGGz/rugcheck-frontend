@@ -19,6 +19,45 @@ function firstText(items, fallback) {
   return normalizeRenderableList(items)[0] || fallback;
 }
 
+const GENERIC_NON_PROTOCOL_COPY = /vesting|unlock|protocol revenue|fee\/revenue|generic defi|confirm token utility|direct accrual or governance|direct accrual|coverage restraint.*vesting|core tokenomics evidence|tokenholder value capture as primary/i;
+
+function isProtocolLens(model) {
+  const lensId = model?.resolvedInstitutionalLens?.lensId || model?.lensAwareExplanations?.lensId;
+  return ["DEFI_PROTOCOL_TOKEN", "L2_GOVERNANCE_TOKEN", "EXCHANGE_PLATFORM"].includes(lensId);
+}
+
+function filterPrimaryLensCopy(items, model) {
+  const normalized = normalizeRenderableList(items);
+  if (isProtocolLens(model)) return normalized;
+  return normalized.filter((item) => !GENERIC_NON_PROTOCOL_COPY.test(item));
+}
+
+function lensAwareQuestionItems(model, field) {
+  const questions = Array.isArray(model?.institutionalQuestions) ? model.institutionalQuestions : [];
+  return normalizeRenderableList(questions.flatMap((question) => normalizeRenderableList(question?.[field])));
+}
+
+function lensAwarePrimaryItems(model, field) {
+  const lensAware = model?.lensAwareExplanations || {};
+  if (field === "evidenceNeeded") {
+    return normalizeRenderableList(lensAware.evidenceNeeded).length
+      ? normalizeRenderableList(lensAware.evidenceNeeded)
+      : lensAwareQuestionItems(model, "missingEvidence");
+  }
+  if (field === "whatWouldChange") {
+    return normalizeRenderableList(lensAware.whatWouldChange).length
+      ? normalizeRenderableList(lensAware.whatWouldChange)
+      : lensAwareQuestionItems(model, "whatWouldChange");
+  }
+  if (field === "requiredConditions") {
+    return normalizeRenderableList(lensAware.requiredConditions);
+  }
+  if (field === "primaryBlocker") {
+    return normalizeRenderableList(lensAware.primaryBlocker);
+  }
+  return [];
+}
+
 function lensForAsset(model, displayIdentity = null) {
   if (displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
     return "Stablecoin falsification lens: market cap, liquidity, or category does not prove reserve backing, redemption reliability, issuer risk, or legal clarity.";
@@ -77,6 +116,35 @@ function lensForAsset(model, displayIdentity = null) {
 }
 
 function buildThesisModel(model, displayIdentity = null) {
+  const lensEvidenceNeeded = lensAwarePrimaryItems(model, "evidenceNeeded");
+  const lensWhatWouldChange = lensAwarePrimaryItems(model, "whatWouldChange");
+  const lensRequiredConditions = lensAwarePrimaryItems(model, "requiredConditions");
+  const lensPrimaryBlocker = lensAwarePrimaryItems(model, "primaryBlocker");
+  const rawWhatMustBeTrue = filterPrimaryLensCopy([
+    ...(model?.whatMustBeTrue || []),
+    ...(model?.requiredConditions || []),
+    ...(model?.whatWouldChangeDecision?.items || []),
+  ], model);
+  const rawMissingContext = filterPrimaryLensCopy([
+    ...(model?.missingCritical || []),
+    ...(model?.requiredConditions || []),
+    ...(model?.blockers || []),
+    ...(model?.topNeutralDrivers || []),
+  ], model);
+  const rawWhatCouldBreak = filterPrimaryLensCopy([
+    ...(model?.whatCouldBreak || []),
+    model?.failureMode?.primary,
+    model?.failureMode?.trigger,
+    ...(model?.auditAlerts || []),
+    ...(model?.missingCritical || []),
+    ...(model?.topNegativeDrivers || []),
+  ], model);
+  const rawManualReviewTriggers = filterPrimaryLensCopy([
+    model?.manualReviewStatus?.label,
+    model?.manualReviewStatus?.detail,
+    ...(model?.auditAlerts || []),
+    ...(model?.blockers || []),
+  ], model);
   const allocationThesis = firstText([
     model?.summaryMemo,
     model?.tokenDemandTruth,
@@ -84,18 +152,15 @@ function buildThesisModel(model, displayIdentity = null) {
   ], "Allocation thesis is not explicitly available in the live response.");
 
   const whatMustBeTrue = dedupe([
-    ...(model?.whatMustBeTrue || []),
-    ...(model?.requiredConditions || []),
-    ...(model?.whatWouldChangeDecision?.items || []),
+    ...lensRequiredConditions,
+    ...lensEvidenceNeeded,
+    ...rawWhatMustBeTrue,
   ]).slice(0, 6);
 
   const whatCouldBreak = dedupe([
-    ...(model?.whatCouldBreak || []),
-    model?.failureMode?.primary,
-    model?.failureMode?.trigger,
-    ...(model?.auditAlerts || []),
-    ...(model?.missingCritical || []),
-    ...(model?.topNegativeDrivers || []),
+    ...lensPrimaryBlocker,
+    ...filterPrimaryLensCopy(lensEvidenceNeeded, model),
+    ...rawWhatCouldBreak,
   ]).slice(0, 6);
 
   const supportingContext = dedupe([
@@ -106,17 +171,14 @@ function buildThesisModel(model, displayIdentity = null) {
   ]).slice(0, 6);
 
   const missingContext = dedupe([
-    ...(model?.missingCritical || []),
-    ...(model?.requiredConditions || []),
-    ...(model?.blockers || []),
-    ...(model?.topNeutralDrivers || []),
+    ...lensEvidenceNeeded,
+    ...rawMissingContext,
   ]).slice(0, 6);
 
   const manualReviewTriggers = dedupe([
-    model?.manualReviewStatus?.label,
-    model?.manualReviewStatus?.detail,
-    ...(model?.auditAlerts || []),
-    ...(model?.blockers || []),
+    ...lensEvidenceNeeded,
+    ...lensRequiredConditions,
+    ...rawManualReviewTriggers,
   ]).slice(0, 5);
 
   return {
@@ -130,9 +192,14 @@ function buildThesisModel(model, displayIdentity = null) {
     weakestLinkLabel: model?.weakestLink?.label || "Weakest link not explicitly available in live response.",
     weakestLinkExplanation: model?.weakestLink?.explanation || "The live response did not expose a dedicated weakest-link field.",
     whatWouldChange: dedupe(
-      model?.whatWouldChangeDecision?.items?.length
-        ? model.whatWouldChangeDecision.items
-        : model?.requiredConditions || [],
+      lensWhatWouldChange.length
+        ? lensWhatWouldChange
+        : filterPrimaryLensCopy(
+          model?.whatWouldChangeDecision?.items?.length
+            ? model.whatWouldChangeDecision.items
+            : model?.requiredConditions || [],
+          model,
+        ),
     ).slice(0, 4),
   };
 }
@@ -148,6 +215,11 @@ function AllocationCaseSection({ model, styles }) {
   const lensAwareEvidence = normalizeRenderableList(lensAware.evidenceNeeded);
   const lensAwareWhatWouldChange = normalizeRenderableList(lensAware.whatWouldChange);
   const lensAwarePrimaryBlocker = normalizeRenderableList(lensAware.primaryBlocker);
+  const questionEvidence = lensAwareQuestionItems(model, "missingEvidence");
+  const questionWhatWouldChange = lensAwareQuestionItems(model, "whatWouldChange");
+  const primaryEvidence = lensAwareEvidence.length ? lensAwareEvidence : questionEvidence;
+  const primaryWhatWouldChange = lensAwareWhatWouldChange.length ? lensAwareWhatWouldChange : questionWhatWouldChange;
+  const reviewOnlyCautions = filterPrimaryLensCopy(verdictReasons.reviewOnlyCautions, model);
   const columns = [
     {
       title: "Why allocation could make sense",
@@ -165,16 +237,16 @@ function AllocationCaseSection({ model, styles }) {
     },
     {
       title: "Evidence still needed",
-      items: lensAwareEvidence.length
-        ? lensAwareEvidence
+      items: primaryEvidence.length
+        ? primaryEvidence
         : allocationCase.missingEvidence || verdictReasons.evidenceGaps || [],
       color: "#f9d976",
       emptyText: "No missing-evidence list was surfaced.",
     },
     {
       title: "What would change the decision",
-      items: lensAwareWhatWouldChange.length
-        ? lensAwareWhatWouldChange
+      items: primaryWhatWouldChange.length
+        ? primaryWhatWouldChange
         : allocationCase.whatWouldChange || verdictReasons.whatWouldChangeDecision || [],
       color: "#9bd7ff",
       emptyText: "No decision-change requirements were surfaced.",
@@ -191,7 +263,7 @@ function AllocationCaseSection({ model, styles }) {
         <BoundaryChip styles={styles}>Research requirements are not evidence</BoundaryChip>
         <BoundaryChip styles={styles}>Evidence gaps are separated from confirmed failure</BoundaryChip>
         <BoundaryChip styles={styles}>Only live scoring affects the current verdict</BoundaryChip>
-        {lensAwareEvidence.length || lensAwareWhatWouldChange.length ? (
+        {primaryEvidence.length || primaryWhatWouldChange.length ? (
           <BoundaryChip styles={styles}>Primary display copy is lens-aware; raw fields remain audit context</BoundaryChip>
         ) : null}
       </div>
@@ -210,7 +282,7 @@ function AllocationCaseSection({ model, styles }) {
       </div>
       <ListBlock
         title="Review-only cautions"
-        items={verdictReasons.reviewOnlyCautions}
+        items={reviewOnlyCautions}
         emptyText="No review-only cautions were surfaced separately."
         color="#d5dcec"
         styles={styles}

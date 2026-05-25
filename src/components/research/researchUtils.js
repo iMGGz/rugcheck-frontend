@@ -2483,7 +2483,8 @@ export function buildReviewBundleText({
   const decisionFrame = safeObject(decisionLayer.decisionFrame);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const verdictReasons = safeObject(decisionLayer.verdictReasons || safeModel.verdictReasons);
-  const allocationCase = safeObject(decisionLayer.allocationCase || safeModel.allocationCase);
+  const allocationCase = safeObject(safeModel.allocationCase || decisionLayer.allocationCase);
+  const rawAllocationCase = safeObject(decisionLayer.allocationCase);
   const scoringPolicy = safeObject(safeAnalysis.scoringPolicy);
   const sourceStatusObject = safeObject(sourceStatus || safeData.sourceStatus);
   const providerDiagnosticsList = safeArray(providerDiagnostics || safeMeta.providerDiagnostics);
@@ -2651,6 +2652,12 @@ export function buildReviewBundleText({
       bundleList(safeModel.decisionDrivers),
       "Blockers:",
       bundleList(safeModel.blockers),
+      "Raw allocation-case fallback text:",
+      bundleList([
+        ...(rawAllocationCase.missingEvidence || []),
+        ...(rawAllocationCase.whatWouldChange || []),
+        ...(rawAllocationCase.againstAllocation || []),
+      ]),
     ]),
     bundleSection("6. Institutional Checklist", [
       bundleField("Current asset lens text", lens?.label || displayIdentity?.displayFraming),
