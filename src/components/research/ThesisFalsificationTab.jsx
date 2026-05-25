@@ -144,6 +144,10 @@ function BoundaryChip({ children, styles }) {
 function AllocationCaseSection({ model, styles }) {
   const allocationCase = model?.allocationCase || {};
   const verdictReasons = model?.verdictReasons || {};
+  const lensAware = model?.lensAwareExplanations || {};
+  const lensAwareEvidence = normalizeRenderableList(lensAware.evidenceNeeded);
+  const lensAwareWhatWouldChange = normalizeRenderableList(lensAware.whatWouldChange);
+  const lensAwarePrimaryBlocker = normalizeRenderableList(lensAware.primaryBlocker);
   const columns = [
     {
       title: "Why allocation could make sense",
@@ -153,19 +157,25 @@ function AllocationCaseSection({ model, styles }) {
     },
     {
       title: "Why allocation is blocked",
-      items: allocationCase.againstAllocation || verdictReasons.realBlockers || [],
+      items: lensAwarePrimaryBlocker.length
+        ? lensAwarePrimaryBlocker
+        : allocationCase.againstAllocation || verdictReasons.realBlockers || [],
       color: "#ffb6b6",
       emptyText: "No material blocker was surfaced by the live response.",
     },
     {
       title: "Evidence still needed",
-      items: allocationCase.missingEvidence || verdictReasons.evidenceGaps || [],
+      items: lensAwareEvidence.length
+        ? lensAwareEvidence
+        : allocationCase.missingEvidence || verdictReasons.evidenceGaps || [],
       color: "#f9d976",
       emptyText: "No missing-evidence list was surfaced.",
     },
     {
       title: "What would change the decision",
-      items: allocationCase.whatWouldChange || verdictReasons.whatWouldChangeDecision || [],
+      items: lensAwareWhatWouldChange.length
+        ? lensAwareWhatWouldChange
+        : allocationCase.whatWouldChange || verdictReasons.whatWouldChangeDecision || [],
       color: "#9bd7ff",
       emptyText: "No decision-change requirements were surfaced.",
     },
@@ -181,6 +191,9 @@ function AllocationCaseSection({ model, styles }) {
         <BoundaryChip styles={styles}>Research requirements are not evidence</BoundaryChip>
         <BoundaryChip styles={styles}>Evidence gaps are separated from confirmed failure</BoundaryChip>
         <BoundaryChip styles={styles}>Only live scoring affects the current verdict</BoundaryChip>
+        {lensAwareEvidence.length || lensAwareWhatWouldChange.length ? (
+          <BoundaryChip styles={styles}>Primary display copy is lens-aware; raw fields remain audit context</BoundaryChip>
+        ) : null}
       </div>
       <div style={styles.allocationCaseGrid}>
         {columns.map((column) => (
