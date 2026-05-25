@@ -104,18 +104,82 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
 }
 
 function suggestedResearchDomains(model, displayIdentity = null) {
-  if (displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
+  const resolvedLensId = model?.resolvedInstitutionalLens?.lensId;
+  if (resolvedLensId === "PAYMENTS_SETTLEMENT") {
+    return [
+      "Payment/settlement volume and material usage evidence",
+      "Transaction fee, reserve, anti-spam, and burn mechanics with materiality review",
+      "Validator/trust/finality model, escrow/release/distribution, and ecosystem dependency evidence",
+    ];
+  }
+  if (resolvedLensId === "GAMING_METAVERSE_CONSUMER") {
+    return [
+      "Active players, paying users, retention, and game volume evidence",
+      "Marketplace, tournament, entry-fee, and in-game purchase demand",
+      "Reward emissions, token sinks, mintability, max-supply enforcement, unlock schedule, audits, and admin roles",
+    ];
+  }
+  if (resolvedLensId === "RWA_HYBRID_INFRASTRUCTURE") {
+    return [
+      "Official RWA/tokenization infrastructure and compliance architecture documentation",
+      "Utility/gas/staking rights separated from tokenized security or RWA product rights",
+      "Issuance/fee evidence, legal/custody/compliance dependencies, and supply-cap mutability review where flagged",
+    ];
+  }
+  if (resolvedLensId === "ORACLE_INFRASTRUCTURE" || resolvedLensId === "DEPENDENCY_INFRASTRUCTURE") {
+    return [
+      "Oracle service payment, staking, collateral, and security-mechanics evidence",
+      "Source-backed oracle usage to durable token-demand mapping",
+      "Infrastructure adoption separated from tokenholder value capture",
+    ];
+  }
+  if (resolvedLensId === "RWA_HYBRID_ASSET") {
+    return [
+      "Tokenholder legal/economic claim, redemption enforceability, and terms",
+      "Issuer, custodian, collateral counterparty, jurisdiction, and backing documentation",
+      "Explicit boundary that RWA/category metadata is not enforceable rights",
+    ];
+  }
+  if (resolvedLensId === "DEPIN_COMPUTE_STORAGE") {
+    return [
+      "Resource demand, payer mapping, and compute/storage/rendering usage evidence",
+      "Provider incentives, subsidy dependency, and token settlement/payment role",
+      "Resource-network adoption separated from tokenholder value capture",
+    ];
+  }
+  if (resolvedLensId === "STABLECOIN_SETTLEMENT" || displayIdentity?.lensId === "STABLECOIN_SETTLEMENT_ASSET") {
     return [
       "Reserve attestations and reserve composition disclosures",
       "Redemption terms, issuer disclosures, and legal/counterparty structure",
-      "Bankruptcy-remoteness, custodian, and concentration-risk evidence",
+      "Issuer/custodian/admin/freeze controls and peg-stress redemption evidence",
     ];
   }
-  if (["WRAPPED_ASSET", "LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(displayIdentity?.lensId)) {
+  if (resolvedLensId === "WRAPPED_ASSET" || ["WRAPPED_ASSET"].includes(displayIdentity?.lensId)) {
     return [
-      "Custody, backing, proof-of-reserves, staking, or operator documentation",
-      "Redemption path, withdrawal process, wrapper contract, and admin controls",
-      "Dependency, slashing, bridge, depeg, or smart-contract risk evidence",
+      "Proof-of-reserves/backing, custodian/merchant, and bridge-control documentation",
+      "Mint/burn controls, redemption path, and wrapper dependency evidence",
+      "Native-asset inheritance boundary and selected chain/contract identity review",
+    ];
+  }
+  if (resolvedLensId === "LST_STAKING_DERIVATIVE" || ["LIQUID_STAKING_TOKEN", "RESTAKING_OR_LRT"].includes(displayIdentity?.lensId)) {
+    return [
+      "Withdrawal queue, redemption path, and staking-derivative mechanics",
+      "Slashing/operator risk, depeg/liquidity depth, admin controls, and audit/security documentation",
+      "Scanner verification to separate false positives from confirmed critical risk",
+    ];
+  }
+  if (resolvedLensId === "BASE_LAYER_SETTLEMENT" || resolvedLensId === "NATIVE_MONETARY_BENCHMARK") {
+    return [
+      "Network activity, fees, settlement/gas demand, and market depth",
+      "Validator/miner/security model, issuance/burn/staking/monetary policy, and decentralization evidence",
+      "Liveness/outage, congestion, client diversity, validator risk, and protocol-upgrade review where relevant",
+    ];
+  }
+  if (resolvedLensId === "MEME_NARRATIVE") {
+    return [
+      "Narrative/liquidity tradability context and holder/liquidity durability",
+      "Evidence of durable non-narrative utility or enforceable economic rights, if any",
+      "Explicit boundary that liquidity/security does not create allocation-thesis support by itself",
     ];
   }
   if (["DEFI_PROTOCOL_TOKEN", "DERIVATIVES_OR_PERPS_PROTOCOL"].includes(displayIdentity?.lensId)) {

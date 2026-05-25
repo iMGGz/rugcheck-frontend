@@ -259,6 +259,32 @@ function ResolvedLensPanel({ resolvedLens, styles }) {
   );
 }
 
+function CalibrationWarningsSummary({ warnings, styles }) {
+  const items = safeArray(warnings);
+  if (!items.length) return null;
+  return (
+    <Card title="Lens / Identity / Calibration Notes" subtitle="Diagnostic warnings surfaced from the live response." styles={styles}>
+      <div style={styles.engineNotice}>
+        These warnings are not evidence and do not change scoring by themselves. They explain where manual review or source requirements are needed.
+      </div>
+      <div style={styles.institutionalQuestionAnswerGrid}>
+        {items.slice(0, 6).map((warning, index) => (
+          <div key={`${warning.id || "warning"}-${index}`} style={styles.reviewSignalCard}>
+            <div style={styles.timelineTitleRow}>
+              <strong style={{ color: "#f4f7ff" }}>{labelize(warning.id || "diagnostic warning")}</strong>
+              {statusChip(styles, warning.affectsScoring ? "Affects scoring" : "Diagnostic warning", warning.affectsScoring ? "#ff6b6b" : "#ffb020")}
+            </div>
+            <div style={styles.timelineSummary}>{warning.issue || warning.recommendedAction || "Manual review required."}</div>
+            <div style={styles.timelineMeta}>
+              {warning.affectsVerdict ? "Affects verdict" : "Does not affect verdict"} - {warning.sourceBoundary || "source boundary unavailable"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function normalizeChecklistSignalStatus(value) {
   const raw = String(value || "").toLowerCase();
   if (raw.includes("provider") || raw.includes("gap") || raw.includes("unavailable")) {
@@ -662,6 +688,8 @@ export default function InstitutionalChecklistTab({
       </Card>
 
       <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
+
+      <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
 
       {hasInstitutionalAnswers ? (
         <InstitutionalQuestionAnswersSection

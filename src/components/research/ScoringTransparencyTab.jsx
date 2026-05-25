@@ -249,6 +249,39 @@ function GuardrailCard({ text, styles }) {
   );
 }
 
+function CalibrationWarningTransparency({ warnings, styles }) {
+  const items = safeArray(warnings);
+  if (!items.length) return null;
+  return (
+    <Card title="Diagnostic Warnings / Scoring Boundary" subtitle="Warnings can guide review without becoming evidence." styles={styles}>
+      <div style={styles.scoringBoundaryStrip}>
+        {boundaryChip(styles, "Diagnostic warning")}
+        {boundaryChip(styles, "Source requirement, not evidence")}
+        {boundaryChip(styles, "Affects verdict/scoring only when explicitly marked")}
+      </div>
+      <div style={styles.scoringModuleGrid}>
+        {items.slice(0, 6).map((warning, index) => (
+          <div key={`${warning.id || "warning"}-${index}`} style={styles.scoringModuleCard}>
+            <div style={styles.scoringModuleTopline}>
+              <div>
+                <div style={styles.metaLabel}>{titleCase(String(warning.id || "diagnostic warning").replace(/_/g, " "))}</div>
+                <div style={styles.scoreContributorSummary}>{warning.issue || warning.expectedBehavior || "Manual review required."}</div>
+              </div>
+              {chip(styles, warning.affectsScoring ? "Affects scoring" : "Diagnostic only", warning.affectsScoring ? "#ff6b6b" : "#ffb020")}
+            </div>
+            <div style={styles.scoringModuleMetaGrid}>
+              <SectionRow label="Affects verdict" value={warning.affectsVerdict ? "Yes" : "No"} styles={styles} />
+              <SectionRow label="Affects scoring" value={warning.affectsScoring ? "Yes" : "No"} styles={styles} />
+              <SectionRow label="Source boundary" value={warning.sourceBoundary || "Unavailable"} styles={styles} />
+              <SectionRow label="Recommended action" value={warning.recommendedAction || "Manual review required."} styles={styles} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function ScoringTransparencyTab({
   analysis,
   scores,
@@ -287,6 +320,8 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
       </Card>
+
+      <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
 
       <div style={styles.scoringLayerGrid}>
         <LayerCard

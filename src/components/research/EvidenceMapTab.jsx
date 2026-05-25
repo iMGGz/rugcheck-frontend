@@ -143,6 +143,44 @@ function buildProvenanceRows({ officialLinks, whitepaperDocs }) {
   return [...linkRows, ...docsRows];
 }
 
+function buildLensEvidenceRows(model) {
+  const lens = model?.resolvedInstitutionalLens || {};
+  return safeArray(lens.providerClassificationEvidence)
+    .slice(0, 8)
+    .map((entry, index) => ({
+      key: `lens-evidence-${index}`,
+      label: `${providerLabel(entry.provider)} ${entry.field || "classification field"}`,
+      value: entry.value || "Unavailable",
+      sourceType: "Provider classification metadata",
+      boundary: "Classification evidence only. Not reviewed proof of legal/economic rights, reserves, backing, redemption, or accrual.",
+    }));
+}
+
+function buildLensSourceBoundaryRows(model) {
+  const lens = model?.resolvedInstitutionalLens || {};
+  return safeArray(lens.sourceBoundary)
+    .slice(0, 6)
+    .map((entry, index) => ({
+      key: `lens-boundary-${index}`,
+      label: "Resolved lens source boundary",
+      value: entry,
+      sourceType: "Boundary notice",
+      boundary: "This boundary defines how provider metadata may be used in the live response.",
+    }));
+}
+
+function buildCalibrationWarningRows(model) {
+  return safeArray(model?.calibrationWarnings)
+    .slice(0, 6)
+    .map((warning, index) => ({
+      key: `calibration-warning-${warning?.id || index}`,
+      label: titleCase(String(warning?.id || "diagnostic warning").replace(/_/g, " ")),
+      value: warning?.issue || warning?.observedBehavior || warning?.recommendedAction || "Manual review required.",
+      sourceType: warning?.affectsScoring ? "Affects scoring" : "Diagnostic warning",
+      boundary: `${warning?.affectsVerdict ? "Affects verdict" : "Does not affect verdict"}; ${warning?.sourceBoundary || "source boundary unavailable"}.`,
+    }));
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -188,6 +226,14 @@ export default function EvidenceMapTab({
 }) {
   const providerRows = buildProviderRows({ sourceStatus, providerDiagnostics, providerHealth });
   const provenanceRows = buildProvenanceRows({ officialLinks, whitepaperDocs });
+  const lensEvidenceRows = buildLensEvidenceRows(model);
+  const lensBoundaryRows = buildLensSourceBoundaryRows(model);
+  const calibrationWarningRows = buildCalibrationWarningRows(model);
+  const lensBoundaryDisplayRows = [
+    ...lensEvidenceRows,
+    ...lensBoundaryRows,
+    ...calibrationWarningRows,
+  ];
   const providerNotes = normalizeRenderableList(meta?.providerNotes).slice(0, 4);
   const coverageSignals = safeArray(evidenceStatusProxy?.items);
 
@@ -211,6 +257,21 @@ export default function EvidenceMapTab({
       </Card>
 
       <div style={styles.advancedGrid}>
+        <Card title="Provider Classification Evidence" subtitle="Lens routing metadata. Not reviewed proof." styles={styles}>
+          {lensBoundaryDisplayRows.length ? lensBoundaryDisplayRows.map((row) => (
+            <div key={row.key} style={styles.evidenceProvenanceRow}>
+              <div style={styles.timelineTitleRow}>
+                <strong style={{ color: "#f4f7ff" }}>{row.label}</strong>
+                {statusChip(styles, row.sourceType, "#7dd3fc")}
+              </div>
+              <div style={styles.timelineSummary}>{row.value}</div>
+              <div style={styles.timelineMeta}>{row.boundary}</div>
+            </div>
+          )) : (
+            <p style={styles.timelineEmptyText}>No provider classification evidence, source-boundary entries, or calibration warnings were attached to the display model.</p>
+          )}
+        </Card>
+
         <Card title="Live Provider Evidence" subtitle="Provider/source rows returned by the current response only." styles={styles}>
           {providerRows.length ? providerRows.slice(0, 8).map((row) => (
             <div key={row.key} style={styles.evidenceProviderRow}>

@@ -2427,10 +2427,28 @@ function questionGroupMatchesLens(questions, lens) {
   if (!lens?.questionGroupId || !safeQuestions.length) return "unknown";
   const group = String(lens.questionGroupId || "").toLowerCase();
   const lensId = String(lens.lensId || "").toLowerCase();
+  const prefixByGroup = {
+    native_benchmark: ["native_"],
+    base_layer_settlement: ["base_layer_"],
+    stablecoin: ["stablecoin_"],
+    wrapped_or_lst: ["wrapped_lst_"],
+    defi_l2_oracle_infra: ["protocol_"],
+    oracle_infrastructure: ["oracle_"],
+    rwa_hybrid: ["rwa_"],
+    rwa_hybrid_infrastructure: ["rwa_infra_"],
+    depin_compute_storage: ["depin_"],
+    payments_settlement_network: ["payments_"],
+    gaming_consumer: ["gaming_"],
+    meme_narrative: ["meme_"],
+    low_coverage_manual_classification: ["low_coverage_"],
+  };
+  const acceptedPrefixes = prefixByGroup[group] || [];
   const mismatches = safeQuestions.filter((question) => {
     const id = String(question?.questionId || "").toLowerCase();
     const questionLens = String(question?.assetClassLens || "").toLowerCase();
-    return !id.includes(group.replace(/_/g, "")) &&
+    if (group === "rwa_hybrid" && id.startsWith("rwa_infra_")) return true;
+    return !acceptedPrefixes.some((prefix) => id.startsWith(prefix)) &&
+      !id.includes(group.replace(/_/g, "")) &&
       !id.includes(group) &&
       questionLens !== lensId &&
       questionLens !== group;
@@ -2523,6 +2541,12 @@ export function buildReviewBundleText({
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
   const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
+  const providerIds = [
+    safeAsset.coingeckoId ? `coingecko: ${safeAsset.coingeckoId}` : null,
+    safeAsset.coinmarketcapId ? `coinmarketcap: ${safeAsset.coinmarketcapId}` : null,
+    safeAsset.cmcId ? `cmc: ${safeAsset.cmcId}` : null,
+  ].filter(Boolean);
+  const identityWarnings = safeArray(calibrationWarnings).filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const lastAnalyzed = safeData.lastAnalyzed || safeData.generatedAt || snapshot?.generatedAt || safeData.snapshot?.generatedAt || safeMeta.generatedAt;
   const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
   const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
@@ -2535,6 +2559,10 @@ export function buildReviewBundleText({
       bundleField("Canonical identity", safeAsset.id || safeAsset.coingeckoId || safeAsset.cmcId || safeAsset.canonicalId),
       bundleField("Chain / network", assetChain),
       bundleField("Contract", assetContract),
+      bundleField("Provider IDs", providerIds.join("; ")),
+      bundleField("Identity confidence", lens?.confidence),
+      "Identity warnings:",
+      bundleList(identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`)),
       bundleField("Last analyzed timestamp", lastAnalyzed),
       bundleField("Final decision / verdictClass", verdictClass),
       bundleField("Verdict label", verdictLabel),
@@ -2757,7 +2785,7 @@ export function buildReviewBundleText({
       "Provider gaps:",
       bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
       "Calibration warnings:",
-      bundleList(safeArray(calibrationWarnings).map((warning) => `${warning.id || "warning"} | ${warning.severity || "severity unavailable"} | ${warning.issue || warning.observedBehavior || "Review required"} | ${warning.recommendedAction || "Manual review required"}`)),
+      bundleList(safeArray(calibrationWarnings).map((warning) => `${warning.id || "warning"} | ${warning.severity || "severity unavailable"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"} | boundary: ${warning.sourceBoundary || "Unavailable"} | ${warning.issue || warning.observedBehavior || "Review required"} | ${warning.recommendedAction || "Manual review required"}`)),
       "Verification checklist:",
       bundleList([
         "Confirm source authenticity, freshness, scope, and contradictions.",

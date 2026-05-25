@@ -1,6 +1,6 @@
 import React from "react";
 import { Card } from "./researchPrimitives";
-import { formatScoreValue, sanitizeSemanticLabel } from "./researchUtils";
+import { formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -101,6 +101,59 @@ function ScoreTile({ label, value, detail, styles }) {
   );
 }
 
+function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
+  const lens = model?.resolvedInstitutionalLens || {};
+  const warnings = safeArray(model?.calibrationWarnings);
+  const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
+  const providerIds = [
+    asset?.coingeckoId ? `CoinGecko: ${asset.coingeckoId}` : null,
+    asset?.coinmarketcapId ? `CoinMarketCap: ${asset.coinmarketcapId}` : null,
+  ].filter(Boolean);
+  if (!lens?.lensId && !identityWarnings.length && !asset?.chain && !asset?.contractAddress && !providerIds.length) return null;
+
+  return (
+    <div style={styles.decisionLayerLegend}>
+      <div style={styles.decisionLayerLegendHeader}>
+        <div>
+          <div style={styles.decisionLayerLegendEyebrow}>Resolved Lens / Identity Guardrail</div>
+          <div style={styles.decisionLayerLegendCopy}>
+            The selected asset identity and provider-grounded lens route the live research workflow. Provider metadata is classification context, not reviewed evidence.
+          </div>
+        </div>
+        <InteractiveActionButton onClick={() => onSelectSection?.("institutional_checklist")} styles={styles}>
+          Inspect lens -&gt;
+        </InteractiveActionButton>
+      </div>
+      <div style={styles.decisionLayerLegendGrid}>
+        <LayerLegendItem
+          title={lens.label || "Resolved lens unavailable"}
+          detail={`Lens: ${lens.lensId || "unavailable"}; question group: ${lens.questionGroupId || "unavailable"}.`}
+          badge={lens.confidence ? `${lens.confidence} confidence` : "Lens pending"}
+          tone="#7dd3fc"
+          styles={styles}
+        />
+        <LayerLegendItem
+          title="Selected identity"
+          detail={`Chain: ${asset?.chain || "unavailable"}; contract: ${asset?.contractAddress || "unavailable"}; providers: ${providerIds.join(", ") || "unavailable"}.`}
+          badge={identityWarnings.length ? "Manual review required" : "Identity context"}
+          tone={identityWarnings.length ? "#ffb020" : "#d5dcec"}
+          styles={styles}
+        />
+        {identityWarnings.slice(0, 1).map((warning) => (
+          <LayerLegendItem
+            key={warning.id}
+            title="Diagnostic warning"
+            detail={warning.issue || warning.recommendedAction || "Identity or variant warning requires review."}
+            badge={warning.affectsScoring ? "Affects scoring" : "Diagnostic only"}
+            tone="#ffb020"
+            styles={styles}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LayerLegendItem({ title, detail, badge, tone, styles }) {
   return (
     <div style={styles.decisionLayerLegendItem}>
@@ -191,7 +244,6 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
           </InteractiveActionButton>
         </div>
       </div>
-
       <div style={styles.decisionScoreStrip}>
         <ScoreTile label="Structural Quality" value={formatScoreValue(model?.overallScore)} detail="Live score bundle" styles={styles} />
         <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
@@ -334,6 +386,8 @@ export default function DecisionHeroCard({
             </div>
           </div>
         </div>
+
+        <IdentityAndLensGuardrail asset={asset} model={model} styles={styles} onSelectSection={onSelectSection} />
 
         {showSupportSections ? <DecisionHeroSupportSections model={model} styles={styles} onSelectSection={onSelectSection} /> : null}
       </Card>

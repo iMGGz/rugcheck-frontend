@@ -1,5 +1,5 @@
 import React from "react";
-import { normalizeEvidenceProxyDisplayLabel } from "./researchUtils";
+import { normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
 
 function RailBadge({ children, tone = "#7dd3fc", styles }) {
   return (
@@ -75,6 +75,38 @@ function EvidenceSignal({ item, styles }) {
   );
 }
 
+function LensIdentityRailSection({ model, displayIdentity, styles }) {
+  const lens = model?.resolvedInstitutionalLens || {};
+  const warnings = safeArray(model?.calibrationWarnings);
+  const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged|lens|mapping/i.test(String(warning?.id || warning?.issue || "")));
+  if (!lens?.lensId && !identityWarnings.length && !displayIdentity?.displayFraming) return null;
+
+  return (
+    <RailSection title="Lens / Identity" badge={lens.confidence ? `${lens.confidence} confidence` : "Review context"} styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Resolved lens</div>
+        <div style={styles.railMiniValue}>{lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable"}</div>
+      </div>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Question group</div>
+        <div style={styles.railMiniValue}>{lens.questionGroupId || "Question group unavailable"}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Provider metadata only</div>
+        <div style={styles.railBoundaryPill}>Source requirement, not evidence</div>
+        <div style={styles.railBoundaryPill}>Identity warnings require manual review</div>
+      </div>
+      {identityWarnings.length ? (
+        <div style={styles.railBoundaryText}>
+          Diagnostic warnings: {identityWarnings.slice(0, 2).map((warning) => warning.id || warning.issue || "warning").join("; ")}.
+        </div>
+      ) : (
+        <div style={styles.railBoundaryText}>No lens or identity diagnostic warning is attached to this live response.</div>
+      )}
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -85,6 +117,7 @@ function MobileRailSummary({
   styles,
 }) {
   const firstEvidenceSignal = evidenceItems[0] ? normalizeEvidenceProxyDisplayLabel(evidenceItems[0]) : null;
+  const resolvedLens = model?.resolvedInstitutionalLens || {};
 
   return (
     <div style={styles.railMobileSummary}>
@@ -107,6 +140,10 @@ function MobileRailSummary({
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Evidence proxy</div>
           <div style={styles.railMiniValue}>{firstEvidenceSignal?.statusLabel || "No live evidence proxy signals attached."}</div>
+        </div>
+        <div style={styles.railMiniCard}>
+          <div style={styles.railMiniLabel}>Resolved lens</div>
+          <div style={styles.railMiniValue}>{resolvedLens.label || "Lens unavailable"}</div>
         </div>
       </div>
       <div style={styles.railBoundaryGrid}>
@@ -186,6 +223,8 @@ export default function AnalysisRightRail({
               <RailBadge styles={styles} tone="#7dd3fc">Evidence proxy: qualitative</RailBadge>
             </div>
           </RailSection>
+
+          <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

@@ -153,7 +153,7 @@ function CalibrationWarningsCard({ warnings, styles }) {
             </div>
             <div style={styles.timelineSummary}>{warning.issue || "Calibration warning requires review."}</div>
             <div style={styles.timelineMeta}>
-              {warning.affectsVerdict ? "May affect verdict semantics" : "Diagnostic only"} - {warning.sourceBoundary || "source boundary unavailable"}
+              {warning.affectsVerdict ? "Affects verdict" : "Diagnostic warning"} - {warning.affectsScoring ? "Affects scoring" : "Does not affect scoring"} - {warning.sourceBoundary || "source boundary unavailable"}
             </div>
             <SectionRow
               label="Expected behavior"
