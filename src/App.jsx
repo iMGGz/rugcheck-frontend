@@ -20,6 +20,7 @@ import AllocationOutcomeCard from "./components/research/AllocationOutcomeCard";
 import EvidenceConfidenceCard from "./components/research/EvidenceConfidenceCard";
 import ThesisFalsificationTab from "./components/research/ThesisFalsificationTab";
 import ScoringTransparencyTab from "./components/research/ScoringTransparencyTab";
+import TokenomicsSupplyIntegrityTab from "./components/research/TokenomicsSupplyIntegrityTab";
 import ThesisDriftTimeline from "./components/research/ThesisDriftTimeline";
 import SearchSelectorPanel from "./components/research/SearchSelectorPanel";
 import RiskFlagsStrip from "./components/research/RiskFlagsStrip";
@@ -80,6 +81,7 @@ const RESEARCH_TABS = [
   { key: "overview", label: "Decision" },
   { key: "thesis_falsification", label: "Thesis Falsification" },
   { key: "institutional_checklist", label: "Institutional Checklist" },
+  { key: "tokenomics", label: "Tokenomics" },
   { key: "evidence_map", label: "Evidence Map" },
   { key: "scoring_transparency", label: "Scoring Transparency" },
   { key: "source_queue", label: "Source Queue" },
@@ -1359,6 +1361,14 @@ export default function App() {
             providerHealth={providerHealth}
             evidenceStatusProxy={evidenceStatusProxy}
             calibrationWarnings={decisionModel.calibrationWarnings}
+            styles={styles}
+          />
+        );
+      case "tokenomics":
+        return (
+          <TokenomicsSupplyIntegrityTab
+            model={decisionModel}
+            asset={asset}
             styles={styles}
           />
         );

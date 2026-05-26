@@ -250,6 +250,7 @@ export default function AnalysisRightRail({
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],
     ["institutional_checklist", "Institutional Checklist"],
+    ["tokenomics", "Tokenomics"],
     ["evidence_map", "Evidence Map"],
     ["scoring_transparency", "Scoring Transparency"],
     ["source_queue", "Source Queue"],

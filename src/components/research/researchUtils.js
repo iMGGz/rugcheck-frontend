@@ -190,6 +190,28 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
     supplySummary: safeObject(tokenomics.supplySummary),
     sourceContradictions: safeArray(tokenomics.sourceContradictions),
     providerDisagreements: safeArray(tokenomics.providerDisagreements),
+    providerContracts: safeArray(tokenomics.providerContracts),
+    providerPlatforms: safeArray(tokenomics.providerPlatforms),
+    providerMarketCaps: safeArray(tokenomics.providerMarketCaps),
+    providerFdvs: safeArray(tokenomics.providerFdvs),
+    providerVolumes: safeArray(tokenomics.providerVolumes),
+    providerSupplyValues: safeArray(tokenomics.providerSupplyValues),
+    providerTimestamps: safeArray(tokenomics.providerTimestamps),
+    providerFieldAudit: safeArray(tokenomics.providerFieldAudit).map((entry) => ({
+      ...safeObject(entry),
+      fieldsAvailable: safeArray(entry?.fieldsAvailable),
+      fieldsMissing: safeArray(entry?.fieldsMissing),
+      sourceBoundary: safeArray(entry?.sourceBoundary),
+    })),
+    coingeckoSupply: tokenomics.coingeckoSupply ? safeObject(tokenomics.coingeckoSupply) : null,
+    coinmarketcapSupply: tokenomics.coinmarketcapSupply ? safeObject(tokenomics.coinmarketcapSupply) : null,
+    formulaOutputs: safeArray(tokenomics.formulaOutputs).map((formula) => ({
+      ...safeObject(formula),
+      inputs: safeArray(formula?.inputs),
+      missingInputs: safeArray(formula?.missingInputs),
+      sourceInputs: safeArray(formula?.sourceInputs),
+      sourceBoundary: safeArray(formula?.sourceBoundary),
+    })),
     reviewedSources: safeArray(tokenomics.reviewedSources),
     sourceRequirements: safeArray(tokenomics.sourceRequirements),
     manualReviewTriggers: safeArray(tokenomics.manualReviewTriggers),
@@ -203,6 +225,8 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
     institutionalQuestions: safeArray(tokenomics.institutionalQuestions).map((question) => ({
       ...safeObject(question),
       evidenceUsed: safeArray(question?.evidenceUsed),
+      dataFieldsUsed: safeArray(question?.dataFieldsUsed),
+      formulaOutputsUsed: safeArray(question?.formulaOutputsUsed),
       missingEvidence: safeArray(question?.missingEvidence),
       whatWouldChange: safeArray(question?.whatWouldChange),
       sourceBoundary: safeArray(question?.sourceBoundary),
@@ -3000,10 +3024,14 @@ function bundleQuestions(questions = []) {
     `  answerStatus: ${bundleValue(question?.answerStatus)}`,
     `  verdictImpact: ${bundleValue(question?.verdictImpact)}`,
     `  currentMvpCapability: ${bundleValue(question?.currentMvpCapability)}`,
+    `  shortAnswer: ${bundleValue(question?.shortAnswer)}`,
     `  answerSummary: ${bundleValue(question?.answerSummary)}`,
     `  supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Unavailable in current frontend model"}`,
+    `  dataFieldsUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  formulaOutputsUsed: ${normalizeRenderableList(question?.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
     `  missingEvidence: ${normalizeRenderableList(question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
     `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Unavailable in current frontend model"}`,
+    `  impactOnScoreOrConfidence: ${bundleValue(question?.impactOnScoreOrConfidence)}`,
     `  whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
     `  scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
     `  sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
@@ -3181,6 +3209,39 @@ export function buildReviewBundleText({
   const tokenomicsHighFdvWithoutDilutionNote = tokenomicsSupplyIntegrity
     && Number(tokenomicsSupplyIntegrity.fdvMarketCapRatio) >= 3
     && ![...safeArray(tokenomicsSupplyIntegrity.softBlockers), ...safeArray(tokenomicsSupplyIntegrity.negativeSignals)].some((item) => /dilution|fdv|float/i.test(item));
+  const tokenomicsProviderRowsMissing = tokenomicsSupplyIntegrity
+    && [tokenomicsSupplyIntegrity.currentPrice, tokenomicsSupplyIntegrity.marketCap, tokenomicsSupplyIntegrity.fdv, tokenomicsSupplyIntegrity.circulatingSupply, tokenomicsSupplyIntegrity.maxSupplyValue].some((value) => value !== null && value !== undefined)
+    && ![
+      ...safeArray(tokenomicsSupplyIntegrity.providerMarketCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.providerFdvs),
+      ...safeArray(tokenomicsSupplyIntegrity.providerVolumes),
+      ...safeArray(tokenomicsSupplyIntegrity.providerSupplyValues),
+    ].length;
+  const tokenomicsMissingRatioDespiteValues = tokenomicsSupplyIntegrity
+    && tokenomicsSupplyIntegrity.fdv !== null
+    && tokenomicsSupplyIntegrity.fdv !== undefined
+    && tokenomicsSupplyIntegrity.marketCap
+    && (tokenomicsSupplyIntegrity.fdvMarketCapRatio === null || tokenomicsSupplyIntegrity.fdvMarketCapRatio === undefined);
+  const tokenomicsMissingDilutionDespiteValues = tokenomicsSupplyIntegrity
+    && tokenomicsSupplyIntegrity.circulatingSupply !== null
+    && tokenomicsSupplyIntegrity.circulatingSupply !== undefined
+    && tokenomicsSupplyIntegrity.maxSupplyValue
+    && (tokenomicsSupplyIntegrity.remainingDilutionPercent === null || tokenomicsSupplyIntegrity.remainingDilutionPercent === undefined);
+  const tokenomicsFormulaOutputs = safeArray(tokenomicsSupplyIntegrity?.formulaOutputs);
+  const tokenomicsFormulaOutputsMissing = tokenomicsSupplyIntegrity
+    && [tokenomicsSupplyIntegrity.marketCap, tokenomicsSupplyIntegrity.fdv, tokenomicsSupplyIntegrity.circulatingSupply, tokenomicsSupplyIntegrity.maxSupplyValue].some((value) => value !== null && value !== undefined)
+    && !tokenomicsFormulaOutputs.length;
+  const tokenomicsQuestionsMissingLinkage = tokenomicsSupplyIntegrity
+    && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).length
+    && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).some((question) => !safeArray(question.dataFieldsUsed).length && !safeArray(question.formulaOutputsUsed).length);
+  const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
+    && [
+      ...safeArray(tokenomicsSupplyIntegrity.providerMarketCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.providerFdvs),
+      ...safeArray(tokenomicsSupplyIntegrity.providerVolumes),
+      ...safeArray(tokenomicsSupplyIntegrity.providerSupplyValues),
+    ].some((entry) => !entry?.boundary && !safeArray(entry?.sourceBoundary).length);
+  const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
   const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
@@ -3391,25 +3452,37 @@ export function buildReviewBundleText({
       "Institutional questions:",
       bundleQuestions(questions),
     ]),
-    bundleSection("6A. Tokenomics Dilution & Supply Integrity", [
+    bundleSection("6A. Tokenomics / Supply Integrity Tab Mirror", [
+      bundleField("Dedicated tab visible", tokenomicsSupplyIntegrity ? "yes - Tokenomics tab mirrors this section" : "unknown"),
       bundleField("Tokenomics integrity score", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? null : `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`),
       bundleField("Explanation summary", tokenomicsSupplyIntegrity?.explanationSummary),
       bundleField("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
       bundleField("Supply summary", tokenomicsSupplyIntegrity?.supplySummary?.summary),
+      bundleField("Current price", tokenomicsSupplyIntegrity?.currentPrice),
+      bundleField("24h volume", tokenomicsSupplyIntegrity?.volume24h),
       bundleField("Max supply status", tokenomicsSupplyIntegrity?.maxSupplyStatus),
       bundleField("Max supply value", tokenomicsSupplyIntegrity?.maxSupplyValue),
       bundleField("Max supply method", tokenomicsSupplyIntegrity?.maxSupplyMethod),
       bundleField("Circulating / total / max", `${bundleValue(tokenomicsSupplyIntegrity?.circulatingSupply)} / ${bundleValue(tokenomicsSupplyIntegrity?.totalSupply)} / ${bundleValue(tokenomicsSupplyIntegrity?.maxSupplyValue)}`),
       bundleField("Market cap / FDV", `${bundleValue(tokenomicsSupplyIntegrity?.marketCap)} / ${bundleValue(tokenomicsSupplyIntegrity?.fdv)}`),
+      bundleField("Market cap / FDV method", `${bundleValue(tokenomicsSupplyIntegrity?.marketCapMethod)} / ${bundleValue(tokenomicsSupplyIntegrity?.fdvMethod)}`),
       bundleField("FDV / market cap ratio", tokenomicsSupplyIntegrity?.fdvMarketCapRatio),
       bundleField("Circulating percent of max", tokenomicsSupplyIntegrity?.circulatingPercentOfMax),
       bundleField("Remaining dilution percent", tokenomicsSupplyIntegrity?.remainingDilutionPercent),
+      bundleField("Supply gap total minus circulating", tokenomicsSupplyIntegrity?.supplyGapTotalMinusCirculating),
+      bundleField("Supply gap max minus circulating", tokenomicsSupplyIntegrity?.supplyGapMaxMinusCirculating),
+      bundleField("FDV minus market cap", tokenomicsSupplyIntegrity?.fdvMinusMarketCap),
+      bundleField("Volume / market cap ratio", tokenomicsSupplyIntegrity?.volumeMarketCapRatio),
+      bundleField("Self-reported CMC circulating / market cap", `${bundleValue(tokenomicsSupplyIntegrity?.selfReportedCirculatingSupply)} / ${bundleValue(tokenomicsSupplyIntegrity?.selfReportedMarketCap)}`),
+      bundleField("Derived market cap / FDV", `${bundleValue(tokenomicsSupplyIntegrity?.derivedMarketCap)} / ${bundleValue(tokenomicsSupplyIntegrity?.derivedFdv)}`),
       bundleField("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
       bundleField("Next unlock", `${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockDate)} | percent: ${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockPercent)} | USD: ${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockUsdValue)}`),
       bundleField("Unlock / volume ratio", tokenomicsSupplyIntegrity?.unlockToVolumeRatio),
       bundleField("Unlock / liquidity ratio", tokenomicsSupplyIntegrity?.unlockToLiquidityRatio),
       bundleField("Unlock / market cap ratio", tokenomicsSupplyIntegrity?.unlockToMarketCap),
+      bundleField("Future dilution risk", tokenomicsSupplyIntegrity?.futureDilutionRisk),
       bundleField("Emission policy status", tokenomicsSupplyIntegrity?.emissionPolicyStatus),
+      bundleField("Annual inflation / annual emissions / net issuance", `${bundleValue(tokenomicsSupplyIntegrity?.annualInflationEstimate)} / ${bundleValue(tokenomicsSupplyIntegrity?.annualizedEmissions)} / ${bundleValue(tokenomicsSupplyIntegrity?.netIssuanceAfterBurn)}`),
       bundleField("Mint authority status", tokenomicsSupplyIntegrity?.mintAuthorityStatus),
       bundleField("Admin control status", tokenomicsSupplyIntegrity?.adminControlStatus),
       bundleField("Governance supply-change risk", tokenomicsSupplyIntegrity?.governanceSupplyChangeRisk),
@@ -3417,13 +3490,37 @@ export function buildReviewBundleText({
       bundleField("Burn mechanism status", tokenomicsSupplyIntegrity?.burnMechanismStatus),
       bundleField("Burn materiality", tokenomicsSupplyIntegrity?.burnMateriality),
       bundleField("Buyback/burn status", tokenomicsSupplyIntegrity?.buybackBurnStatus),
+      bundleField("Buyback/burn coverage", tokenomicsSupplyIntegrity?.buybackBurnCoverage),
+      bundleField("Concentration fields", `treasury=${bundleValue(tokenomicsSupplyIntegrity?.treasurySupplyConcentration)}; vestingRecipients=${bundleValue(tokenomicsSupplyIntegrity?.vestingRecipientConcentration)}; topWallet=${bundleValue(tokenomicsSupplyIntegrity?.topWalletConcentration)}`),
       bundleField("Tokenholder value capture status", tokenomicsSupplyIntegrity?.tokenholderValueCaptureStatus),
       bundleField("Token necessity status", tokenomicsSupplyIntegrity?.tokenNecessityStatus),
+      bundleField("Accrual ratios", `tokenholder=${bundleValue(tokenomicsSupplyIntegrity?.tokenholderAccrualRatio)}; feeRevenue=${bundleValue(tokenomicsSupplyIntegrity?.feeRevenueCaptureRatio)}; protocolRevenueToTokenValue=${bundleValue(tokenomicsSupplyIntegrity?.protocolRevenueToTokenValue)}`),
       bundleField("Staking reward source", tokenomicsSupplyIntegrity?.stakingRewardSource),
+      "Provider supply snapshots:",
+      bundleList([
+        tokenomicsSupplyIntegrity?.coingeckoSupply ? `CoinGecko: price=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.currentPrice)}; mcap=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.marketCap)}; fdv=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.fdv)}; volume=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.volume24h)}; circ/total/max=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.circulatingSupply)}/${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.totalSupply)}/${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.maxSupply)}; timestamp=${bundleValue(tokenomicsSupplyIntegrity.coingeckoSupply.timestamp)}; boundary=${safeArray(tokenomicsSupplyIntegrity.coingeckoSupply.sourceBoundary).join(", ")}` : null,
+        tokenomicsSupplyIntegrity?.coinmarketcapSupply ? `CoinMarketCap: price=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.currentPrice)}; mcap=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.marketCap)}; fdv=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.fdv)}; volume=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.volume24h)}; circ/total/max=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.circulatingSupply)}/${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.totalSupply)}/${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.maxSupply)}; selfReported=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.selfReportedCirculatingSupply)}/${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.selfReportedMarketCap)}; timestamp=${bundleValue(tokenomicsSupplyIntegrity.coinmarketcapSupply.timestamp)}; boundary=${safeArray(tokenomicsSupplyIntegrity.coinmarketcapSupply.sourceBoundary).join(", ")}` : null,
+      ].filter(Boolean)),
       "Source contradictions:",
       bundleList(tokenomicsSupplyIntegrity?.sourceContradictions),
       "Provider disagreements:",
       bundleList(tokenomicsSupplyIntegrity?.providerDisagreements),
+      "Provider numeric rows:",
+      bundleList([
+        ...safeArray(tokenomicsSupplyIntegrity?.providerMarketCaps).map((entry) => `${entry.provider} marketCap=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerFdvs).map((entry) => `${entry.provider} fdv=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerVolumes).map((entry) => `${entry.provider} volume24h=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerSupplyValues).map((entry) => `${entry.provider} ${entry.field}=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
+      ]),
+      "Provider contracts/platforms:",
+      bundleList([
+        ...safeArray(tokenomicsSupplyIntegrity?.providerContracts).map((entry) => `${entry.provider}: ${bundleValue(entry.network)} ${bundleValue(entry.contractAddress)} (${entry.sourcePath})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerPlatforms).map((entry) => `${entry.provider}: ${entry.platform} ${bundleValue(entry.contractAddress)} (${entry.sourcePath})`),
+      ]),
+      "Provider field audit:",
+      bundleList(safeArray(tokenomicsSupplyIntegrity?.providerFieldAudit).map((entry) => `${entry.provider}: available=${safeArray(entry.fieldsAvailable).join(", ") || "none"}; missing=${safeArray(entry.fieldsMissing).join(", ") || "none"}; boundary=${safeArray(entry.sourceBoundary).join(", ") || "provider reported"}`)),
+      "Formula outputs:",
+      bundleList(tokenomicsFormulaOutputs.map((formula) => `${formula.formulaId}: ${formula.display || "Unavailable"} | status=${formula.status || "unknown"} | formula=${formula.formula || "Unavailable"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"} | requirement=${formula.sourceRequirement || "Unavailable"} | boundary=${safeArray(formula.sourceBoundary).join(", ") || "Unavailable"}`)),
       "Source requirements:",
       bundleList(tokenomicsSupplyIntegrity?.sourceRequirements),
       "Manual review triggers:",
@@ -3629,6 +3726,15 @@ export function buildReviewBundleText({
       bundleField("Mint/admin controls unresolved without warning", yesNoUnknown(tokenomicsMintAdminWithoutWarning)),
       bundleField("Provider supply contradiction without warning", yesNoUnknown(tokenomicsContradictionWithoutWarning)),
       bundleField("High FDV/market-cap without dilution note", yesNoUnknown(tokenomicsHighFdvWithoutDilutionNote)),
+      bundleField("Provider numeric rows missing despite tokenomics values", yesNoUnknown(tokenomicsProviderRowsMissing)),
+      bundleField("Tokenomics tab missing while tokenomics object exists", tokenomicsSupplyIntegrity ? "no" : "unknown"),
+      bundleField("Formula outputs missing while numeric inputs exist", yesNoUnknown(tokenomicsFormulaOutputsMissing)),
+      bundleField("Q&A answers missing formula/data linkage", yesNoUnknown(tokenomicsQuestionsMissingLinkage)),
+      bundleField("FDV/market-cap ratio missing despite valid values", yesNoUnknown(tokenomicsMissingRatioDespiteValues)),
+      bundleField("Remaining dilution missing despite supply values", yesNoUnknown(tokenomicsMissingDilutionDespiteValues)),
+      bundleField("Provider-reported values missing boundary label", yesNoUnknown(tokenomicsProviderBoundaryMissing)),
+      bundleField("Score/caps distinguish diagnostic-only from final scoring", safeArray(tokenomicsSupplyIntegrity?.sourceBoundary).includes("diagnostic_only_not_scoring_active") ? "yes" : "unknown"),
+      bundleField("NaN/Infinity/undefined visible in tokenomics object", yesNoUnknown(tokenomicsUnsafeNumericText)),
       bundleField("Native asset wrongly penalized for no contract", "unknown"),
       bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(
         ["WRAPPED_ASSET", "STABLECOIN_SETTLEMENT", "LST_STAKING_DERIVATIVE", "RWA_HYBRID_ASSET"].includes(lens?.lensId)
