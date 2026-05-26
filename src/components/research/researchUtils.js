@@ -3269,6 +3269,21 @@ export function buildReviewBundleText({
       ...safeArray(assetIdentityResolution.chainWarnings),
       ...safeArray(assetIdentityResolution.contractWarnings),
     ].some((entry) => /wrapped|bridged|secondary variant|native asset fundamentals do not automatically transfer/i.test(String(entry)));
+  const issuerNativeStablecoinVariantWarningLeak = lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && assetIdentityResolution?.representationType === "issuer_native_multichain_stablecoin"
+    && assetIdentityResolution?.bridgedOrWrappedStatus === "none_detected"
+    && safeArray(calibrationWarnings).some((warning) => warning?.id === "wrapped_or_bridged_variant_identity_review");
+  const rwaProtocolProductChainCanonicalOverride = ["RWA_HYBRID_ASSET", "RWA_HYBRID_INFRASTRUCTURE"].includes(lens?.lensId)
+    && /xrp ledger/i.test(String(assetIdentityResolution?.canonicalNetworkCandidate || ""))
+    && /ethereum/i.test(String(assetIdentityResolution?.analyzedNetwork || assetChain || ""));
+  const memeEvidenceRoutedManual = ["AMBIGUOUS_MANUAL_CLASSIFICATION", "GENERAL_LOW_COVERAGE"].includes(lens?.lensId)
+    && /meme|narrative/i.test([
+      safeAsset.category,
+      safeAsset.narrative,
+      displayIdentity?.displayFraming,
+      displayIdentity?.displayAssetClass,
+      safeArray(lens?.matchedSignals).join(" "),
+    ].join(" "));
   const tokenomicsCrossScopeDisagreementPollution = tokenomicsSupplyIntegrity
     && safeArray(tokenomicsSupplyIntegrity.providerDisagreements).some((entry) => /dexscreener/i.test(String(entry)))
     && safeArray(tokenomicsSupplyIntegrity.providerScopeNotes).some((entry) => /pair-level|scope differs/i.test(String(entry)));
@@ -3327,6 +3342,12 @@ export function buildReviewBundleText({
     && safeArray(tokenomicsSupplyIntegrity.confidenceCaps).length === 0
     && safeArray(tokenomicsSupplyIntegrity.scoreCaps).length === 0
     && safeArray(tokenomicsSupplyIntegrity.hardBlockers).length === 0;
+  const lstScoreCollapsedOnMissingEvidence = tokenomicsSupplyIntegrity
+    && lens?.lensId === "LST_STAKING_DERIVATIVE"
+    && Number(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore) < 40
+    && !safeArray(tokenomicsSupplyIntegrity.hardBlockers).some((entry) => /confirmed|critical|honeypot|exploit/i.test(String(entry)));
+  const wbtcLikelyBridgedSelection = /wbtc/i.test(String(safeAsset.symbol || safeAsset.name || ""))
+    && (/bridged/i.test(String(safeAsset.name || "")) || assetIdentityResolution?.representationType === "bridged_asset" || assetIdentityResolution?.wrongAssetRisk === "high");
   const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
@@ -3843,10 +3864,16 @@ export function buildReviewBundleText({
       bundleField("NaN/Infinity/undefined visible in tokenomics object", yesNoUnknown(tokenomicsUnsafeNumericText)),
       bundleField("Native asset wrongly penalized for no contract", yesNoUnknown(tokenomicsNativeNoContractPenalty)),
       bundleField("Native benchmark penalized for missing ERC-20 unlocks", yesNoUnknown(tokenomicsNativeUnlockPenalty)),
+      bundleField("Issuer-native stablecoin has wrapped/bridged warning contradiction", yesNoUnknown(issuerNativeStablecoinVariantWarningLeak || tokenomicsCanonicalStablecoinWrongVariant)),
+      bundleField("RWA protocol token canonical network overridden by product/partner chain", yesNoUnknown(rwaProtocolProductChainCanonicalOverride)),
+      bundleField("Meme evidence routed to ambiguous manual classification", yesNoUnknown(memeEvidenceRoutedManual)),
       bundleField("Stablecoin hard-cap dilution treated as primary risk", yesNoUnknown(tokenomicsStablecoinHardCapPrimary)),
       bundleField("Protocol success treated as tokenholder accrual", yesNoUnknown(tokenomicsProtocolSuccessAsAccrual)),
       bundleField("Migrated token lacks canonical/migration source requirement", yesNoUnknown(tokenomicsMigrationWithoutRequirement)),
       bundleField("Meme asset routed to manual classification despite meme lens", yesNoUnknown(tokenomicsMemeManualDespiteLens)),
+      bundleField("LST score collapses from missing evidence without confirmed failure", yesNoUnknown(lstScoreCollapsedOnMissingEvidence)),
+      bundleField("WBTC-like selection appears bridged/high-risk", yesNoUnknown(wbtcLikelyBridgedSelection)),
+      bundleField("Canonical and bridged/wrapped variants visually distinguishable in candidate UI", "yes - candidate cards show representation and wrong-asset risk when backend returns identitySummary"),
       bundleField("tokenomicsIntegrityScore high despite unresolved critical caps", yesNoUnknown(tokenomicsHighScoreWithCriticalCaps)),
       bundleField("tokenomicsIntegrityScore too punitive for not-applicable fields", yesNoUnknown(tokenomicsTooPunitiveForNotApplicable)),
       bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(

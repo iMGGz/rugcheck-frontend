@@ -64,6 +64,8 @@ function candidateIdentityChips(candidate) {
   return [
     ...(summary.badges || []),
     summary.networkLabel ? `Network: ${summary.networkLabel}` : null,
+    summary.representationType ? `Representation: ${titleCase(summary.representationType)}` : null,
+    summary.wrongAssetRisk ? `Wrong-asset risk: ${summary.wrongAssetRisk}` : null,
     summary.confidence ? `Identity confidence: ${summary.confidence}` : null,
   ].filter(Boolean).slice(0, 5);
 }
