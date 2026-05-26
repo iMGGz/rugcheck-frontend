@@ -3285,6 +3285,48 @@ export function buildReviewBundleText({
   const tokenomicsAmbiguousVerifiedControlLabels = false;
   const tokenomicsContractListTooLong = tokenomicsSupplyIntegrity
     && safeArray(assetIdentityResolution?.allKnownContracts).length > 5;
+  const nativeTokenomicsLens = ["NATIVE_MONETARY_BENCHMARK", "BASE_LAYER_SETTLEMENT", "PAYMENTS_SETTLEMENT"].includes(lens?.lensId);
+  const tokenomicsNativeNoContractPenalty = tokenomicsSupplyIntegrity
+    && nativeTokenomicsLens
+    && [
+      ...safeArray(tokenomicsSupplyIntegrity.scoreCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.confidenceCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.manualReviewTriggers),
+    ].some((item) => /contract scan|erc-20|evm contract|mint\/admin/i.test(String(item)));
+  const tokenomicsNativeUnlockPenalty = tokenomicsSupplyIntegrity
+    && nativeTokenomicsLens
+    && safeArray(tokenomicsSupplyIntegrity.confidenceCaps).some((item) => /Unlock schedule missing/i.test(String(item)));
+  const tokenomicsStablecoinHardCapPrimary = tokenomicsSupplyIntegrity
+    && lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).some((question) =>
+      ["tokenomics_max_supply_credibility", "tokenomics_remaining_dilution"].includes(question.questionId)
+      && question.answerStatus !== "not_applicable",
+    );
+  const tokenomicsProtocolSuccessAsAccrual = tokenomicsSupplyIntegrity
+    && lens?.lensId === "DEFI_PROTOCOL_TOKEN"
+    && tokenomicsSupplyIntegrity.tokenholderValueCaptureStatus === "provider_reported"
+    && ![
+      ...safeArray(tokenomicsSupplyIntegrity.sourceRequirements),
+      ...safeArray(tokenomicsSupplyIntegrity.confidenceCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.manualReviewTriggers),
+    ].some((item) => /fee switch|fee routing|buyback|burn|tokenholder|accrual|governance/i.test(String(item)));
+  const tokenomicsMigrationWithoutRequirement = tokenomicsSupplyIntegrity
+    && assetIdentityResolution?.migrationStatus
+    && assetIdentityResolution.migrationStatus !== "none_detected"
+    && !safeArray(tokenomicsSupplyIntegrity.sourceRequirements).some((item) => /migration|canonical|supported contract|old\/new/i.test(String(item)));
+  const tokenomicsMemeManualDespiteLens = lens?.lensId === "MEME_NARRATIVE" && /manual classification|low-coverage/i.test(String(displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || ""));
+  const tokenomicsHighScoreWithCriticalCaps = tokenomicsSupplyIntegrity
+    && Number(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore) >= 80
+    && [
+      ...safeArray(tokenomicsSupplyIntegrity.hardBlockers),
+      ...safeArray(tokenomicsSupplyIntegrity.scoreCaps),
+      ...safeArray(tokenomicsSupplyIntegrity.confidenceCaps),
+    ].length > 0;
+  const tokenomicsTooPunitiveForNotApplicable = tokenomicsSupplyIntegrity
+    && Number(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore) < 50
+    && safeArray(tokenomicsSupplyIntegrity.confidenceCaps).length === 0
+    && safeArray(tokenomicsSupplyIntegrity.scoreCaps).length === 0
+    && safeArray(tokenomicsSupplyIntegrity.hardBlockers).length === 0;
   const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
@@ -3799,7 +3841,14 @@ export function buildReviewBundleText({
       bundleField("Tokenomics exact numbers/formulas/Q&A present after cleanup", tokenomicsSupplyIntegrity ? yesNoUnknown(Boolean(tokenomicsFormulaOutputs.length && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).length)) : "unknown"),
       bundleField("Review Bundle mirrors Tokenomics tab", tokenomicsSupplyIntegrity ? "yes" : "unknown"),
       bundleField("NaN/Infinity/undefined visible in tokenomics object", yesNoUnknown(tokenomicsUnsafeNumericText)),
-      bundleField("Native asset wrongly penalized for no contract", "unknown"),
+      bundleField("Native asset wrongly penalized for no contract", yesNoUnknown(tokenomicsNativeNoContractPenalty)),
+      bundleField("Native benchmark penalized for missing ERC-20 unlocks", yesNoUnknown(tokenomicsNativeUnlockPenalty)),
+      bundleField("Stablecoin hard-cap dilution treated as primary risk", yesNoUnknown(tokenomicsStablecoinHardCapPrimary)),
+      bundleField("Protocol success treated as tokenholder accrual", yesNoUnknown(tokenomicsProtocolSuccessAsAccrual)),
+      bundleField("Migrated token lacks canonical/migration source requirement", yesNoUnknown(tokenomicsMigrationWithoutRequirement)),
+      bundleField("Meme asset routed to manual classification despite meme lens", yesNoUnknown(tokenomicsMemeManualDespiteLens)),
+      bundleField("tokenomicsIntegrityScore high despite unresolved critical caps", yesNoUnknown(tokenomicsHighScoreWithCriticalCaps)),
+      bundleField("tokenomicsIntegrityScore too punitive for not-applicable fields", yesNoUnknown(tokenomicsTooPunitiveForNotApplicable)),
       bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(
         ["WRAPPED_ASSET", "STABLECOIN_SETTLEMENT", "LST_STAKING_DERIVATIVE", "RWA_HYBRID_ASSET"].includes(lens?.lensId)
         && !safeArray(tokenomicsSupplyIntegrity.sourceRequirements).some((item) => /reserve|redemption|mint|burn|custodian|legal|collateral|withdrawal/i.test(item)),
