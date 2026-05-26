@@ -38,6 +38,27 @@ function status(value) {
   return titleCase(value || "Unavailable");
 }
 
+function controlStatusLabel(value, kind, lensId) {
+  const stablecoin = lensId === "STABLECOIN_SETTLEMENT";
+  if (stablecoin && kind === "mint") {
+    if (value === "requires_manual_review") return "present / issuer-controlled / requires policy review";
+    if (value === "verified") return "not detected on selected contract; issuer mint/redeem still requires review";
+    if (value === "not_applicable") return "not applicable to selected scan";
+    return "unknown / requires issuer policy review";
+  }
+  if (stablecoin && kind === "admin") {
+    if (value === "requires_manual_review") return "present / requires policy review";
+    if (value === "verified") return "not detected on selected contract; freeze/admin policy still requires review";
+    if (value === "not_applicable") return "not applicable to selected scan";
+    return "unknown / requires policy review";
+  }
+  if (kind === "mint" && value === "verified") return "selected contract reported non-mintable";
+  if (kind === "admin" && value === "verified") return "owner/admin risk not detected on selected contract";
+  if (value === "requires_manual_review") return "detected / requires review";
+  if (value === "not_applicable") return "not applicable";
+  return status(value);
+}
+
 function compactList(items, mapper = (item) => item) {
   return safeArray(items).map(mapper).filter(Boolean);
 }
@@ -74,6 +95,12 @@ function ProviderComparison({ tokenomics, styles }) {
     tokenomics.coingeckoSupply,
     tokenomics.coinmarketcapSupply,
   ].filter(Boolean);
+  const localRows = [
+    ...safeArray(tokenomics.providerMarketCaps),
+    ...safeArray(tokenomics.providerFdvs),
+    ...safeArray(tokenomics.providerVolumes),
+    ...safeArray(tokenomics.providerSupplyValues),
+  ].filter((entry) => entry?.scope === "pair_liquidity_local");
 
   if (!snapshots.length) {
     return (
@@ -114,44 +141,105 @@ function ProviderComparison({ tokenomics, styles }) {
         ))}
       </div>
       <ListBlock title="Provider disagreements" items={tokenomics.providerDisagreements} emptyText="No material provider disagreement was attached." color="#f9d976" styles={styles} />
+      <ListBlock title="Provider scope notes" items={tokenomics.providerScopeNotes} emptyText="No cross-scope provider note was attached." color="#d5dcec" styles={styles} />
+      <ListBlock
+        title="Liquidity / Pair Context"
+        items={compactList(localRows, (entry) => `${entry.provider} ${entry.field}: ${entry.field?.toLowerCase().includes("supply") ? displayNumber(entry.value) : displayUsd(entry.value)} (${entry.sourcePath}; ${entry.scope})`)}
+        emptyText="No pair-level liquidity context attached."
+        color="#9bd7ff"
+        styles={styles}
+      />
     </Card>
   );
 }
 
 function FormulaPanel({ tokenomics, styles }) {
   const formulas = safeArray(tokenomics.formulaOutputs);
-  return (
-    <Card title="Formula / Derived Metrics" subtitle="Backend-computed formula objects with inputs, status, provenance, and missing-input states." styles={styles}>
-      {formulas.length ? (
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          {formulas.map((formula) => (
-            <div key={formula.formulaId || formula.label} style={{
-              border: "1px solid rgba(148, 163, 184, 0.16)",
-              borderRadius: 16,
-              padding: "0.85rem",
-              background: "rgba(6, 12, 24, 0.32)",
-            }}>
-              <SectionRow label={formula.label || "Formula"} value={formula.display || "Unavailable"} styles={styles} />
-              <SectionRow label="Formula" value={formula.formula || "Unavailable"} styles={styles} />
-              <SectionRow label="Status / method" value={`${status(formula.status)} / ${status(formula.method)}`} styles={styles} />
-              <ListBlock
-                title="Inputs"
-                items={compactList(formula.inputs, (entry) => `${entry.name}: ${displayNumber(entry.value)} (${entry.sourcePath || "source unavailable"})`)}
-                emptyText="No formula inputs attached."
-                color="#d5dcec"
-                styles={styles}
-              />
-              <ListBlock title="Missing inputs" items={formula.missingInputs} emptyText="No missing inputs for this formula." color="#f9d976" styles={styles} />
-              <SectionRow label="Source requirement" value={formula.sourceRequirement || "Unavailable"} styles={styles} />
-              <ListBlock title="Boundary" items={formula.sourceBoundary} emptyText="No formula boundary attached." color="#9bd7ff" styles={styles} />
-            </div>
-          ))}
+  const primaryIds = new Set([
+    "fdv_market_cap_ratio",
+    "remaining_dilution",
+    "circulating_percent_of_max",
+    "supply_gap_total_minus_circulating",
+    "max_supply_gap",
+    "unlock_volume_ratio",
+    "unlock_market_cap_ratio",
+    "net_issuance",
+  ]);
+  const primary = formulas.filter((formula) => primaryIds.has(formula.formulaId));
+  const unavailable = formulas.filter((formula) => formula.status !== "computed" && !primaryIds.has(formula.formulaId));
+  const advanced = formulas.filter((formula) => formula.status === "computed" && !primaryIds.has(formula.formulaId));
+  const FormulaRows = ({ rows }) => (
+    <div style={{ display: "grid", gap: "0.75rem" }}>
+      {rows.map((formula) => (
+        <div key={formula.formulaId || formula.label} style={{
+          border: "1px solid rgba(148, 163, 184, 0.16)",
+          borderRadius: 16,
+          padding: "0.85rem",
+          background: "rgba(6, 12, 24, 0.32)",
+        }}>
+          <SectionRow label={formula.label || "Formula"} value={formula.display || "Unavailable"} styles={styles} />
+          <SectionRow label="Formula" value={formula.formula || "Unavailable"} styles={styles} />
+          <SectionRow label="Status / method" value={`${status(formula.status)} / ${status(formula.method)}`} styles={styles} />
+          <ListBlock
+            title="Inputs"
+            items={compactList(formula.inputs, (entry) => `${entry.name}: ${displayNumber(entry.value)} (${entry.sourcePath || "source unavailable"})`)}
+            emptyText="No formula inputs attached."
+            color="#d5dcec"
+            styles={styles}
+          />
+          <ListBlock title="Missing inputs" items={formula.missingInputs} emptyText="No missing inputs for this formula." color="#f9d976" styles={styles} />
+          <SectionRow label="Source requirement" value={formula.sourceRequirement || "Unavailable"} styles={styles} />
         </div>
+      ))}
+    </div>
+  );
+  return (
+    <Card title="Formula Outputs" subtitle="Primary formulas first. Advanced and unavailable formulas remain available without taking over the page." styles={styles}>
+      {formulas.length ? (
+        <>
+          <FormulaRows rows={primary.length ? primary : formulas.slice(0, 6)} />
+          {advanced.length ? (
+            <details style={{ marginTop: 14 }}>
+              <summary style={{ color: "#9bd7ff", cursor: "pointer", fontWeight: 800 }}>Advanced computed formulas ({advanced.length})</summary>
+              <div style={{ marginTop: 12 }}><FormulaRows rows={advanced} /></div>
+            </details>
+          ) : null}
+          {unavailable.length ? (
+            <details style={{ marginTop: 14 }}>
+              <summary style={{ color: "#f9d976", cursor: "pointer", fontWeight: 800 }}>Unavailable formulas / source required ({unavailable.length})</summary>
+              <div style={{ marginTop: 12 }}><FormulaRows rows={unavailable} /></div>
+            </details>
+          ) : null}
+        </>
       ) : (
         <p style={{ color: "#8a94a6" }}>No backend formula outputs were attached.</p>
       )}
     </Card>
   );
+}
+
+function keyRiskItems(lensId) {
+  switch (lensId) {
+    case "STABLECOIN_SETTLEMENT":
+      return ["Reserve quality", "Redemption path", "Issuer/custodian dependency", "Mint/redeem controls", "Freeze/admin policy", "Supported networks"];
+    case "DEFI_PROTOCOL_TOKEN":
+      return ["Unlocks", "Governance rights", "Fee switch/value capture", "Treasury", "Protocol economics mapping"];
+    case "GAMING_METAVERSE_CONSUMER":
+      return ["Emissions versus sinks", "Active/paying users", "Unlocks", "Mint/admin controls", "Reward sustainability"];
+    case "RWA_HYBRID_INFRASTRUCTURE":
+      return ["Utility token vs RWA rights", "Canonical network/contract", "Cap mutability", "Fee/staking/gas demand", "Compliance dependencies"];
+    case "BASE_LAYER_SETTLEMENT":
+    case "NATIVE_MONETARY_BENCHMARK":
+      return ["Monetary policy", "Issuance/burn", "Validator/miner security economics", "Liveness/client risk", "Market depth"];
+    case "MEME_NARRATIVE":
+      return ["Supply certainty", "Mint/admin controls", "Holder concentration", "Liquidity", "No fake value-capture claims"];
+    case "WRAPPED_ASSET":
+      return ["Backing/proof-of-reserves", "Custodian/bridge controls", "Mint/burn", "Redemption path", "Underlying-inheritance boundary"];
+    case "LST_STAKING_DERIVATIVE":
+      return ["Withdrawal queue", "Slashing/operator risk", "Depeg/liquidity", "Mint/burn", "Protocol/admin controls"];
+    default:
+      return ["Supply data quality", "Future dilution", "Supply controls", "Source requirements", "Provider disagreement"];
+  }
 }
 
 function TokenomicsQuestionPanel({ tokenomics, styles }) {
@@ -227,6 +315,11 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
 
   const providerContracts = compactList(tokenomics.providerContracts, (entry) => `${entry.provider}: ${entry.network || "network unavailable"} ${entry.contractAddress || "no contract"} (${entry.sourcePath || "source unavailable"})`);
   const knownContracts = compactList(identity.allKnownContracts, (entry) => `${entry.provider || "provider"}: ${entry.network || "network unavailable"} ${entry.contractAddress || "no contract"}`);
+  const contractRows = knownContracts.length ? knownContracts : providerContracts;
+  const selectedContractLine = identity.analyzedContract
+    ? `${identity.analyzedNetwork || "network unavailable"} ${identity.analyzedContract}`
+    : "No selected/analyzed contract attached";
+  const primaryLensId = lens.lensId || tokenomics.supplySummary?.lensId;
   const scopeWarnings = [
     ...safeArray(identity.identityWarnings),
     ...safeArray(identity.chainWarnings),
@@ -246,8 +339,8 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
           <MiniMetric label="Evidence confidence" value={status(tokenomics.evidenceConfidence)} />
           <MiniMetric label="Max supply status" value={status(tokenomics.maxSupplyStatus)} />
           <MiniMetric label="Unlock schedule" value={status(tokenomics.unlockScheduleStatus)} />
-          <MiniMetric label="Mint authority" value={status(tokenomics.mintAuthorityStatus)} />
-          <MiniMetric label="Admin controls" value={status(tokenomics.adminControlStatus)} />
+          <MiniMetric label="Mint authority" value={controlStatusLabel(tokenomics.mintAuthorityStatus, "mint", primaryLensId)} />
+          <MiniMetric label="Admin controls" value={controlStatusLabel(tokenomics.adminControlStatus, "admin", primaryLensId)} />
           <MiniMetric label="Governance supply risk" value={status(tokenomics.governanceSupplyChangeRisk)} />
           <MiniMetric label="FDV / market cap" value={displayRatio(tokenomics.fdvMarketCapRatio)} />
           <MiniMetric label="Remaining dilution" value={displayPercent(tokenomics.remainingDilutionPercent)} />
@@ -256,7 +349,16 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Top positive signal" value={safeArray(tokenomics.positiveSignals)[0] || "No positive tokenomics signal attached."} styles={styles} />
         <SectionRow label="Top negative signal" value={safeArray(tokenomics.negativeSignals)[0] || "No negative tokenomics signal attached."} styles={styles} />
         <SectionRow label="Diagnostic boundary" value="tokenomicsIntegrityScore is diagnostic-only and does not change the current overall score or verdict." styles={styles} />
-        <SectionRow label="Asset-class context" value={contextualNote(lens.lensId || tokenomics.supplySummary?.lensId)} styles={styles} />
+        <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
+      </Card>
+
+      <Card title="Key Risk Summary" subtitle="What matters most for this asset class before relying on tokenomics conclusions." styles={styles}>
+        <ListBlock title="What matters most" items={keyRiskItems(primaryLensId)} emptyText="No lens-specific risk summary attached." color="#9bd7ff" styles={styles} />
+        <ListBlock title="Primary review signals" items={[
+          ...safeArray(tokenomics.manualReviewTriggers).slice(0, 3),
+          ...safeArray(tokenomics.confidenceCaps).slice(0, 3),
+          ...safeArray(tokenomics.neutralContextualSignals).slice(0, 2),
+        ]} emptyText="No primary tokenomics review signal attached." color="#f9d976" styles={styles} />
       </Card>
 
       <Card title="Canonical Asset / Contract Scope" subtitle="Supply calculations depend on the selected asset, analyzed network, and representation boundary." styles={styles}>
@@ -265,11 +367,20 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Canonical/native network candidate" value={identity.canonicalNetworkCandidate || identity.nativeNetworkCandidate || "Unavailable"} styles={styles} />
         <SectionRow label="Selected/analyzed network" value={`${identity.selectedNetwork || "Unavailable"} / ${identity.analyzedNetwork || "Unavailable"}`} styles={styles} />
         <SectionRow label="Selected/analyzed contract" value={`${identity.selectedContract || "Not applicable"} / ${identity.analyzedContract || "Not applicable"}`} styles={styles} />
-        <SectionRow label="Representation type" value={identity.representationType || "Unknown"} styles={styles} />
+        <SectionRow label="Representation type" value={identity.representationType === "issuer_native_multichain_stablecoin" ? "issuer-native multichain stablecoin" : identity.representationType || "Unknown"} styles={styles} />
         <SectionRow label="Native / EVM / multichain / migrated" value={`native=${identity.isNativeAsset === undefined ? "unknown" : identity.isNativeAsset ? "yes" : "no"}; evm=${identity.isEvmContractAsset === undefined ? "unknown" : identity.isEvmContractAsset ? "yes" : "no"}; multichain=${identity.isMultichain === undefined ? "unknown" : identity.isMultichain ? "yes" : "no"}; migration=${identity.migrationStatus || "unknown"}`} styles={styles} />
         <SectionRow label="Wrong-asset risk" value={identity.wrongAssetRisk || "Unknown"} styles={styles} />
         <SectionRow label="Contract scan applicability" value={identity.contractScanApplicability || "Unknown"} styles={styles} />
-        <ListBlock title="Known provider contracts" items={knownContracts.length ? knownContracts : providerContracts} emptyText="No provider contract mappings attached." color="#9bd7ff" styles={styles} />
+        <SectionRow label="Selected/analyzed contract" value={selectedContractLine} styles={styles} />
+        <SectionRow label="Known provider contract count" value={contractRows.length ? `${contractRows.length} mappings attached` : "No provider contract mappings attached"} styles={styles} />
+        <ListBlock title="Top provider contract mappings" items={contractRows.slice(0, 5)} emptyText="No provider contract mappings attached." color="#9bd7ff" styles={styles} />
+        {contractRows.length > 5 ? (
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ color: "#9bd7ff", cursor: "pointer", fontWeight: 800 }}>View all provider contract mappings ({contractRows.length})</summary>
+            <ListBlock title="All provider contract mappings" items={contractRows} emptyText="No provider contract mappings attached." color="#d5dcec" styles={styles} />
+          </details>
+        ) : null}
+        <SectionRow label="Contract mapping boundary" value="Provider contract mappings require official supported-network verification." styles={styles} />
         <ListBlock title="Identity warnings / source requirements" items={[...scopeWarnings, ...safeArray(identity.sourceRequirements)]} emptyText="No identity warning attached." color="#f9d976" styles={styles} />
       </Card>
 
@@ -307,7 +418,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
       </Card>
 
       <Card title="Supply Control / Mutability" subtitle="Admin, mint, governance, migration, and contract-control risks require source-backed review." styles={styles}>
-        <SectionRow label="Mint/admin/cap mutability" value={`${status(tokenomics.mintAuthorityStatus)} / ${status(tokenomics.adminControlStatus)} / ${status(tokenomics.capMutabilityStatus)}`} styles={styles} />
+        <SectionRow label="Mint/admin/cap mutability" value={`${controlStatusLabel(tokenomics.mintAuthorityStatus, "mint", primaryLensId)} / ${controlStatusLabel(tokenomics.adminControlStatus, "admin", primaryLensId)} / ${status(tokenomics.capMutabilityStatus)}`} styles={styles} />
         <SectionRow label="Governance supply-change risk" value={status(tokenomics.governanceSupplyChangeRisk)} styles={styles} />
         <SectionRow label="Migration / representation" value={`${identity.migrationStatus || "Unknown"} / ${identity.representationType || "Unknown"}`} styles={styles} />
         <ListBlock title="Manual review triggers" items={tokenomics.manualReviewTriggers} emptyText="No tokenomics manual-review trigger attached." color="#f9d976" styles={styles} />

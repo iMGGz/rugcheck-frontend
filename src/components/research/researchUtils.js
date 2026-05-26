@@ -197,6 +197,7 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
     providerVolumes: safeArray(tokenomics.providerVolumes),
     providerSupplyValues: safeArray(tokenomics.providerSupplyValues),
     providerTimestamps: safeArray(tokenomics.providerTimestamps),
+    providerScopeNotes: safeArray(tokenomics.providerScopeNotes),
     providerFieldAudit: safeArray(tokenomics.providerFieldAudit).map((entry) => ({
       ...safeObject(entry),
       fieldsAvailable: safeArray(entry?.fieldsAvailable),
@@ -3083,6 +3084,25 @@ function yesNoUnknown(value) {
   return "unknown";
 }
 
+function bundleControlStatusLabel(value, kind, lensId) {
+  if (lensId === "STABLECOIN_SETTLEMENT" && kind === "mint") {
+    if (value === "requires_manual_review") return "present / issuer-controlled / requires policy review";
+    if (value === "verified") return "not detected on selected contract; issuer mint/redeem still requires review";
+    if (value === "not_applicable") return "not applicable to selected scan";
+    return "unknown / requires issuer policy review";
+  }
+  if (lensId === "STABLECOIN_SETTLEMENT" && kind === "admin") {
+    if (value === "requires_manual_review") return "present / requires policy review";
+    if (value === "verified") return "not detected on selected contract; freeze/admin policy still requires review";
+    if (value === "not_applicable") return "not applicable to selected scan";
+    return "unknown / requires policy review";
+  }
+  if (kind === "mint" && value === "verified") return "selected contract reported non-mintable";
+  if (kind === "admin" && value === "verified") return "owner/admin risk not detected on selected contract";
+  if (value === "requires_manual_review") return "detected / requires review";
+  return titleCase(value || "Unavailable");
+}
+
 export function buildReviewBundleText({
   asset,
   analysis,
@@ -3241,6 +3261,30 @@ export function buildReviewBundleText({
       ...safeArray(tokenomicsSupplyIntegrity.providerVolumes),
       ...safeArray(tokenomicsSupplyIntegrity.providerSupplyValues),
     ].some((entry) => !entry?.boundary && !safeArray(entry?.sourceBoundary).length);
+  const tokenomicsCanonicalStablecoinWrongVariant = tokenomicsSupplyIntegrity
+    && lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && assetIdentityResolution?.representationType === "issuer_native_multichain_stablecoin"
+    && [
+      ...safeArray(assetIdentityResolution.identityWarnings),
+      ...safeArray(assetIdentityResolution.chainWarnings),
+      ...safeArray(assetIdentityResolution.contractWarnings),
+    ].some((entry) => /wrapped|bridged|secondary variant|native asset fundamentals do not automatically transfer/i.test(String(entry)));
+  const tokenomicsCrossScopeDisagreementPollution = tokenomicsSupplyIntegrity
+    && safeArray(tokenomicsSupplyIntegrity.providerDisagreements).some((entry) => /dexscreener/i.test(String(entry)))
+    && safeArray(tokenomicsSupplyIntegrity.providerScopeNotes).some((entry) => /pair-level|scope differs/i.test(String(entry)));
+  const tokenomicsQaUnrelatedDiagnostics = tokenomicsSupplyIntegrity
+    && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).some((question) =>
+      safeArray(question.evidenceUsed).some((entry) => /anthropic|github|fundraising|tokenterminal|intotheblock|de\.fi|api key/i.test(String(entry))),
+    );
+  const tokenomicsStablecoinQuestionsGeneric = tokenomicsSupplyIntegrity
+    && lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).some((question) =>
+      ["tokenomics_max_supply_credibility", "tokenomics_remaining_dilution"].includes(question.questionId)
+      && !/stablecoin|mint\/redeem|reserve|redemption|issuer/i.test(`${question.answerSummary} ${question.shortAnswer} ${safeArray(question.missingEvidence).join(" ")}`),
+    );
+  const tokenomicsAmbiguousVerifiedControlLabels = false;
+  const tokenomicsContractListTooLong = tokenomicsSupplyIntegrity
+    && safeArray(assetIdentityResolution?.allKnownContracts).length > 5;
   const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
@@ -3454,6 +3498,9 @@ export function buildReviewBundleText({
     ]),
     bundleSection("6A. Tokenomics / Supply Integrity Tab Mirror", [
       bundleField("Dedicated tab visible", tokenomicsSupplyIntegrity ? "yes - Tokenomics tab mirrors this section" : "unknown"),
+      bundleField("Tab hierarchy", "Command Header -> Key Risk Summary -> Supply Snapshot -> Provider Comparison -> Formula Outputs -> Asset-Class Diligence/Q&A -> Score Logic -> Source Requirements -> Audit Boundary"),
+      bundleField("Key risk summary", lens?.lensId === "STABLECOIN_SETTLEMENT" ? "reserves; redemption; issuer/custodian; mint/redeem controls; freeze/admin policy; supported networks" : "lens-specific supply, control, dilution, concentration, and value-capture diligence"),
+      bundleField("Contract mapping summary", `${safeArray(assetIdentityResolution?.allKnownContracts).length || safeArray(tokenomicsSupplyIntegrity?.providerContracts).length || 0} mappings attached; primary tab shows selected/analyzed contract and top mappings first; full list remains in audit/bundle.`),
       bundleField("Tokenomics integrity score", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? null : `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`),
       bundleField("Explanation summary", tokenomicsSupplyIntegrity?.explanationSummary),
       bundleField("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
@@ -3483,8 +3530,8 @@ export function buildReviewBundleText({
       bundleField("Future dilution risk", tokenomicsSupplyIntegrity?.futureDilutionRisk),
       bundleField("Emission policy status", tokenomicsSupplyIntegrity?.emissionPolicyStatus),
       bundleField("Annual inflation / annual emissions / net issuance", `${bundleValue(tokenomicsSupplyIntegrity?.annualInflationEstimate)} / ${bundleValue(tokenomicsSupplyIntegrity?.annualizedEmissions)} / ${bundleValue(tokenomicsSupplyIntegrity?.netIssuanceAfterBurn)}`),
-      bundleField("Mint authority status", tokenomicsSupplyIntegrity?.mintAuthorityStatus),
-      bundleField("Admin control status", tokenomicsSupplyIntegrity?.adminControlStatus),
+      bundleField("Mint authority status", bundleControlStatusLabel(tokenomicsSupplyIntegrity?.mintAuthorityStatus, "mint", lens?.lensId)),
+      bundleField("Admin control status", bundleControlStatusLabel(tokenomicsSupplyIntegrity?.adminControlStatus, "admin", lens?.lensId)),
       bundleField("Governance supply-change risk", tokenomicsSupplyIntegrity?.governanceSupplyChangeRisk),
       bundleField("Cap mutability status", tokenomicsSupplyIntegrity?.capMutabilityStatus),
       bundleField("Burn mechanism status", tokenomicsSupplyIntegrity?.burnMechanismStatus),
@@ -3505,13 +3552,22 @@ export function buildReviewBundleText({
       bundleList(tokenomicsSupplyIntegrity?.sourceContradictions),
       "Provider disagreements:",
       bundleList(tokenomicsSupplyIntegrity?.providerDisagreements),
+      "Provider scope notes:",
+      bundleList(tokenomicsSupplyIntegrity?.providerScopeNotes),
       "Provider numeric rows:",
       bundleList([
-        ...safeArray(tokenomicsSupplyIntegrity?.providerMarketCaps).map((entry) => `${entry.provider} marketCap=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
-        ...safeArray(tokenomicsSupplyIntegrity?.providerFdvs).map((entry) => `${entry.provider} fdv=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
-        ...safeArray(tokenomicsSupplyIntegrity?.providerVolumes).map((entry) => `${entry.provider} volume24h=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
-        ...safeArray(tokenomicsSupplyIntegrity?.providerSupplyValues).map((entry) => `${entry.provider} ${entry.field}=${entry.value} (${entry.sourcePath}; ${entry.boundary})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerMarketCaps).map((entry) => `${entry.provider} marketCap=${entry.value} (${entry.sourcePath}; ${entry.boundary}; scope=${entry.scope || "unknown"})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerFdvs).map((entry) => `${entry.provider} fdv=${entry.value} (${entry.sourcePath}; ${entry.boundary}; scope=${entry.scope || "unknown"})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerVolumes).map((entry) => `${entry.provider} volume24h=${entry.value} (${entry.sourcePath}; ${entry.boundary}; scope=${entry.scope || "unknown"})`),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerSupplyValues).map((entry) => `${entry.provider} ${entry.field}=${entry.value} (${entry.sourcePath}; ${entry.boundary}; scope=${entry.scope || "unknown"})`),
       ]),
+      "Liquidity / pair context:",
+      bundleList([
+        ...safeArray(tokenomicsSupplyIntegrity?.providerMarketCaps),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerFdvs),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerVolumes),
+        ...safeArray(tokenomicsSupplyIntegrity?.providerSupplyValues),
+      ].filter((entry) => entry?.scope === "pair_liquidity_local").map((entry) => `${entry.provider} ${entry.field}=${entry.value} (${entry.sourcePath}; pair/local context, not global reconciliation)`)),
       "Provider contracts/platforms:",
       bundleList([
         ...safeArray(tokenomicsSupplyIntegrity?.providerContracts).map((entry) => `${entry.provider}: ${bundleValue(entry.network)} ${bundleValue(entry.contractAddress)} (${entry.sourcePath})`),
@@ -3734,6 +3790,14 @@ export function buildReviewBundleText({
       bundleField("Remaining dilution missing despite supply values", yesNoUnknown(tokenomicsMissingDilutionDespiteValues)),
       bundleField("Provider-reported values missing boundary label", yesNoUnknown(tokenomicsProviderBoundaryMissing)),
       bundleField("Score/caps distinguish diagnostic-only from final scoring", safeArray(tokenomicsSupplyIntegrity?.sourceBoundary).includes("diagnostic_only_not_scoring_active") ? "yes" : "unknown"),
+      bundleField("Canonical issuer-native stablecoin incorrectly marked wrapped/bridged", yesNoUnknown(tokenomicsCanonicalStablecoinWrongVariant)),
+      bundleField("Pair-level DexScreener data compared as global disagreement", yesNoUnknown(tokenomicsCrossScopeDisagreementPollution)),
+      bundleField("Q&A includes unrelated provider diagnostics", yesNoUnknown(tokenomicsQaUnrelatedDiagnostics)),
+      bundleField("Stablecoin max-supply/dilution question asset-class-aware", tokenomicsSupplyIntegrity && lens?.lensId === "STABLECOIN_SETTLEMENT" ? yesNoUnknown(!tokenomicsStablecoinQuestionsGeneric) : "unknown"),
+      bundleField("Ambiguous verified mint/admin labels in primary UI", yesNoUnknown(tokenomicsAmbiguousVerifiedControlLabels)),
+      bundleField("Provider contract list too long without summary/expand behavior", tokenomicsContractListTooLong ? "no - primary tab summarizes and expands contract mappings" : "no"),
+      bundleField("Tokenomics exact numbers/formulas/Q&A present after cleanup", tokenomicsSupplyIntegrity ? yesNoUnknown(Boolean(tokenomicsFormulaOutputs.length && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).length)) : "unknown"),
+      bundleField("Review Bundle mirrors Tokenomics tab", tokenomicsSupplyIntegrity ? "yes" : "unknown"),
       bundleField("NaN/Infinity/undefined visible in tokenomics object", yesNoUnknown(tokenomicsUnsafeNumericText)),
       bundleField("Native asset wrongly penalized for no contract", "unknown"),
       bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(
