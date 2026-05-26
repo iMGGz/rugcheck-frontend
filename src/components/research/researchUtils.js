@@ -172,6 +172,47 @@ export function normalizeAssetIdentityResolutionPayload(responseLike) {
   };
 }
 
+export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootTokenomics = safeObject(root.tokenomicsSupplyIntegrity);
+  const nestedTokenomics = safeObject(nestedAnalysis.tokenomicsSupplyIntegrity);
+  const tokenomics = rootTokenomics.supplySummary || rootTokenomics.tokenomicsIntegrityScore !== undefined
+    ? rootTokenomics
+    : nestedTokenomics.supplySummary || nestedTokenomics.tokenomicsIntegrityScore !== undefined
+      ? nestedTokenomics
+      : null;
+
+  if (!tokenomics) return null;
+
+  return {
+    ...tokenomics,
+    supplySummary: safeObject(tokenomics.supplySummary),
+    sourceContradictions: safeArray(tokenomics.sourceContradictions),
+    providerDisagreements: safeArray(tokenomics.providerDisagreements),
+    reviewedSources: safeArray(tokenomics.reviewedSources),
+    sourceRequirements: safeArray(tokenomics.sourceRequirements),
+    manualReviewTriggers: safeArray(tokenomics.manualReviewTriggers),
+    hardBlockers: safeArray(tokenomics.hardBlockers),
+    softBlockers: safeArray(tokenomics.softBlockers),
+    scoreCaps: safeArray(tokenomics.scoreCaps),
+    confidenceCaps: safeArray(tokenomics.confidenceCaps),
+    positiveSignals: safeArray(tokenomics.positiveSignals),
+    negativeSignals: safeArray(tokenomics.negativeSignals),
+    neutralContextualSignals: safeArray(tokenomics.neutralContextualSignals),
+    institutionalQuestions: safeArray(tokenomics.institutionalQuestions).map((question) => ({
+      ...safeObject(question),
+      evidenceUsed: safeArray(question?.evidenceUsed),
+      missingEvidence: safeArray(question?.missingEvidence),
+      whatWouldChange: safeArray(question?.whatWouldChange),
+      sourceBoundary: safeArray(question?.sourceBoundary),
+    })),
+    whatWouldChange: safeArray(tokenomics.whatWouldChange),
+    sourceBoundary: safeArray(tokenomics.sourceBoundary),
+    auditRawFields: safeObject(tokenomics.auditRawFields),
+  };
+}
+
 function firstPresent(...values) {
   return values.find((value) => value !== null && value !== undefined && value !== "");
 }
@@ -2604,6 +2645,7 @@ export function buildDecisionTerminalModel({
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const lensAwareExplanations = normalizeLensAwareExplanationsPayload(safeAnalysis);
   const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(safeAnalysis);
+  const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -2815,6 +2857,7 @@ export function buildDecisionTerminalModel({
     resolvedInstitutionalLens,
     lensAwareExplanations,
     assetIdentityResolution,
+    tokenomicsSupplyIntegrity,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -3057,6 +3100,7 @@ export function buildReviewBundleText({
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
+  const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
@@ -3122,6 +3166,21 @@ export function buildReviewBundleText({
     safeArray(calibrationWarnings).some((warning) => warning?.id === "protocol_mapping_failure_for_major_protocol")
     || /skipped|unavailable|missing|unsupported|unmapped/i.test(String(sourceStatusObject.protocolUsage || sourceStatusObject.protocolEconomics || ""))
   );
+  const tokenomicsMissingMaxWithoutRequirement = tokenomicsSupplyIntegrity
+    && tokenomicsSupplyIntegrity.maxSupplyStatus === "none_or_unknown"
+    && !safeArray(tokenomicsSupplyIntegrity.sourceRequirements).some((item) => /max supply|emission policy/i.test(item));
+  const tokenomicsMissingUnlocksWithoutCap = tokenomicsSupplyIntegrity
+    && tokenomicsSupplyIntegrity.unlockScheduleStatus === "unknown"
+    && ![...safeArray(tokenomicsSupplyIntegrity.confidenceCaps), ...safeArray(tokenomicsSupplyIntegrity.sourceRequirements)].some((item) => /unlock|vesting/i.test(item));
+  const tokenomicsMintAdminWithoutWarning = tokenomicsSupplyIntegrity
+    && /manual|unknown/i.test(`${tokenomicsSupplyIntegrity.mintAuthorityStatus} ${tokenomicsSupplyIntegrity.adminControlStatus}`)
+    && ![...safeArray(tokenomicsSupplyIntegrity.manualReviewTriggers), ...safeArray(tokenomicsSupplyIntegrity.scoreCaps)].some((item) => /mint|admin|authority/i.test(item));
+  const tokenomicsContradictionWithoutWarning = tokenomicsSupplyIntegrity
+    && safeArray(tokenomicsSupplyIntegrity.sourceContradictions).length
+    && !safeArray(tokenomicsSupplyIntegrity.manualReviewTriggers).some((item) => /contradict|inconsistent|provider/i.test(item));
+  const tokenomicsHighFdvWithoutDilutionNote = tokenomicsSupplyIntegrity
+    && Number(tokenomicsSupplyIntegrity.fdvMarketCapRatio) >= 3
+    && ![...safeArray(tokenomicsSupplyIntegrity.softBlockers), ...safeArray(tokenomicsSupplyIntegrity.negativeSignals)].some((item) => /dilution|fdv|float/i.test(item));
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
   const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
@@ -3332,6 +3391,66 @@ export function buildReviewBundleText({
       "Institutional questions:",
       bundleQuestions(questions),
     ]),
+    bundleSection("6A. Tokenomics Dilution & Supply Integrity", [
+      bundleField("Tokenomics integrity score", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? null : `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`),
+      bundleField("Explanation summary", tokenomicsSupplyIntegrity?.explanationSummary),
+      bundleField("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
+      bundleField("Supply summary", tokenomicsSupplyIntegrity?.supplySummary?.summary),
+      bundleField("Max supply status", tokenomicsSupplyIntegrity?.maxSupplyStatus),
+      bundleField("Max supply value", tokenomicsSupplyIntegrity?.maxSupplyValue),
+      bundleField("Max supply method", tokenomicsSupplyIntegrity?.maxSupplyMethod),
+      bundleField("Circulating / total / max", `${bundleValue(tokenomicsSupplyIntegrity?.circulatingSupply)} / ${bundleValue(tokenomicsSupplyIntegrity?.totalSupply)} / ${bundleValue(tokenomicsSupplyIntegrity?.maxSupplyValue)}`),
+      bundleField("Market cap / FDV", `${bundleValue(tokenomicsSupplyIntegrity?.marketCap)} / ${bundleValue(tokenomicsSupplyIntegrity?.fdv)}`),
+      bundleField("FDV / market cap ratio", tokenomicsSupplyIntegrity?.fdvMarketCapRatio),
+      bundleField("Circulating percent of max", tokenomicsSupplyIntegrity?.circulatingPercentOfMax),
+      bundleField("Remaining dilution percent", tokenomicsSupplyIntegrity?.remainingDilutionPercent),
+      bundleField("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
+      bundleField("Next unlock", `${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockDate)} | percent: ${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockPercent)} | USD: ${bundleValue(tokenomicsSupplyIntegrity?.nextUnlockUsdValue)}`),
+      bundleField("Unlock / volume ratio", tokenomicsSupplyIntegrity?.unlockToVolumeRatio),
+      bundleField("Unlock / liquidity ratio", tokenomicsSupplyIntegrity?.unlockToLiquidityRatio),
+      bundleField("Unlock / market cap ratio", tokenomicsSupplyIntegrity?.unlockToMarketCap),
+      bundleField("Emission policy status", tokenomicsSupplyIntegrity?.emissionPolicyStatus),
+      bundleField("Mint authority status", tokenomicsSupplyIntegrity?.mintAuthorityStatus),
+      bundleField("Admin control status", tokenomicsSupplyIntegrity?.adminControlStatus),
+      bundleField("Governance supply-change risk", tokenomicsSupplyIntegrity?.governanceSupplyChangeRisk),
+      bundleField("Cap mutability status", tokenomicsSupplyIntegrity?.capMutabilityStatus),
+      bundleField("Burn mechanism status", tokenomicsSupplyIntegrity?.burnMechanismStatus),
+      bundleField("Burn materiality", tokenomicsSupplyIntegrity?.burnMateriality),
+      bundleField("Buyback/burn status", tokenomicsSupplyIntegrity?.buybackBurnStatus),
+      bundleField("Tokenholder value capture status", tokenomicsSupplyIntegrity?.tokenholderValueCaptureStatus),
+      bundleField("Token necessity status", tokenomicsSupplyIntegrity?.tokenNecessityStatus),
+      bundleField("Staking reward source", tokenomicsSupplyIntegrity?.stakingRewardSource),
+      "Source contradictions:",
+      bundleList(tokenomicsSupplyIntegrity?.sourceContradictions),
+      "Provider disagreements:",
+      bundleList(tokenomicsSupplyIntegrity?.providerDisagreements),
+      "Source requirements:",
+      bundleList(tokenomicsSupplyIntegrity?.sourceRequirements),
+      "Manual review triggers:",
+      bundleList(tokenomicsSupplyIntegrity?.manualReviewTriggers),
+      "Hard blockers:",
+      bundleList(tokenomicsSupplyIntegrity?.hardBlockers),
+      "Soft blockers:",
+      bundleList(tokenomicsSupplyIntegrity?.softBlockers),
+      "Score caps:",
+      bundleList(tokenomicsSupplyIntegrity?.scoreCaps),
+      "Confidence caps:",
+      bundleList(tokenomicsSupplyIntegrity?.confidenceCaps),
+      "Positive signals:",
+      bundleList(tokenomicsSupplyIntegrity?.positiveSignals),
+      "Negative signals:",
+      bundleList(tokenomicsSupplyIntegrity?.negativeSignals),
+      "Neutral/contextual signals:",
+      bundleList(tokenomicsSupplyIntegrity?.neutralContextualSignals),
+      "Tokenomics institutional questions:",
+      bundleQuestions(tokenomicsSupplyIntegrity?.institutionalQuestions),
+      "What would change:",
+      bundleList(tokenomicsSupplyIntegrity?.whatWouldChange),
+      "Source boundary:",
+      bundleList(tokenomicsSupplyIntegrity?.sourceBoundary),
+      "Raw audit fields:",
+      bundleObjectRows(tokenomicsSupplyIntegrity?.auditRawFields),
+    ]),
     bundleSection("7. Evidence Map / Source Trace", [
       "Live provider evidence rows / source statuses:",
       bundleObjectRows(sourceStatusObject),
@@ -3476,6 +3595,7 @@ export function buildReviewBundleText({
         `resolvedInstitutionalLens: ${lens ? "present" : "missing"}`,
         `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
+        `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
       ]),
@@ -3504,6 +3624,16 @@ export function buildReviewBundleText({
       bundleField("Suggested research domains contain stale fallback labels", yesNoUnknown(staleResearchDomains)),
       bundleField("Primary copy uses generic fallback despite lens-aware copy", yesNoUnknown(genericPrimaryDespiteLens)),
       bundleField("Protocol economics mapping skipped for major protocol token", yesNoUnknown(protocolMappingSkipped)),
+      bundleField("Tokenomics max supply missing without source requirement", yesNoUnknown(tokenomicsMissingMaxWithoutRequirement)),
+      bundleField("Tokenomics unlocks missing without cap/source requirement", yesNoUnknown(tokenomicsMissingUnlocksWithoutCap)),
+      bundleField("Mint/admin controls unresolved without warning", yesNoUnknown(tokenomicsMintAdminWithoutWarning)),
+      bundleField("Provider supply contradiction without warning", yesNoUnknown(tokenomicsContradictionWithoutWarning)),
+      bundleField("High FDV/market-cap without dilution note", yesNoUnknown(tokenomicsHighFdvWithoutDilutionNote)),
+      bundleField("Native asset wrongly penalized for no contract", "unknown"),
+      bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(
+        ["WRAPPED_ASSET", "STABLECOIN_SETTLEMENT", "LST_STAKING_DERIVATIVE", "RWA_HYBRID_ASSET"].includes(lens?.lensId)
+        && !safeArray(tokenomicsSupplyIntegrity.sourceRequirements).some((item) => /reserve|redemption|mint|burn|custodian|legal|collateral|withdrawal/i.test(item)),
+      ) : "unknown"),
       bundleField("Calibration warnings visible if present", safeArray(calibrationWarnings).length ? "yes" : "unknown"),
       bundleField("Analysis freshness visible in live tabs", analysisFreshness.freshnessStatus !== "unknown" || analysisFreshness.freshnessWarnings.length ? "yes" : "unknown"),
       bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),

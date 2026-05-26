@@ -105,6 +105,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const lens = model?.resolvedInstitutionalLens || {};
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
+  const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const providerIds = [
@@ -179,6 +180,15 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
           tone={freshness.isFreshLive ? "#2fd67b" : freshness.isPartialRefresh || freshness.isSnapshot ? "#ffb020" : "#8a94a6"}
           styles={styles}
         />
+        {tokenomics.tokenomicsIntegrityScore !== undefined ? (
+          <LayerLegendItem
+            title="Tokenomics supply integrity"
+            detail={`Separate integrity signal: ${tokenomics.tokenomicsIntegrityScore}/100; max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`}
+            badge="Diagnostic, not overall scoring"
+            tone="#9bd7ff"
+            styles={styles}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -279,6 +289,12 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
         <ScoreTile label="Confidence" value={model?.confidenceLabel || "Unavailable"} detail={model?.evidenceStrength ? `Evidence strength: ${sanitizeSemanticLabel(model.evidenceStrength, "Unavailable")}` : null} styles={styles} />
         <ScoreTile label="Overall Score" value={formatScoreValue(model?.overallScore)} detail="Secondary signal" styles={styles} />
+        <ScoreTile
+          label="Tokenomics Integrity"
+          value={model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${model.tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`}
+          detail={model?.tokenomicsSupplyIntegrity ? "Separate dilution/supply signal; not current overall score" : null}
+          styles={styles}
+        />
         <ScoreTile label="Manual Review" value={manualReviewStatus.label || "No explicit review flag"} detail={manualReviewStatus.detail} styles={styles} />
       </div>
 

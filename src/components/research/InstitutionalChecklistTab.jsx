@@ -11,6 +11,7 @@ import {
   titleCase,
 } from "./researchUtils";
 import { resolveInstitutionalChecklistLens } from "./institutionalChecklistLensRegistry";
+import { TokenomicsSupplyQuestionCard } from "./TokenomicsSupplyIntegrityCard";
 
 function boundaryChip(styles, children) {
   return <span style={styles.sourceBoundaryChip}>{children}</span>;
@@ -690,6 +691,8 @@ export default function InstitutionalChecklistTab({
       <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
 
       <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
+
+      <TokenomicsSupplyQuestionCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} />
 
       {hasInstitutionalAnswers ? (
         <InstitutionalQuestionAnswersSection

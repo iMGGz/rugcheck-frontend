@@ -2,6 +2,7 @@ import React from "react";
 import EvidenceConfidenceCard from "./EvidenceConfidenceCard";
 import ScoreContributorsPanel from "./ScoreContributorsPanel";
 import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 import {
   extractRenderableText,
   formatScoreValue,
@@ -84,6 +85,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
     safeModel.overallScore,
   );
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
+  const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
 
   return [
     {
@@ -131,6 +133,16 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No",
       caveat: "Do not infer tokenholder accrual from TVL, usage, or narrative alone.",
       attached: hasAttachedValue(tokenDemandQuality),
+    },
+    {
+      title: "Tokenomics Supply Integrity",
+      value: readableValue(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore),
+      source: hasAttachedValue(tokenomicsSupplyIntegrity) ? "tokenomicsSupplyIntegrity.tokenomicsIntegrityScore" : "Not attached",
+      rule: "Separate supply-integrity underwriting signal for dilution, unlocks, supply authority, and provider contradictions.",
+      live: "Diagnostic only in v1",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: "Does not change the existing overall score or verdict in this release.",
+      attached: hasAttachedValue(tokenomicsSupplyIntegrity),
     },
     {
       title: "Evidence Directness",
@@ -322,6 +334,8 @@ export default function ScoringTransparencyTab({
       </Card>
 
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
+
+      <TokenomicsSupplyIntegrityCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} compact />
 
       <div style={styles.scoringLayerGrid}>
         <LayerCard

@@ -7,6 +7,7 @@ import {
   safeObject,
   titleCase,
 } from "./researchUtils";
+import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 
 function chip(styles, label, color = "#ffb020") {
   return (
@@ -119,9 +120,23 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     source: "decisionModel.assetIdentityResolution",
     color: "#ffb020",
   }));
+  const tokenomics = model?.tokenomicsSupplyIntegrity || {};
+  const tokenomicsSignals = [
+    ...safeArray(tokenomics.manualReviewTriggers),
+    ...safeArray(tokenomics.hardBlockers),
+    ...safeArray(tokenomics.scoreCaps),
+    ...safeArray(tokenomics.confidenceCaps),
+  ].map((entry) => ({
+    label: "Tokenomics supply integrity",
+    description: entry,
+    status: "Supply review",
+    source: "decisionModel.tokenomicsSupplyIntegrity",
+    color: "#ffb020",
+  }));
 
   const combined = [
     ...manual,
+    ...tokenomicsSignals,
     ...identitySignals,
     ...freshnessSignals,
     ...conflicts,
@@ -279,6 +294,8 @@ export default function ManualReviewPanel({
           styles={styles}
         />
       </Card>
+
+      <TokenomicsSupplyIntegrityCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} compact />
 
       <div style={styles.advancedGrid}>
         <Card title="Live Review Signals" subtitle="Qualitative workflow signals from the current live response. No fake counts." styles={styles}>

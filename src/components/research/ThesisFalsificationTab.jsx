@@ -4,6 +4,7 @@ import TokenDemandCard from "./TokenDemandCard";
 import ConvictionDriversMatrix from "./ConvictionDriversMatrix";
 import { Card, ListBlock, SectionRow } from "./researchPrimitives";
 import { normalizeRenderableList, sanitizeSemanticLabel, titleCase } from "./researchUtils";
+import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 
 function dedupe(items) {
   const seen = new Set();
@@ -428,6 +429,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
           Inspect requirements in Manual Review -&gt;
         </button>
       </Card>
+
+      <TokenomicsSupplyIntegrityCard
+        tokenomics={model?.tokenomicsSupplyIntegrity}
+        styles={styles}
+        title="Tokenomics Dilution Failure Modes"
+      />
 
       <div style={styles.thesisSupportingPanelLabel}>Supporting live-analysis panels</div>
       <div style={styles.advancedGrid}>

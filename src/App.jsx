@@ -26,6 +26,7 @@ import RiskFlagsStrip from "./components/research/RiskFlagsStrip";
 import HowTheEngineWorksPage from "./components/research/HowTheEngineWorksPage";
 import AnalysisRightRail from "./components/research/AnalysisRightRail";
 import AuditSection from "./components/research/AuditSection";
+import { TokenomicsSupplyIntegrityCard } from "./components/research/TokenomicsSupplyIntegrityCard";
 import { Card, ListBlock, SectionRow, TabButton } from "./components/research/researchPrimitives";
 import { buildResponsiveStyles } from "./components/research/researchStyles";
 import { buildInstitutionalAssetIdentity } from "./components/research/institutionalChecklistLensRegistry";
@@ -1429,6 +1430,7 @@ export default function App() {
               <SectionRow label="Calibration warnings" value={safeArray(decisionModel.calibrationWarnings).length} styles={styles} />
               <SectionRow label="Analysis freshness" value={decisionModel.analysisFreshness?.freshnessLabel || "Unavailable"} styles={styles} />
               <SectionRow label="Asset identity resolution" value={decisionModel.assetIdentityResolution ? "Present" : "Unavailable"} styles={styles} />
+              <SectionRow label="Tokenomics supply integrity" value={decisionModel.tokenomicsSupplyIntegrity ? "Present" : "Unavailable"} styles={styles} />
               <ListBlock
                 title="Resolved lens source boundary"
                 items={decisionModel.resolvedInstitutionalLens?.sourceBoundary}
@@ -1471,6 +1473,7 @@ export default function App() {
               <ListBlock title="Known provider contracts" items={safeArray(decisionModel.assetIdentityResolution?.allKnownContracts).map((entry) => `${entry.provider}: ${entry.network} ${entry.contractAddress}`)} emptyText="No provider contract mappings were attached." color="#9bd7ff" styles={styles} />
               <ListBlock title="Identity warnings" items={[...safeArray(decisionModel.assetIdentityResolution?.identityWarnings), ...safeArray(decisionModel.assetIdentityResolution?.chainWarnings), ...safeArray(decisionModel.assetIdentityResolution?.contractWarnings)]} emptyText="No identity warnings were attached." color="#f9d976" styles={styles} />
             </Card>
+            <TokenomicsSupplyIntegrityCard tokenomics={decisionModel.tokenomicsSupplyIntegrity} styles={styles} />
             <AuditSection title="Provider Diagnostics" subtitle="Advanced evidence provenance" defaultOpen styles={styles}>
               <ResearchContextPanel
                 analysisQualityExplanation={analysisQualityExplanation}

@@ -211,6 +211,34 @@ function buildAssetIdentityRows(model) {
   return [...summary, ...contracts, ...warnings];
 }
 
+function buildTokenomicsEvidenceRows(model) {
+  const tokenomics = model?.tokenomicsSupplyIntegrity || {};
+  if (tokenomics.tokenomicsIntegrityScore === undefined && !safeArray(tokenomics.sourceContradictions).length) return [];
+  return [
+    {
+      key: "tokenomics-integrity-summary",
+      label: "Tokenomics supply integrity",
+      value: `${tokenomics.explanationSummary || "Supply integrity summary unavailable."} Max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`,
+      sourceType: "Supply underwriting diagnostic",
+      boundary: "Separate source-boundary-aware diagnostic; it does not change the live overall score.",
+    },
+    ...safeArray(tokenomics.sourceContradictions).map((entry, index) => ({
+      key: `tokenomics-contradiction-${index}`,
+      label: "Supply contradiction",
+      value: entry,
+      sourceType: "Provider supply contradiction",
+      boundary: "Requires source reconciliation before provider supply fields are treated as reliable.",
+    })),
+    ...safeArray(tokenomics.sourceBoundary).slice(0, 4).map((entry, index) => ({
+      key: `tokenomics-boundary-${index}`,
+      label: "Tokenomics source boundary",
+      value: entry,
+      sourceType: "Boundary notice",
+      boundary: "Defines source status for tokenomics supply integrity.",
+    })),
+  ];
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -260,8 +288,10 @@ export default function EvidenceMapTab({
   const lensBoundaryRows = buildLensSourceBoundaryRows(model);
   const calibrationWarningRows = buildCalibrationWarningRows(model);
   const assetIdentityRows = buildAssetIdentityRows(model);
+  const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
   const lensBoundaryDisplayRows = [
     ...assetIdentityRows,
+    ...tokenomicsEvidenceRows,
     ...lensEvidenceRows,
     ...lensBoundaryRows,
     ...calibrationWarningRows,

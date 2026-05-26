@@ -125,8 +125,17 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     source: "decisionModel.assetIdentityResolution.sourceRequirements",
     color: "#ffb020",
   }));
+  const tokenomics = model?.tokenomicsSupplyIntegrity || {};
+  const tokenomicsLeads = safeArray(tokenomics.sourceRequirements).map((entry) => ({
+    label: "Tokenomics supply verification",
+    description: entry,
+    status: "Supply review",
+    source: "decisionModel.tokenomicsSupplyIntegrity.sourceRequirements",
+    color: "#ffb020",
+  }));
 
   return dedupeByText([
+    ...tokenomicsLeads,
     ...identityLeads,
     ...freshnessLeads,
     ...missing,
@@ -304,6 +313,28 @@ export default function SourceQueuePanel({
             items={model?.assetIdentityResolution?.sourceRequirements}
             emptyText="No identity-specific source requirements were attached."
             color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+
+        <Card title="Tokenomics Supply Integrity Requirements" subtitle="Dilution, unlock, mint/admin, and supply-source review. Not reviewed evidence." styles={styles}>
+          <SectionRow
+            label="Boundary"
+            value="Missing unlock data is a confidence cap, not proof of no unlock risk. Provider supply fields are reported context until source-backed."
+            styles={styles}
+          />
+          <ListBlock
+            title="Source requirements"
+            items={model?.tokenomicsSupplyIntegrity?.sourceRequirements}
+            emptyText="No tokenomics supply source requirements were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+          <ListBlock
+            title="Manual review triggers"
+            items={model?.tokenomicsSupplyIntegrity?.manualReviewTriggers}
+            emptyText="No tokenomics manual review trigger was attached."
+            color="#ffb020"
             styles={styles}
           />
         </Card>
