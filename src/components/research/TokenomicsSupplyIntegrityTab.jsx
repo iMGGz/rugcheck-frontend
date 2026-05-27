@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
 import { formatCompact, formatPct, formatUsd, safeArray, safeObject, titleCase } from "./researchUtils";
 
 function isPresent(value) {
@@ -556,10 +556,16 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
 
   return (
     <>
-      <Card
-        title="Tokenomics / Supply Integrity"
-        score={tokenomics.tokenomicsIntegrityScore ?? null}
-        subtitle="Dedicated supply-integrity and dilution-underwriting surface. Diagnostic-only; existing overall score and verdict are unchanged."
+      <ExecutiveSummaryCard
+        eyebrow="Tokenomics / Supply Integrity"
+        title="What is the supply-integrity answer?"
+        answer={tokenomics.explanationSummary || "Supply integrity is shown as a diagnostic underwriting layer. Exact provider numbers, formulas, and missing evidence remain available below."}
+        tone="#9bd7ff"
+        badges={[
+          { label: tokenomics.tokenomicsIntegrityScore === null || tokenomics.tokenomicsIntegrityScore === undefined ? "Score unavailable" : `${tokenomics.tokenomicsIntegrityScore}/100 diagnostic`, tone: "#9bd7ff" },
+          { label: `Evidence: ${status(tokenomics.evidenceConfidence)}`, tone: "#f9d976" },
+          { label: "Not overall scoring", tone: "#d5dcec" },
+        ]}
         styles={styles}
       >
         <FieldGrid>
@@ -578,7 +584,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Top negative signal" value={safeArray(tokenomics.negativeSignals)[0] || "No negative tokenomics signal attached."} styles={styles} />
         <SectionRow label="Diagnostic boundary" value="tokenomicsIntegrityScore is diagnostic-only and does not change the current overall score or verdict." styles={styles} />
         <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
-      </Card>
+      </ExecutiveSummaryCard>
 
       <Card title="Key Risk Summary" subtitle="What matters most for this asset class before relying on tokenomics conclusions." styles={styles}>
         <ListBlock title="What matters most" items={keyRiskItems(primaryLensId)} emptyText="No lens-specific risk summary attached." color="#9bd7ff" styles={styles} />
@@ -589,30 +595,9 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         ]} emptyText="No primary tokenomics review signal attached." color="#f9d976" styles={styles} />
       </Card>
 
-      <Card title="Canonical Asset / Contract Scope" subtitle="Supply calculations depend on the selected asset, analyzed network, and representation boundary." styles={styles}>
-        <SectionRow label="Canonical asset" value={`${identity.canonicalAssetName || tokenomics.supplySummary?.canonicalAsset || asset?.name || "Unavailable"} (${identity.canonicalAssetSymbol || asset?.symbol || "Unavailable"})`} styles={styles} />
-        <SectionRow label="Provider IDs" value={`CoinGecko: ${identity.canonicalProviderIds?.coingeckoId || asset?.coingeckoId || "Unavailable"} | CMC: ${identity.canonicalProviderIds?.coinmarketcapId || asset?.coinmarketcapId || "Unavailable"}`} styles={styles} />
-        <SectionRow label="Canonical/native network candidate" value={identity.canonicalNetworkCandidate || identity.nativeNetworkCandidate || "Unavailable"} styles={styles} />
-        <SectionRow label="Selected/analyzed network" value={`${identity.selectedNetwork || "Unavailable"} / ${identity.analyzedNetwork || "Unavailable"}`} styles={styles} />
-        <SectionRow label="Selected/analyzed contract" value={`${identity.selectedContract || "Not applicable"} / ${identity.analyzedContract || "Not applicable"}`} styles={styles} />
-        <SectionRow label="Representation type" value={identity.representationType === "issuer_native_multichain_stablecoin" ? "issuer-native multichain stablecoin" : identity.representationType || "Unknown"} styles={styles} />
-        <SectionRow label="Native / EVM / multichain / migrated" value={`native=${identity.isNativeAsset === undefined ? "unknown" : identity.isNativeAsset ? "yes" : "no"}; evm=${identity.isEvmContractAsset === undefined ? "unknown" : identity.isEvmContractAsset ? "yes" : "no"}; multichain=${identity.isMultichain === undefined ? "unknown" : identity.isMultichain ? "yes" : "no"}; migration=${identity.migrationStatus || "unknown"}`} styles={styles} />
-        <SectionRow label="Wrong-asset risk" value={identity.wrongAssetRisk || "Unknown"} styles={styles} />
-        <SectionRow label="Contract scan applicability" value={identity.contractScanApplicability || "Unknown"} styles={styles} />
-        <SectionRow label="Selected/analyzed contract" value={selectedContractLine} styles={styles} />
-        <SectionRow label="Known provider contract count" value={contractRows.length ? `${contractRows.length} mappings attached` : "No provider contract mappings attached"} styles={styles} />
-        <ListBlock title="Top provider contract mappings" items={contractRows.slice(0, 5)} emptyText="No provider contract mappings attached." color="#9bd7ff" styles={styles} />
-        {contractRows.length > 5 ? (
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ color: "#9bd7ff", cursor: "pointer", fontWeight: 800 }}>View all provider contract mappings ({contractRows.length})</summary>
-            <ListBlock title="All provider contract mappings" items={contractRows} emptyText="No provider contract mappings attached." color="#d5dcec" styles={styles} />
-          </details>
-        ) : null}
-        <SectionRow label="Contract mapping boundary" value="Provider contract mappings require official supported-network verification." styles={styles} />
-        <ListBlock title="Identity warnings / source requirements" items={[...scopeWarnings, ...safeArray(identity.sourceRequirements)]} emptyText="No identity warning attached." color="#f9d976" styles={styles} />
-      </Card>
+      <TokenomicsQuestionPanel tokenomics={tokenomics} styles={styles} />
 
-      <Card title="Supply Snapshot" subtitle="Exact normalized values and derived supply ratios from provider-reported fields." styles={styles}>
+      <Card title="Key Numbers" subtitle="Exact normalized values and derived supply ratios from provider-reported fields." styles={styles}>
         <FieldGrid>
           <MiniMetric label="Current price" value={displayUsd(tokenomics.currentPrice)} />
           <MiniMetric label="Market cap" value={displayUsd(tokenomics.marketCap)} />
@@ -634,54 +619,81 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Max supply method" value={status(tokenomics.maxSupplyMethod)} styles={styles} />
       </Card>
 
-      <ProviderComparison tokenomics={tokenomics} styles={styles} />
+      <Card title="Source Requirements / What Would Change" subtitle="The shortest path to improving tokenomics confidence." styles={styles}>
+        <ListBlock title="Top source requirements" items={safeArray(tokenomics.sourceRequirements).slice(0, 5)} emptyText="No tokenomics source requirements attached." color="#9bd7ff" styles={styles} />
+        <ListBlock title="What would change" items={safeArray(tokenomics.whatWouldChange).slice(0, 5)} emptyText="No tokenomics change requirements attached." color="#a6f3c2" styles={styles} />
+      </Card>
+
       <FormulaPanel tokenomics={tokenomics} styles={styles} />
 
-      <Card title="Future Dilution & Unlocks" subtitle="Missing unlock data is a confidence cap, not proof of no unlock risk." styles={styles}>
+      <CollapsibleDetail title="Future Dilution & Unlocks" subtitle="Missing unlock data is a confidence cap, not proof of no unlock risk." styles={styles} tone="#f9d976">
         <SectionRow label="Unlock schedule status" value={status(tokenomics.unlockScheduleStatus)} styles={styles} />
         <SectionRow label="Next unlock" value={`${tokenomics.nextUnlockDate || "Unknown date"} | ${displayPercent(tokenomics.nextUnlockPercent)} | ${displayUsd(tokenomics.nextUnlockUsdValue)}`} styles={styles} />
         <SectionRow label="Unlock / volume / liquidity / market cap" value={`${displayRatio(tokenomics.unlockToVolumeRatio)} / ${displayRatio(tokenomics.unlockToLiquidityRatio)} / ${displayDecimalPercent(tokenomics.unlockToMarketCap)}`} styles={styles} />
         <SectionRow label="Future dilution risk" value={status(tokenomics.futureDilutionRisk)} styles={styles} />
         <ListBlock title="Unlock source requirements" items={safeArray(tokenomics.sourceRequirements).filter((item) => /unlock|vesting|release|recipient|liquidity|dilution/i.test(item))} emptyText="No unlock-specific source requirement attached." color="#f9d976" styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <Card title="Supply Control / Mutability" subtitle="Admin, mint, governance, migration, and contract-control risks require source-backed review." styles={styles}>
+      <CollapsibleDetail title="Supply Control / Mutability" subtitle="Admin, mint, governance, migration, and contract-control risks require source-backed review." styles={styles} tone="#f9d976">
         <SectionRow label="Mint/admin/cap mutability" value={`${controlStatusLabel(tokenomics.mintAuthorityStatus, "mint", primaryLensId)} / ${controlStatusLabel(tokenomics.adminControlStatus, "admin", primaryLensId)} / ${status(tokenomics.capMutabilityStatus)}`} styles={styles} />
         <SectionRow label="Governance supply-change risk" value={status(tokenomics.governanceSupplyChangeRisk)} styles={styles} />
         <SectionRow label="Migration / representation" value={`${identity.migrationStatus || "Unknown"} / ${identity.representationType || "Unknown"}`} styles={styles} />
         <ListBlock title="Manual review triggers" items={tokenomics.manualReviewTriggers} emptyText="No tokenomics manual-review trigger attached." color="#f9d976" styles={styles} />
         <ListBlock title="Control source requirements" items={safeArray(tokenomics.sourceRequirements).filter((item) => /mint|admin|governance|contract|migration|cap|emission|proxy|authority/i.test(item))} emptyText="No control-specific source requirement attached." color="#9bd7ff" styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <Card title="Emissions / Burn / Rewards" subtitle="Burns and rewards require materiality and source review before improving supply confidence." styles={styles}>
+      <CollapsibleDetail title="Emissions / Burn / Rewards" subtitle="Burns and rewards require materiality and source review before improving supply confidence." styles={styles} tone="#9bd7ff">
         <SectionRow label="Emission policy / annual inflation" value={`${status(tokenomics.emissionPolicyStatus)} / ${displayPercent(tokenomics.annualInflationEstimate)}`} styles={styles} />
         <SectionRow label="Annualized emissions / net issuance" value={`${displayNumber(tokenomics.annualizedEmissions)} / ${displayNumber(tokenomics.netIssuanceAfterBurn)}`} styles={styles} />
         <SectionRow label="Burn / materiality / buyback-burn" value={`${status(tokenomics.burnMechanismStatus)} / ${status(tokenomics.burnMateriality)} / ${status(tokenomics.buybackBurnStatus)}`} styles={styles} />
         <SectionRow label="Buyback/burn coverage" value={displayDecimalPercent(tokenomics.buybackBurnCoverage)} styles={styles} />
         <SectionRow label="Staking reward source / real yield vs subsidy" value={`${status(tokenomics.stakingRewardSource)} / ${status(tokenomics.realYieldVsSubsidyStatus)}`} styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <Card title="Concentration / Treasury / Holder Risk" subtitle="Concentration metrics are shown only when current providers attach usable fields." styles={styles}>
+      <CollapsibleDetail title="Concentration / Treasury / Holder Risk" subtitle="Concentration metrics are shown only when current providers attach usable fields." styles={styles} tone="#9bd7ff">
         <SectionRow label="Insider / treasury / holder concentration risk" value={`${status(tokenomics.insiderAllocationRisk)} / ${status(tokenomics.treasurySupplyRisk)} / ${status(tokenomics.holderConcentrationRisk)}`} styles={styles} />
         <SectionRow label="Top wallet concentration" value={displayPercent(tokenomics.topWalletConcentration)} styles={styles} />
         <SectionRow label="Treasury / vesting recipient concentration" value={`${displayDecimalPercent(tokenomics.treasurySupplyConcentration)} / ${displayDecimalPercent(tokenomics.vestingRecipientConcentration)}`} styles={styles} />
         <ListBlock title="Concentration source requirements" items={safeArray(tokenomics.sourceRequirements).filter((item) => /treasury|foundation|insider|wallet|recipient|holder/i.test(item))} emptyText="No concentration-specific source requirement attached." color="#f9d976" styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <Card title="Absorption Capacity / Liquidity Context" subtitle="Dilution materiality depends on unlock timing, liquidity, volume, market cap, and demand absorption." styles={styles}>
+      <CollapsibleDetail title="Absorption Capacity / Liquidity Context" subtitle="Dilution materiality depends on unlock timing, liquidity, volume, market cap, and demand absorption." styles={styles} tone="#9bd7ff">
         <SectionRow label="24h volume / volume-market-cap" value={`${displayUsd(tokenomics.volume24h)} / ${displayDecimalPercent(tokenomics.volumeMarketCapRatio)}`} styles={styles} />
         <SectionRow label="Unlock / volume / liquidity / market cap" value={`${displayRatio(tokenomics.unlockToVolumeRatio)} / ${displayRatio(tokenomics.unlockToLiquidityRatio)} / ${displayDecimalPercent(tokenomics.unlockToMarketCap)}`} styles={styles} />
         <ListBlock title="Demand absorption notes" items={safeArray(tokenomics.neutralContextualSignals).concat(safeArray(tokenomics.negativeSignals).filter((item) => /demand|liquidity|volume|absorption|FDV/i.test(item)))} emptyText="No absorption-capacity note attached." color="#d5dcec" styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <Card title="Tokenholder Accrual / Rights" subtitle="The engine separates tokenholder economic rights from provider category, narrative, or protocol adoption." styles={styles}>
+      <CollapsibleDetail title="Tokenholder Accrual / Rights" subtitle="The engine separates tokenholder economic rights from provider category, narrative, or protocol adoption." styles={styles} tone="#9bd7ff">
         <SectionRow label="Value capture / token necessity" value={`${status(tokenomics.tokenholderValueCaptureStatus)} / ${status(tokenomics.tokenNecessityStatus)}`} styles={styles} />
         <SectionRow label="Accrual / fee revenue / protocol revenue ratios" value={`${displayDecimalPercent(tokenomics.tokenholderAccrualRatio)} / ${displayDecimalPercent(tokenomics.feeRevenueCaptureRatio)} / ${displayRatio(tokenomics.protocolRevenueToTokenValue)}`} styles={styles} />
         <SectionRow label="Staking / real yield vs subsidy" value={`${status(tokenomics.stakingRewardSource)} / ${status(tokenomics.realYieldVsSubsidyStatus)}`} styles={styles} />
         <ListBlock title="Accrual source requirements" items={safeArray(tokenomics.sourceRequirements).filter((item) => /fee|revenue|accrual|buyback|burn|staking|rights|claim|yield/i.test(item))} emptyText="No tokenholder-accrual source requirement attached." color="#9bd7ff" styles={styles} />
-      </Card>
+      </CollapsibleDetail>
 
-      <TokenomicsQuestionPanel tokenomics={tokenomics} styles={styles} />
+      <CollapsibleDetail title="Canonical Asset / Contract Scope" subtitle="Supply calculations depend on the selected asset, analyzed network, and representation boundary." styles={styles} tone="#d5dcec">
+        <SectionRow label="Canonical asset" value={`${identity.canonicalAssetName || tokenomics.supplySummary?.canonicalAsset || asset?.name || "Unavailable"} (${identity.canonicalAssetSymbol || asset?.symbol || "Unavailable"})`} styles={styles} />
+        <SectionRow label="Provider IDs" value={`CoinGecko: ${identity.canonicalProviderIds?.coingeckoId || asset?.coingeckoId || "Unavailable"} | CMC: ${identity.canonicalProviderIds?.coinmarketcapId || asset?.coinmarketcapId || "Unavailable"}`} styles={styles} />
+        <SectionRow label="Canonical/native network candidate" value={identity.canonicalNetworkCandidate || identity.nativeNetworkCandidate || "Unavailable"} styles={styles} />
+        <SectionRow label="Selected/analyzed network" value={`${identity.selectedNetwork || "Unavailable"} / ${identity.analyzedNetwork || "Unavailable"}`} styles={styles} />
+        <SectionRow label="Selected/analyzed contract" value={`${identity.selectedContract || "Not applicable"} / ${identity.analyzedContract || "Not applicable"}`} styles={styles} />
+        <SectionRow label="Representation type" value={identity.representationType === "issuer_native_multichain_stablecoin" ? "issuer-native multichain stablecoin" : identity.representationType || "Unknown"} styles={styles} />
+        <SectionRow label="Native / EVM / multichain / migrated" value={`native=${identity.isNativeAsset === undefined ? "unknown" : identity.isNativeAsset ? "yes" : "no"}; evm=${identity.isEvmContractAsset === undefined ? "unknown" : identity.isEvmContractAsset ? "yes" : "no"}; multichain=${identity.isMultichain === undefined ? "unknown" : identity.isMultichain ? "yes" : "no"}; migration=${identity.migrationStatus || "unknown"}`} styles={styles} />
+        <SectionRow label="Wrong-asset risk" value={identity.wrongAssetRisk || "Unknown"} styles={styles} />
+        <SectionRow label="Contract scan applicability" value={identity.contractScanApplicability || "Unknown"} styles={styles} />
+        <SectionRow label="Selected/analyzed contract" value={selectedContractLine} styles={styles} />
+        <SectionRow label="Known provider contract count" value={contractRows.length ? `${contractRows.length} mappings attached` : "No provider contract mappings attached"} styles={styles} />
+        <ListBlock title="Top provider contract mappings" items={contractRows.slice(0, 5)} emptyText="No provider contract mappings attached." color="#9bd7ff" styles={styles} />
+        {contractRows.length > 5 ? (
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ color: "#9bd7ff", cursor: "pointer", fontWeight: 800 }}>View all provider contract mappings ({contractRows.length})</summary>
+            <ListBlock title="All provider contract mappings" items={contractRows} emptyText="No provider contract mappings attached." color="#d5dcec" styles={styles} />
+          </details>
+        ) : null}
+        <SectionRow label="Contract mapping boundary" value="Provider contract mappings require official supported-network verification." styles={styles} />
+        <ListBlock title="Identity warnings / source requirements" items={[...scopeWarnings, ...safeArray(identity.sourceRequirements)]} emptyText="No identity warning attached." color="#f9d976" styles={styles} />
+      </CollapsibleDetail>
+
+      <ProviderComparison tokenomics={tokenomics} styles={styles} />
 
       <Card title="Score Logic / Caps / Gates" subtitle="These are tokenomics module signals; they do not replace the current overall scoring model." styles={styles}>
         <SectionRow label="Diagnostic integrity score" value={tokenomics.tokenomicsIntegrityScore === null || tokenomics.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${tokenomics.tokenomicsIntegrityScore}/100`} styles={styles} />
@@ -696,19 +708,14 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Institutional target model" value="Doctrine only: supply integrity, control/mutability, dilution path, concentration/treasury, absorption capacity, and tokenholder accrual. Not claimed as active backend weights." styles={styles} />
       </Card>
 
-      <Card title="What Would Change" subtitle="Source-backed evidence needed to improve tokenomics confidence." styles={styles}>
-        <ListBlock title="What would change" items={tokenomics.whatWouldChange} emptyText="No tokenomics change requirements attached." color="#a6f3c2" styles={styles} />
-        <ListBlock title="Top source requirements" items={safeArray(tokenomics.sourceRequirements).slice(0, 10)} emptyText="No tokenomics source requirements attached." color="#9bd7ff" styles={styles} />
-      </Card>
-
-      <Card title="Audit Boundary / Reproducibility" subtitle="Compact audit-critical provenance. Full raw object remains in Audit / Raw." styles={styles}>
+      <CollapsibleDetail title="Audit Boundary / Reproducibility" subtitle="Compact audit-critical provenance. Full raw object remains in Audit / Raw." styles={styles} tone="#8a94a6">
         <ListBlock title="Provider field audit" items={compactList(tokenomics.providerFieldAudit, (entry) => `${entry.provider}: available=${safeArray(entry.fieldsAvailable).join(", ") || "none"}; missing=${safeArray(entry.fieldsMissing).join(", ") || "none"}; timestamp=${entry.timestamp || "unavailable"}`)} emptyText="No provider field audit attached." color="#d5dcec" styles={styles} />
         <ListBlock title="Provider timestamps" items={compactList(tokenomics.providerTimestamps, (entry) => `${entry.provider}: ${entry.timestamp || "Unavailable"} (${entry.sourcePath || "source unavailable"})`)} emptyText="No provider timestamps attached." color="#d5dcec" styles={styles} />
         <ListBlock title="Source contradictions" items={tokenomics.sourceContradictions} emptyText="No source contradiction attached." color="#ffb6b6" styles={styles} />
         <ListBlock title="Provider disagreements" items={tokenomics.providerDisagreements} emptyText="No provider disagreement attached." color="#f9d976" styles={styles} />
         <ListBlock title="Source boundary" items={tokenomics.sourceBoundary} emptyText="No tokenomics source boundary attached." color="#9bd7ff" styles={styles} />
         <SectionRow label="Raw audit availability" value={Object.keys(safeObject(tokenomics.auditRawFields)).length ? "Raw tokenomics audit fields available in Audit / Raw and Review Bundle." : "No raw tokenomics audit object attached."} styles={styles} />
-      </Card>
+      </CollapsibleDetail>
     </>
   );
 }

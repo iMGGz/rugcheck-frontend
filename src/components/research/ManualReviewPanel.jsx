@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import {
   normalizeRenderableList,
   providerLabel,
@@ -231,7 +231,18 @@ export default function ManualReviewPanel({
 
   return (
     <div style={styles.sourceQueueShell}>
-      <Card title="Manual Review Queue" subtitle="Workflow Layer" styles={styles}>
+      <ExecutiveSummaryCard
+        eyebrow="Manual Review"
+        title="What requires human review?"
+        answer={signals[0]?.description || model?.manualReviewStatus?.detail || "No live manual-review signal was surfaced beyond normal analyst verification."}
+        tone="#f9d976"
+        badges={[
+          { label: model?.manualReviewStatus?.label || "Review status unavailable", tone: "#f9d976" },
+          { label: `${signals.length} live signals`, tone: signals.length ? "#ffb020" : "#d5dcec" },
+          { label: "Workflow, not failure", tone: "#d5dcec" },
+        ]}
+        styles={styles}
+      >
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, "Manual review is a workflow signal, not automatic proof of failure.")}
           {boundaryChip(styles, "Critical gaps may cap confidence until reviewed.")}
@@ -247,7 +258,34 @@ export default function ManualReviewPanel({
           value={model?.manualReviewStatus?.detail || "Manual review queue is not attached to live response yet."}
           styles={styles}
         />
-      </Card>
+      </ExecutiveSummaryCard>
+
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="Is this a true blocker or missing evidence?"
+          answer={signals[0]?.description || "No blocker/review distinction was attached beyond normal verification."}
+          status={signals[0]?.status || "Review context"}
+          impact="Manual review"
+          sourceState={signals[0]?.source || "Decision model"}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What should the analyst check first?"
+          answer={verifyItems[0] || "Confirm source authenticity, freshness, scope, and contradiction risk."}
+          status="First check"
+          impact="Workflow"
+          sourceState="Verification checklist"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Does this affect scoring?"
+          answer="Manual review and report-only source overlays do not affect live scoring unless explicitly integrated by a calibrated backend path."
+          status="Boundary"
+          impact="Not automatic scoring"
+          sourceState="Policy"
+          styles={styles}
+        />
+      </div>
 
       <CalibrationWarningsCard warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
 

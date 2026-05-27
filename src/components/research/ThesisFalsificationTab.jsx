@@ -2,7 +2,7 @@ import React from "react";
 import FailureModeCard from "./FailureModeCard";
 import TokenDemandCard from "./TokenDemandCard";
 import ConvictionDriversMatrix from "./ConvictionDriversMatrix";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, CollapsibleDetail, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import { normalizeRenderableList, sanitizeSemanticLabel, titleCase } from "./researchUtils";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 
@@ -340,6 +340,41 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         <SectionRow label="Asset framing" value={assetFraming} styles={styles} />
       </Card>
 
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="What must be true?"
+          answer={thesis.whatMustBeTrue[0] || "No live must-be-true condition was surfaced."}
+          status="Required condition"
+          impact="Thesis support"
+          sourceState="Lens-aware"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What could break the thesis?"
+          answer={thesis.whatCouldBreak[0] || "No explicit thesis-break signal was surfaced."}
+          status="Break condition"
+          impact="Downside test"
+          sourceState="Falsification"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which assumption is weakest?"
+          answer={thesis.weakestLinkExplanation || thesis.weakestLinkLabel}
+          status={thesis.weakestLinkLabel}
+          impact="Weakest link"
+          sourceState="Decision model"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What evidence would change the decision?"
+          answer={thesis.whatWouldChange[0] || "Additional verified evidence required."}
+          status="Source required"
+          impact="What would change"
+          sourceState="Requirements"
+          styles={styles}
+        />
+      </div>
+
       {model?.verdictSemantics?.hasVerdictClass ? (
         <AllocationCaseSection model={model} styles={styles} />
       ) : null}
@@ -436,12 +471,13 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         title="Tokenomics Dilution Failure Modes"
       />
 
-      <div style={styles.thesisSupportingPanelLabel}>Supporting live-analysis panels</div>
-      <div style={styles.advancedGrid}>
-        <TokenDemandCard model={model} styles={styles} />
-        <FailureModeCard model={model} styles={styles} />
-        <ConvictionDriversMatrix model={model} styles={styles} />
-      </div>
+      <CollapsibleDetail title="Supporting Live-Analysis Panels" subtitle="Secondary supporting panels remain available without dominating the falsification questions." styles={styles} tone="#8a94a6">
+        <div style={styles.advancedGrid}>
+          <TokenDemandCard model={model} styles={styles} />
+          <FailureModeCard model={model} styles={styles} />
+          <ConvictionDriversMatrix model={model} styles={styles} />
+        </div>
+      </CollapsibleDetail>
     </div>
   );
 }

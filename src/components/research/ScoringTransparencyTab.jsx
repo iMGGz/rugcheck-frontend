@@ -1,7 +1,7 @@
 import React from "react";
 import EvidenceConfidenceCard from "./EvidenceConfidenceCard";
 import ScoreContributorsPanel from "./ScoreContributorsPanel";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 import {
   extractRenderableText,
@@ -315,10 +315,24 @@ export default function ScoringTransparencyTab({
   const unavailable = modules
     .filter((module) => !module.attached)
     .map((module) => `${module.title}: not attached to live response.`);
+  const overallModule = modules.find((module) => module.title === "Overall Score");
+  const capsModule = modules.find((module) => module.title === "Policy Caps / Gates");
+  const tokenomicsModule = modules.find((module) => module.title === "Tokenomics Supply Integrity");
 
   return (
     <div style={styles.scoringTransparencyShell}>
-      <Card title="Scoring Transparency" subtitle="Live Scoring Layer" styles={styles}>
+      <ExecutiveSummaryCard
+        eyebrow="Scoring Transparency"
+        title="Why does the score look like this?"
+        answer="This view separates live scoring-active fields from diagnostics, report-only context, and source candidates. It explains boundaries before raw modules."
+        tone="#7dd3fc"
+        badges={[
+          { label: `Overall: ${overallModule?.value || "Unavailable"}`, tone: "#7dd3fc" },
+          { label: capsAndGates.length ? `${capsAndGates.length} cap/gate signals` : "No cap table attached", tone: capsAndGates.length ? "#f9d976" : "#d5dcec" },
+          { label: "Report-only not scoring", tone: "#d5dcec" },
+        ]}
+        styles={styles}
+      >
         <div style={styles.scoringBoundaryStrip}>
           {boundaryChip(styles, "Only the live scoring layer affects the current decision.")}
           {boundaryChip(styles, "Report-only evidence is context only.")}
@@ -331,7 +345,34 @@ export default function ScoringTransparencyTab({
           value="Report-only evidence, source candidates, and manual-review workflow items are not scoring inputs unless explicitly integrated in a future calibrated release."
           styles={styles}
         />
-      </Card>
+      </ExecutiveSummaryCard>
+
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="Which live score is visible?"
+          answer={overallModule?.rule || "Overall score module was not attached."}
+          status={overallModule?.value || "Unavailable"}
+          impact="Live score"
+          sourceState={overallModule?.source || "Not attached"}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which caps or gates apply?"
+          answer={capsAndGates[0]?.name || capsModule?.rule || "No cap/gate signal was attached to the display model."}
+          status={capsAndGates.length ? "Review gates" : "None attached"}
+          impact="Score boundary"
+          sourceState="Policy signals"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which signals are diagnostic-only?"
+          answer={tokenomicsModule?.rule || "Diagnostic-only module context was not attached."}
+          status="Diagnostic only"
+          impact="Not overall scoring"
+          sourceState={tokenomicsModule?.source || "Not attached"}
+          styles={styles}
+        />
+      </div>
 
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
 

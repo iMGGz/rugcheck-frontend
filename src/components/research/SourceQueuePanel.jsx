@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import {
   extractRenderableText,
   buildLensSpecificResearchDomains,
@@ -215,7 +215,18 @@ export default function SourceQueuePanel({
 
   return (
     <div style={styles.sourceQueueShell}>
-      <Card title="Source Queue" subtitle="Candidate Layer" styles={styles}>
+      <ExecutiveSummaryCard
+        eyebrow="Source Queue"
+        title="What source is needed next?"
+        answer={reviewLeads[0]?.description || "No live review leads were surfaced. Source candidates remain unavailable until attached by the backend/source workflow."}
+        tone="#9bd7ff"
+        badges={[
+          { label: `${reviewLeads.length} review leads`, tone: reviewLeads.length ? "#f9d976" : "#d5dcec" },
+          { label: `${researchRequirements.length} research requirements`, tone: researchRequirements.length ? "#7dd3fc" : "#d5dcec" },
+          { label: "Candidate, not evidence", tone: "#d5dcec" },
+        ]}
+        styles={styles}
+      >
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, "Source candidates are not evidence.")}
           {boundaryChip(styles, "Candidates require review before they can become report evidence.")}
@@ -226,9 +237,36 @@ export default function SourceQueuePanel({
           value="Source discovery candidates are not attached to this live response yet."
           styles={styles}
         />
-      </Card>
+      </ExecutiveSummaryCard>
 
-      <Card title="Source Lifecycle Explainer" subtitle="Report-only workflow. Not live scoring input." styles={styles}>
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="What should be sourced first?"
+          answer={reviewLeads[0]?.description || safeArray(model?.tokenomicsSupplyIntegrity?.sourceRequirements)[0] || "No priority source requirement was attached."}
+          status={reviewLeads[0]?.status || "Source required"}
+          impact="Next source"
+          sourceState={reviewLeads[0]?.source || "Live gaps"}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which question would it answer?"
+          answer={researchRequirements[0]?.title || reviewLeads[0]?.label || "No mapped research question was attached."}
+          status="Research requirement"
+          impact="Question mapping"
+          sourceState="Requirement model"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Could it change the verdict?"
+          answer={researchRequirements[0]?.verdictImpact || "Potentially only if reviewed, source-backed evidence resolves a live decision requirement."}
+          status={researchRequirements[0]?.canChangeVerdict ? "Potentially" : "Requires review"}
+          impact="Verdict boundary"
+          sourceState="Not evidence yet"
+          styles={styles}
+        />
+      </div>
+
+      <CollapsibleDetail title="Source Lifecycle Explainer" subtitle="Report-only workflow. Not live scoring input." styles={styles} tone="#8a94a6">
         <div style={styles.sourceWorkflowGrid}>
           {[
             ["Source Candidate", "Review prompt only. Not evidence.", "Cannot affect scoring"],
@@ -244,7 +282,7 @@ export default function SourceQueuePanel({
             </div>
           ))}
         </div>
-      </Card>
+      </CollapsibleDetail>
 
       <div style={styles.advancedGrid}>
         <Card title="Research Requirements" subtitle="Generated from live gaps. These are not reviewed evidence." styles={styles}>

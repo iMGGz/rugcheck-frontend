@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import EvidenceConfidenceCard from "./EvidenceConfidenceCard";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
 import ProviderHealthPanel from "./ProviderHealthPanel";
@@ -299,12 +299,22 @@ export default function EvidenceMapTab({
   const freshness = model?.analysisFreshness || {};
   const providerNotes = normalizeRenderableList(meta?.providerNotes).slice(0, 4);
   const coverageSignals = safeArray(evidenceStatusProxy?.items);
+  const firstCoverageSignal = coverageSignals[0] ? normalizeEvidenceProxyDisplayLabel(coverageSignals[0]) : null;
+  const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
+  const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
   return (
     <div style={styles.evidenceMapShell}>
-      <Card
-        title="Evidence Map / Source Trace"
-        subtitle="Live Response Layer"
+      <ExecutiveSummaryCard
+        eyebrow="Evidence Map / Source Trace"
+        title="What evidence is actually attached?"
+        answer="This tab separates reviewed evidence, provider metadata, source candidates, diagnostics, and missing/stale sections. Missing provider data is a verification gap, not negative evidence."
+        tone="#7dd3fc"
+        badges={[
+          { label: evidenceStatusProxy?.label || "Live evidence proxy", tone: "#7dd3fc" },
+          { label: freshness.freshnessLabel || "Freshness unknown", tone: freshness.isFreshLive ? "#a6f3c2" : "#f9d976" },
+          { label: "Source boundaries preserved", tone: "#d5dcec" },
+        ]}
         styles={styles}
       >
         <div style={styles.evidenceMapBoundaryStrip}>
@@ -323,7 +333,42 @@ export default function EvidenceMapTab({
           value={freshness.summary || "Freshness unknown. Missing provider sections are not proof of negative evidence; verify before relying on section-level conclusions."}
           styles={styles}
         />
-      </Card>
+      </ExecutiveSummaryCard>
+
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="Which claims are source-backed?"
+          answer={firstCoverageSignal?.meaning || "No live evidence-status proxy signals were attached."}
+          status={firstCoverageSignal?.statusLabel || "Unknown"}
+          impact="Evidence support"
+          sourceState="Live response"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which fields are provider metadata only?"
+          answer={firstProviderMetadata}
+          status="Provider metadata only"
+          impact="Boundary"
+          sourceState="Not reviewed evidence"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Where are contradictions or warnings?"
+          answer={firstContradiction || "No contradiction or calibration warning was attached to the display model."}
+          status={firstContradiction ? "Review required" : "None attached"}
+          impact="Manual review"
+          sourceState="Diagnostic"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What evidence is stale or missing?"
+          answer={safeArray(freshness.missingSections)[0] || safeArray(freshness.staleSections)[0] || "No stale/missing section was attached to the display model."}
+          status={freshness.isFreshLive ? "Fresh/live" : "Verify freshness"}
+          impact="Freshness"
+          sourceState="Section status"
+          styles={styles}
+        />
+      </div>
 
       <div style={styles.advancedGrid}>
         <Card title="Provider Classification Evidence" subtitle="Lens routing metadata. Not reviewed proof." styles={styles}>

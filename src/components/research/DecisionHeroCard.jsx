@@ -1,5 +1,5 @@
 import React from "react";
-import { Card } from "./researchPrimitives";
+import { Card, QuestionPromptCard } from "./researchPrimitives";
 import { formatDateTime, formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
@@ -244,6 +244,36 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
           ) : null}
         </div>
       ) : null}
+
+      <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="Why this verdict?"
+          answer={verdictSemantics.summary || model?.summaryMemo || "The live decision layer did not attach a structured verdict explanation."}
+          status={model?.allocationOutcome?.label || "Decision unavailable"}
+          impact="Final decision"
+          sourceState="Live scoring"
+          onClick={() => onSelectSection?.("scoring_transparency")}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What blocks a stronger verdict?"
+          answer={primaryBlocker.label || primaryBlocker.explanation || "Primary blocker not explicitly available in the live response."}
+          status={primaryBlocker.badge || "Blocker proxy"}
+          impact="Confidence limiter"
+          sourceState="Decision model"
+          onClick={() => onSelectSection?.("thesis_falsification")}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What evidence is still missing?"
+          answer={whatWouldChange[0] || "Additional verified evidence is required before a stronger view."}
+          status={model?.whatWouldChangeDecision?.badge || "Source required"}
+          impact="What would change"
+          sourceState="Requirements"
+          onClick={() => onSelectSection?.("source_queue")}
+          styles={styles}
+        />
+      </div>
 
       <div style={styles.decisionInsightGrid}>
         <DecisionInsightCard
