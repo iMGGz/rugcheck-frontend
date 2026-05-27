@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, ListBlock, SectionRow } from "./researchPrimitives";
+import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
 import {
   extractRenderableText,
   normalizeInstitutionalQuestionsPayload,
@@ -56,7 +56,7 @@ function questionStatusTone(status) {
     case "not_applicable":
       return { label: "Not applicable", color: "#8a94a6" };
     default:
-      return { label: labelize(status || "Unknown"), color: "#8a94a6" };
+      return { label: status ? labelize(status) : "Source required", color: "#8a94a6" };
   }
 }
 
@@ -72,8 +72,37 @@ function verdictImpactTone(impact) {
     case "requires_manual_review":
       return { label: labelize(impact), color: "#ffb020" };
     default:
-      return { label: labelize(impact || "No scoring impact"), color: "#aab7cc" };
+      return { label: impact ? labelize(impact) : "Diagnostic only", color: "#aab7cc" };
   }
+}
+
+function answerFallback(question) {
+  const status = questionStatusTone(question?.answerStatus).label;
+  if (question?.shortAnswer) return question.shortAnswer;
+  if (question?.answerSummary) return question.answerSummary;
+  if (question?.answerStatus === "not_applicable") return "Not applicable for this asset class.";
+  if (question?.answerStatus === "manual_review_required") return "Manual review required before relying on this answer.";
+  if (question?.answerStatus === "evidence_missing" || question?.answerStatus === "reviewed_evidence_required") return "Evidence missing; source review required.";
+  if (question?.answerStatus === "contradicted") return "Contradiction detected; review source evidence before using this answer.";
+  if (question?.answerStatus === "supported" || question?.answerStatus === "partially_supported") return `${status}; supporting source context should be reviewed before raising confidence.`;
+  return "Partially answerable; source review required.";
+}
+
+function simplifiedBoundary(boundaries) {
+  const text = normalizeRenderableList(boundaries).join(" ").toLowerCase();
+  if (!text) return "Source boundary not attached.";
+  if (text.includes("provider")) return "Provider metadata is context, not reviewed evidence.";
+  if (text.includes("diagnostic")) return "Diagnostic context only; not a standalone evidence claim.";
+  if (text.includes("source_candidate")) return "Source candidate; review required before evidence use.";
+  if (text.includes("scoring")) return "Scoring boundary attached; inspect technical details for exact field use.";
+  return "Source boundary attached; inspect details before treating this as evidence.";
+}
+
+function readableEmpty(label) {
+  if (/missing/i.test(label)) return "No missing evidence listed.";
+  if (/contradiction|blocker/i.test(label)) return "No contradiction detected.";
+  if (/change/i.test(label)) return "No change condition listed.";
+  return "Not available yet.";
 }
 
 function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
@@ -100,59 +129,75 @@ function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
 function InstitutionalQuestionAnswerCard({ question, styles }) {
   const status = questionStatusTone(question.answerStatus);
   const impact = verdictImpactTone(question.verdictImpact);
-  const boundaries = normalizeRenderableList(question.sourceBoundary).map(labelize);
+  const boundaries = normalizeRenderableList(question.sourceBoundary);
+  const shortAnswer = answerFallback(question);
+  const supportItems = normalizeRenderableList(question.supportingSignals);
+  const missingItems = normalizeRenderableList(question.missingEvidence);
+  const contradictionItems = normalizeRenderableList(question.contradictionSignals);
+  const changeItems = normalizeRenderableList(question.whatWouldChange);
   return (
-    <div style={styles.institutionalQuestionAnswerCard}>
-      <div style={styles.checklistQuestionHeader}>
-        <div>
-          <div style={styles.metaLabel}>{question.questionId}</div>
-          <div style={styles.checklistQuestionText}>{question.questionText}</div>
+    <details style={styles.institutionalQuestionAnswerCard}>
+      <summary style={{ cursor: "pointer", listStyle: "none" }}>
+        <div style={styles.checklistQuestionHeader}>
+          <div>
+            <div style={styles.checklistQuestionText}>{question.questionText || "Institutional question"}</div>
+            <p style={{ ...styles.institutionalQuestionSummary, marginBottom: 0 }}>{shortAnswer}</p>
+          </div>
+          <div style={styles.checklistStatusStack}>
+            {statusChip(styles, status.label, status.color)}
+            {statusChip(styles, impact.label, impact.color)}
+            {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
+          </div>
         </div>
-        <div style={styles.checklistStatusStack}>
-          {statusChip(styles, status.label, status.color)}
-          {statusChip(styles, impact.label, impact.color)}
-        </div>
-      </div>
-
-      <p style={styles.institutionalQuestionSummary}>{question.answerSummary}</p>
+      </summary>
 
       <div style={styles.institutionalQuestionDetailGrid}>
+        <SectionRow label="Short answer" value={shortAnswer} styles={styles} />
+        <SectionRow label="Why it matters" value="This question tests whether the asset-class thesis has enough source-backed support to improve confidence without overclaiming evidence." styles={styles} />
         <InlineList
-          title="Evidence used / supporting signals"
-          items={question.supportingSignals}
+          title="Supporting evidence, summarized"
+          items={supportItems.slice(0, 4)}
           emptyText="No support signal attached."
           styles={styles}
           color="#7dd3fc"
         />
         <InlineList
           title="Missing evidence"
-          items={question.missingEvidence}
-          emptyText="No missing-evidence field attached."
+          items={missingItems.slice(0, 4)}
+          emptyText={readableEmpty("missing evidence")}
           styles={styles}
           color="#ffb020"
         />
         <InlineList
           title="Contradictions / blockers"
-          items={question.contradictionSignals}
-          emptyText="No contradiction signal attached."
+          items={contradictionItems.slice(0, 4)}
+          emptyText={readableEmpty("contradictions")}
           styles={styles}
           color="#ff6b6b"
         />
         <InlineList
           title="What would change"
-          items={question.whatWouldChange}
-          emptyText="No decision-change condition attached."
+          items={changeItems.slice(0, 4)}
+          emptyText={readableEmpty("what would change")}
           styles={styles}
           color="#d5dcec"
         />
+        <SectionRow label="Impact" value={impact.label} styles={styles} />
+        <SectionRow label="Source boundary" value={simplifiedBoundary(boundaries)} styles={styles} />
       </div>
 
-      <div style={styles.sourceBoundaryStrip}>
-        {boundaryChip(styles, `Lens: ${question.assetClassLens}`)}
-        {boundaryChip(styles, `MVP: ${labelize(question.currentMvpCapability)}`)}
-        {boundaries.slice(0, 4).map((item) => boundaryChip(styles, item))}
-      </div>
-    </div>
+      <details style={{ marginTop: 12 }}>
+        <summary style={{ color: "#8a94a6", cursor: "pointer", fontWeight: 800 }}>Technical details / raw fields</summary>
+        <div style={styles.sourceBoundaryStrip}>
+          {boundaryChip(styles, `Lens: ${labelize(question.assetClassLens)}`)}
+          {boundaryChip(styles, `Capability: ${labelize(question.currentMvpCapability)}`)}
+          {boundaries.slice(0, 4).map((item) => boundaryChip(styles, labelize(item)))}
+        </div>
+        <InlineList title="Signals used" items={supportItems} emptyText="No support signal attached." styles={styles} color="#7dd3fc" />
+        <InlineList title="Scoring/audit fields" items={question.scoringFieldsUsed} emptyText="No scoring/audit fields attached." styles={styles} color="#8a94a6" />
+        <SectionRow label="Question id" value={question.questionId || "Not available yet."} styles={styles} />
+      </details>
+    </details>
   );
 }
 
@@ -170,7 +215,7 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
       styles={styles}
     >
       <div style={styles.engineNotice}>
-        Answers use current live scoring/provider fields. They are not reviewed external evidence unless explicitly stated.
+        Answers use current live scoring/provider fields. Provider metadata is context, not reviewed evidence.
       </div>
       {isReconstructed ? (
         <div style={styles.institutionalQuestionsProvenanceNote}>
@@ -548,7 +593,7 @@ function lensSpecificGroup(lensResolution) {
 function ChecklistQuestionRow({ group, question, signal, styles }) {
   const statusItems = [
     { label: "Methodology Question", color: "#7dd3fc" },
-    { label: signal ? "Related Review Signal" : "Not Attached To Live Mapping", color: signal ? "#ffb020" : "#8a94a6" },
+    { label: signal ? "Related Review Signal" : "Not answered yet", color: signal ? "#ffb020" : "#8a94a6" },
     { label: "Needs Source Review", color: "#ffb020" },
     { label: "Report-Layer Only", color: "#9bd7ff" },
   ];
@@ -571,13 +616,13 @@ function ChecklistQuestionRow({ group, question, signal, styles }) {
 
       <div style={styles.checklistSlotGrid}>
         <SectionRow label="Why it matters" value={question.why} styles={styles} />
-        <SectionRow label="Future answer/status slot" value="Not attached to live mapping." styles={styles} />
+        <SectionRow label="Current answer" value="Not available yet. Do not infer an answer." styles={styles} />
         <SectionRow
           label="Related live review signal"
           value={signal ? `${signal.status}: ${signal.description}` : "No question-level live signal is attached. Do not infer an answer."}
           styles={styles}
         />
-        <SectionRow label="Source / research requirement" value="Source trace and manual research status appear here only when attached by a live or report endpoint." styles={styles} />
+        <SectionRow label="Source requirement" value="Source trace and manual research status appear here only when attached by a live or report endpoint." styles={styles} />
         <SectionRow label="Verdict / scoring boundary" value="Methodology/report-layer only. No scoring impact unless future calibrated integration explicitly attaches it." styles={styles} />
       </div>
 
@@ -653,7 +698,20 @@ export default function InstitutionalChecklistTab({
 
   return (
     <div style={styles.institutionalChecklistShell}>
-      <Card title="Institutional Checklist" subtitle="Methodology / Report Layer" styles={styles}>
+      <ExecutiveSummaryCard
+        eyebrow="Institutional Checklist"
+        title={hasInstitutionalAnswers ? "What does the institutional Q&A say?" : "Which institutional questions should be asked?"}
+        answer={hasInstitutionalAnswers
+          ? "Live deterministic question answers are attached. Rows show concise status first; source signals and raw technical fields are expandable."
+          : "Question-level answers are not attached yet. The checklist shows safe methodology prompts and live review signals without inventing answers."}
+        tone="#9bd7ff"
+        badges={[
+          { label: hasInstitutionalAnswers ? `${institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
+          { label: resolvedInstitutionalLens?.label || lensResolution.displayName, tone: "#9bd7ff" },
+          { label: "Provider metadata is context", tone: "#f9d976" },
+        ]}
+        styles={styles}
+      >
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, hasInstitutionalAnswers ? "Live deterministic question answers are attached." : "Live per-question evidence mapping is only shown when attached to the response.")}
           {boundaryChip(styles, "This checklist is methodology/report-layer guidance, not a fake evidence map.")}
@@ -686,7 +744,7 @@ export default function InstitutionalChecklistTab({
             : lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
           styles={styles}
         />
-      </Card>
+      </ExecutiveSummaryCard>
 
       <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
 

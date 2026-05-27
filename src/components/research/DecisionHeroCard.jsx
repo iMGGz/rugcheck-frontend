@@ -252,6 +252,12 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
           status={model?.allocationOutcome?.label || "Decision unavailable"}
           impact="Final decision"
           sourceState="Live scoring"
+          details={[
+            { label: "Why it matters", value: "The verdict is the executive decision posture; supporting detail explains whether it is investable, evidence-capped, tradable-only, or avoid." },
+            { label: "Evidence / logic used", value: verdictSemantics.boundary || "Live scoring and decision-layer fields from the current response." },
+            { label: "Missing evidence", value: whatWouldChange[0] || "No explicit missing-evidence item attached." },
+            { label: "What would change", value: whatWouldChange.slice(0, 3).join("; ") || "Additional reviewed evidence required." },
+          ]}
           onClick={() => onSelectSection?.("scoring_transparency")}
           styles={styles}
         />
@@ -261,6 +267,12 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
           status={primaryBlocker.badge || "Blocker proxy"}
           impact="Confidence limiter"
           sourceState="Decision model"
+          details={[
+            { label: "Why it matters", value: "The primary blocker explains why the current verdict cannot move higher without more support." },
+            { label: "Evidence / logic used", value: primaryBlocker.explanation || "Primary blocker explanation was not attached." },
+            { label: "Impact", value: primaryBlocker.badge || "Confidence limiter." },
+            { label: "What would change", value: whatWouldChange.slice(0, 3).join("; ") || "Source-backed evidence resolving the blocker." },
+          ]}
           onClick={() => onSelectSection?.("thesis_falsification")}
           styles={styles}
         />
@@ -270,6 +282,12 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
           status={model?.whatWouldChangeDecision?.badge || "Source required"}
           impact="What would change"
           sourceState="Requirements"
+          details={[
+            { label: "Why it matters", value: "Missing evidence is a verification gap, not automatic proof of failure, but it can cap confidence." },
+            { label: "Missing evidence", value: whatWouldChange.slice(0, 4).join("; ") || "No explicit requirements attached." },
+            { label: "Impact", value: model?.whatWouldChangeDecision?.badge || "Source required." },
+            { label: "Source boundary", value: "Requirements are not evidence until source-reviewed." },
+          ]}
           onClick={() => onSelectSection?.("source_queue")}
           styles={styles}
         />

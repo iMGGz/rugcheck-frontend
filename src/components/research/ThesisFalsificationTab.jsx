@@ -347,6 +347,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
           status="Required condition"
           impact="Thesis support"
           sourceState="Lens-aware"
+          details={[
+            { label: "Why it matters", value: "These are the assumptions that must hold before the thesis can earn higher confidence." },
+            { label: "Evidence / logic used", value: thesis.whatMustBeTrue.slice(0, 4).join("; ") || "No live condition attached." },
+            { label: "Missing evidence", value: thesis.missingContext.slice(0, 3).join("; ") || "No missing-evidence list attached." },
+            { label: "What would change", value: thesis.whatWouldChange.slice(0, 3).join("; ") || "Additional verified evidence required." },
+          ]}
           styles={styles}
         />
         <QuestionPromptCard
@@ -355,6 +361,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
           status="Break condition"
           impact="Downside test"
           sourceState="Falsification"
+          details={[
+            { label: "Why it matters", value: "Falsification prevents attractive narratives from becoming unsupported allocation claims." },
+            { label: "Evidence / logic used", value: thesis.whatCouldBreak.slice(0, 4).join("; ") || "No break condition attached." },
+            { label: "Impact", value: "Could weaken or falsify the allocation thesis if source-backed." },
+            { label: "Source boundary", value: "Break conditions are live response requirements unless reviewed evidence confirms them." },
+          ]}
           styles={styles}
         />
         <QuestionPromptCard
@@ -363,6 +375,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
           status={thesis.weakestLinkLabel}
           impact="Weakest link"
           sourceState="Decision model"
+          details={[
+            { label: "Why it matters", value: "The weakest assumption is the first place a serious reviewer should pressure-test the thesis." },
+            { label: "Evidence / logic used", value: thesis.weakestLinkExplanation || thesis.weakestLinkLabel },
+            { label: "Missing evidence", value: thesis.missingContext.slice(0, 3).join("; ") || "No missing-evidence list attached." },
+            { label: "What would change", value: thesis.whatWouldChange.slice(0, 3).join("; ") || "Additional verified evidence required." },
+          ]}
           styles={styles}
         />
         <QuestionPromptCard
@@ -371,6 +389,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
           status="Source required"
           impact="What would change"
           sourceState="Requirements"
+          details={[
+            { label: "Why it matters", value: "These are the concrete source-backed conditions that could improve or alter the current thesis." },
+            { label: "What would change", value: thesis.whatWouldChange.slice(0, 4).join("; ") || "Additional verified evidence required." },
+            { label: "Impact", value: "Potential confidence improvement only after source review." },
+            { label: "Source boundary", value: "Source requirements are not evidence." },
+          ]}
           styles={styles}
         />
       </div>

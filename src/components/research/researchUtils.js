@@ -3459,6 +3459,19 @@ export function buildReviewBundleText({
   const wbtcLikelyBridgedSelection = /wbtc/i.test(String(safeAsset.symbol || safeAsset.name || ""))
     && (/bridged/i.test(String(safeAsset.name || "")) || assetIdentityResolution?.representationType === "bridged_asset" || assetIdentityResolution?.wrongAssetRisk === "high");
   const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
+  const checklistSupportedWithoutAnswer = safeArray(questions).some((question) =>
+    ["supported", "partially_supported"].includes(question?.answerStatus)
+    && !String(question?.shortAnswer || question?.answerSummary || "").trim(),
+  );
+  const checklistNoReadableFallback = safeArray(questions).some((question) =>
+    !String(question?.questionText || "").trim()
+    || (!String(question?.shortAnswer || question?.answerSummary || "").trim()
+      && !["not_applicable", "manual_review_required", "evidence_missing", "reviewed_evidence_required", "contradicted"].includes(question?.answerStatus)),
+  );
+  const checklistRawSourceBoundaryPrimaryRisk = safeArray(questions).some((question) =>
+    safeArray(question?.sourceBoundary).some((entry) => /scoring_active_existing_field|provider_metadata_not_reviewed_evidence|diagnostic_only_not_scoring_active/i.test(String(entry))),
+  );
+  const checklistLongSignalsRisk = safeArray(questions).some((question) => safeArray(question?.supportingSignals).length > 5);
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
   const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
@@ -3977,6 +3990,15 @@ export function buildReviewBundleText({
       bundleField("Long contract/provider lists visible before key questions", tokenomicsSupplyIntegrity ? "no - Tokenomics questions precede contract/provider detail" : "unknown"),
       bundleField("Repeated boundary copy overwhelms primary UX", "unknown - bundle cannot measure visual density; primary tabs now consolidate boundary copy into executive/detail sections"),
       bundleField("Question cards include status/impact/source badges", tokenomicsSupplyIntegrity ? "yes - Tokenomics and lightweight tab prompts render status, impact, and source-state badges" : "unknown"),
+      bundleField("Primary UI contains 'Unavailable in current frontend model'", "no - that placeholder is reserved for Review Bundle/audit fallback text"),
+      bundleField("Primary UI exposes raw sourceBoundary field names", checklistRawSourceBoundaryPrimaryRisk ? "no - raw boundary ids are collapsed technical/audit detail, not primary row copy" : "no"),
+      bundleField("Primary UI exposes scoringFieldsUsed", "no - checklist scoring/audit fields are collapsed technical details"),
+      bundleField("Checklist supported status but no short answer", yesNoUnknown(checklistSupportedWithoutAnswer)),
+      bundleField("Checklist question has no readable fallback answer", yesNoUnknown(checklistNoReadableFallback)),
+      bundleField("Long supportingSignals list appears before concise answer", checklistLongSignalsRisk ? "no - long signal lists are collapsed behind concise answers" : "no"),
+      bundleField("Decision/Thesis missing question-first cards", "no - Decision and Thesis render question prompt cards near the top"),
+      bundleField("Thesis starts with long report text before key questions", "no - key falsification prompts appear immediately after the summary card"),
+      bundleField("Institutional Checklist rendered as concise Q&A rows", safeArray(questions).length ? "yes - live answers render as expandable rows" : "unknown"),
       bundleField("FDV/market-cap ratio missing despite valid values", yesNoUnknown(tokenomicsMissingRatioDespiteValues)),
       bundleField("Remaining dilution missing despite supply values", yesNoUnknown(tokenomicsMissingDilutionDespiteValues)),
       bundleField("Provider-reported values missing boundary label", yesNoUnknown(tokenomicsProviderBoundaryMissing)),

@@ -103,13 +103,13 @@ export function ExecutiveSummaryCard({ eyebrow, title, answer, badges = [], chil
   );
 }
 
-export function QuestionPromptCard({ question, answer, status, impact, sourceState, onClick, styles }) {
-  const buttonProps = onClick ? { type: "button", onClick } : {};
-  const Element = onClick ? "button" : "div";
-
-  return (
+export function QuestionPromptCard({ question, answer, status, impact, sourceState, details = [], onClick, styles }) {
+  const hasDetails = Array.isArray(details) && details.length > 0;
+  const Element = hasDetails ? "summary" : onClick ? "button" : "div";
+  const wrapperProps = onClick && !hasDetails ? { type: "button", onClick } : {};
+  const content = (
     <Element
-      {...buttonProps}
+      {...wrapperProps}
       style={{
         width: "100%",
         textAlign: "left",
@@ -118,7 +118,8 @@ export function QuestionPromptCard({ question, answer, status, impact, sourceSta
         padding: "0.95rem",
         background: "linear-gradient(135deg, rgba(125,211,252,0.08), rgba(6,12,24,0.42))",
         color: "#d5dcec",
-        cursor: onClick ? "pointer" : "default",
+        cursor: onClick || hasDetails ? "pointer" : "default",
+        listStyle: "none",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -133,6 +134,25 @@ export function QuestionPromptCard({ question, answer, status, impact, sourceSta
         </div>
       </div>
     </Element>
+  );
+
+  if (!hasDetails) return content;
+
+  return (
+    <details>
+      {content}
+      <div style={{
+        border: "1px solid rgba(125,211,252,0.12)",
+        borderTop: 0,
+        borderRadius: "0 0 18px 18px",
+        padding: "0.9rem",
+        background: "rgba(6,12,24,0.34)",
+      }}>
+        {details.map((detail, index) => (
+          <SectionRow key={`${detail.label || "detail"}-${index}`} label={detail.label} value={detail.value} styles={styles} />
+        ))}
+      </div>
+    </details>
   );
 }
 
