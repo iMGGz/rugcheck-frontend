@@ -3040,6 +3040,73 @@ function bundleQuestions(questions = []) {
   return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
 }
 
+function tokenomicsQuestionGroup(question) {
+  const id = String(question?.questionId || "");
+  if (/max_supply|remaining_dilution|supply_reconciliation|provider_supply/i.test(id)) return "Supply Integrity";
+  if (/unlock|absorb_dilution/i.test(id)) return "Future Dilution / Unlocks";
+  if (/mint_admin|emissions|burn_buyback/i.test(id)) return "Control / Mutability";
+  if (/treasury_insider|concentration/i.test(id)) return "Ownership / Concentration";
+  if (/value_capture|tokenholder|accrual/i.test(id)) return "Tokenholder Economics";
+  if (/asset_class|canonical_supply_tree/i.test(id)) return "Asset-Class / Identity";
+  return "Other Tokenomics Checks";
+}
+
+function tokenomicsQuestionSourceState(question, formulas = []) {
+  const formulaIds = safeArray(question?.formulaOutputsUsed);
+  const linked = safeArray(formulas).filter((formula) => formulaIds.includes(formula?.formulaId));
+  const answerStatus = String(question?.answerStatus || "").toLowerCase();
+  if (answerStatus.includes("manual")) return "manual-review-required";
+  if (answerStatus.includes("contradict")) return "contradicted";
+  if (answerStatus.includes("not_applicable")) return "not-applicable";
+  if (linked.some((formula) => formula?.status === "computed")) return "computed";
+  if (linked.some((formula) => /missing|source_required|invalid/i.test(String(formula?.status)))) return "source-required";
+  if (safeArray(question?.missingEvidence).length) return "source-required";
+  if (safeArray(question?.evidenceUsed).length) return "provider-reported";
+  return "evidence-missing";
+}
+
+function tokenomicsQuestionWhyItMatters(question) {
+  const id = String(question?.questionId || "");
+  if (/max_supply/.test(id)) return "Max supply is useful only when the cap is credible, immutable, or clearly governed; provider-reported caps are not reviewed evidence.";
+  if (/remaining_dilution/.test(id)) return "Remaining dilution helps underwrite future supply pressure, but it can be secondary or not applicable depending on asset class.";
+  if (/unlock/.test(id)) return "Unlocks can create sell-pressure or confidence caps when timing, recipients, liquidity, and demand absorption are not source-backed.";
+  if (/mint_admin/.test(id)) return "Mint/admin authority determines who can change supply or restrict transfer behavior.";
+  if (/burn_buyback|emissions/.test(id)) return "Burn, buyback, and emission mechanics matter only when activation, materiality, durability, and source backing are clear.";
+  if (/value_capture/.test(id)) return "Protocol or network success does not automatically accrue to tokenholders without an active, material, source-backed mechanism.";
+  if (/canonical_supply_tree/.test(id)) return "Supply conclusions depend on analyzing the correct canonical asset, network, contract, bridge, wrapper, or multichain representation.";
+  return "This question converts tokenomics data into a source-boundary-aware institutional diligence answer.";
+}
+
+function bundleTokenomicsQuestionFirstMirror(tokenomics) {
+  const formulas = safeArray(tokenomics?.formulaOutputs);
+  const rows = safeArray(tokenomics?.institutionalQuestions).map((question, index) => {
+    const formulaIds = safeArray(question?.formulaOutputsUsed);
+    const linkedFormulas = formulas.filter((formula) => formulaIds.includes(formula?.formulaId));
+    const formulaOrRule = linkedFormulas.length
+      ? linkedFormulas.map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${formula.status || "unknown"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`).join("; ")
+      : question?.answerStatus === "not_applicable"
+        ? "Not applicable for this asset class; use the asset-class-specific alternative diligence surface."
+        : "Rule-based answer from resolved lens and tokenomics source requirements.";
+    return [
+      `Question ${index + 1}`,
+      `  group: ${tokenomicsQuestionGroup(question)}`,
+      `  question: ${bundleValue(question?.questionText)}`,
+      `  collapsedSummary: ${bundleValue(question?.shortAnswer || question?.answerSummary)}`,
+      `  status: ${bundleValue(question?.answerStatus)}`,
+      `  sourceState: ${tokenomicsQuestionSourceState(question, formulas)}`,
+      `  expanded.shortAnswer: ${bundleValue(question?.shortAnswer || question?.answerSummary)}`,
+      `  expanded.whyItMatters: ${tokenomicsQuestionWhyItMatters(question)}`,
+      `  expanded.dataUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.formulaOrRuleUsed: ${formulaOrRule}`,
+      `  expanded.evidenceStatus: provider/review fields=${normalizeRenderableList(question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.missingEvidence: ${normalizeRenderableList(question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.impact: ${bundleValue(question?.impactOnScoreOrConfidence)}`,
+      `  expanded.whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    ].join("\n");
+  });
+  return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
+}
+
 function questionGroupMatchesLens(questions, lens) {
   const safeQuestions = safeArray(questions);
   if (!lens?.questionGroupId || !safeQuestions.length) return "unknown";
@@ -3254,6 +3321,49 @@ export function buildReviewBundleText({
   const tokenomicsQuestionsMissingLinkage = tokenomicsSupplyIntegrity
     && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).length
     && safeArray(tokenomicsSupplyIntegrity.institutionalQuestions).some((question) => !safeArray(question.dataFieldsUsed).length && !safeArray(question.formulaOutputsUsed).length);
+  const tokenomicsQuestions = safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions);
+  const tokenomicsQuestionAccordionMirrorMissing = tokenomicsSupplyIntegrity && !tokenomicsQuestions.length;
+  const tokenomicsQuestionExpandedMissingShortAnswer = tokenomicsSupplyIntegrity
+    && tokenomicsQuestions.some((question) => !String(question?.shortAnswer || question?.answerSummary || "").trim());
+  const tokenomicsQuestionMissingDataFormulaRule = tokenomicsSupplyIntegrity
+    && tokenomicsQuestions.some((question) =>
+      !safeArray(question?.dataFieldsUsed).length
+      && !safeArray(question?.formulaOutputsUsed).length
+      && !/not_applicable|manual|source_required|evidence_missing/i.test(String(question?.answerStatus || "")),
+    );
+  const tokenomicsQuestionVagueUnknown = tokenomicsSupplyIntegrity
+    && tokenomicsQuestions.some((question) =>
+      /\bunknown\b/i.test(String(question?.shortAnswer || question?.answerSummary || ""))
+      && [
+        ...safeArray(question?.missingEvidence),
+        ...safeArray(question?.whatWouldChange),
+        ...safeArray(question?.sourceBoundary),
+      ].length,
+    );
+  const tokenomicsNotApplicableShownAsFailure = tokenomicsSupplyIntegrity
+    && tokenomicsQuestions.some((question) =>
+      question?.answerStatus === "not_applicable"
+      && /failure|blocker|critical|penalty|failed/i.test(`${question?.shortAnswer || ""} ${question?.answerSummary || ""} ${question?.impactOnScoreOrConfidence || ""}`),
+    );
+  const formulaLinkedQuestionPattern = /remaining_dilution|unlock|supply_reconciliation|provider_supply|dilution_absorption|market_cap/i;
+  const tokenomicsComputedFormulaNotCited = tokenomicsSupplyIntegrity
+    && tokenomicsFormulaOutputs.some((formula) => formula?.status === "computed")
+    && tokenomicsQuestions.some((question) =>
+      formulaLinkedQuestionPattern.test(`${question?.questionId || ""} ${question?.questionText || ""}`)
+      && !safeArray(question?.formulaOutputsUsed).length
+      && !/not_applicable/i.test(String(question?.answerStatus || "")),
+    );
+  const tokenomicsMissingInputFormulaNoRequirement = tokenomicsSupplyIntegrity
+    && tokenomicsFormulaOutputs.some((formula) =>
+      /missing|source_required/i.test(String(formula?.status || ""))
+      && !safeArray(formula?.missingInputs).length
+      && !String(formula?.sourceRequirement || "").trim(),
+    );
+  const tokenomicsProviderReportedAsReviewed = tokenomicsSupplyIntegrity
+    && tokenomicsQuestions.some((question) =>
+      /reviewed evidence present|reviewed=true|source-backed reviewed/i.test(`${question?.shortAnswer || ""} ${question?.answerSummary || ""}`)
+      && safeArray(question?.sourceBoundary).some((entry) => /provider-reported|provider reported|not reviewed/i.test(String(entry))),
+    );
   const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
     && [
       ...safeArray(tokenomicsSupplyIntegrity.providerMarketCaps),
@@ -3640,6 +3750,8 @@ export function buildReviewBundleText({
       bundleList(safeArray(tokenomicsSupplyIntegrity?.providerFieldAudit).map((entry) => `${entry.provider}: available=${safeArray(entry.fieldsAvailable).join(", ") || "none"}; missing=${safeArray(entry.fieldsMissing).join(", ") || "none"}; boundary=${safeArray(entry.sourceBoundary).join(", ") || "provider reported"}`)),
       "Formula outputs:",
       bundleList(tokenomicsFormulaOutputs.map((formula) => `${formula.formulaId}: ${formula.display || "Unavailable"} | status=${formula.status || "unknown"} | formula=${formula.formula || "Unavailable"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"} | requirement=${formula.sourceRequirement || "Unavailable"} | boundary=${safeArray(formula.sourceBoundary).join(", ") || "Unavailable"}`)),
+      "Tokenomics Question-First Q&A Mirror:",
+      bundleTokenomicsQuestionFirstMirror(tokenomicsSupplyIntegrity),
       "Source requirements:",
       bundleList(tokenomicsSupplyIntegrity?.sourceRequirements),
       "Manual review triggers:",
@@ -3658,7 +3770,7 @@ export function buildReviewBundleText({
       bundleList(tokenomicsSupplyIntegrity?.negativeSignals),
       "Neutral/contextual signals:",
       bundleList(tokenomicsSupplyIntegrity?.neutralContextualSignals),
-      "Tokenomics institutional questions:",
+      "Raw institutional Q&A audit mirror:",
       bundleQuestions(tokenomicsSupplyIntegrity?.institutionalQuestions),
       "What would change:",
       bundleList(tokenomicsSupplyIntegrity?.whatWouldChange),
@@ -3849,6 +3961,15 @@ export function buildReviewBundleText({
       bundleField("Tokenomics tab missing while tokenomics object exists", tokenomicsSupplyIntegrity ? "no" : "unknown"),
       bundleField("Formula outputs missing while numeric inputs exist", yesNoUnknown(tokenomicsFormulaOutputsMissing)),
       bundleField("Q&A answers missing formula/data linkage", yesNoUnknown(tokenomicsQuestionsMissingLinkage)),
+      bundleField("Tokenomics Q&A not rendered as question-first accordion model", yesNoUnknown(tokenomicsQuestionAccordionMirrorMissing)),
+      bundleField("Question expanded answer missing short answer", yesNoUnknown(tokenomicsQuestionExpandedMissingShortAnswer)),
+      bundleField("Question expanded answer missing data/formula/rule linkage", yesNoUnknown(tokenomicsQuestionMissingDataFormulaRule)),
+      bundleField("Question says unknown when better status is available", yesNoUnknown(tokenomicsQuestionVagueUnknown)),
+      bundleField("Not-applicable asset-class answer shown as failure", yesNoUnknown(tokenomicsNotApplicableShownAsFailure)),
+      bundleField("Formula computed but Q&A does not cite it", yesNoUnknown(tokenomicsComputedFormulaNotCited)),
+      bundleField("Missing-input formula lacks source requirement", yesNoUnknown(tokenomicsMissingInputFormulaNoRequirement)),
+      bundleField("Provider-reported value shown as reviewed evidence", yesNoUnknown(tokenomicsProviderReportedAsReviewed)),
+      bundleField("Review Bundle mirrors question-first Tokenomics model", tokenomicsSupplyIntegrity ? yesNoUnknown(!tokenomicsQuestionAccordionMirrorMissing) : "unknown"),
       bundleField("FDV/market-cap ratio missing despite valid values", yesNoUnknown(tokenomicsMissingRatioDespiteValues)),
       bundleField("Remaining dilution missing despite supply values", yesNoUnknown(tokenomicsMissingDilutionDespiteValues)),
       bundleField("Provider-reported values missing boundary label", yesNoUnknown(tokenomicsProviderBoundaryMissing)),

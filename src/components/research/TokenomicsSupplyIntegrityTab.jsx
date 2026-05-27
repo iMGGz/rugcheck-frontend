@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, ListBlock, SectionRow } from "./researchPrimitives";
 import { formatCompact, formatPct, formatUsd, safeArray, safeObject, titleCase } from "./researchUtils";
 
@@ -221,55 +221,283 @@ function FormulaPanel({ tokenomics, styles }) {
 function keyRiskItems(lensId) {
   switch (lensId) {
     case "STABLECOIN_SETTLEMENT":
-      return ["Reserve quality", "Redemption path", "Issuer/custodian dependency", "Mint/redeem controls", "Freeze/admin policy", "Supported networks"];
+      return ["Are reserves and redemption rights source-backed?", "Are mint/redeem controls and supported networks verified?", "Are issuer/custodian dependencies clear?", "Are admin/freeze policies disclosed?", "How did the peg behave under stress?"];
     case "DEFI_PROTOCOL_TOKEN":
-      return ["Unlocks", "Governance rights", "Fee switch/value capture", "Treasury", "Protocol economics mapping"];
+      return ["Does protocol success accrue to tokenholders?", "Are fee switch, fee routing, buyback, burn, or staking mechanisms active?", "Are unlocks and treasury risks material?", "Is protocol economics mapping source-backed?"];
     case "GAMING_METAVERSE_CONSUMER":
-      return ["Emissions versus sinks", "Active/paying users", "Unlocks", "Mint/admin controls", "Reward sustainability"];
+      return ["Are emissions offset by real token sinks?", "Are active/paying users and retention source-backed?", "Are unlocks and mint/admin controls reviewed?", "Is gameplay demand organic rather than subsidy-driven?"];
     case "RWA_HYBRID_INFRASTRUCTURE":
-      return ["Utility token vs RWA rights", "Canonical network/contract", "Cap mutability", "Fee/staking/gas demand", "Compliance dependencies"];
+      return ["Are utility-token rights separated from RWA/security-token rights?", "Is canonical network/contract mapping verified?", "Can supply or cap policy change through governance?", "Are fee, staking, or gas-demand mechanics source-backed?"];
     case "BASE_LAYER_SETTLEMENT":
     case "NATIVE_MONETARY_BENCHMARK":
-      return ["Monetary policy", "Issuance/burn", "Validator/miner security economics", "Liveness/client risk", "Market depth"];
+      return ["Is monetary policy clear?", "Are issuance, burn, staking/mining, and security-budget mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
     case "MEME_NARRATIVE":
-      return ["Supply certainty", "Mint/admin controls", "Holder concentration", "Liquidity", "No fake value-capture claims"];
+      return ["Is supply certainty clear?", "Are mint/admin controls safe for the selected contract?", "Is concentration/liquidity risk acceptable?", "Is the analysis avoiding fake protocol fundamentals?"];
     case "WRAPPED_ASSET":
-      return ["Backing/proof-of-reserves", "Custodian/bridge controls", "Mint/burn", "Redemption path", "Underlying-inheritance boundary"];
+      return ["Is backing/proof-of-reserves current?", "Are custodian/bridge controls understood?", "Is the mint/burn and redemption path source-backed?", "Is native-asset inheritance avoided?"];
     case "LST_STAKING_DERIVATIVE":
-      return ["Withdrawal queue", "Slashing/operator risk", "Depeg/liquidity", "Mint/burn", "Protocol/admin controls"];
+      return ["Is the withdrawal/redemption path source-backed?", "Are slashing/operator risks understood?", "Is depeg/liquidity risk reviewed?", "Are protocol/admin controls disclosed?"];
     default:
-      return ["Supply data quality", "Future dilution", "Supply controls", "Source requirements", "Provider disagreement"];
+      return ["Is supply data complete and source-backed?", "Can future dilution be measured?", "Who controls supply changes?", "Are provider disagreements resolved?"];
   }
 }
 
-function TokenomicsQuestionPanel({ tokenomics, styles }) {
-  const questions = safeArray(tokenomics.institutionalQuestions);
+const QUESTION_GROUPS = [
+  {
+    id: "supply_integrity",
+    title: "Supply Integrity",
+    matcher: /max_supply|remaining_dilution|supply_reconciliation|provider_supply/i,
+  },
+  {
+    id: "future_dilution",
+    title: "Future Dilution / Unlocks",
+    matcher: /unlock|absorb_dilution/i,
+  },
+  {
+    id: "control_mutability",
+    title: "Control / Mutability",
+    matcher: /mint_admin|emissions|burn_buyback/i,
+  },
+  {
+    id: "ownership_concentration",
+    title: "Ownership / Concentration",
+    matcher: /treasury_insider|concentration/i,
+  },
+  {
+    id: "tokenholder_economics",
+    title: "Tokenholder Economics",
+    matcher: /value_capture|tokenholder|accrual/i,
+  },
+  {
+    id: "asset_identity",
+    title: "Asset-Class / Identity",
+    matcher: /asset_class|canonical_supply_tree/i,
+  },
+];
+
+function questionGroupFor(question) {
+  const id = String(question?.questionId || "");
+  return QUESTION_GROUPS.find((group) => group.matcher.test(id)) || {
+    id: "other",
+    title: "Other Tokenomics Checks",
+    matcher: /.*/,
+  };
+}
+
+function questionStatusLabel(value) {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "not_applicable") return "Not applicable";
+  if (normalized === "manual_review_required") return "Manual review required";
+  if (normalized === "evidence_missing") return "Evidence missing";
+  if (normalized === "partially_supported") return "Partially supported";
+  if (normalized === "contradicted") return "Contradicted";
+  if (normalized === "supported") return "Supported";
+  if (!normalized || normalized === "unknown") return "Evidence missing - source required";
+  return titleCase(value);
+}
+
+function sourceStateForQuestion(question, formulas) {
+  const formulaIds = safeArray(question?.formulaOutputsUsed);
+  const linkedFormulas = formulas.filter((formula) => formulaIds.includes(formula.formulaId));
+  const statusText = String(question?.answerStatus || "").toLowerCase();
+  if (statusText.includes("manual")) return "manual-review-required";
+  if (statusText.includes("contradict")) return "contradicted";
+  if (statusText.includes("not_applicable")) return "not-applicable";
+  if (linkedFormulas.some((formula) => formula.status === "computed")) return "computed";
+  if (linkedFormulas.some((formula) => /missing|source_required|invalid/i.test(String(formula.status)))) return "source-required";
+  if (safeArray(question?.missingEvidence).length) return "source-required";
+  if (safeArray(question?.evidenceUsed).length) return "provider-reported";
+  return "evidence-missing";
+}
+
+function impactBadgeForQuestion(question) {
+  const text = `${question?.impactOnScoreOrConfidence || ""} ${safeArray(question?.missingEvidence).join(" ")}`.toLowerCase();
+  if (/confidence cap|capped|cap/.test(text)) return "Confidence cap";
+  if (/manual review/.test(text)) return "Manual review";
+  if (/not applicable/.test(text)) return "Not applicable";
+  if (/diagnostic/.test(text)) return "Diagnostic only";
+  return "Source review";
+}
+
+function whyItMatters(question, lensId) {
+  const id = String(question?.questionId || "");
+  if (/max_supply/.test(id)) return "Max supply is only useful when the cap is credible, immutable, or clearly governed. Provider-reported caps are not reviewed evidence.";
+  if (/remaining_dilution/.test(id)) return "Remaining dilution helps underwrite future supply pressure, but it may be secondary or not applicable for stablecoins, wrapped assets, LSTs, and adaptive native assets.";
+  if (/unlock/.test(id)) return "Unlocks can create sell-pressure or confidence caps when timing, recipients, liquidity, and demand absorption are not source-backed.";
+  if (/mint_admin/.test(id)) return "Mint/admin authority determines who can change supply or restrict transfer behavior; selected-contract scans may not cover the canonical supply tree.";
+  if (/burn_buyback|emissions/.test(id)) return "Burn, buyback, and emission mechanics only matter when activation, materiality, durability, and source backing are clear.";
+  if (/value_capture/.test(id)) return "Protocol or network success does not automatically accrue to tokenholders without an active, material, source-backed mechanism.";
+  if (/canonical_supply_tree/.test(id)) return "Supply conclusions depend on analyzing the correct canonical asset, network, contract, bridge, wrapper, or multichain representation.";
+  if (/asset_class/.test(id)) return contextualNote(lensId);
+  return "This question converts tokenomics data into a source-boundary-aware institutional diligence answer.";
+}
+
+function valueFromPath(tokenomics, path) {
+  if (!path || typeof path !== "string") return null;
+  const direct = tokenomics?.[path];
+  if (direct !== undefined) return direct;
+  const parts = path.split(".");
+  let current = tokenomics;
+  for (const part of parts) {
+    if (!current || typeof current !== "object") return null;
+    current = current[part];
+  }
+  return current;
+}
+
+function displayFieldValue(value) {
+  if (value === null || value === undefined || value === "") return "Unavailable - source required";
+  if (Array.isArray(value)) return value.length ? value.map((entry) => typeof entry === "object" ? JSON.stringify(entry) : String(entry)).join("; ") : "Unavailable - source required";
+  if (typeof value === "object") return Object.keys(value).length ? JSON.stringify(value) : "Unavailable - source required";
+  if (typeof value === "number") return displayNumber(value);
+  return String(value);
+}
+
+function StatusBadge({ children, tone = "#9bd7ff" }) {
   return (
-    <Card title="Institutional Tokenomics Q&A" subtitle="Answers are deterministic and source-boundary aware; missing data remains source-required." styles={styles}>
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      border: `1px solid ${tone}55`,
+      borderRadius: 999,
+      padding: "0.22rem 0.55rem",
+      color: tone,
+      background: `${tone}14`,
+      fontSize: "0.72rem",
+      fontWeight: 800,
+      letterSpacing: "0.02em",
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function TokenomicsQuestionPanel({ tokenomics, styles }) {
+  const [openQuestions, setOpenQuestions] = useState(() => new Set());
+  const questions = safeArray(tokenomics.institutionalQuestions);
+  const formulas = safeArray(tokenomics.formulaOutputs);
+  const grouped = QUESTION_GROUPS.concat([{ id: "other", title: "Other Tokenomics Checks", matcher: /.*/ }])
+    .map((group) => ({
+      ...group,
+      questions: questions.filter((question) => questionGroupFor(question).id === group.id),
+    }))
+    .filter((group) => group.questions.length);
+  const toggleQuestion = (id) => {
+    setOpenQuestions((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderQuestion = (question, index) => {
+    const questionKey = question.questionId || question.questionText || `question-${index}`;
+    const linkedFormulas = formulas.filter((formula) => safeArray(question.formulaOutputsUsed).includes(formula.formulaId));
+    const isOpen = openQuestions.has(questionKey);
+    const sourceState = sourceStateForQuestion(question, formulas);
+    const statusText = questionStatusLabel(question.answerStatus);
+    const impactBadge = impactBadgeForQuestion(question);
+    const dataRows = safeArray(question.dataFieldsUsed).map((field) => `${field}: ${displayFieldValue(valueFromPath(tokenomics, field))}`);
+    const formulaRows = linkedFormulas.map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
+    const ruleRows = formulaRows.length
+      ? formulaRows
+      : [
+          question.answerStatus === "not_applicable"
+            ? `Not applicable for this asset class. ${question.shortAnswer || question.answerSummary || contextualNote(tokenomics.supplySummary?.lensId)}`
+            : `Rule-based answer. ${contextualNote(tokenomics.supplySummary?.lensId)}`,
+        ];
+
+    return (
+      <div key={questionKey} style={{
+        border: "1px solid rgba(148, 163, 184, 0.17)",
+        borderRadius: 18,
+        overflow: "hidden",
+        background: "rgba(6, 12, 24, 0.34)",
+      }}>
+        <button
+          type="button"
+          onClick={() => toggleQuestion(questionKey)}
+          aria-expanded={isOpen}
+          style={{
+            width: "100%",
+            border: 0,
+            background: "transparent",
+            color: "#d5dcec",
+            textAlign: "left",
+            padding: "1rem",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ display: "flex", gap: "0.65rem", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
+            <div style={{ minWidth: 220, flex: "1 1 320px" }}>
+              <div style={{ color: "#f4f7fb", fontWeight: 850, lineHeight: 1.35 }}>{question.questionText || "Tokenomics question unavailable"}</div>
+              <div style={{ color: "#9aa5b8", fontSize: "0.86rem", marginTop: 6 }}>{question.shortAnswer || question.answerSummary || "Evidence missing - source required."}</div>
+            </div>
+            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <StatusBadge tone={statusText === "Contradicted" ? "#ffb6b6" : statusText === "Manual review required" ? "#f9d976" : statusText === "Not applicable" ? "#d5dcec" : "#9bd7ff"}>{statusText}</StatusBadge>
+              <StatusBadge tone="#a6f3c2">{sourceState}</StatusBadge>
+              <StatusBadge tone="#f9d976">{impactBadge}</StatusBadge>
+              <StatusBadge tone="#d5dcec">{isOpen ? "Collapse" : "Expand"}</StatusBadge>
+            </div>
+          </div>
+        </button>
+        {isOpen ? (
+          <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.14)", padding: "1rem", display: "grid", gap: "0.85rem" }}>
+            <SectionRow label="A. Short answer" value={question.shortAnswer || question.answerSummary || "Evidence missing - source required."} styles={styles} />
+            <SectionRow label="B. Why it matters" value={whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
+            <ListBlock title="C. Data used" items={dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
+            <ListBlock title="D. Formula / rule used" items={ruleRows} emptyText="No formula or rule linkage attached." color="#9bd7ff" styles={styles} />
+            <ListBlock
+              title="E. Evidence status"
+              items={[
+                `Answer status: ${statusText}`,
+                `Source state: ${sourceState}`,
+                ...safeArray(question.evidenceUsed).map((entry) => `Provider/evidence field: ${entry}`),
+                ...safeArray(question.sourceBoundary).map((entry) => `Boundary: ${entry}`),
+              ]}
+              emptyText="No evidence status attached."
+              color="#a6f3c2"
+              styles={styles}
+            />
+            <ListBlock title="F. Missing evidence" items={question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
+            <SectionRow label="G. Impact" value={question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
+            <ListBlock title="H. What would change" items={question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  return (
+    <Card title="Institutional Tokenomics Q&A" subtitle="Question-first accordion. Expand a row to inspect data, formula/rule logic, evidence status, impact, and what would change." styles={styles}>
       {questions.length ? (
         <div style={{ display: "grid", gap: "0.75rem" }}>
-          {questions.map((question) => (
-            <div key={question.questionId || question.questionText} style={{
-              border: "1px solid rgba(148, 163, 184, 0.16)",
-              borderRadius: 16,
-              padding: "0.9rem",
-              background: "rgba(6, 12, 24, 0.32)",
-            }}>
-              <SectionRow label="Question" value={question.questionText} styles={styles} />
-              <SectionRow label="Status" value={status(question.answerStatus)} styles={styles} />
-              <SectionRow label="Short answer" value={question.shortAnswer || question.answerSummary || "Unavailable"} styles={styles} />
-              <SectionRow label="Impact" value={question.impactOnScoreOrConfidence || "Diagnostic/source requirement only."} styles={styles} />
-              <ListBlock title="Data fields used" items={question.dataFieldsUsed} emptyText="No data fields listed." color="#d5dcec" styles={styles} />
-              <ListBlock title="Formula outputs used" items={question.formulaOutputsUsed} emptyText="No formula outputs listed." color="#9bd7ff" styles={styles} />
-              <ListBlock title="Evidence/provider fields used" items={question.evidenceUsed} emptyText="No reviewed evidence attached." color="#a6f3c2" styles={styles} />
-              <ListBlock title="Missing evidence" items={question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
-              <ListBlock title="What would change" items={question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
-              <ListBlock title="Source boundary" items={question.sourceBoundary} emptyText="No source boundary attached." color="#d5dcec" styles={styles} />
-            </div>
-          ))}
+          {grouped.map((group) => {
+            const manualCount = group.questions.filter((question) => String(question.answerStatus || "").includes("manual")).length;
+            const sourceCount = group.questions.filter((question) => sourceStateForQuestion(question, formulas) === "source-required" || question.answerStatus === "evidence_missing").length;
+            const notApplicableCount = group.questions.filter((question) => question.answerStatus === "not_applicable").length;
+            return (
+              <div key={group.id} style={{ display: "grid", gap: "0.65rem" }}>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  flexWrap: "wrap",
+                  padding: "0.85rem 0.2rem 0.2rem",
+                }}>
+                  <div>
+                    <div style={{ color: "#f4f7fb", fontWeight: 900 }}>{group.title}</div>
+                    <div style={{ color: "#8a94a6", fontSize: "0.82rem" }}>Answered: {group.questions.length} | source-required: {sourceCount} | manual-review: {manualCount} | not-applicable: {notApplicableCount}</div>
+                  </div>
+                </div>
+                {group.questions.map(renderQuestion)}
+              </div>
+            );
+          })}
         </div>
       ) : (
-        <p style={{ color: "#8a94a6" }}>No tokenomics Q&A was attached.</p>
+        <p style={{ color: "#8a94a6" }}>No tokenomics Q&A was attached. Evidence missing - source required.</p>
       )}
     </Card>
   );
