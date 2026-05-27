@@ -127,6 +127,7 @@ function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
 }
 
 function InstitutionalQuestionAnswerCard({ question, styles }) {
+  const [open, setOpen] = React.useState(false);
   const status = questionStatusTone(question.answerStatus);
   const impact = verdictImpactTone(question.verdictImpact);
   const boundaries = normalizeRenderableList(question.sourceBoundary);
@@ -136,8 +137,8 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const contradictionItems = normalizeRenderableList(question.contradictionSignals);
   const changeItems = normalizeRenderableList(question.whatWouldChange);
   return (
-    <details style={styles.institutionalQuestionAnswerCard}>
-      <summary style={{ cursor: "pointer", listStyle: "none" }}>
+    <details style={styles.institutionalQuestionAnswerCard} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary style={{ cursor: "pointer", listStyle: "none" }} aria-expanded={open}>
         <div style={styles.checklistQuestionHeader}>
           <div>
             <div style={styles.checklistQuestionText}>{question.questionText || "Institutional question"}</div>
@@ -147,6 +148,8 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
             {statusChip(styles, status.label, status.color)}
             {statusChip(styles, impact.label, impact.color)}
             {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
+            {statusChip(styles, open ? "Hide answer" : "View answer", "#d5dcec")}
+            <span aria-hidden="true" style={{ color: "#d5dcec", fontSize: 18, fontWeight: 900, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 140ms ease" }}>{">"}</span>
           </div>
         </div>
       </summary>
@@ -242,6 +245,72 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
         ))}
       </div>
     </Card>
+  );
+}
+
+function checklistStatusCounts(questions) {
+  return safeArray(questions).reduce((acc, question) => {
+    const status = String(question?.answerStatus || "source_required");
+    acc.total += 1;
+    if (status === "supported") acc.supported += 1;
+    else if (status === "partially_supported") acc.partial += 1;
+    else if (status === "not_applicable") acc.notApplicable += 1;
+    else if (status === "manual_review_required") acc.manualReview += 1;
+    else if (status === "contradicted") acc.contradicted += 1;
+    else acc.sourceRequired += 1;
+    return acc;
+  }, {
+    total: 0,
+    supported: 0,
+    partial: 0,
+    sourceRequired: 0,
+    manualReview: 0,
+    notApplicable: 0,
+    contradicted: 0,
+  });
+}
+
+function ChecklistEvidenceSummary({ questions, styles }) {
+  const missingByQuestion = safeArray(questions)
+    .map((question) => ({
+      question: question.questionText || "Institutional question",
+      item: normalizeRenderableList(question.missingEvidence)[0],
+    }))
+    .filter((entry) => entry.item)
+    .slice(0, 5);
+  const changeByQuestion = safeArray(questions)
+    .map((question) => ({
+      question: question.questionText || "Institutional question",
+      item: normalizeRenderableList(question.whatWouldChange)[0],
+    }))
+    .filter((entry) => entry.item)
+    .slice(0, 5);
+
+  if (!missingByQuestion.length && !changeByQuestion.length) return null;
+
+  return (
+    <div style={styles.advancedGrid}>
+      <Card title="Missing Evidence By Question" subtitle="Top verification gaps grouped by institutional question." styles={styles}>
+        {missingByQuestion.length ? missingByQuestion.map((entry, index) => (
+          <div key={`${entry.question}-missing-${index}`} style={styles.reviewSignalCard}>
+            <div style={styles.metaLabel}>{entry.question}</div>
+            <div style={styles.timelineSummary}>{entry.item}</div>
+          </div>
+        )) : (
+          <p style={styles.timelineEmptyText}>No question-level missing evidence was attached.</p>
+        )}
+      </Card>
+      <Card title="What Would Change" subtitle="Top requirements that would improve the checklist answer quality." styles={styles}>
+        {changeByQuestion.length ? changeByQuestion.map((entry, index) => (
+          <div key={`${entry.question}-change-${index}`} style={styles.reviewSignalCard}>
+            <div style={styles.metaLabel}>{entry.question}</div>
+            <div style={styles.timelineSummary}>{entry.item}</div>
+          </div>
+        )) : (
+          <p style={styles.timelineEmptyText}>No question-level decision-change requirements were attached.</p>
+        )}
+      </Card>
+    </div>
   );
 }
 
@@ -685,6 +754,7 @@ export default function InstitutionalChecklistTab({
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
   const selectedLensGroup = lensSpecificGroup(lensResolution);
   const groups = [...baseGroups(), selectedLensGroup];
+  const questionCounts = checklistStatusCounts(institutionalQuestions);
   const bridgeSteps = [
     "Question",
     "Answer/status",
@@ -707,9 +777,10 @@ export default function InstitutionalChecklistTab({
         tone="#9bd7ff"
         badges={[
           { label: hasInstitutionalAnswers ? `${institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
-          { label: resolvedInstitutionalLens?.label || lensResolution.displayName, tone: "#9bd7ff" },
-          { label: "Provider metadata is context", tone: "#f9d976" },
-        ]}
+          hasInstitutionalAnswers ? { label: `${questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: resolvedInstitutionalLens?.label || lensResolution.displayName, tone: "#9bd7ff" },
+          hasInstitutionalAnswers ? { label: `${questionCounts.sourceRequired + questionCounts.manualReview} source/review`, tone: "#f9d976" } : { label: "Provider metadata is context", tone: "#f9d976" },
+          hasInstitutionalAnswers && questionCounts.notApplicable ? { label: `${questionCounts.notApplicable} not applicable`, tone: "#8a94a6" } : null,
+        ].filter(Boolean)}
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
@@ -718,49 +789,81 @@ export default function InstitutionalChecklistTab({
           {boundaryChip(styles, "Missing evidence is a verification gap, not automatic proof of failure.")}
           {boundaryChip(styles, "Report-only source evidence does not affect live scoring unless future calibrated integration occurs.")}
         </div>
-        <SectionRow
-          label="Registry boundary"
-          value={hasInstitutionalAnswers
-            ? "The backend attached deterministic institutional question answers for this asset. They explain current live scoring and evidence gaps; they do not override scoring or verdicts."
-            : "The Institutional Question Registry defines the questions ThesisCore uses to test asset classes. Question-level answers, evidence statuses, source traces, and verdict impacts will appear here only when attached by a live or report endpoint."}
-          styles={styles}
-        />
-        <SectionRow
-          label="Current asset lens"
-          value={resolvedInstitutionalLens
-            ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
-            : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
-          styles={styles}
-        />
-        <SectionRow
-          label="Resolver reason"
-          value={resolvedInstitutionalLens?.fallbackReason || lensResolution.reason}
-          styles={styles}
-        />
-        <SectionRow
-          label="Matched routing signals"
-          value={resolvedInstitutionalLens?.matchedSignals?.length
-            ? resolvedInstitutionalLens.matchedSignals.join("; ")
-            : lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
-          styles={styles}
-        />
+        {!hasInstitutionalAnswers ? (
+          <>
+            <SectionRow
+              label="Registry boundary"
+              value="The Institutional Question Registry defines the questions ThesisCore uses to test asset classes. Question-level answers, evidence statuses, source traces, and verdict impacts will appear here only when attached by a live or report endpoint."
+              styles={styles}
+            />
+            <SectionRow
+              label="Current asset lens"
+              value={resolvedInstitutionalLens
+                ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+                : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
+              styles={styles}
+            />
+          </>
+        ) : null}
       </ExecutiveSummaryCard>
 
+      {hasInstitutionalAnswers ? (
+        <>
+          <InstitutionalQuestionAnswersSection
+            questions={institutionalQuestions}
+            provenance={institutionalQuestionsProvenance}
+            calibrationWarnings={calibrationWarnings || model?.calibrationWarnings}
+            styles={styles}
+          />
+
+          <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} />
+
+          <CollapsibleDetail
+            title="Tokenomics Question Module"
+            subtitle="Supply-integrity questions remain available here, with the full experience in the Tokenomics tab."
+            styles={styles}
+            tone="#9bd7ff"
+          >
+            <TokenomicsSupplyQuestionCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} />
+          </CollapsibleDetail>
+
+          <CollapsibleDetail
+            title="Lens / Resolver / Provider Context"
+            subtitle="Routing metadata is important, but it is secondary to the live institutional answers above."
+            styles={styles}
+            tone="#8a94a6"
+          >
+            <SectionRow
+              label="Current asset lens"
+              value={resolvedInstitutionalLens
+                ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+                : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
+              styles={styles}
+            />
+            <SectionRow
+              label="Resolver reason"
+              value={resolvedInstitutionalLens?.fallbackReason || lensResolution.reason}
+              styles={styles}
+            />
+            <SectionRow
+              label="Matched routing signals"
+              value={resolvedInstitutionalLens?.matchedSignals?.length
+                ? resolvedInstitutionalLens.matchedSignals.join("; ")
+                : lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
+              styles={styles}
+            />
+            <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
+            <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
+          </CollapsibleDetail>
+        </>
+      ) : (
+        <>
       <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
 
       <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
 
       <TokenomicsSupplyQuestionCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} />
 
-      {hasInstitutionalAnswers ? (
-        <InstitutionalQuestionAnswersSection
-          questions={institutionalQuestions}
-          provenance={institutionalQuestionsProvenance}
-          calibrationWarnings={calibrationWarnings || model?.calibrationWarnings}
-          styles={styles}
-        />
-      ) : (
-        <>
       <Card title="Engine-to-UI Bridge" subtitle="Future connection between questions, evidence, sources, and verdict impact." styles={styles}>
         <div style={styles.checklistBridgeGrid}>
           {bridgeSteps.map((step) => (

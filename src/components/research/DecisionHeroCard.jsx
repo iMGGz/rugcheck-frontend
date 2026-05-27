@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, QuestionPromptCard } from "./researchPrimitives";
+import { Card, CollapsibleDetail, QuestionPromptCard } from "./researchPrimitives";
 import { formatDateTime, formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
@@ -293,45 +293,6 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         />
       </div>
 
-      <div style={styles.decisionInsightGrid}>
-        <DecisionInsightCard
-          title="Primary Blocker"
-          value={primaryBlocker.label || "Primary blocker not explicitly available in live response."}
-          detail={primaryBlocker.explanation}
-          badge={primaryBlocker.badge || "Derived proxy"}
-          accent="#ff6b6b"
-          cta="Inspect blocker"
-          onClick={() => onSelectSection?.("thesis_falsification")}
-          styles={styles}
-        />
-        <DecisionInsightCard
-          title="Weakest Link"
-          value={weakestLink.label || "Weakest link not explicitly available in live response."}
-          detail={weakestLink.explanation}
-          badge={weakestLink.badge || "Weakest-link proxy"}
-          accent="#ffb020"
-          cta="Trace evidence"
-          onClick={() => onSelectSection?.("evidence_map")}
-          styles={styles}
-        />
-        <div style={{ ...styles.decisionInsightCard, ...styles.decisionChangeCard }}>
-          <div style={styles.decisionInsightHeader}>
-            <div style={styles.decisionInsightTitle}>What Would Change The Decision</div>
-            <StatusBadge label={model?.whatWouldChangeDecision?.badge || "Live requirements"} styles={styles} color="#7dd3fc" />
-          </div>
-          <div style={styles.decisionRequirementList}>
-            {whatWouldChange.slice(0, 4).map((item, index) => (
-              <div key={`${item}-${index}`} style={styles.decisionRequirementItem}>
-                <span style={styles.decisionRequirementIndex}>{index + 1}</span>
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-          <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
-            View requirements -&gt;
-          </InteractiveActionButton>
-        </div>
-      </div>
       <div style={styles.decisionScoreStrip}>
         <ScoreTile label="Structural Quality" value={formatScoreValue(model?.overallScore)} detail="Live score bundle" styles={styles} />
         <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
@@ -346,39 +307,85 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         <ScoreTile label="Manual Review" value={manualReviewStatus.label || "No explicit review flag"} detail={manualReviewStatus.detail} styles={styles} />
       </div>
 
-      <div style={styles.decisionLayerLegend}>
-        <div style={styles.decisionLayerLegendHeader}>
-          <div>
-            <div style={styles.decisionLayerLegendEyebrow}>Evidence Layer Legend</div>
-            <div style={styles.decisionLayerLegendCopy}>
-              Layer labels explain boundaries only. Report-only and candidate layers are not integrated into live scoring here.
+      <CollapsibleDetail
+        title="Decision Details / Audit"
+        subtitle="Primary decision questions above are the source of truth; repeated blocker, weakest-link, and layer detail remains available here."
+        styles={styles}
+        tone="#8a94a6"
+      >
+        <div style={styles.decisionInsightGrid}>
+          <DecisionInsightCard
+            title="Primary Blocker"
+            value={primaryBlocker.label || "Primary blocker not explicitly available in live response."}
+            detail={primaryBlocker.explanation}
+            badge={primaryBlocker.badge || "Derived proxy"}
+            accent="#ff6b6b"
+            cta="Inspect blocker"
+            onClick={() => onSelectSection?.("thesis_falsification")}
+            styles={styles}
+          />
+          <DecisionInsightCard
+            title="Weakest Link"
+            value={weakestLink.label || "Weakest link not explicitly available in live response."}
+            detail={weakestLink.explanation}
+            badge={weakestLink.badge || "Weakest-link proxy"}
+            accent="#ffb020"
+            cta="Trace evidence"
+            onClick={() => onSelectSection?.("evidence_map")}
+            styles={styles}
+          />
+          <div style={{ ...styles.decisionInsightCard, ...styles.decisionChangeCard }}>
+            <div style={styles.decisionInsightHeader}>
+              <div style={styles.decisionInsightTitle}>What Would Change The Decision</div>
+              <StatusBadge label={model?.whatWouldChangeDecision?.badge || "Live requirements"} styles={styles} color="#7dd3fc" />
             </div>
+            <div style={styles.decisionRequirementList}>
+              {whatWouldChange.slice(0, 4).map((item, index) => (
+                <div key={`${item}-${index}`} style={styles.decisionRequirementItem}>
+                  <span style={styles.decisionRequirementIndex}>{index + 1}</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <InteractiveActionButton onClick={() => onSelectSection?.("source_queue")} styles={styles}>
+              View requirements -&gt;
+            </InteractiveActionButton>
           </div>
         </div>
-        <div style={styles.decisionLayerLegendGrid}>
-          <LayerLegendItem
-            title="Live Scoring Layer"
-            detail="Current engine fields used by the final decision."
-            badge="Affects final decision"
-            tone="#2fd67b"
-            styles={styles}
-          />
-          <LayerLegendItem
-            title="Report-Only Evidence Layer"
-            detail="Institutional artifacts and overlays remain context-only until separately integrated."
-            badge="Not scoring input"
-            tone="#ffb020"
-            styles={styles}
-          />
-          <LayerLegendItem
-            title="Source Candidate Layer"
-            detail="Candidate sources require human review before evidence promotion."
-            badge="Requires review"
-            tone="#7dd3fc"
-            styles={styles}
-          />
+        <div style={styles.decisionLayerLegend}>
+          <div style={styles.decisionLayerLegendHeader}>
+            <div>
+              <div style={styles.decisionLayerLegendEyebrow}>Evidence Layer Legend</div>
+              <div style={styles.decisionLayerLegendCopy}>
+                Layer labels explain boundaries only. Report-only and candidate layers are not integrated into live scoring here.
+              </div>
+            </div>
+          </div>
+          <div style={styles.decisionLayerLegendGrid}>
+            <LayerLegendItem
+              title="Live Scoring Layer"
+              detail="Current engine fields used by the final decision."
+              badge="Affects final decision"
+              tone="#2fd67b"
+              styles={styles}
+            />
+            <LayerLegendItem
+              title="Report-Only Evidence Layer"
+              detail="Institutional artifacts and overlays remain context-only until separately integrated."
+              badge="Not scoring input"
+              tone="#ffb020"
+              styles={styles}
+            />
+            <LayerLegendItem
+              title="Source Candidate Layer"
+              detail="Candidate sources require human review before evidence promotion."
+              badge="Requires review"
+              tone="#7dd3fc"
+              styles={styles}
+            />
+          </div>
         </div>
-      </div>
+      </CollapsibleDetail>
     </>
   );
 }

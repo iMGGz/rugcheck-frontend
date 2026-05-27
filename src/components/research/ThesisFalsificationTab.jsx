@@ -399,47 +399,24 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         />
       </div>
 
-      {model?.verdictSemantics?.hasVerdictClass ? (
-        <AllocationCaseSection model={model} styles={styles} />
-      ) : null}
-
       <div style={styles.advancedGrid}>
-        <Card title="What Must Be True" subtitle="Conditions required for thesis confidence." styles={styles}>
+        <Card title="What Would Change" subtitle="Concrete requirements to move the thesis, if the live response surfaced them." styles={styles}>
           <ListBlock
-            title="Live conditions and requirements"
-            items={thesis.whatMustBeTrue}
-            emptyText="No live must-be-true conditions were surfaced."
-            color="#7dd3fc"
+            title="Decision-change requirements"
+            items={thesis.whatWouldChange}
+            emptyText="Additional verified evidence required."
+            color="#9bd7ff"
             styles={styles}
           />
+          <button
+            type="button"
+            onClick={() => onSelectSection?.("manual_review")}
+            style={styles.decisionHeaderPrimaryButton}
+          >
+            Inspect requirements in Manual Review -&gt;
+          </button>
         </Card>
-        <Card title="What Could Break The Thesis" subtitle="Live response signals/proxies that would weaken or falsify the allocation case." styles={styles}>
-          <ListBlock
-            title="Break conditions"
-            items={thesis.whatCouldBreak}
-            emptyText="No explicit thesis-break signals were surfaced."
-            color="#ffb020"
-            styles={styles}
-          />
-        </Card>
-      </div>
-
-      <div style={styles.advancedGrid}>
-        <Card title="Live Context Supporting The Thesis" subtitle="Live provider/engine context only. This is not institutional question-level support." styles={styles}>
-          <ListBlock
-            title="Supportive context"
-            items={thesis.supportingContext}
-            emptyText="No live supportive context was strong enough to highlight."
-            color="#a6f3c2"
-            styles={styles}
-          />
-          <SectionRow
-            label="Evidence strength signal"
-            value={model?.evidenceStrength ? sanitizeSemanticLabel(model.evidenceStrength) : "Not explicitly available in live response."}
-            styles={styles}
-          />
-        </Card>
-        <Card title="Evidence Missing / Provider Gaps" subtitle="Qualitative missing-context view. No institutional evidence counts are attached here." styles={styles}>
+        <Card title="Missing Evidence / Provider Gaps" subtitle="Concise verification gaps. Long context is collapsed below." styles={styles}>
           <SectionRow
             label="Doctrine"
             value="Missing evidence is a verification gap, not automatic proof of failure. Critical gaps may still cap confidence or trigger manual review."
@@ -455,13 +432,63 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         </Card>
       </div>
 
-      <div style={styles.advancedGrid}>
-        <Card title="Weakest Link" subtitle="The first place the thesis should be challenged." styles={styles}>
-          <SectionRow label="Weakest link" value={thesis.weakestLinkLabel} styles={styles} />
-          <SectionRow label="Why it matters" value={thesis.weakestLinkExplanation} styles={styles} />
-        </Card>
-        <Card title="False-Positive Risk" subtitle="ThesisCore falsification lens. Methodology-informed, not a new live evidence claim." styles={styles}>
-          <SectionRow label="What the engine refuses to infer" value={thesis.falsePositiveRisk} styles={styles} />
+      <Card title="False-Positive Boundary" subtitle="The thesis claim the engine refuses to infer without source-backed evidence." styles={styles}>
+        <SectionRow label="Refusal to infer" value={thesis.falsePositiveRisk} styles={styles} />
+      </Card>
+
+      <CollapsibleDetail
+        title="Supporting Thesis Detail"
+        subtitle="Allocation semantics, repeated condition lists, supportive context, and manual-review triggers are available here without crowding the falsification cockpit."
+        styles={styles}
+        tone="#8a94a6"
+      >
+        {model?.verdictSemantics?.hasVerdictClass ? (
+          <AllocationCaseSection model={model} styles={styles} />
+        ) : null}
+
+        <div style={styles.advancedGrid}>
+          <Card title="What Must Be True" subtitle="Conditions required for thesis confidence." styles={styles}>
+            <ListBlock
+              title="Live conditions and requirements"
+              items={thesis.whatMustBeTrue}
+              emptyText="No live must-be-true conditions were surfaced."
+              color="#7dd3fc"
+              styles={styles}
+            />
+          </Card>
+          <Card title="What Could Break The Thesis" subtitle="Live response signals/proxies that would weaken or falsify the allocation case." styles={styles}>
+            <ListBlock
+              title="Break conditions"
+              items={thesis.whatCouldBreak}
+              emptyText="No explicit thesis-break signals were surfaced."
+              color="#ffb020"
+              styles={styles}
+            />
+          </Card>
+        </div>
+
+        <div style={styles.advancedGrid}>
+          <Card title="Live Context Supporting The Thesis" subtitle="Live provider/engine context only. This is not institutional question-level support." styles={styles}>
+            <ListBlock
+              title="Supportive context"
+              items={thesis.supportingContext}
+              emptyText="No live supportive context was strong enough to highlight."
+              color="#a6f3c2"
+              styles={styles}
+            />
+            <SectionRow
+              label="Evidence strength signal"
+              value={model?.evidenceStrength ? sanitizeSemanticLabel(model.evidenceStrength) : "Not explicitly available in live response."}
+              styles={styles}
+            />
+          </Card>
+          <Card title="Weakest Link" subtitle="The first place the thesis should be challenged." styles={styles}>
+            <SectionRow label="Weakest link" value={thesis.weakestLinkLabel} styles={styles} />
+            <SectionRow label="Why it matters" value={thesis.weakestLinkExplanation} styles={styles} />
+          </Card>
+        </div>
+
+        <Card title="Manual-Review Triggers" subtitle="Review-only signals that support the falsification workflow." styles={styles}>
           <ListBlock
             title="Manual-review triggers"
             items={thesis.manualReviewTriggers}
@@ -470,24 +497,7 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
             styles={styles}
           />
         </Card>
-      </div>
-
-      <Card title="What Would Change The Decision" subtitle="Concrete requirements to move the thesis, if the live response surfaced them." styles={styles}>
-        <ListBlock
-          title="Decision-change requirements"
-          items={thesis.whatWouldChange}
-          emptyText="Additional verified evidence required."
-          color="#9bd7ff"
-          styles={styles}
-        />
-        <button
-          type="button"
-          onClick={() => onSelectSection?.("manual_review")}
-          style={styles.decisionHeaderPrimaryButton}
-        >
-          Inspect requirements in Manual Review -&gt;
-        </button>
-      </Card>
+      </CollapsibleDetail>
 
       <TokenomicsSupplyIntegrityCard
         tokenomics={model?.tokenomicsSupplyIntegrity}

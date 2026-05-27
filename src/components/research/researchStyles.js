@@ -971,6 +971,8 @@ export const styles = {
   boxValue: {
     fontWeight: 700,
     color: "#f4f7ff",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   boxTone: {
     marginTop: 6,
@@ -992,6 +994,8 @@ export const styles = {
   sectionRowValue: {
     color: "#e2e8f0",
     lineHeight: 1.7,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   cardWide: {
     background: "rgba(10,18,32,0.88)",
@@ -999,6 +1003,8 @@ export const styles = {
     borderRadius: 20,
     border: "1px solid rgba(138,148,166,0.14)",
     marginTop: 16,
+    minWidth: 0,
+    overflowWrap: "break-word",
   },
   cardHeader: {
     display: "flex",
@@ -1048,11 +1054,15 @@ export const styles = {
     fontSize: 13,
     marginTop: 6,
     lineHeight: 1.5,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   timelineSummary: {
     color: "#d5dcec",
     lineHeight: 1.7,
     marginTop: 12,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   timelineChipRow: {
     display: "flex",
@@ -1756,6 +1766,8 @@ export const styles = {
     fontSize: 13,
     lineHeight: 1.55,
     fontWeight: 750,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   railInlineActions: {
     display: "grid",
@@ -3893,6 +3905,11 @@ export function buildResponsiveStyles(viewportWidth = 1280) {
     cardHeader: {
       ...styles.cardHeader,
       alignItems: isMobile ? "flex-start" : styles.cardHeader.alignItems,
+    },
+    advancedGrid: {
+      ...styles.advancedGrid,
+      gridTemplateColumns: isMobile ? "1fr" : styles.advancedGrid.gridTemplateColumns,
+      gap: isMobile ? 12 : styles.advancedGrid.gap,
     },
     sectionRow: {
       ...styles.sectionRow,

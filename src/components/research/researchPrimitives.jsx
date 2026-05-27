@@ -68,6 +68,7 @@ export function DesignBadge({ label, tone = "#7dd3fc" }) {
       letterSpacing: "0.03em",
       textTransform: "uppercase",
       lineHeight: 1.25,
+      overflowWrap: "anywhere",
     }}>
       {label || "Status unavailable"}
     </span>
@@ -104,12 +105,24 @@ export function ExecutiveSummaryCard({ eyebrow, title, answer, badges = [], chil
 }
 
 export function QuestionPromptCard({ question, answer, status, impact, sourceState, details = [], onClick, styles }) {
+  const [open, setOpen] = React.useState(false);
+  const [interactiveState, setInteractiveState] = React.useState({ hover: false, focus: false, pressed: false });
   const hasDetails = Array.isArray(details) && details.length > 0;
-  const Element = hasDetails ? "summary" : onClick ? "button" : "div";
-  const wrapperProps = onClick && !hasDetails ? { type: "button", onClick } : {};
+  const isButton = hasDetails || onClick;
   const content = (
-    <Element
-      {...wrapperProps}
+    <button
+      type="button"
+      onClick={() => {
+        if (hasDetails) setOpen((current) => !current);
+        else onClick?.();
+      }}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState({ hover: false, focus: interactiveState.focus, pressed: false })}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      aria-expanded={hasDetails ? open : undefined}
       style={{
         width: "100%",
         textAlign: "left",
@@ -118,66 +131,83 @@ export function QuestionPromptCard({ question, answer, status, impact, sourceSta
         padding: "0.95rem",
         background: "linear-gradient(135deg, rgba(125,211,252,0.08), rgba(6,12,24,0.42))",
         color: "#d5dcec",
-        cursor: onClick || hasDetails ? "pointer" : "default",
+        cursor: isButton ? "pointer" : "default",
         listStyle: "none",
+        minHeight: 72,
+        transition: "transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease",
+        ...(interactiveState.hover ? { borderColor: "rgba(125,211,252,0.38)", background: "linear-gradient(135deg, rgba(125,211,252,0.12), rgba(6,12,24,0.5))", transform: "translateY(-1px)" } : null),
+        ...(interactiveState.focus ? { boxShadow: "0 0 0 3px rgba(125,211,252,0.16)" } : null),
+        ...(interactiveState.pressed ? { transform: "translateY(0)" } : null),
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ flex: "1 1 260px" }}>
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
           <div style={{ color: "#f4f7ff", fontWeight: 900, lineHeight: 1.35 }}>{question}</div>
-          <div style={{ color: "#9aa5b8", fontSize: 13, lineHeight: 1.55, marginTop: 6 }}>{answer || "Evidence missing - source required."}</div>
+          <div style={{ color: "#9aa5b8", fontSize: 13, lineHeight: 1.55, marginTop: 6, overflowWrap: "anywhere" }}>{answer || "Evidence missing - source required."}</div>
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {status ? <DesignBadge label={status} tone="#9bd7ff" /> : null}
           {impact ? <DesignBadge label={impact} tone="#f9d976" /> : null}
           {sourceState ? <DesignBadge label={sourceState} tone="#a6f3c2" /> : null}
+          {hasDetails ? <DesignBadge label={open ? "Hide answer" : "View answer"} tone="#d5dcec" /> : null}
+          {hasDetails ? <span aria-hidden="true" style={{ color: "#d5dcec", fontSize: 18, fontWeight: 900, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 140ms ease" }}>{">"}</span> : null}
         </div>
       </div>
-    </Element>
+    </button>
   );
 
   if (!hasDetails) return content;
 
   return (
-    <details>
+    <div>
       {content}
-      <div style={{
+      {open ? <div style={{
         border: "1px solid rgba(125,211,252,0.12)",
         borderTop: 0,
         borderRadius: "0 0 18px 18px",
         padding: "0.9rem",
         background: "rgba(6,12,24,0.34)",
+        overflowWrap: "anywhere",
+        wordBreak: "break-word",
       }}>
         {details.map((detail, index) => (
           <SectionRow key={`${detail.label || "detail"}-${index}`} label={detail.label} value={detail.value} styles={styles} />
         ))}
-      </div>
-    </details>
+      </div> : null}
+    </div>
   );
 }
 
 export function CollapsibleDetail({ title, subtitle, defaultOpen = false, children, tone = "#9bd7ff", styles }) {
+  const [open, setOpen] = React.useState(Boolean(defaultOpen));
   return (
-    <details
-      open={defaultOpen}
+    <div
       style={{
         ...styles.cardWide,
         borderColor: `${tone}28`,
         background: "rgba(6,12,24,0.48)",
       }}
     >
-      <summary style={{ cursor: "pointer", listStyle: "none" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        style={{ width: "100%", border: 0, background: "transparent", padding: 0, cursor: "pointer", textAlign: "left" }}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ color: tone, fontSize: 11, fontWeight: 900, letterSpacing: "0.09em", textTransform: "uppercase" }}>Expandable detail</div>
             <h3 style={{ margin: "4px 0 0", color: "#f4f7ff" }}>{title}</h3>
-            {subtitle ? <div style={{ color: "#8a94a6", marginTop: 4 }}>{subtitle}</div> : null}
+            {subtitle ? <div style={{ color: "#8a94a6", marginTop: 4, overflowWrap: "anywhere" }}>{subtitle}</div> : null}
           </div>
-          <DesignBadge label="Open / close" tone={tone} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <DesignBadge label={open ? "Collapse details" : "Expand details"} tone={tone} />
+            <span aria-hidden="true" style={{ color: tone, fontSize: 22, fontWeight: 900, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 140ms ease" }}>{">"}</span>
+          </div>
         </div>
-      </summary>
-      <div style={{ marginTop: 14 }}>{children}</div>
-    </details>
+      </button>
+      {open ? <div style={{ marginTop: 14, overflowWrap: "anywhere" }}>{children}</div> : null}
+    </div>
   );
 }
 
