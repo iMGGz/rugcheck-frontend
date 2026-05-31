@@ -98,6 +98,8 @@ export function normalizeInstitutionalQuestionsPayload(responseLike) {
     reviewedFactsUsed: safeArray(question?.reviewedFactsUsed),
     remainingMissingEvidence: safeArray(question?.remainingMissingEvidence),
     reviewedEvidenceBoundary: safeArray(question?.reviewedEvidenceBoundary),
+    evidenceMappingWarnings: safeArray(question?.evidenceMappingWarnings),
+    reviewedEvidenceDoesNotAnswer: safeArray(question?.reviewedEvidenceDoesNotAnswer),
   });
   const questions = rootQuestions.length ? rootQuestions : nestedQuestions;
 
@@ -135,11 +137,15 @@ export function normalizeReviewedEvidencePacketPayload(responseLike) {
       remainingMissingEvidence: safeArray(mapping?.remainingMissingEvidence),
       contradictionNotes: safeArray(mapping?.contradictionNotes),
       sourceBoundary: safeArray(mapping?.sourceBoundary),
+      evidenceMappingWarnings: safeArray(mapping?.evidenceMappingWarnings),
+      reviewedEvidenceDoesNotAnswer: safeArray(mapping?.reviewedEvidenceDoesNotAnswer),
     })),
     sourceQueueNotes: safeArray(packet.sourceQueueNotes),
     remainingSourceRequirements: safeArray(packet.remainingSourceRequirements),
     answerUpgradeSummary: safeArray(packet.answerUpgradeSummary),
     warnings: safeArray(packet.warnings),
+    identityEvidenceReconciliationWarnings: safeArray(packet.identityEvidenceReconciliationWarnings),
+    evidenceMappingWarnings: safeArray(packet.evidenceMappingWarnings),
     sourceBoundary: safeArray(packet.sourceBoundary),
     audit: {
       ...safeObject(packet.audit),
@@ -220,6 +226,7 @@ export function normalizeAssetIdentityResolutionPayload(responseLike) {
     identityWarnings: safeArray(identity.identityWarnings),
     chainWarnings: safeArray(identity.chainWarnings),
     contractWarnings: safeArray(identity.contractWarnings),
+    identityEvidenceReconciliationWarnings: safeArray(identity.identityEvidenceReconciliationWarnings),
     sourceRequirements: safeArray(identity.sourceRequirements),
     sourceBoundary: safeArray(identity.sourceBoundary),
     evidenceSourceSummary: safeArray(identity.evidenceSourceSummary),
@@ -289,6 +296,8 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
       reviewedFactsUsed: safeArray(question?.reviewedFactsUsed),
       remainingMissingEvidence: safeArray(question?.remainingMissingEvidence),
       reviewedEvidenceBoundary: safeArray(question?.reviewedEvidenceBoundary),
+      evidenceMappingWarnings: safeArray(question?.evidenceMappingWarnings),
+      reviewedEvidenceDoesNotAnswer: safeArray(question?.reviewedEvidenceDoesNotAnswer),
     })),
     whatWouldChange: safeArray(tokenomics.whatWouldChange),
     sourceBoundary: safeArray(tokenomics.sourceBoundary),
@@ -3539,6 +3548,30 @@ export function buildReviewBundleText({
   const reviewedPacketContradictionHidden = reviewedPacketMappings.some((mapping) =>
     safeArray(mapping?.contradictionNotes).length && !/contradict/i.test(String(mapping?.reviewedEvidenceStatus || ""))
   );
+  const reviewedPacketMechanismBackedMarketLiquidity = reviewedPacketMappings.some((mapping) =>
+    /market.*(depth|liquidity)|liquidity.*depth/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
+  const reviewedPacketStablecoinBackedProtocolBurn = lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && reviewedPacketMappings.some((mapping) =>
+      /burn_buyback|buyback|value_capture|tokenholder|accrual/i.test(String(mapping?.questionId || ""))
+      && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+    );
+  const reviewedEvidenceIdentityConflictHidden = safeArray(reviewedEvidencePacket?.identityEvidenceReconciliationWarnings).length
+    && ![
+      ...safeArray(assetIdentityResolution?.identityEvidenceReconciliationWarnings),
+      ...safeArray(assetIdentityResolution?.chainWarnings),
+      ...safeArray(reviewedEvidencePacket?.warnings),
+    ].some((entry) => /reviewed evidence|canonical representation|migration|upgrade/i.test(String(entry)));
+  const reviewedEvidenceSourceBackedWithMaterialSameGaps = reviewedPacketMappings.some((mapping) =>
+    /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+    && safeArray(mapping?.remainingMissingEvidence).some((entry) => /same question|directly answers|primary metric/i.test(String(entry)))
+  );
+  const reviewedLstMechanismEliminatesRisk = lens?.lensId === "LST_STAKING_DERIVATIVE"
+    && safeArray(questions).some((question) =>
+      /source_backed/i.test(String(question?.reviewedEvidenceStatus || ""))
+      && /risk solved|risk eliminated|no withdrawal risk|no slashing risk|no depeg risk/i.test(`${question?.answerSummary || ""} ${question?.shortAnswer || ""}`)
+    );
   const checklistSupportedWithoutAnswer = safeArray(questions).some((question) =>
     ["supported", "partially_supported"].includes(question?.answerStatus)
     && !String(question?.shortAnswer || question?.answerSummary || "").trim(),
@@ -3587,6 +3620,7 @@ export function buildReviewBundleText({
         ...safeArray(assetIdentityResolution?.identityWarnings),
         ...safeArray(assetIdentityResolution?.chainWarnings),
         ...safeArray(assetIdentityResolution?.contractWarnings),
+        ...safeArray(assetIdentityResolution?.identityEvidenceReconciliationWarnings),
         ...identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`),
       ]),
       bundleField("Last analyzed timestamp", lastAnalyzed),
@@ -3671,7 +3705,7 @@ export function buildReviewBundleText({
       )),
       "Question-level mappings:",
       bundleList(safeArray(reviewedEvidencePacket?.questionMappings).map((mapping) =>
-        `${mapping.questionId}: ${mapping.reviewedEvidenceStatus}; sources=${safeArray(mapping.reviewedSourcesUsed).map((source) => source.sourceId).join(", ") || "none"}; remaining=${safeArray(mapping.remainingMissingEvidence).join("; ") || "none"}; freshness=${mapping.freshnessStatus}; reliability=${mapping.reliabilitySummary}`
+        `${mapping.questionId}: ${mapping.reviewedEvidenceStatus}; scope=${mapping.questionEvidenceScope || "unknown"}; sources=${safeArray(mapping.reviewedSourcesUsed).map((source) => source.sourceId).join(", ") || "none"}; remaining=${safeArray(mapping.remainingMissingEvidence).join("; ") || "none"}; warnings=${safeArray(mapping.evidenceMappingWarnings).join("; ") || "none"}; freshness=${mapping.freshnessStatus}; reliability=${mapping.reliabilitySummary}`
       )),
       "Answer upgrade summary:",
       bundleList(reviewedEvidencePacket?.answerUpgradeSummary),
@@ -3681,6 +3715,10 @@ export function buildReviewBundleText({
       bundleList(reviewedEvidencePacket?.remainingSourceRequirements),
       "Reviewed evidence warnings:",
       bundleList(reviewedEvidencePacket?.warnings),
+      "Identity/evidence reconciliation warnings:",
+      bundleList(reviewedEvidencePacket?.identityEvidenceReconciliationWarnings),
+      "Evidence mapping warnings:",
+      bundleList(reviewedEvidencePacket?.evidenceMappingWarnings),
       "Packet limitations:",
       bundleList(reviewedEvidencePacket?.audit?.limitations),
       "Source boundary:",
@@ -4145,9 +4183,15 @@ export function buildReviewBundleText({
       bundleField("Reviewed packet exists but Q&A still shows generic source-required answer", yesNoUnknown(reviewedPacketGenericSourceRequiredLeak)),
       bundleField("Source-backed reviewed answer missing source list", yesNoUnknown(reviewedPacketSourceBackedNoSources)),
       bundleField("Reviewed demo evidence treated as scoring-active", yesNoUnknown(reviewedPacketScoringActive)),
+      bundleField("Reviewed evidence allowed to change final verdict/overall score", reviewedPacketScoringActive ? "yes - QA violation" : "no - non-scoring display layer"),
       bundleField("Reviewed packet stale source shown as fresh", yesNoUnknown(reviewedPacketStaleMismatch)),
       bundleField("Reviewed packet contradiction not surfaced", yesNoUnknown(reviewedPacketContradictionHidden)),
       bundleField("Review Bundle missing evidence packet section", yesNoUnknown(reviewedPacketMissingBundleSection)),
+      bundleField("Official mechanism docs source-backed a market/liquidity question", yesNoUnknown(reviewedPacketMechanismBackedMarketLiquidity)),
+      bundleField("Stablecoin reserve docs source-backed protocol burn/buyback question", yesNoUnknown(reviewedPacketStablecoinBackedProtocolBurn)),
+      bundleField("Reviewed evidence identity conflict hidden from UI", yesNoUnknown(reviewedEvidenceIdentityConflictHidden)),
+      bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
+      bundleField("LST source-backed mechanism displayed as risk elimination", yesNoUnknown(reviewedLstMechanismEliminatesRisk)),
       bundleField("Canonical and bridged/wrapped variants visually distinguishable in candidate UI", "yes - candidate cards show representation and wrong-asset risk when backend returns identitySummary"),
       bundleField("tokenomicsIntegrityScore high despite unresolved critical caps", yesNoUnknown(tokenomicsHighScoreWithCriticalCaps)),
       bundleField("tokenomicsIntegrityScore too punitive for not-applicable fields", yesNoUnknown(tokenomicsTooPunitiveForNotApplicable)),

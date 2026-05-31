@@ -156,6 +156,8 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const reviewedTone = reviewedEvidenceTone(question.reviewedEvidenceStatus);
   const reviewedSources = safeArray(question.reviewedSourcesUsed);
   const reviewedFacts = safeArray(question.reviewedFactsUsed);
+  const evidenceMappingWarnings = normalizeRenderableList(question.evidenceMappingWarnings);
+  const reviewedDoesNotAnswer = normalizeRenderableList(question.reviewedEvidenceDoesNotAnswer);
   return (
     <details style={styles.institutionalQuestionAnswerCard} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary style={{ cursor: "pointer", listStyle: "none" }} aria-expanded={open}>
@@ -200,6 +202,13 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           color="#a6f3c2"
         />
         <InlineList
+          title="Evidence mapping cautions"
+          items={[...evidenceMappingWarnings, ...reviewedDoesNotAnswer].slice(0, 4)}
+          emptyText="No evidence mapping caution attached."
+          styles={styles}
+          color="#ffb020"
+        />
+        <InlineList
           title="Missing evidence"
           items={missingItems.slice(0, 4)}
           emptyText={readableEmpty("missing evidence")}
@@ -222,6 +231,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
         />
         <SectionRow label="Impact" value={impact.label} styles={styles} />
         <SectionRow label="Reviewed evidence status" value={reviewedTone?.label || "No reviewed packet mapped."} styles={styles} />
+        <SectionRow label="Evidence scope" value={labelize(question.questionEvidenceScope || "not attached")} styles={styles} />
         <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed demo evidence improves answer quality but is not scoring-active in v1." : "No reviewed evidence boundary attached."} styles={styles} />
         <SectionRow label="Source boundary" value={simplifiedBoundary(boundaries)} styles={styles} />
       </div>

@@ -406,6 +406,10 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
     const formulaRows = linkedFormulas.map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
     const reviewedSourceRows = safeArray(question.reviewedSourcesUsed).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"} - ${source.url || "URL unavailable"}`);
     const reviewedFactRows = safeArray(question.reviewedFactsUsed).map((fact) => `${fact.claim || fact.factId} (${fact.normalizedClaimType || "claim type unavailable"})`);
+    const evidenceMappingWarningRows = [
+      ...safeArray(question.evidenceMappingWarnings),
+      ...safeArray(question.reviewedEvidenceDoesNotAnswer),
+    ];
     const ruleRows = formulaRows.length
       ? formulaRows
       : [
@@ -469,6 +473,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
               styles={styles}
             />
             <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
+            <ListBlock title="Evidence mapping cautions" items={evidenceMappingWarningRows} emptyText="No evidence mapping caution attached." color="#f9d976" styles={styles} />
             <ListBlock title="F. Missing evidence" items={question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
             <SectionRow label="G. Impact" value={question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
             <ListBlock title="H. What would change" items={question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />

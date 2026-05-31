@@ -260,9 +260,16 @@ function buildReviewedEvidenceRows(model) {
     ...safeArray(packet.questionMappings).filter((mapping) => mapping.answerUpgradeAvailable).slice(0, 5).map((mapping) => ({
       key: `reviewed-mapping-${mapping.questionId}`,
       label: `Mapped question: ${mapping.questionId}`,
-      value: `${mapping.reviewedEvidenceStatus}; remaining gaps: ${safeArray(mapping.remainingMissingEvidence).join("; ") || "none listed"}`,
+      value: `${mapping.reviewedEvidenceStatus}; scope: ${mapping.questionEvidenceScope || "unknown"}; remaining gaps: ${safeArray(mapping.remainingMissingEvidence).join("; ") || "none listed"}; cautions: ${safeArray(mapping.evidenceMappingWarnings).join("; ") || "none"}`,
       sourceType: "Question-level reviewed evidence",
       boundary: "Answer upgrade context only; no overall scoring or verdict change.",
+    })),
+    ...safeArray(packet.identityEvidenceReconciliationWarnings).slice(0, 3).map((warning, index) => ({
+      key: `reviewed-identity-reconciliation-${index}`,
+      label: "Reviewed identity reconciliation",
+      value: warning,
+      sourceType: "Reviewed evidence / identity guardrail",
+      boundary: "Reviewed evidence can refine identity review requirements but is not scoring-active.",
     })),
   ];
 }
