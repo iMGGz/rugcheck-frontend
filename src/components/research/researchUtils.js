@@ -129,7 +129,12 @@ export function normalizeReviewedEvidencePacketPayload(responseLike) {
     ...packet,
     packetLoaded: Boolean(packet.packetLoaded),
     sources: safeArray(packet.sources),
-    facts: safeArray(packet.facts),
+    facts: safeArray(packet.facts).map((fact) => ({
+      ...safeObject(fact),
+      limitations: safeArray(fact?.limitations),
+      reviewedEvidenceDoesNotAnswer: safeArray(fact?.reviewedEvidenceDoesNotAnswer),
+      mappedQuestionIds: safeArray(fact?.mappedQuestionIds),
+    })),
     questionMappings: safeArray(packet.questionMappings).map((mapping) => ({
       ...safeObject(mapping),
       reviewedSourcesUsed: safeArray(mapping?.reviewedSourcesUsed),
@@ -3552,11 +3557,30 @@ export function buildReviewBundleText({
     /market.*(depth|liquidity)|liquidity.*depth/i.test(String(mapping?.questionId || ""))
     && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
   );
+  const reviewedPacketMechanismBackedDistributionOverhang = reviewedPacketMappings.some((mapping) =>
+    /distribution|escrow|overhang|release|non-circulating|sell pressure/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
+  const reviewedPacketMechanismBackedLiveLiveness = reviewedPacketMappings.some((mapping) =>
+    /liveness|outage|downtime|congestion|network reliability/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
   const reviewedPacketStablecoinBackedProtocolBurn = lens?.lensId === "STABLECOIN_SETTLEMENT"
     && reviewedPacketMappings.some((mapping) =>
       /burn_buyback|buyback|value_capture|tokenholder|accrual/i.test(String(mapping?.questionId || ""))
       && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
     );
+  const reviewedPacketProtocolPossibilityBackedActiveAccrual = reviewedPacketMappings.some((mapping) =>
+    /tokenholder|accrual|value_capture|fee_switch|protocol_revenue/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+    && (
+      mapping?.questionEvidenceScope !== "direct_answer"
+      || safeArray(mapping?.evidenceMappingWarnings).some((warning) => /active|material|does not answer|does not prove/i.test(String(warning)))
+      || safeArray(mapping?.reviewedEvidenceDoesNotAnswer).length
+    )
+  );
+  const reviewedPacketNativeBtcAppliedToWrappedVariant = reviewedEvidencePacket?.packetId === "reviewed-demo-btc-v1"
+    && /wrapped|wbtc|bridged/i.test(`${safeAsset.name || ""} ${safeAsset.id || ""} ${safeAsset.coingeckoId || ""} ${assetIdentityResolution?.representationType || ""}`);
   const reviewedEvidenceIdentityConflictHidden = safeArray(reviewedEvidencePacket?.identityEvidenceReconciliationWarnings).length
     && ![
       ...safeArray(assetIdentityResolution?.identityEvidenceReconciliationWarnings),
@@ -3701,7 +3725,7 @@ export function buildReviewBundleText({
       )),
       "Facts used:",
       bundleList(safeArray(reviewedEvidencePacket?.facts).map((fact) =>
-        `${fact.factId}: ${fact.claim} | type:${fact.normalizedClaimType} | contribution:${fact.answerContribution} | confidence:${fact.confidence}`
+        `${fact.factId}: ${fact.claim} | type:${fact.normalizedClaimType} | contribution:${fact.answerContribution} | confidence:${fact.confidence} | doesNotAnswer:${safeArray(fact.reviewedEvidenceDoesNotAnswer).join("; ") || "none"}`
       )),
       "Question-level mappings:",
       bundleList(safeArray(reviewedEvidencePacket?.questionMappings).map((mapping) =>
@@ -4188,7 +4212,11 @@ export function buildReviewBundleText({
       bundleField("Reviewed packet contradiction not surfaced", yesNoUnknown(reviewedPacketContradictionHidden)),
       bundleField("Review Bundle missing evidence packet section", yesNoUnknown(reviewedPacketMissingBundleSection)),
       bundleField("Official mechanism docs source-backed a market/liquidity question", yesNoUnknown(reviewedPacketMechanismBackedMarketLiquidity)),
+      bundleField("Official mechanism docs source-backed distribution/overhang materiality", yesNoUnknown(reviewedPacketMechanismBackedDistributionOverhang)),
+      bundleField("Official mechanism docs source-backed live liveness/outage status", yesNoUnknown(reviewedPacketMechanismBackedLiveLiveness)),
       bundleField("Stablecoin reserve docs source-backed protocol burn/buyback question", yesNoUnknown(reviewedPacketStablecoinBackedProtocolBurn)),
+      bundleField("Governance/adoption possibility treated as active tokenholder accrual", yesNoUnknown(reviewedPacketProtocolPossibilityBackedActiveAccrual)),
+      bundleField("Native BTC packet applied to wrapped/bridged BTC variant", yesNoUnknown(reviewedPacketNativeBtcAppliedToWrappedVariant)),
       bundleField("Reviewed evidence identity conflict hidden from UI", yesNoUnknown(reviewedEvidenceIdentityConflictHidden)),
       bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
       bundleField("LST source-backed mechanism displayed as risk elimination", yesNoUnknown(reviewedLstMechanismEliminatesRisk)),
