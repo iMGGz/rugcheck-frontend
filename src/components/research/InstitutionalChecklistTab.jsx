@@ -76,6 +76,23 @@ function verdictImpactTone(impact) {
   }
 }
 
+function reviewedEvidenceTone(status) {
+  switch (status) {
+    case "source_backed":
+      return { label: "Source-backed", color: "#2fd67b" };
+    case "partially_source_backed":
+      return { label: "Partially source-backed", color: "#7dd3fc" };
+    case "contradicted":
+      return { label: "Reviewed contradiction", color: "#ff6b6b" };
+    case "stale":
+      return { label: "Stale reviewed source", color: "#ffb020" };
+    case "not_applicable":
+      return { label: "Not applicable", color: "#8a94a6" };
+    default:
+      return null;
+  }
+}
+
 function answerFallback(question) {
   const status = questionStatusTone(question?.answerStatus).label;
   if (question?.shortAnswer) return question.shortAnswer;
@@ -136,6 +153,9 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const missingItems = normalizeRenderableList(question.missingEvidence);
   const contradictionItems = normalizeRenderableList(question.contradictionSignals);
   const changeItems = normalizeRenderableList(question.whatWouldChange);
+  const reviewedTone = reviewedEvidenceTone(question.reviewedEvidenceStatus);
+  const reviewedSources = safeArray(question.reviewedSourcesUsed);
+  const reviewedFacts = safeArray(question.reviewedFactsUsed);
   return (
     <details style={styles.institutionalQuestionAnswerCard} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary style={{ cursor: "pointer", listStyle: "none" }} aria-expanded={open}>
@@ -147,6 +167,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           <div style={styles.checklistStatusStack}>
             {statusChip(styles, status.label, status.color)}
             {statusChip(styles, impact.label, impact.color)}
+            {reviewedTone ? statusChip(styles, reviewedTone.label, reviewedTone.color) : null}
             {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
             {statusChip(styles, open ? "Hide answer" : "View answer", "#d5dcec")}
             <span aria-hidden="true" style={{ color: "#d5dcec", fontSize: 18, fontWeight: 900, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 140ms ease" }}>{">"}</span>
@@ -163,6 +184,20 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           emptyText="No support signal attached."
           styles={styles}
           color="#7dd3fc"
+        />
+        <InlineList
+          title="Reviewed sources used"
+          items={reviewedSources.map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"}`)}
+          emptyText="No reviewed evidence packet source mapped to this question."
+          styles={styles}
+          color="#a6f3c2"
+        />
+        <InlineList
+          title="Key reviewed facts used"
+          items={reviewedFacts.map((fact) => fact.claim || fact.factId)}
+          emptyText="No reviewed facts mapped."
+          styles={styles}
+          color="#a6f3c2"
         />
         <InlineList
           title="Missing evidence"
@@ -186,6 +221,8 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           color="#d5dcec"
         />
         <SectionRow label="Impact" value={impact.label} styles={styles} />
+        <SectionRow label="Reviewed evidence status" value={reviewedTone?.label || "No reviewed packet mapped."} styles={styles} />
+        <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed demo evidence improves answer quality but is not scoring-active in v1." : "No reviewed evidence boundary attached."} styles={styles} />
         <SectionRow label="Source boundary" value={simplifiedBoundary(boundaries)} styles={styles} />
       </div>
 

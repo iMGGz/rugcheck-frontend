@@ -165,6 +165,28 @@ function TokenomicsRailSection({ model, styles }) {
   );
 }
 
+function ReviewedEvidenceRailSection({ model, styles }) {
+  const packet = model?.reviewedEvidencePacket || {};
+  if (!packet.packetLoaded) return null;
+
+  return (
+    <RailSection title="Reviewed Evidence" badge={packet.reviewStatus || "Demo seed"} styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Packet</div>
+        <div style={styles.railMiniValue}>{packet.packetId || "Reviewed evidence packet loaded"}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>{safeArray(packet.sources).length} sources</div>
+        <div style={styles.railBoundaryPill}>{safeArray(packet.questionMappings).filter((mapping) => mapping.answerUpgradeAvailable).length} mapped answers</div>
+        <div style={styles.railBoundaryPill}>{packet.scoringActive ? "QA warning: scoring-active" : "Not scoring-active"}</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        Reviewed demo evidence can improve answer wording and source status; it does not change the live score or verdict in v1.
+      </div>
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -293,6 +315,8 @@ export default function AnalysisRightRail({
           <FreshnessRailSection model={model} styles={styles} />
 
           <TokenomicsRailSection model={model} styles={styles} />
+
+          <ReviewedEvidenceRailSection model={model} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

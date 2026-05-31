@@ -133,9 +133,29 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     source: "decisionModel.tokenomicsSupplyIntegrity",
     color: "#ffb020",
   }));
+  const reviewedEvidence = model?.reviewedEvidencePacket || {};
+  const reviewedEvidenceSignals = [
+    ...safeArray(reviewedEvidence.warnings).map((entry) => ({
+      label: "Reviewed evidence packet",
+      description: entry,
+      status: "Reviewed-evidence review",
+      source: "decisionModel.reviewedEvidencePacket.warnings",
+      color: "#ffb020",
+    })),
+    ...safeArray(reviewedEvidence.questionMappings)
+      .filter((mapping) => safeArray(mapping.contradictionNotes).length || mapping.freshnessStatus === "stale")
+      .map((mapping) => ({
+        label: "Reviewed evidence question mapping",
+        description: `${mapping.questionId}: ${safeArray(mapping.contradictionNotes).join("; ") || "Stale source mapped."}`,
+        status: mapping.freshnessStatus === "stale" ? "Stale source" : "Contradiction review",
+        source: "decisionModel.reviewedEvidencePacket.questionMappings",
+        color: mapping.freshnessStatus === "stale" ? "#ffb020" : "#ff6b6b",
+      })),
+  ];
 
   const combined = [
     ...manual,
+    ...reviewedEvidenceSignals,
     ...tokenomicsSignals,
     ...identitySignals,
     ...freshnessSignals,
@@ -258,6 +278,13 @@ export default function ManualReviewPanel({
           value={model?.manualReviewStatus?.detail || "Manual review queue is not attached to live response yet."}
           styles={styles}
         />
+        {model?.reviewedEvidencePacket?.packetLoaded ? (
+          <SectionRow
+            label="Reviewed evidence packet"
+            value={`${model.reviewedEvidencePacket.packetId || "packet loaded"} - ${model.reviewedEvidencePacket.scoringActive ? "QA warning: scoring-active" : "not scoring-active"}`}
+            styles={styles}
+          />
+        ) : null}
       </ExecutiveSummaryCard>
 
       <div style={styles.advancedGrid}>

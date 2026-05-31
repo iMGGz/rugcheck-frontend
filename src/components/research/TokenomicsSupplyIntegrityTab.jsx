@@ -297,6 +297,10 @@ function questionStatusLabel(value) {
 }
 
 function sourceStateForQuestion(question, formulas) {
+  if (question?.reviewedEvidenceStatus === "source_backed") return "source-backed";
+  if (question?.reviewedEvidenceStatus === "partially_source_backed") return "partially-source-backed";
+  if (question?.reviewedEvidenceStatus === "stale") return "stale-source";
+  if (question?.reviewedEvidenceStatus === "contradicted") return "contradicted";
   const formulaIds = safeArray(question?.formulaOutputsUsed);
   const linkedFormulas = formulas.filter((formula) => formulaIds.includes(formula.formulaId));
   const statusText = String(question?.answerStatus || "").toLowerCase();
@@ -400,6 +404,8 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
     const impactBadge = impactBadgeForQuestion(question);
     const dataRows = safeArray(question.dataFieldsUsed).map((field) => `${field}: ${displayFieldValue(valueFromPath(tokenomics, field))}`);
     const formulaRows = linkedFormulas.map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
+    const reviewedSourceRows = safeArray(question.reviewedSourcesUsed).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"} - ${source.url || "URL unavailable"}`);
+    const reviewedFactRows = safeArray(question.reviewedFactsUsed).map((fact) => `${fact.claim || fact.factId} (${fact.normalizedClaimType || "claim type unavailable"})`);
     const ruleRows = formulaRows.length
       ? formulaRows
       : [
@@ -454,12 +460,15 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
                 `Answer status: ${statusText}`,
                 `Source state: ${sourceState}`,
                 ...safeArray(question.evidenceUsed).map((entry) => `Provider/evidence field: ${entry}`),
+                ...reviewedFactRows.map((entry) => `Reviewed fact: ${entry}`),
                 ...safeArray(question.sourceBoundary).map((entry) => `Boundary: ${entry}`),
-              ]}
+                question.reviewedEvidenceStatus ? "Boundary: Reviewed demo evidence improves answer quality but is not scoring-active in v1." : null,
+              ].filter(Boolean)}
               emptyText="No evidence status attached."
               color="#a6f3c2"
               styles={styles}
             />
+            <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
             <ListBlock title="F. Missing evidence" items={question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
             <SectionRow label="G. Impact" value={question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
             <ListBlock title="H. What would change" items={question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />

@@ -239,6 +239,34 @@ function buildTokenomicsEvidenceRows(model) {
   ];
 }
 
+function buildReviewedEvidenceRows(model) {
+  const packet = model?.reviewedEvidencePacket || {};
+  if (!packet.packetLoaded) return [];
+  return [
+    {
+      key: "reviewed-evidence-packet-summary",
+      label: "Reviewed Evidence Packet v1",
+      value: `${packet.packetId || "packet"} loaded as ${packet.reviewStatus || "review status unavailable"}. Reviewed demo evidence is not scoring-active in v1.`,
+      sourceType: "Reviewed demo evidence",
+      boundary: "Question-level source-backed context. Separate from provider metadata and final scoring.",
+    },
+    ...safeArray(packet.sources).slice(0, 5).map((source, index) => ({
+      key: `reviewed-source-${source.sourceId || index}`,
+      label: source.title || "Reviewed source",
+      value: `${source.publisher || "publisher unavailable"} | ${source.freshnessStatus || "freshness unknown"} | ${source.reliabilityTier || "reliability unknown"} | ${source.url || "URL unavailable"}`,
+      sourceType: source.scoringEligible ? "Reviewed evidence - scoring eligible flag" : "Reviewed demo source",
+      boundary: source.scoringEligible ? "QA warning: v1 should not treat reviewed demo packets as scoring-active." : "Reviewed demo evidence improves answer quality only.",
+    })),
+    ...safeArray(packet.questionMappings).filter((mapping) => mapping.answerUpgradeAvailable).slice(0, 5).map((mapping) => ({
+      key: `reviewed-mapping-${mapping.questionId}`,
+      label: `Mapped question: ${mapping.questionId}`,
+      value: `${mapping.reviewedEvidenceStatus}; remaining gaps: ${safeArray(mapping.remainingMissingEvidence).join("; ") || "none listed"}`,
+      sourceType: "Question-level reviewed evidence",
+      boundary: "Answer upgrade context only; no overall scoring or verdict change.",
+    })),
+  ];
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -289,7 +317,9 @@ export default function EvidenceMapTab({
   const calibrationWarningRows = buildCalibrationWarningRows(model);
   const assetIdentityRows = buildAssetIdentityRows(model);
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
+  const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
   const lensBoundaryDisplayRows = [
+    ...reviewedEvidenceRows,
     ...assetIdentityRows,
     ...tokenomicsEvidenceRows,
     ...lensEvidenceRows,

@@ -133,8 +133,26 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     source: "decisionModel.tokenomicsSupplyIntegrity.sourceRequirements",
     color: "#ffb020",
   }));
+  const reviewedEvidence = model?.reviewedEvidencePacket || {};
+  const reviewedCoverageLeads = [
+    ...safeArray(reviewedEvidence.sourceQueueNotes).slice(0, 3).map((entry) => ({
+      label: "Reviewed evidence mapped",
+      description: entry,
+      status: "Partially/source-backed",
+      source: "decisionModel.reviewedEvidencePacket.sourceQueueNotes",
+      color: "#a6f3c2",
+    })),
+    ...safeArray(reviewedEvidence.remainingSourceRequirements).map((entry) => ({
+      label: "Reviewed evidence remaining gap",
+      description: entry,
+      status: "Remaining source required",
+      source: "decisionModel.reviewedEvidencePacket.remainingSourceRequirements",
+      color: "#f9d976",
+    })),
+  ];
 
   return dedupeByText([
+    ...reviewedCoverageLeads,
     ...tokenomicsLeads,
     ...identityLeads,
     ...freshnessLeads,
@@ -211,6 +229,7 @@ export default function SourceQueuePanel({
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
   const domains = suggestedResearchDomains(model, displayIdentity);
   const researchRequirements = safeArray(model?.researchRequirements);
+  const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
 
   return (
@@ -238,6 +257,30 @@ export default function SourceQueuePanel({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {reviewedEvidence.packetLoaded ? (
+        <Card title="Reviewed Evidence Coverage" subtitle="Mapped demo evidence reduces duplicate generic source asks, but is not scoring-active in v1." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `Packet: ${reviewedEvidence.packetId || "loaded"}`)}
+            {boundaryChip(styles, reviewedEvidence.reviewStatus || "reviewed demo seed")}
+            {boundaryChip(styles, "Not scoring-active")}
+          </div>
+          <ListBlock
+            title="Already mapped to questions"
+            items={reviewedEvidence.sourceQueueNotes}
+            emptyText="No reviewed-evidence coverage notes were attached."
+            color="#a6f3c2"
+            styles={styles}
+          />
+          <ListBlock
+            title="Still needed"
+            items={reviewedEvidence.remainingSourceRequirements}
+            emptyText="No remaining reviewed-evidence gaps were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       <div style={styles.advancedGrid}>
         <QuestionPromptCard
