@@ -3142,27 +3142,34 @@ function bundleSynthesizedAnswer(question) {
 }
 
 function bundleQuestions(questions = []) {
-  const rows = safeArray(questions).map((question, index) => [
-    `Question ${index + 1}`,
-    `  id: ${bundleValue(question?.questionId)}`,
-    `  question: ${bundleValue(question?.questionText)}`,
-    `  lens: ${bundleValue(question?.assetClassLens)}`,
-    `  answerStatus: ${bundleValue(question?.answerStatus)}`,
-    `  verdictImpact: ${bundleValue(question?.verdictImpact)}`,
-    `  currentMvpCapability: ${bundleValue(question?.currentMvpCapability)}`,
-    `  shortAnswer: ${bundleValue(question?.shortAnswer)}`,
-    `  answerSummary: ${bundleValue(question?.answerSummary)}`,
-    `  supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Unavailable in current frontend model"}`,
-    `  dataFieldsUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
-    `  formulaOutputsUsed: ${normalizeRenderableList(question?.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
-    `  missingEvidence: ${normalizeRenderableList(question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
-    `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Unavailable in current frontend model"}`,
-    `  impactOnScoreOrConfidence: ${bundleValue(question?.impactOnScoreOrConfidence)}`,
-    `  whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
-    `  scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
-    `  sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
-    bundleSynthesizedAnswer(question),
-  ].join("\n"));
+  const rows = safeArray(questions).map((question, index) => {
+    const synthesized = safeObject(question?.synthesizedAnswer);
+    const hasSynthesis = Boolean(synthesized.directAnswer);
+    return [
+      `Question ${index + 1}`,
+      `  id: ${bundleValue(question?.questionId)}`,
+      `  question: ${bundleValue(question?.questionText)}`,
+      `  primaryAnswer: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
+      `  primaryEvidenceStatus: ${bundleValue(synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
+      `  lens: ${bundleValue(question?.assetClassLens)}`,
+      `  answerStatus: ${bundleValue(question?.answerStatus)}`,
+      `  verdictImpact: ${bundleValue(question?.verdictImpact)}`,
+      `  currentMvpCapability: ${bundleValue(question?.currentMvpCapability)}`,
+      `  synthesisPreferred: ${hasSynthesis ? "yes" : "no"}`,
+      bundleSynthesizedAnswer(question),
+      `  audit.legacyShortAnswer: ${bundleValue(question?.shortAnswer)}`,
+      `  audit.legacyAnswerSummary: ${bundleValue(question?.answerSummary)}`,
+      `  audit.supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.dataFieldsUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.formulaOutputsUsed: ${normalizeRenderableList(question?.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  missingEvidence: ${normalizeRenderableList(synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+      `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Unavailable in current frontend model"}`,
+      `  impactOnScoreOrConfidence: ${bundleValue(synthesized.impact || question?.impactOnScoreOrConfidence)}`,
+      `  whatWouldChange: ${normalizeRenderableList(synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+    ].join("\n");
+  });
   return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
 }
 
@@ -3523,6 +3530,18 @@ export function buildReviewBundleText({
   const computedSynthesisOverclaimed = allSynthesizedQuestions.some((question) =>
     question?.synthesizedAnswer?.evidenceStatus === "computed"
     && /reviewed evidence proves|source-backed/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
+  const stablecoinCopyLeakageInSynthesis = allSynthesizedQuestions.some((question) =>
+    lens?.lensId !== "STABLECOIN_SETTLEMENT"
+    && /stablecoin trust framing/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
+  const irrelevantSectorSignalLeakageInSynthesis = allSynthesizedQuestions.some((question) =>
+    /AI sector markers|gaming markers outside gaming|RWA markers outside RWA|stablecoin framing outside stablecoins|meme markers outside meme/i.test(JSON.stringify(question?.synthesizedAnswer || {})),
+  );
+  const supportedSourceRequiredSynthesisMismatch = allSynthesizedQuestions.some((question) =>
+    question?.synthesizedAnswer?.evidenceStatus === "source_required"
+    && ["supported", "partially_supported"].includes(question?.answerStatus)
+    && !safeArray(question?.synthesizedAnswer?.answerQualityFlags).some((flag) => /legacy_support_status_is_not_reviewed_evidence/.test(String(flag))),
   );
   const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
     && [
@@ -3977,6 +3996,9 @@ export function buildReviewBundleText({
         `reviewed evidence scoring boundary violation: ${yesNoUnknown(synthesizedScoringBoundaryViolation)}`,
         `provider-only synthesis overclaimed as reviewed evidence: ${yesNoUnknown(providerOnlySynthesisOverclaimed)}`,
         `computed synthesis overclaimed as reviewed evidence: ${yesNoUnknown(computedSynthesisOverclaimed)}`,
+        `stablecoin copy outside stablecoin lens: ${yesNoUnknown(stablecoinCopyLeakageInSynthesis)}`,
+        `irrelevant sector marker leakage: ${yesNoUnknown(irrelevantSectorSignalLeakageInSynthesis)}`,
+        `supported/source-required mismatch without boundary: ${yesNoUnknown(supportedSourceRequiredSynthesisMismatch)}`,
       ]),
       "Synthesized question answers:",
       bundleQuestions(allSynthesizedQuestions),
@@ -4338,6 +4360,9 @@ export function buildReviewBundleText({
       bundleField("Reviewed evidence remains non-scoring-active in synthesis", yesNoUnknown(!synthesizedScoringBoundaryViolation)),
       bundleField("Provider-only synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!providerOnlySynthesisOverclaimed)),
       bundleField("Computed/formula synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!computedSynthesisOverclaimed)),
+      bundleField("Stablecoin synthesis copy absent for non-stablecoin lens", yesNoUnknown(!stablecoinCopyLeakageInSynthesis)),
+      bundleField("Irrelevant sector markers absent from synthesized primary answer context", yesNoUnknown(!irrelevantSectorSignalLeakageInSynthesis)),
+      bundleField("Supported/source-required synthesis mismatch has explicit boundary", yesNoUnknown(!supportedSourceRequiredSynthesisMismatch)),
       bundleField("Source-backed reviewed answer missing source list", yesNoUnknown(reviewedPacketSourceBackedNoSources)),
       bundleField("Reviewed demo evidence treated as scoring-active", yesNoUnknown(reviewedPacketScoringActive)),
       bundleField("Reviewed evidence allowed to change final verdict/overall score", reviewedPacketScoringActive ? "yes - QA violation" : "no - non-scoring display layer"),
