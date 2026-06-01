@@ -3579,6 +3579,30 @@ export function buildReviewBundleText({
       || safeArray(mapping?.reviewedEvidenceDoesNotAnswer).length
     )
   );
+  const reviewedPacketRwaProductRightsAsProtocolRights = reviewedPacketMappings.some((mapping) =>
+    /rwa|product_rights|underlying|legal_claim|economic_claim|redemption|aum/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+    && safeArray(mapping?.evidenceMappingWarnings).some((warning) => /RWA product|protocol-tokenholder|legal\/economic rights/i.test(String(warning)))
+  );
+  const reviewedPacketPlatformAumAsAccrual = reviewedPacketMappings.some((mapping) =>
+    /aum|product|platform|protocol_revenue|tokenholder|accrual|value_capture/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+    && safeArray(mapping?.reviewedEvidenceDoesNotAnswer).some((entry) => /AUM|product|revenue|cash-flow|value capture|rights/i.test(String(entry)))
+  );
+  const reviewedPacketGamingDocsAsLiveDemand = reviewedPacketMappings.some((mapping) =>
+    /active|paying|retention|game_volume|marketplace|tournament|demand_absorption|sustainable/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
+  const reviewedPacketMemeAsInvestmentQuality = reviewedPacketMappings.some((mapping) =>
+    /investment|allocation|durable|fundamental|institutional/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
+  const reviewedPacketNativeL1DocsAsLiquidity = ["BASE_LAYER_SETTLEMENT", "NATIVE_L1", "NATIVE_MONETARY_BENCHMARK"].includes(lens?.lensId)
+    && reviewedPacketMechanismBackedMarketLiquidity;
+  const reviewedPacketSafetyModuleAsRiskFreeYield = reviewedPacketMappings.some((mapping) =>
+    /risk.?free|guaranteed.?yield|safe.?yield|yield_sustainability/i.test(String(mapping?.questionId || ""))
+    && /source_backed/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+  );
   const reviewedPacketNativeBtcAppliedToWrappedVariant = reviewedEvidencePacket?.packetId === "reviewed-demo-btc-v1"
     && /wrapped|wbtc|bridged/i.test(`${safeAsset.name || ""} ${safeAsset.id || ""} ${safeAsset.coingeckoId || ""} ${assetIdentityResolution?.representationType || ""}`);
   const reviewedEvidenceIdentityConflictHidden = safeArray(reviewedEvidencePacket?.identityEvidenceReconciliationWarnings).length
@@ -4216,6 +4240,12 @@ export function buildReviewBundleText({
       bundleField("Official mechanism docs source-backed live liveness/outage status", yesNoUnknown(reviewedPacketMechanismBackedLiveLiveness)),
       bundleField("Stablecoin reserve docs source-backed protocol burn/buyback question", yesNoUnknown(reviewedPacketStablecoinBackedProtocolBurn)),
       bundleField("Governance/adoption possibility treated as active tokenholder accrual", yesNoUnknown(reviewedPacketProtocolPossibilityBackedActiveAccrual)),
+      bundleField("RWA product rights applied to protocol tokenholder rights", yesNoUnknown(reviewedPacketRwaProductRightsAsProtocolRights)),
+      bundleField("Platform/AUM activity used as tokenholder accrual", yesNoUnknown(reviewedPacketPlatformAumAsAccrual)),
+      bundleField("Gaming docs used as active-user/payer/retention proof", yesNoUnknown(reviewedPacketGamingDocsAsLiveDemand)),
+      bundleField("Meme classification used as investment-quality proof", yesNoUnknown(reviewedPacketMemeAsInvestmentQuality)),
+      bundleField("Native L1 docs used as market liquidity proof", yesNoUnknown(reviewedPacketNativeL1DocsAsLiquidity)),
+      bundleField("Safety Module/staking docs shown as risk-free yield", yesNoUnknown(reviewedPacketSafetyModuleAsRiskFreeYield)),
       bundleField("Native BTC packet applied to wrapped/bridged BTC variant", yesNoUnknown(reviewedPacketNativeBtcAppliedToWrappedVariant)),
       bundleField("Reviewed evidence identity conflict hidden from UI", yesNoUnknown(reviewedEvidenceIdentityConflictHidden)),
       bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
