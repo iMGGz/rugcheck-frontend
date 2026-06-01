@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
 import {
   extractRenderableText,
+  getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
   normalizeRenderableList,
   normalizeResolvedInstitutionalLensPayload,
@@ -146,6 +147,8 @@ function synthesizedPrimaryBadge(question, synthesizedTone) {
 }
 
 function answerFallback(question) {
+  const card = getAnalystAnswerCard(question);
+  if (card?.directAnswer) return card.directAnswer;
   const status = questionStatusTone(question?.answerStatus).label;
   if (question?.synthesizedAnswer?.directAnswer) return question.synthesizedAnswer.directAnswer;
   if (question?.shortAnswer) return question.shortAnswer;
@@ -199,10 +202,11 @@ function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
 function InstitutionalQuestionAnswerCard({ question, styles }) {
   const [open, setOpen] = React.useState(false);
   const synthesized = safeObject(question.synthesizedAnswer);
+  const analystCard = getAnalystAnswerCard(question);
   const status = primaryQuestionStatusTone(question, synthesized);
   const impact = verdictImpactTone(question.verdictImpact);
   const boundaries = normalizeRenderableList(question.sourceBoundary);
-  const shortAnswer = answerFallback(question);
+  const shortAnswer = analystCard.directAnswer || answerFallback(question);
   const supportItems = normalizeRenderableList(question.supportingSignals);
   const missingItems = normalizeRenderableList(question.missingEvidence);
   const contradictionItems = normalizeRenderableList(question.contradictionSignals);
@@ -215,10 +219,10 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const synthesizedFacts = safeArray(synthesized.reviewedFactsUsed);
   const evidenceMappingWarnings = normalizeRenderableList(question.evidenceMappingWarnings);
   const reviewedDoesNotAnswer = normalizeRenderableList(question.reviewedEvidenceDoesNotAnswer);
-  const synthesizedMissing = normalizeRenderableList(synthesized.missingEvidence);
+  const synthesizedMissing = normalizeRenderableList(analystCard.missingEvidence).length ? normalizeRenderableList(analystCard.missingEvidence) : normalizeRenderableList(synthesized.missingEvidence);
   const synthesizedWarnings = normalizeRenderableList(synthesized.warnings);
-  const synthesizedBoundaries = normalizeRenderableList(synthesized.sourceBoundary);
-  const synthesizedDoesNotProve = normalizeRenderableList(synthesized.whatEvidenceDoesNotProve);
+  const synthesizedBoundaries = normalizeRenderableList(analystCard.sourceBoundaryPlainEnglish).length ? normalizeRenderableList(analystCard.sourceBoundaryPlainEnglish) : normalizeRenderableList(synthesized.sourceBoundary);
+  const synthesizedDoesNotProve = normalizeRenderableList(analystCard.whatEvidenceDoesNotProve).length ? normalizeRenderableList(analystCard.whatEvidenceDoesNotProve) : normalizeRenderableList(synthesized.whatEvidenceDoesNotProve);
   return (
     <details style={styles.institutionalQuestionAnswerCard} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary style={{ cursor: "pointer", listStyle: "none" }} aria-expanded={open}>
@@ -228,8 +232,8 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
             <p style={{ ...styles.institutionalQuestionSummary, marginBottom: 0 }}>{shortAnswer}</p>
           </div>
           <div style={styles.checklistStatusStack}>
-            {statusChip(styles, status.label, status.color)}
-            {statusChip(styles, impact.label, impact.color)}
+            {statusChip(styles, analystCard.headlineStatus || status.label, synthesizedTone?.color || status.color)}
+            {statusChip(styles, analystCard.primaryBadges?.includes("Not scoring-active") ? "Not scoring-active" : impact.label, impact.color)}
             {synthesizedTone ? statusChip(styles, synthesizedTone.label, synthesizedTone.color) : null}
             {reviewedTone ? statusChip(styles, reviewedTone.label, reviewedTone.color) : null}
             {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
@@ -240,14 +244,14 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
       </summary>
 
       <div style={styles.institutionalQuestionDetailGrid}>
-        <SectionRow label="Short answer" value={shortAnswer} styles={styles} />
-        <SectionRow label="Why it matters" value="This question tests whether the asset-class thesis has enough source-backed support to improve confidence without overclaiming evidence." styles={styles} />
+          <SectionRow label="Direct answer" value={shortAnswer} styles={styles} />
+          <SectionRow label="Why it matters" value={analystCard.assetClassSpecificKeyIssue || "This question tests whether the asset-class thesis has enough source-backed support to improve confidence without overclaiming evidence."} styles={styles} />
         {synthesized.directAnswer ? (
           <SectionRow label="Synthesized answer model" value={`${synthesized.synthesisTemplateId || "institutional_answer_synthesis_v1"} | ${labelize(synthesized.evidenceStatus || "source_required")}`} styles={styles} />
         ) : null}
         <InlineList
           title="Supporting evidence, summarized"
-          items={normalizeRenderableList(synthesized.evidenceUsed).length ? normalizeRenderableList(synthesized.evidenceUsed).slice(0, 4) : supportItems.slice(0, 4)}
+          items={normalizeRenderableList(analystCard.evidenceBasis).length ? normalizeRenderableList(analystCard.evidenceBasis).slice(0, 4) : normalizeRenderableList(synthesized.evidenceUsed).length ? normalizeRenderableList(synthesized.evidenceUsed).slice(0, 4) : supportItems.slice(0, 4)}
           emptyText="No support signal attached."
           styles={styles}
           color="#7dd3fc"
@@ -301,8 +305,9 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           styles={styles}
           color="#d5dcec"
         />
-        <SectionRow label="Impact" value={impact.label} styles={styles} />
-        <SectionRow label="Synthesis impact" value={synthesized.impact || "No synthesized impact attached."} styles={styles} />
+        <SectionRow label="Decision / confidence impact" value={analystCard.decisionImpact || synthesized.impact || impact.label} styles={styles} />
+        <SectionRow label="Confidence boundary" value={analystCard.confidenceBoundary || "No scoring or verdict change is inferred from this display card."} styles={styles} />
+        <SectionRow label="Manual review implication" value={analystCard.manualReviewImplication || "No separate manual-review implication beyond the current source boundary."} styles={styles} />
         <SectionRow label="Reviewed evidence status" value={reviewedTone?.label || "No reviewed packet mapped."} styles={styles} />
         <SectionRow label="Evidence scope" value={labelize(question.questionEvidenceScope || "not attached")} styles={styles} />
         <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed demo evidence improves answer quality but is not scoring-active in v1." : "No reviewed evidence boundary attached."} styles={styles} />
@@ -319,6 +324,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
         </div>
         <InlineList title="Signals used" items={supportItems} emptyText="No support signal attached." styles={styles} color="#7dd3fc" />
         <InlineList title="Scoring/audit fields" items={question.scoringFieldsUsed} emptyText="No scoring/audit fields attached." styles={styles} color="#8a94a6" />
+        <InlineList title="Analyst card audit fields" items={analystCard.auditFields} emptyText="No analyst-card audit fields attached." styles={styles} color="#8a94a6" />
         <SectionRow label="Question id" value={question.questionId || "Not available yet."} styles={styles} />
       </details>
     </details>

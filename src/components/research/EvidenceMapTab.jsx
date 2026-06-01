@@ -8,6 +8,7 @@ import SourcesPanel from "./SourcesPanel";
 import {
   diagnosticTone,
   extractRenderableText,
+  getAnalystAnswerCard,
   normalizeEvidenceProxyDisplayLabel,
   normalizeProviderHealth,
   normalizeRenderableList,
@@ -250,7 +251,7 @@ function buildReviewedEvidenceRows(model) {
     .map((question) => ({
       key: `synthesized-answer-${question.questionId}`,
       label: `Synthesized answer: ${question.questionId}`,
-      value: `${question.synthesizedAnswer.directAnswer || "Direct answer unavailable"} | evidence status: ${question.synthesizedAnswer.evidenceStatus || "source_required"}`,
+      value: `${getAnalystAnswerCard(question).directAnswer || question.synthesizedAnswer.directAnswer || "Direct answer unavailable"} | status: ${getAnalystAnswerCard(question).headlineStatus || question.synthesizedAnswer.evidenceStatus || "source_required"} | boundary: ${safeArray(getAnalystAnswerCard(question).sourceBoundaryPlainEnglish)[0] || "source boundary unavailable"}`,
       sourceType: "Institutional answer synthesis",
       boundary: "Deterministic display synthesis. It uses mapped provider/review/formula fields and does not affect scoring.",
     }));

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
-import { formatCompact, formatPct, formatUsd, safeArray, safeObject, titleCase } from "./researchUtils";
+import { formatCompact, formatPct, formatUsd, getAnalystAnswerCard, safeArray, safeObject, titleCase } from "./researchUtils";
 
 function isPresent(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
@@ -297,6 +297,8 @@ function questionStatusLabel(value) {
 }
 
 function sourceStateForQuestion(question, formulas) {
+  const analystCard = getAnalystAnswerCard(question);
+  if (analystCard?.headlineStatus) return analystCard.headlineStatus;
   if (question?.synthesizedAnswer?.evidenceStatus) return String(question.synthesizedAnswer.evidenceStatus).replace(/_/g, "-");
   if (question?.reviewedEvidenceStatus === "source_backed") return "source-backed";
   if (question?.reviewedEvidenceStatus === "partially_source_backed") return "partially-source-backed";
@@ -316,6 +318,8 @@ function sourceStateForQuestion(question, formulas) {
 }
 
 function displayQuestionAnswer(question) {
+  const analystCard = getAnalystAnswerCard(question);
+  if (analystCard?.directAnswer) return analystCard.directAnswer;
   return question?.synthesizedAnswer?.directAnswer
     || question?.shortAnswer
     || question?.answerSummary
@@ -406,6 +410,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
   const renderQuestion = (question, index) => {
     const questionKey = question.questionId || question.questionText || `question-${index}`;
     const synthesized = safeObject(question.synthesizedAnswer);
+    const analystCard = getAnalystAnswerCard(question);
     const linkedFormulas = formulas.filter((formula) => safeArray(question.formulaOutputsUsed).includes(formula.formulaId));
     const isOpen = openQuestions.has(questionKey);
     const sourceState = sourceStateForQuestion(question, formulas);
@@ -431,7 +436,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
               ? `Not applicable for this asset class. ${displayQuestionAnswer(question) || contextualNote(tokenomics.supplySummary?.lensId)}`
               : `Rule-based answer. ${contextualNote(tokenomics.supplySummary?.lensId)}`,
         ];
-    const answerText = displayQuestionAnswer(question);
+    const answerText = analystCard.directAnswer || displayQuestionAnswer(question);
 
     return (
       <div key={questionKey} style={{
@@ -462,6 +467,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <StatusBadge tone={statusText === "Contradicted" ? "#ffb6b6" : statusText === "Manual review required" ? "#f9d976" : statusText === "Not applicable" ? "#d5dcec" : "#9bd7ff"}>{statusText}</StatusBadge>
               <StatusBadge tone="#a6f3c2">{sourceState}</StatusBadge>
+              {safeArray(analystCard.primaryBadges).includes("Not scoring-active") ? <StatusBadge tone="#d5dcec">Not scoring-active</StatusBadge> : null}
               <StatusBadge tone="#f9d976">{impactBadge}</StatusBadge>
               <StatusBadge tone="#d5dcec">{isOpen ? "Collapse" : "Expand"}</StatusBadge>
             </div>
@@ -469,10 +475,10 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
         </button>
         {isOpen ? (
           <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.14)", padding: "1rem", display: "grid", gap: "0.85rem" }}>
-            <SectionRow label="A. Short answer" value={answerText} styles={styles} />
-            <SectionRow label="B. Why it matters" value={whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
+            <SectionRow label="A. Direct answer" value={answerText} styles={styles} />
+            <SectionRow label="B. Why it matters" value={analystCard.assetClassSpecificKeyIssue || whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
             <SectionRow label="Synthesis model" value={synthesized.synthesisTemplateId ? `${synthesized.synthesisTemplateId} | ${status(synthesized.evidenceStatus)}` : "No synthesized answer attached."} styles={styles} />
-            <ListBlock title="C. Data used" items={dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
+            <ListBlock title="C. Evidence / data basis" items={safeArray(analystCard.evidenceBasis).length ? analystCard.evidenceBasis : dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
             <ListBlock title="D. Formula / rule used" items={ruleRows} emptyText="No formula or rule linkage attached." color="#9bd7ff" styles={styles} />
             <ListBlock
               title="E. Evidence status"
@@ -482,9 +488,8 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
                 synthesized.evidenceStatus ? `Synthesized status: ${status(synthesized.evidenceStatus)}` : null,
                 ...safeArray(question.evidenceUsed).map((entry) => `Provider/evidence field: ${entry}`),
                 ...reviewedFactRows.map((entry) => `Reviewed fact: ${entry}`),
-                ...safeArray(synthesized.whatEvidenceDoesNotProve).map((entry) => `Does not prove: ${entry}`),
-                ...safeArray(question.sourceBoundary).map((entry) => `Boundary: ${entry}`),
-                ...safeArray(synthesized.sourceBoundary).map((entry) => `Synthesis boundary: ${entry}`),
+                ...safeArray(analystCard.whatEvidenceDoesNotProve).map((entry) => `Does not prove: ${entry}`),
+                ...safeArray(analystCard.sourceBoundaryPlainEnglish).map((entry) => `Boundary: ${entry}`),
                 question.reviewedEvidenceStatus ? "Boundary: Reviewed demo evidence improves answer quality but is not scoring-active in v1." : null,
               ].filter(Boolean)}
               emptyText="No evidence status attached."
@@ -493,9 +498,10 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             />
             <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
             <ListBlock title="Evidence mapping cautions" items={evidenceMappingWarningRows} emptyText="No evidence mapping caution attached." color="#f9d976" styles={styles} />
-            <ListBlock title="F. Missing evidence" items={safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
-            <SectionRow label="G. Impact" value={synthesized.impact || question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
-            <ListBlock title="H. What would change" items={safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
+            <ListBlock title="F. Missing evidence" items={safeArray(analystCard.missingEvidence).length ? analystCard.missingEvidence : safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
+            <SectionRow label="G. Decision / confidence impact" value={analystCard.decisionImpact || synthesized.impact || question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
+            <SectionRow label="Confidence boundary" value={analystCard.confidenceBoundary || "No scoring or verdict change is inferred from this display card."} styles={styles} />
+            <ListBlock title="H. What would change" items={safeArray(analystCard.whatWouldChange).length ? analystCard.whatWouldChange : safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
           </div>
         ) : null}
       </div>

@@ -3,6 +3,7 @@ import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, QuestionPromp
 import {
   extractRenderableText,
   buildLensSpecificResearchDomains,
+  getAnalystAnswerCard,
   normalizeRenderableList,
   providerLabel,
   safeArray,
@@ -139,11 +140,11 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
   ]
     .filter((question) => question?.synthesizedAnswer)
-    .flatMap((question) => safeArray(question.synthesizedAnswer.missingEvidence).slice(0, 2).map((entry) => ({
+    .flatMap((question) => safeArray(getAnalystAnswerCard(question).missingEvidence).slice(0, 2).map((entry) => ({
       label: `Question evidence gap: ${question.questionId || "institutional question"}`,
-      description: entry,
-      status: question.synthesizedAnswer.evidenceStatus === "source_required" ? "Source required" : "Remaining evidence gap",
-      source: "decisionModel.institutionalQuestions.synthesizedAnswer",
+      description: `${entry} ${getAnalystAnswerCard(question).whatWouldChange?.[0] ? `What would change: ${getAnalystAnswerCard(question).whatWouldChange[0]}` : ""}`.trim(),
+      status: getAnalystAnswerCard(question).headlineStatus || (question.synthesizedAnswer.evidenceStatus === "source_required" ? "Source required" : "Remaining evidence gap"),
+      source: "decisionModel.institutionalQuestions.synthesizedAnswer.analystAnswerCard",
       color: "#f9d976",
     })));
   const reviewedCoverageLeads = [

@@ -3,7 +3,7 @@ import FailureModeCard from "./FailureModeCard";
 import TokenDemandCard from "./TokenDemandCard";
 import ConvictionDriversMatrix from "./ConvictionDriversMatrix";
 import { Card, CollapsibleDetail, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
-import { normalizeRenderableList, sanitizeSemanticLabel, titleCase } from "./researchUtils";
+import { getAnalystAnswerCard, normalizeRenderableList, sanitizeSemanticLabel, titleCase } from "./researchUtils";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 
 function dedupe(items) {
@@ -142,6 +142,14 @@ function buildThesisModel(model, displayIdentity = null) {
   const lensWhatWouldChange = lensAwarePrimaryItems(model, "whatWouldChange");
   const lensRequiredConditions = lensAwarePrimaryItems(model, "requiredConditions");
   const lensPrimaryBlocker = lensAwarePrimaryItems(model, "primaryBlocker");
+  const analystAnswerLeads = normalizeRenderableList(
+    (Array.isArray(model?.institutionalQuestions) ? model.institutionalQuestions : [])
+      .map((question) => {
+        const card = getAnalystAnswerCard(question);
+        if (!card?.directAnswer) return null;
+        return `${card.headlineStatus || "Analyst answer"}: ${card.directAnswer}`;
+      }),
+  ).slice(0, 4);
   const rawWhatMustBeTrue = filterPrimaryLensCopy([
     ...(model?.whatMustBeTrue || []),
     ...(model?.requiredConditions || []),
@@ -193,6 +201,7 @@ function buildThesisModel(model, displayIdentity = null) {
   ]).slice(0, 6);
 
   const missingContext = dedupe([
+    ...analystAnswerLeads.filter((entry) => /source|missing|review|required|live data/i.test(entry)),
     ...lensEvidenceNeeded,
     ...rawMissingContext,
   ]).slice(0, 6);
@@ -208,6 +217,7 @@ function buildThesisModel(model, displayIdentity = null) {
     whatMustBeTrue,
     whatCouldBreak,
     supportingContext,
+    analystAnswerLeads,
     missingContext,
     manualReviewTriggers,
     falsePositiveRisk: lensForAsset(model, displayIdentity),

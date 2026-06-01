@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import {
+  getAnalystAnswerCard,
   normalizeRenderableList,
   providerLabel,
   safeArray,
@@ -140,13 +141,14 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
   ]
     .filter((question) => question?.synthesizedAnswer)
     .flatMap((question) => [
+      ...safeArray(getAnalystAnswerCard(question).missingEvidence).slice(0, 1).map((entry) => `Missing evidence: ${entry}`),
       ...safeArray(question.synthesizedAnswer.warnings),
       ...safeArray(question.synthesizedAnswer.identityWarnings),
     ].slice(0, 2).map((entry) => ({
-      label: "Synthesized answer review",
-      description: `${question.questionId || "question"}: ${entry}`,
+      label: getAnalystAnswerCard(question).headlineStatus || "Analyst answer review",
+      description: `${question.questionText || question.questionId || "question"}: ${entry}. ${getAnalystAnswerCard(question).manualReviewImplication || ""}`.trim(),
       status: "Review boundary",
-      source: "decisionModel.institutionalQuestions.synthesizedAnswer",
+      source: "decisionModel.institutionalQuestions.synthesizedAnswer.analystAnswerCard",
       color: "#ffb020",
     })));
   const reviewedEvidenceSignals = [

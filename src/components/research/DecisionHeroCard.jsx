@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CollapsibleDetail, QuestionPromptCard } from "./researchPrimitives";
-import { formatDateTime, formatScoreValue, safeArray, sanitizeSemanticLabel } from "./researchUtils";
+import { formatDateTime, formatScoreValue, getAnalystAnswerCard, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -214,6 +214,11 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
   const manualReviewStatus = model?.manualReviewStatus || {};
   const verdictSemantics = model?.verdictSemantics || {};
   const semanticBoundary = verdictSemantics.boundary || "Research support only. No price prediction or investment advice.";
+  const analystAnswerLeads = safeArray(model?.institutionalQuestions)
+    .map((question) => getAnalystAnswerCard(question))
+    .filter((card) => card?.directAnswer)
+    .slice(0, 3);
+  const primaryAnalystGap = analystAnswerLeads.find((card) => safeArray(card.missingEvidence).length || /source|live data|review/i.test(String(card.headlineStatus || "")));
 
   return (
     <>
@@ -278,15 +283,15 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         />
         <QuestionPromptCard
           question="What evidence is still missing?"
-          answer={whatWouldChange[0] || "Additional verified evidence is required before a stronger view."}
-          status={model?.whatWouldChangeDecision?.badge || "Source required"}
+          answer={primaryAnalystGap?.directAnswer || whatWouldChange[0] || "Additional verified evidence is required before a stronger view."}
+          status={primaryAnalystGap?.headlineStatus || model?.whatWouldChangeDecision?.badge || "Source required"}
           impact="What would change"
-          sourceState="Requirements"
+          sourceState={primaryAnalystGap ? "Analyst answer card" : "Requirements"}
           details={[
             { label: "Why it matters", value: "Missing evidence is a verification gap, not automatic proof of failure, but it can cap confidence." },
-            { label: "Missing evidence", value: whatWouldChange.slice(0, 4).join("; ") || "No explicit requirements attached." },
-            { label: "Impact", value: model?.whatWouldChangeDecision?.badge || "Source required." },
-            { label: "Source boundary", value: "Requirements are not evidence until source-reviewed." },
+            { label: "Missing evidence", value: safeArray(primaryAnalystGap?.missingEvidence).slice(0, 4).join("; ") || whatWouldChange.slice(0, 4).join("; ") || "No explicit requirements attached." },
+            { label: "Impact", value: primaryAnalystGap?.decisionImpact || model?.whatWouldChangeDecision?.badge || "Source required." },
+            { label: "Source boundary", value: safeArray(primaryAnalystGap?.sourceBoundaryPlainEnglish)[0] || "Requirements are not evidence until source-reviewed." },
           ]}
           onClick={() => onSelectSection?.("source_queue")}
           styles={styles}

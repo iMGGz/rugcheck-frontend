@@ -84,8 +84,23 @@ export function safeObject(value) {
 function normalizeSynthesizedAnswerPayload(value) {
   const answer = safeObject(value);
   if (!Object.keys(answer).length) return null;
+  const analystAnswerCard = safeObject(answer.analystAnswerCard);
   return {
     ...answer,
+    analystAnswerCard: Object.keys(analystAnswerCard).length ? {
+      ...analystAnswerCard,
+      evidenceBasis: safeArray(analystAnswerCard.evidenceBasis),
+      reviewedEvidenceUsed: safeArray(analystAnswerCard.reviewedEvidenceUsed),
+      providerContextUsed: safeArray(analystAnswerCard.providerContextUsed),
+      formulaContextUsed: safeArray(analystAnswerCard.formulaContextUsed),
+      liveDataUsed: safeArray(analystAnswerCard.liveDataUsed),
+      whatEvidenceDoesNotProve: safeArray(analystAnswerCard.whatEvidenceDoesNotProve),
+      missingEvidence: safeArray(analystAnswerCard.missingEvidence),
+      whatWouldChange: safeArray(analystAnswerCard.whatWouldChange),
+      sourceBoundaryPlainEnglish: safeArray(analystAnswerCard.sourceBoundaryPlainEnglish),
+      primaryBadges: safeArray(analystAnswerCard.primaryBadges),
+      auditFields: safeArray(analystAnswerCard.auditFields),
+    } : null,
     evidenceUsed: safeArray(answer.evidenceUsed),
     reviewedSourcesUsed: safeArray(answer.reviewedSourcesUsed),
     reviewedFactsUsed: safeArray(answer.reviewedFactsUsed),
@@ -100,6 +115,55 @@ function normalizeSynthesizedAnswerPayload(value) {
     providerDataUsed: safeArray(answer.providerDataUsed),
     answerQualityFlags: safeArray(answer.answerQualityFlags),
     synthesisInputsUsed: safeArray(answer.synthesisInputsUsed),
+  };
+}
+
+export function getAnalystAnswerCard(question) {
+  const synthesized = safeObject(question?.synthesizedAnswer);
+  const card = safeObject(synthesized.analystAnswerCard);
+  if (Object.keys(card).length) return {
+    ...card,
+    evidenceBasis: safeArray(card.evidenceBasis),
+    reviewedEvidenceUsed: safeArray(card.reviewedEvidenceUsed),
+    providerContextUsed: safeArray(card.providerContextUsed),
+    formulaContextUsed: safeArray(card.formulaContextUsed),
+    liveDataUsed: safeArray(card.liveDataUsed),
+    whatEvidenceDoesNotProve: safeArray(card.whatEvidenceDoesNotProve),
+    missingEvidence: safeArray(card.missingEvidence),
+    whatWouldChange: safeArray(card.whatWouldChange),
+    sourceBoundaryPlainEnglish: safeArray(card.sourceBoundaryPlainEnglish),
+    primaryBadges: safeArray(card.primaryBadges),
+    auditFields: safeArray(card.auditFields),
+  };
+  return {
+    questionId: question?.questionId || synthesized.questionId || "question_unavailable",
+    questionText: question?.questionText || synthesized.questionText || "Institutional question",
+    directAnswer: synthesized.directAnswer || question?.shortAnswer || question?.answerSummary || "Source review required; direct evidence is not yet attached.",
+    headlineStatus: synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required"),
+    evidenceBasis: safeArray(synthesized.evidenceUsed).length ? safeArray(synthesized.evidenceUsed) : safeArray(question?.supportingSignals),
+    evidenceStatus: synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus || "source_required",
+    reviewedEvidenceUsed: [
+      ...safeArray(synthesized.reviewedSourcesUsed).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"})`),
+      ...safeArray(synthesized.reviewedFactsUsed).map((fact) => fact.claim || fact.factId),
+    ],
+    providerContextUsed: safeArray(synthesized.providerDataUsed),
+    formulaContextUsed: safeArray(synthesized.formulaOutputsUsed),
+    liveDataUsed: safeArray(synthesized.liveDataUsed),
+    whatEvidenceDoesNotProve: safeArray(synthesized.whatEvidenceDoesNotProve),
+    missingEvidence: safeArray(synthesized.missingEvidence).length ? safeArray(synthesized.missingEvidence) : safeArray(question?.missingEvidence),
+    decisionImpact: synthesized.impact || question?.impactOnScoreOrConfidence || "Confidence remains source-boundary constrained until direct evidence is reviewed.",
+    whatWouldChange: safeArray(synthesized.whatWouldChange).length ? safeArray(synthesized.whatWouldChange) : safeArray(question?.whatWouldChange),
+    sourceBoundaryPlainEnglish: safeArray(synthesized.sourceBoundary).length
+      ? safeArray(synthesized.sourceBoundary).map((entry) => String(entry).replace(/_/g, " "))
+      : ["Provider metadata is context, not reviewed evidence unless a reviewed source is attached."],
+    confidenceBoundary: "No scoring or verdict change is inferred from this display card.",
+    manualReviewImplication: safeArray(synthesized.missingEvidence).length ? "Manual/source review remains useful because material evidence is still missing." : "No separate manual-review implication beyond the current source boundary.",
+    assetClassSpecificKeyIssue: "Answer the precise institutional question without overclaiming source support.",
+    primaryBadges: [synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required")],
+    auditFields: [
+      synthesized.synthesisTemplateId ? `synthesisTemplateId=${synthesized.synthesisTemplateId}` : null,
+      safeArray(question?.sourceBoundary).length ? `sourceBoundary=${safeArray(question.sourceBoundary).join(", ")}` : null,
+    ].filter(Boolean),
   };
 }
 
@@ -3116,6 +3180,7 @@ function bundleProviderEvidence(evidence = []) {
 
 function bundleSynthesizedAnswer(question) {
   const answer = safeObject(question?.synthesizedAnswer);
+  const card = getAnalystAnswerCard(question);
   if (!answer.directAnswer && !answer.evidenceStatus) return [
     "  synthesized.directAnswer: Unavailable in current frontend model",
     "  synthesized.evidenceStatus: Unavailable in current frontend model",
@@ -3123,6 +3188,19 @@ function bundleSynthesizedAnswer(question) {
   return [
     `  synthesized.directAnswer: ${bundleValue(answer.directAnswer)}`,
     `  synthesized.evidenceStatus: ${bundleValue(answer.evidenceStatus)}`,
+    `  analyst.directAnswer: ${bundleValue(card.directAnswer)}`,
+    `  analyst.headlineStatus: ${bundleValue(card.headlineStatus)}`,
+    `  analyst.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.missingEvidence: ${normalizeRenderableList(card.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.decisionImpact: ${bundleValue(card.decisionImpact)}`,
+    `  analyst.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.sourceBoundaryPlainEnglish: ${normalizeRenderableList(card.sourceBoundaryPlainEnglish).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.confidenceBoundary: ${bundleValue(card.confidenceBoundary)}`,
+    `  analyst.manualReviewImplication: ${bundleValue(card.manualReviewImplication)}`,
+    `  analyst.assetClassSpecificKeyIssue: ${bundleValue(card.assetClassSpecificKeyIssue)}`,
+    `  analyst.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.auditFields: ${normalizeRenderableList(card.auditFields).join("; ") || "Unavailable in current frontend model"}`,
     `  synthesized.evidenceUsed: ${normalizeRenderableList(answer.evidenceUsed).join("; ") || "Unavailable in current frontend model"}`,
     `  synthesized.reviewedSourcesUsed: ${safeArray(answer.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
     `  synthesized.reviewedFactsUsed: ${safeArray(answer.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
@@ -3144,13 +3222,21 @@ function bundleSynthesizedAnswer(question) {
 function bundleQuestions(questions = []) {
   const rows = safeArray(questions).map((question, index) => {
     const synthesized = safeObject(question?.synthesizedAnswer);
+    const card = getAnalystAnswerCard(question);
     const hasSynthesis = Boolean(synthesized.directAnswer);
     return [
       `Question ${index + 1}`,
       `  id: ${bundleValue(question?.questionId)}`,
       `  question: ${bundleValue(question?.questionText)}`,
-      `  primaryAnswer: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
-      `  primaryEvidenceStatus: ${bundleValue(synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
+      `  liveUi.tab: Institutional Checklist`,
+      `  liveUi.primaryAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
+      `  liveUi.primaryStatus: ${bundleValue(card.headlineStatus || synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
+      `  liveUi.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Unavailable in current frontend model"}`,
+      `  liveUi.primaryMissingEvidence: ${normalizeRenderableList(card.missingEvidence).slice(0, 2).join("; ") || "none visible in primary row"}`,
+      `  liveUi.primaryWhatWouldChange: ${normalizeRenderableList(card.whatWouldChange).slice(0, 2).join("; ") || "Unavailable in current frontend model"}`,
+      `  liveUi.primaryImpact: ${bundleValue(card.decisionImpact || synthesized.impact || question?.impactOnScoreOrConfidence)}`,
+      `  primaryAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
+      `  primaryEvidenceStatus: ${bundleValue(card.headlineStatus || synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
       `  lens: ${bundleValue(question?.assetClassLens)}`,
       `  answerStatus: ${bundleValue(question?.answerStatus)}`,
       `  verdictImpact: ${bundleValue(question?.verdictImpact)}`,
@@ -3215,6 +3301,7 @@ function bundleTokenomicsQuestionFirstMirror(tokenomics) {
   const formulas = safeArray(tokenomics?.formulaOutputs);
   const rows = safeArray(tokenomics?.institutionalQuestions).map((question, index) => {
     const synthesized = safeObject(question?.synthesizedAnswer);
+    const card = getAnalystAnswerCard(question);
     const formulaIds = safeArray(question?.formulaOutputsUsed);
     const linkedFormulas = formulas.filter((formula) => formulaIds.includes(formula?.formulaId));
     const formulaOrRule = linkedFormulas.length
@@ -3225,21 +3312,23 @@ function bundleTokenomicsQuestionFirstMirror(tokenomics) {
     return [
       `Question ${index + 1}`,
       `  group: ${tokenomicsQuestionGroup(question)}`,
+      `  liveUi.tab: Tokenomics / Supply Integrity`,
       `  question: ${bundleValue(question?.questionText)}`,
-      `  collapsedSummary: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
-      `  status: ${bundleValue(question?.answerStatus)}`,
-      `  sourceState: ${tokenomicsQuestionSourceState(question, formulas)}`,
-      `  expanded.shortAnswer: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
-      `  expanded.whyItMatters: ${tokenomicsQuestionWhyItMatters(question)}`,
-      `  expanded.dataUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  collapsedSummary: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
+      `  status: ${bundleValue(card.headlineStatus || question?.answerStatus)}`,
+      `  sourceState: ${card.headlineStatus || tokenomicsQuestionSourceState(question, formulas)}`,
+      `  expanded.directAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
+      `  expanded.whyItMatters: ${bundleValue(card.assetClassSpecificKeyIssue || tokenomicsQuestionWhyItMatters(question))}`,
+      `  expanded.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.formulaOrRuleUsed: ${formulaOrRule}`,
-      `  expanded.evidenceStatus: synthesized=${bundleValue(synthesized.evidenceStatus)}; provider/review fields=${normalizeRenderableList(synthesized.evidenceUsed || question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(synthesized.sourceBoundary || question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.evidenceStatus: synthesized=${bundleValue(synthesized.evidenceStatus)}; provider/review fields=${normalizeRenderableList(card.evidenceBasis || synthesized.evidenceUsed || question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(card.sourceBoundaryPlainEnglish || synthesized.sourceBoundary || question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.reviewedSourcesUsed: ${safeArray(synthesized.reviewedSourcesUsed || question?.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.reviewedFactsUsed: ${safeArray(synthesized.reviewedFactsUsed || question?.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
-      `  expanded.whatEvidenceDoesNotProve: ${normalizeRenderableList(synthesized.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
-      `  expanded.missingEvidence: ${normalizeRenderableList(synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
-      `  expanded.impact: ${bundleValue(synthesized.impact || question?.impactOnScoreOrConfidence)}`,
-      `  expanded.whatWouldChange: ${normalizeRenderableList(synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve || synthesized.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.missingEvidence: ${normalizeRenderableList(card.missingEvidence || synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.impact: ${bundleValue(card.decisionImpact || synthesized.impact || question?.impactOnScoreOrConfidence)}`,
+      `  expanded.confidenceBoundary: ${bundleValue(card.confidenceBoundary)}`,
+      `  expanded.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange || synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.answerQualityFlags: ${normalizeRenderableList(synthesized.answerQualityFlags).join("; ") || "Unavailable in current frontend model"}`,
     ].join("\n");
   });
@@ -3542,6 +3631,35 @@ export function buildReviewBundleText({
     question?.synthesizedAnswer?.evidenceStatus === "source_required"
     && ["supported", "partially_supported"].includes(question?.answerStatus)
     && !safeArray(question?.synthesizedAnswer?.answerQualityFlags).some((flag) => /legacy_support_status_is_not_reviewed_evidence/.test(String(flag))),
+  );
+  const analystCards = allSynthesizedQuestions.map((question) => ({ question, card: getAnalystAnswerCard(question) }));
+  const analystCardMissing = allSynthesizedQuestions.some((question) => !safeObject(question?.synthesizedAnswer?.analystAnswerCard).directAnswer);
+  const analystPrimaryMissingAnswer = analystCards.some(({ card }) => !String(card?.directAnswer || "").trim());
+  const analystPrimaryTemplateLeakage = analystCards.some(({ card }) =>
+    /synthesisTemplateId|institutional_answer_synthesis_v1|sourceBoundary|scoringFieldsUsed|tokenDemandQuality|Unavailable in current frontend model/i.test(`${card?.directAnswer || ""} ${card?.headlineStatus || ""} ${safeArray(card?.primaryBadges).join(" ")}`),
+  );
+  const analystPrimaryRawEnumLeakage = analystCards.some(({ card }) =>
+    /provider_metadata_not_reviewed_evidence|reviewed_demo_evidence_not_scoring_active|scoring_active_existing_field|diagnostic_only_not_scoring_active/i.test(`${card?.directAnswer || ""} ${card?.headlineStatus || ""}`),
+  );
+  const analystContradictoryBadgeStack = analystCards.some(({ question, card }) =>
+    ["supported", "partially_supported"].includes(question?.answerStatus)
+    && /source review required|live data required/i.test(String(card?.headlineStatus || ""))
+    && !safeArray(card?.auditFields).some((entry) => /legacyAnswerStatus/i.test(String(entry))),
+  );
+  const analystSourceBackedWithoutSources = analystCards.some(({ card }) =>
+    /source-backed/i.test(String(card?.headlineStatus || ""))
+    && !safeArray(card?.reviewedEvidenceUsed).length,
+  );
+  const analystProviderOnlyOverclaim = analystCards.some(({ card }) =>
+    /provider context only/i.test(String(card?.headlineStatus || ""))
+    && /source-backed|reviewed evidence proves|confirmed by reviewed/i.test(String(card?.directAnswer || "")),
+  );
+  const analystFormulaOverclaim = analystCards.some(({ card }) =>
+    /formula-derived/i.test(String(card?.headlineStatus || ""))
+    && /source-backed|reviewed evidence proves|confirmed by reviewed/i.test(String(card?.directAnswer || "")),
+  );
+  const analystBundleMirrorMissing = allSynthesizedQuestions.length > 0 && analystCards.some(({ card }) =>
+    !card?.directAnswer || !card?.headlineStatus || !safeArray(card?.sourceBoundaryPlainEnglish).length,
   );
   const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
     && [
@@ -3875,6 +3993,27 @@ export function buildReviewBundleText({
       bundleList(reviewedEvidencePacket?.audit?.limitations),
       "Source boundary:",
       bundleList(reviewedEvidencePacket?.sourceBoundary),
+    ]),
+    bundleSection("2B. Institutional Analyst Answer Card Live UI Mirror", [
+      bundleField("Analyst answer card model attached", yesNoUnknown(!analystCardMissing)),
+      bundleField("Live tabs using analyst card fields", "Institutional Checklist, Tokenomics, Evidence Map, Source Queue, Manual Review, Decision prompts, and Thesis context use analyst-card direct answer/status/evidence where available."),
+      bundleField("Live UI answer order", "Direct answer -> evidence basis -> non-proof boundary -> missing evidence -> decision/confidence impact -> what would change -> audit detail."),
+      "Primary live UI mirror:",
+      bundleList(analystCards.map(({ question, card }) => [
+        `${question?.questionId || "question"} | tab=${question?.formulaOutputsUsed ? "Tokenomics / Supply Integrity" : "Institutional Checklist"} | status=${card?.headlineStatus || "status unavailable"}`,
+        `answer=${card?.directAnswer || "answer unavailable"}`,
+        `missing=${safeArray(card?.missingEvidence).slice(0, 2).join("; ") || "none visible in primary row"}`,
+        `impact=${card?.decisionImpact || "impact unavailable"}`,
+        `boundary=${safeArray(card?.sourceBoundaryPlainEnglish)[0] || "boundary unavailable"}`,
+      ].join(" | ")), "No analyst answer cards attached.", 12),
+      "Technical audit fields preserved separately:",
+      bundleList(analystCards.flatMap(({ card }) => safeArray(card?.auditFields)).slice(0, 20), "No analyst-card audit fields attached."),
+      bundleField("Bundle mirror includes primary answer", yesNoUnknown(!analystPrimaryMissingAnswer)),
+      bundleField("Bundle mirror includes primary status", yesNoUnknown(!analystBundleMirrorMissing)),
+      bundleField("Audit fields preserved", analystCards.some(({ card }) => safeArray(card?.auditFields).length) ? "yes" : "unknown"),
+      bundleField("Template IDs kept audit-only", yesNoUnknown(!analystPrimaryTemplateLeakage)),
+      bundleField("Raw sourceBoundary enums kept audit-only", yesNoUnknown(!analystPrimaryRawEnumLeakage)),
+      bundleField("Contradictory primary badge stack avoided", yesNoUnknown(!analystContradictoryBadgeStack)),
     ]),
     bundleSection("3. Decision Header / Command Header", [
       bundleField("Why allocation could make sense", safeModel.verdictSemantics?.positiveCase?.[0] || safeModel.primaryStrength),
@@ -4360,6 +4499,15 @@ export function buildReviewBundleText({
       bundleField("Reviewed evidence remains non-scoring-active in synthesis", yesNoUnknown(!synthesizedScoringBoundaryViolation)),
       bundleField("Provider-only synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!providerOnlySynthesisOverclaimed)),
       bundleField("Computed/formula synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!computedSynthesisOverclaimed)),
+      bundleField("Analyst answer card attached to synthesized rows", yesNoUnknown(!analystCardMissing)),
+      bundleField("Analyst primary answers present", yesNoUnknown(!analystPrimaryMissingAnswer)),
+      bundleField("Analyst primary UI hides template IDs/internal fields", yesNoUnknown(!analystPrimaryTemplateLeakage)),
+      bundleField("Analyst primary UI hides raw sourceBoundary enums", yesNoUnknown(!analystPrimaryRawEnumLeakage)),
+      bundleField("Analyst primary badges avoid supported/source-required contradiction", yesNoUnknown(!analystContradictoryBadgeStack)),
+      bundleField("Source-backed analyst cards include reviewed evidence", yesNoUnknown(!analystSourceBackedWithoutSources)),
+      bundleField("Provider-only analyst card avoids reviewed-evidence overclaim", yesNoUnknown(!analystProviderOnlyOverclaim)),
+      bundleField("Formula-derived analyst card avoids reviewed-evidence overclaim", yesNoUnknown(!analystFormulaOverclaim)),
+      bundleField("Bundle mirrors analyst-card primary answer/status/boundary", yesNoUnknown(!analystBundleMirrorMissing)),
       bundleField("Stablecoin synthesis copy absent for non-stablecoin lens", yesNoUnknown(!stablecoinCopyLeakageInSynthesis)),
       bundleField("Irrelevant sector markers absent from synthesized primary answer context", yesNoUnknown(!irrelevantSectorSignalLeakageInSynthesis)),
       bundleField("Supported/source-required synthesis mismatch has explicit boundary", yesNoUnknown(!supportedSourceRequiredSynthesisMismatch)),
