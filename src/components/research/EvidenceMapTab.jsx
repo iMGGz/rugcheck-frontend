@@ -241,7 +241,20 @@ function buildTokenomicsEvidenceRows(model) {
 
 function buildReviewedEvidenceRows(model) {
   const packet = model?.reviewedEvidencePacket || {};
-  if (!packet.packetLoaded) return [];
+  const synthesizedRows = [
+    ...safeArray(model?.institutionalQuestions),
+    ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
+  ]
+    .filter((question) => question?.synthesizedAnswer)
+    .slice(0, 6)
+    .map((question) => ({
+      key: `synthesized-answer-${question.questionId}`,
+      label: `Synthesized answer: ${question.questionId}`,
+      value: `${question.synthesizedAnswer.directAnswer || "Direct answer unavailable"} | evidence status: ${question.synthesizedAnswer.evidenceStatus || "source_required"}`,
+      sourceType: "Institutional answer synthesis",
+      boundary: "Deterministic display synthesis. It uses mapped provider/review/formula fields and does not affect scoring.",
+    }));
+  if (!packet.packetLoaded) return synthesizedRows;
   return [
     {
       key: "reviewed-evidence-packet-summary",
@@ -271,6 +284,7 @@ function buildReviewedEvidenceRows(model) {
       sourceType: "Reviewed evidence / identity guardrail",
       boundary: "Reviewed evidence can refine identity review requirements but is not scoring-active.",
     })),
+    ...synthesizedRows,
   ];
 }
 

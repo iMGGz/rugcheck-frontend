@@ -93,8 +93,34 @@ function reviewedEvidenceTone(status) {
   }
 }
 
+function synthesizedEvidenceTone(status) {
+  switch (status) {
+    case "source_backed":
+      return { label: "Source-backed answer", color: "#2fd67b" };
+    case "partially_source_backed":
+      return { label: "Partially source-backed", color: "#7dd3fc" };
+    case "provider_reported":
+      return { label: "Provider-only", color: "#aab7cc" };
+    case "computed":
+      return { label: "Computed", color: "#9bd7ff" };
+    case "source_required":
+      return { label: "Source required", color: "#ffb020" };
+    case "manual_review_required":
+      return { label: "Manual review", color: "#ffb020" };
+    case "not_applicable":
+      return { label: "Not applicable", color: "#8a94a6" };
+    case "contradicted":
+      return { label: "Contradicted", color: "#ff6b6b" };
+    case "stale":
+      return { label: "Stale source", color: "#ffb020" };
+    default:
+      return null;
+  }
+}
+
 function answerFallback(question) {
   const status = questionStatusTone(question?.answerStatus).label;
+  if (question?.synthesizedAnswer?.directAnswer) return question.synthesizedAnswer.directAnswer;
   if (question?.shortAnswer) return question.shortAnswer;
   if (question?.answerSummary) return question.answerSummary;
   if (question?.answerStatus === "not_applicable") return "Not applicable for this asset class.";
@@ -154,10 +180,18 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const contradictionItems = normalizeRenderableList(question.contradictionSignals);
   const changeItems = normalizeRenderableList(question.whatWouldChange);
   const reviewedTone = reviewedEvidenceTone(question.reviewedEvidenceStatus);
+  const synthesized = safeObject(question.synthesizedAnswer);
+  const synthesizedTone = synthesizedEvidenceTone(synthesized.evidenceStatus);
   const reviewedSources = safeArray(question.reviewedSourcesUsed);
   const reviewedFacts = safeArray(question.reviewedFactsUsed);
+  const synthesizedSources = safeArray(synthesized.reviewedSourcesUsed);
+  const synthesizedFacts = safeArray(synthesized.reviewedFactsUsed);
   const evidenceMappingWarnings = normalizeRenderableList(question.evidenceMappingWarnings);
   const reviewedDoesNotAnswer = normalizeRenderableList(question.reviewedEvidenceDoesNotAnswer);
+  const synthesizedMissing = normalizeRenderableList(synthesized.missingEvidence);
+  const synthesizedWarnings = normalizeRenderableList(synthesized.warnings);
+  const synthesizedBoundaries = normalizeRenderableList(synthesized.sourceBoundary);
+  const synthesizedDoesNotProve = normalizeRenderableList(synthesized.whatEvidenceDoesNotProve);
   return (
     <details style={styles.institutionalQuestionAnswerCard} onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary style={{ cursor: "pointer", listStyle: "none" }} aria-expanded={open}>
@@ -169,6 +203,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           <div style={styles.checklistStatusStack}>
             {statusChip(styles, status.label, status.color)}
             {statusChip(styles, impact.label, impact.color)}
+            {synthesizedTone ? statusChip(styles, synthesizedTone.label, synthesizedTone.color) : null}
             {reviewedTone ? statusChip(styles, reviewedTone.label, reviewedTone.color) : null}
             {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
             {statusChip(styles, open ? "Hide answer" : "View answer", "#d5dcec")}
@@ -180,37 +215,47 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
       <div style={styles.institutionalQuestionDetailGrid}>
         <SectionRow label="Short answer" value={shortAnswer} styles={styles} />
         <SectionRow label="Why it matters" value="This question tests whether the asset-class thesis has enough source-backed support to improve confidence without overclaiming evidence." styles={styles} />
+        {synthesized.directAnswer ? (
+          <SectionRow label="Synthesized answer model" value={`${synthesized.synthesisTemplateId || "institutional_answer_synthesis_v1"} | ${labelize(synthesized.evidenceStatus || "source_required")}`} styles={styles} />
+        ) : null}
         <InlineList
           title="Supporting evidence, summarized"
-          items={supportItems.slice(0, 4)}
+          items={normalizeRenderableList(synthesized.evidenceUsed).length ? normalizeRenderableList(synthesized.evidenceUsed).slice(0, 4) : supportItems.slice(0, 4)}
           emptyText="No support signal attached."
           styles={styles}
           color="#7dd3fc"
         />
         <InlineList
           title="Reviewed sources used"
-          items={reviewedSources.map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"}`)}
+          items={(synthesizedSources.length ? synthesizedSources : reviewedSources).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"}`)}
           emptyText="No reviewed evidence packet source mapped to this question."
           styles={styles}
           color="#a6f3c2"
         />
         <InlineList
           title="Key reviewed facts used"
-          items={reviewedFacts.map((fact) => fact.claim || fact.factId)}
+          items={(synthesizedFacts.length ? synthesizedFacts : reviewedFacts).map((fact) => fact.claim || fact.factId)}
           emptyText="No reviewed facts mapped."
           styles={styles}
           color="#a6f3c2"
         />
         <InlineList
+          title="What this evidence does not prove"
+          items={synthesizedDoesNotProve}
+          emptyText="No explicit non-proof boundary attached."
+          styles={styles}
+          color="#ffb020"
+        />
+        <InlineList
           title="Evidence mapping cautions"
-          items={[...evidenceMappingWarnings, ...reviewedDoesNotAnswer].slice(0, 4)}
+          items={[...synthesizedWarnings, ...evidenceMappingWarnings, ...reviewedDoesNotAnswer].slice(0, 4)}
           emptyText="No evidence mapping caution attached."
           styles={styles}
           color="#ffb020"
         />
         <InlineList
           title="Missing evidence"
-          items={missingItems.slice(0, 4)}
+          items={(synthesizedMissing.length ? synthesizedMissing : missingItems).slice(0, 4)}
           emptyText={readableEmpty("missing evidence")}
           styles={styles}
           color="#ffb020"
@@ -230,10 +275,11 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           color="#d5dcec"
         />
         <SectionRow label="Impact" value={impact.label} styles={styles} />
+        <SectionRow label="Synthesis impact" value={synthesized.impact || "No synthesized impact attached."} styles={styles} />
         <SectionRow label="Reviewed evidence status" value={reviewedTone?.label || "No reviewed packet mapped."} styles={styles} />
         <SectionRow label="Evidence scope" value={labelize(question.questionEvidenceScope || "not attached")} styles={styles} />
         <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed demo evidence improves answer quality but is not scoring-active in v1." : "No reviewed evidence boundary attached."} styles={styles} />
-        <SectionRow label="Source boundary" value={simplifiedBoundary(boundaries)} styles={styles} />
+        <SectionRow label="Source boundary" value={simplifiedBoundary(synthesizedBoundaries.length ? synthesizedBoundaries : boundaries)} styles={styles} />
       </div>
 
       <details style={{ marginTop: 12 }}>
@@ -241,6 +287,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, `Lens: ${labelize(question.assetClassLens)}`)}
           {boundaryChip(styles, `Capability: ${labelize(question.currentMvpCapability)}`)}
+          {synthesized.evidenceStatus ? boundaryChip(styles, `Synthesized: ${labelize(synthesized.evidenceStatus)}`) : null}
           {boundaries.slice(0, 4).map((item) => boundaryChip(styles, labelize(item)))}
         </div>
         <InlineList title="Signals used" items={supportItems} emptyText="No support signal attached." styles={styles} color="#7dd3fc" />

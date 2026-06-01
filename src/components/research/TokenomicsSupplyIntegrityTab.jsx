@@ -297,6 +297,7 @@ function questionStatusLabel(value) {
 }
 
 function sourceStateForQuestion(question, formulas) {
+  if (question?.synthesizedAnswer?.evidenceStatus) return String(question.synthesizedAnswer.evidenceStatus).replace(/_/g, "-");
   if (question?.reviewedEvidenceStatus === "source_backed") return "source-backed";
   if (question?.reviewedEvidenceStatus === "partially_source_backed") return "partially-source-backed";
   if (question?.reviewedEvidenceStatus === "stale") return "stale-source";
@@ -312,6 +313,13 @@ function sourceStateForQuestion(question, formulas) {
   if (safeArray(question?.missingEvidence).length) return "source-required";
   if (safeArray(question?.evidenceUsed).length) return "provider-reported";
   return "evidence-missing";
+}
+
+function displayQuestionAnswer(question) {
+  return question?.synthesizedAnswer?.directAnswer
+    || question?.shortAnswer
+    || question?.answerSummary
+    || "Evidence missing - source required.";
 }
 
 function impactBadgeForQuestion(question) {
@@ -397,26 +405,33 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
 
   const renderQuestion = (question, index) => {
     const questionKey = question.questionId || question.questionText || `question-${index}`;
+    const synthesized = safeObject(question.synthesizedAnswer);
     const linkedFormulas = formulas.filter((formula) => safeArray(question.formulaOutputsUsed).includes(formula.formulaId));
     const isOpen = openQuestions.has(questionKey);
     const sourceState = sourceStateForQuestion(question, formulas);
     const statusText = questionStatusLabel(question.answerStatus);
     const impactBadge = impactBadgeForQuestion(question);
     const dataRows = safeArray(question.dataFieldsUsed).map((field) => `${field}: ${displayFieldValue(valueFromPath(tokenomics, field))}`);
-    const formulaRows = linkedFormulas.map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
-    const reviewedSourceRows = safeArray(question.reviewedSourcesUsed).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"} - ${source.url || "URL unavailable"}`);
-    const reviewedFactRows = safeArray(question.reviewedFactsUsed).map((fact) => `${fact.claim || fact.factId} (${fact.normalizedClaimType || "claim type unavailable"})`);
+    const formulaIds = safeArray(synthesized.formulaOutputsUsed).length ? safeArray(synthesized.formulaOutputsUsed) : safeArray(question.formulaOutputsUsed);
+    const synthesizedLinkedFormulas = formulas.filter((formula) => formulaIds.includes(formula.formulaId));
+    const formulaRows = (synthesizedLinkedFormulas.length ? synthesizedLinkedFormulas : linkedFormulas).map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
+    const reviewedSourceRows = (safeArray(synthesized.reviewedSourcesUsed).length ? safeArray(synthesized.reviewedSourcesUsed) : safeArray(question.reviewedSourcesUsed)).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"} - ${source.url || "URL unavailable"}`);
+    const reviewedFactRows = (safeArray(synthesized.reviewedFactsUsed).length ? safeArray(synthesized.reviewedFactsUsed) : safeArray(question.reviewedFactsUsed)).map((fact) => `${fact.claim || fact.factId} (${fact.normalizedClaimType || "claim type unavailable"})`);
     const evidenceMappingWarningRows = [
+      ...safeArray(synthesized.warnings),
       ...safeArray(question.evidenceMappingWarnings),
       ...safeArray(question.reviewedEvidenceDoesNotAnswer),
     ];
     const ruleRows = formulaRows.length
       ? formulaRows
       : [
-          question.answerStatus === "not_applicable"
-            ? `Not applicable for this asset class. ${question.shortAnswer || question.answerSummary || contextualNote(tokenomics.supplySummary?.lensId)}`
-            : `Rule-based answer. ${contextualNote(tokenomics.supplySummary?.lensId)}`,
+          synthesized.synthesisTemplateId
+            ? `Rule-based synthesized answer: ${synthesized.synthesisTemplateId}. ${contextualNote(tokenomics.supplySummary?.lensId)}`
+            : question.answerStatus === "not_applicable"
+              ? `Not applicable for this asset class. ${displayQuestionAnswer(question) || contextualNote(tokenomics.supplySummary?.lensId)}`
+              : `Rule-based answer. ${contextualNote(tokenomics.supplySummary?.lensId)}`,
         ];
+    const answerText = displayQuestionAnswer(question);
 
     return (
       <div key={questionKey} style={{
@@ -442,7 +457,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
           <div style={{ display: "flex", gap: "0.65rem", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div style={{ minWidth: 220, flex: "1 1 320px" }}>
               <div style={{ color: "#f4f7fb", fontWeight: 850, lineHeight: 1.35 }}>{question.questionText || "Tokenomics question unavailable"}</div>
-              <div style={{ color: "#9aa5b8", fontSize: "0.86rem", marginTop: 6 }}>{question.shortAnswer || question.answerSummary || "Evidence missing - source required."}</div>
+              <div style={{ color: "#9aa5b8", fontSize: "0.86rem", marginTop: 6 }}>{answerText}</div>
             </div>
             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <StatusBadge tone={statusText === "Contradicted" ? "#ffb6b6" : statusText === "Manual review required" ? "#f9d976" : statusText === "Not applicable" ? "#d5dcec" : "#9bd7ff"}>{statusText}</StatusBadge>
@@ -454,8 +469,9 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
         </button>
         {isOpen ? (
           <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.14)", padding: "1rem", display: "grid", gap: "0.85rem" }}>
-            <SectionRow label="A. Short answer" value={question.shortAnswer || question.answerSummary || "Evidence missing - source required."} styles={styles} />
+            <SectionRow label="A. Short answer" value={answerText} styles={styles} />
             <SectionRow label="B. Why it matters" value={whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
+            <SectionRow label="Synthesis model" value={synthesized.synthesisTemplateId ? `${synthesized.synthesisTemplateId} | ${status(synthesized.evidenceStatus)}` : "No synthesized answer attached."} styles={styles} />
             <ListBlock title="C. Data used" items={dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
             <ListBlock title="D. Formula / rule used" items={ruleRows} emptyText="No formula or rule linkage attached." color="#9bd7ff" styles={styles} />
             <ListBlock
@@ -463,9 +479,12 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
               items={[
                 `Answer status: ${statusText}`,
                 `Source state: ${sourceState}`,
+                synthesized.evidenceStatus ? `Synthesized status: ${status(synthesized.evidenceStatus)}` : null,
                 ...safeArray(question.evidenceUsed).map((entry) => `Provider/evidence field: ${entry}`),
                 ...reviewedFactRows.map((entry) => `Reviewed fact: ${entry}`),
+                ...safeArray(synthesized.whatEvidenceDoesNotProve).map((entry) => `Does not prove: ${entry}`),
                 ...safeArray(question.sourceBoundary).map((entry) => `Boundary: ${entry}`),
+                ...safeArray(synthesized.sourceBoundary).map((entry) => `Synthesis boundary: ${entry}`),
                 question.reviewedEvidenceStatus ? "Boundary: Reviewed demo evidence improves answer quality but is not scoring-active in v1." : null,
               ].filter(Boolean)}
               emptyText="No evidence status attached."
@@ -474,9 +493,9 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             />
             <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
             <ListBlock title="Evidence mapping cautions" items={evidenceMappingWarningRows} emptyText="No evidence mapping caution attached." color="#f9d976" styles={styles} />
-            <ListBlock title="F. Missing evidence" items={question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
-            <SectionRow label="G. Impact" value={question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
-            <ListBlock title="H. What would change" items={question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
+            <ListBlock title="F. Missing evidence" items={safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
+            <SectionRow label="G. Impact" value={synthesized.impact || question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
+            <ListBlock title="H. What would change" items={safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
           </div>
         ) : null}
       </div>

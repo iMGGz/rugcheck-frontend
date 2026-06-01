@@ -134,6 +134,21 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     color: "#ffb020",
   }));
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
+  const synthesizedAnswerSignals = [
+    ...safeArray(model?.institutionalQuestions),
+    ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
+  ]
+    .filter((question) => question?.synthesizedAnswer)
+    .flatMap((question) => [
+      ...safeArray(question.synthesizedAnswer.warnings),
+      ...safeArray(question.synthesizedAnswer.identityWarnings),
+    ].slice(0, 2).map((entry) => ({
+      label: "Synthesized answer review",
+      description: `${question.questionId || "question"}: ${entry}`,
+      status: "Review boundary",
+      source: "decisionModel.institutionalQuestions.synthesizedAnswer",
+      color: "#ffb020",
+    })));
   const reviewedEvidenceSignals = [
     ...safeArray(reviewedEvidence.warnings).map((entry) => ({
       label: "Reviewed evidence packet",
@@ -155,6 +170,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
 
   const combined = [
     ...manual,
+    ...synthesizedAnswerSignals,
     ...reviewedEvidenceSignals,
     ...tokenomicsSignals,
     ...identitySignals,

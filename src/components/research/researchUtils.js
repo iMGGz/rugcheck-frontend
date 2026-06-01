@@ -81,6 +81,28 @@ export function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function normalizeSynthesizedAnswerPayload(value) {
+  const answer = safeObject(value);
+  if (!Object.keys(answer).length) return null;
+  return {
+    ...answer,
+    evidenceUsed: safeArray(answer.evidenceUsed),
+    reviewedSourcesUsed: safeArray(answer.reviewedSourcesUsed),
+    reviewedFactsUsed: safeArray(answer.reviewedFactsUsed),
+    whatEvidenceDoesNotProve: safeArray(answer.whatEvidenceDoesNotProve),
+    missingEvidence: safeArray(answer.missingEvidence),
+    sourceBoundary: safeArray(answer.sourceBoundary),
+    whatWouldChange: safeArray(answer.whatWouldChange),
+    warnings: safeArray(answer.warnings),
+    identityWarnings: safeArray(answer.identityWarnings),
+    formulaOutputsUsed: safeArray(answer.formulaOutputsUsed),
+    liveDataUsed: safeArray(answer.liveDataUsed),
+    providerDataUsed: safeArray(answer.providerDataUsed),
+    answerQualityFlags: safeArray(answer.answerQualityFlags),
+    synthesisInputsUsed: safeArray(answer.synthesisInputsUsed),
+  };
+}
+
 export function normalizeInstitutionalQuestionsPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -100,6 +122,7 @@ export function normalizeInstitutionalQuestionsPayload(responseLike) {
     reviewedEvidenceBoundary: safeArray(question?.reviewedEvidenceBoundary),
     evidenceMappingWarnings: safeArray(question?.evidenceMappingWarnings),
     reviewedEvidenceDoesNotAnswer: safeArray(question?.reviewedEvidenceDoesNotAnswer),
+    synthesizedAnswer: normalizeSynthesizedAnswerPayload(question?.synthesizedAnswer),
   });
   const questions = rootQuestions.length ? rootQuestions : nestedQuestions;
 
@@ -303,6 +326,7 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
       reviewedEvidenceBoundary: safeArray(question?.reviewedEvidenceBoundary),
       evidenceMappingWarnings: safeArray(question?.evidenceMappingWarnings),
       reviewedEvidenceDoesNotAnswer: safeArray(question?.reviewedEvidenceDoesNotAnswer),
+      synthesizedAnswer: normalizeSynthesizedAnswerPayload(question?.synthesizedAnswer),
     })),
     whatWouldChange: safeArray(tokenomics.whatWouldChange),
     sourceBoundary: safeArray(tokenomics.sourceBoundary),
@@ -3090,6 +3114,33 @@ function bundleProviderEvidence(evidence = []) {
   return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
 }
 
+function bundleSynthesizedAnswer(question) {
+  const answer = safeObject(question?.synthesizedAnswer);
+  if (!answer.directAnswer && !answer.evidenceStatus) return [
+    "  synthesized.directAnswer: Unavailable in current frontend model",
+    "  synthesized.evidenceStatus: Unavailable in current frontend model",
+  ].join("\n");
+  return [
+    `  synthesized.directAnswer: ${bundleValue(answer.directAnswer)}`,
+    `  synthesized.evidenceStatus: ${bundleValue(answer.evidenceStatus)}`,
+    `  synthesized.evidenceUsed: ${normalizeRenderableList(answer.evidenceUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.reviewedSourcesUsed: ${safeArray(answer.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.reviewedFactsUsed: ${safeArray(answer.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.whatEvidenceDoesNotProve: ${normalizeRenderableList(answer.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.missingEvidence: ${normalizeRenderableList(answer.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.sourceBoundary: ${normalizeRenderableList(answer.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.impact: ${bundleValue(answer.impact)}`,
+    `  synthesized.whatWouldChange: ${normalizeRenderableList(answer.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.warnings: ${normalizeRenderableList(answer.warnings).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.identityWarnings: ${normalizeRenderableList(answer.identityWarnings).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.formulaOutputsUsed: ${normalizeRenderableList(answer.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.liveDataUsed: ${normalizeRenderableList(answer.liveDataUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.providerDataUsed: ${normalizeRenderableList(answer.providerDataUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.answerQualityFlags: ${normalizeRenderableList(answer.answerQualityFlags).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.template: ${bundleValue(answer.synthesisTemplateId)}`,
+  ].join("\n");
+}
+
 function bundleQuestions(questions = []) {
   const rows = safeArray(questions).map((question, index) => [
     `Question ${index + 1}`,
@@ -3110,6 +3161,7 @@ function bundleQuestions(questions = []) {
     `  whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
     `  scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
     `  sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+    bundleSynthesizedAnswer(question),
   ].join("\n"));
   return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
 }
@@ -3126,6 +3178,7 @@ function tokenomicsQuestionGroup(question) {
 }
 
 function tokenomicsQuestionSourceState(question, formulas = []) {
+  if (question?.synthesizedAnswer?.evidenceStatus) return String(question.synthesizedAnswer.evidenceStatus).replace(/_/g, "-");
   const formulaIds = safeArray(question?.formulaOutputsUsed);
   const linked = safeArray(formulas).filter((formula) => formulaIds.includes(formula?.formulaId));
   const answerStatus = String(question?.answerStatus || "").toLowerCase();
@@ -3154,6 +3207,7 @@ function tokenomicsQuestionWhyItMatters(question) {
 function bundleTokenomicsQuestionFirstMirror(tokenomics) {
   const formulas = safeArray(tokenomics?.formulaOutputs);
   const rows = safeArray(tokenomics?.institutionalQuestions).map((question, index) => {
+    const synthesized = safeObject(question?.synthesizedAnswer);
     const formulaIds = safeArray(question?.formulaOutputsUsed);
     const linkedFormulas = formulas.filter((formula) => formulaIds.includes(formula?.formulaId));
     const formulaOrRule = linkedFormulas.length
@@ -3165,17 +3219,21 @@ function bundleTokenomicsQuestionFirstMirror(tokenomics) {
       `Question ${index + 1}`,
       `  group: ${tokenomicsQuestionGroup(question)}`,
       `  question: ${bundleValue(question?.questionText)}`,
-      `  collapsedSummary: ${bundleValue(question?.shortAnswer || question?.answerSummary)}`,
+      `  collapsedSummary: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
       `  status: ${bundleValue(question?.answerStatus)}`,
       `  sourceState: ${tokenomicsQuestionSourceState(question, formulas)}`,
-      `  expanded.shortAnswer: ${bundleValue(question?.shortAnswer || question?.answerSummary)}`,
+      `  expanded.shortAnswer: ${bundleValue(synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
       `  expanded.whyItMatters: ${tokenomicsQuestionWhyItMatters(question)}`,
       `  expanded.dataUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.formulaOrRuleUsed: ${formulaOrRule}`,
-      `  expanded.evidenceStatus: provider/review fields=${normalizeRenderableList(question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
-      `  expanded.missingEvidence: ${normalizeRenderableList(question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
-      `  expanded.impact: ${bundleValue(question?.impactOnScoreOrConfidence)}`,
-      `  expanded.whatWouldChange: ${normalizeRenderableList(question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.evidenceStatus: synthesized=${bundleValue(synthesized.evidenceStatus)}; provider/review fields=${normalizeRenderableList(synthesized.evidenceUsed || question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(synthesized.sourceBoundary || question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.reviewedSourcesUsed: ${safeArray(synthesized.reviewedSourcesUsed || question?.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.reviewedFactsUsed: ${safeArray(synthesized.reviewedFactsUsed || question?.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.whatEvidenceDoesNotProve: ${normalizeRenderableList(synthesized.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.missingEvidence: ${normalizeRenderableList(synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.impact: ${bundleValue(synthesized.impact || question?.impactOnScoreOrConfidence)}`,
+      `  expanded.whatWouldChange: ${normalizeRenderableList(synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.answerQualityFlags: ${normalizeRenderableList(synthesized.answerQualityFlags).join("; ") || "Unavailable in current frontend model"}`,
     ].join("\n");
   });
   return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
@@ -3439,6 +3497,33 @@ export function buildReviewBundleText({
       /reviewed evidence present|reviewed=true|source-backed reviewed/i.test(`${question?.shortAnswer || ""} ${question?.answerSummary || ""}`)
       && safeArray(question?.sourceBoundary).some((entry) => /provider-reported|provider reported|not reviewed/i.test(String(entry))),
     );
+  const allSynthesizedQuestions = [
+    ...safeArray(questions),
+    ...tokenomicsQuestions,
+  ].filter((question) => question?.synthesizedAnswer);
+  const synthesizedAnswerMissing = [...safeArray(questions), ...tokenomicsQuestions].some((question) => !question?.synthesizedAnswer);
+  const genericMethodologySynthesisLeak = allSynthesizedQuestions.some((question) =>
+    /\b(this lens tests|this question evaluates|the engine checks|this methodology assesses|this framework looks at)\b/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
+  const synthesizedBadRenderableValue = allSynthesizedQuestions.some((question) =>
+    /\b(undefined|null|nan|infinity|\[object object\])\b/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
+  const sourceBackedSynthesisWithoutSourceList = allSynthesizedQuestions.some((question) =>
+    question?.synthesizedAnswer?.evidenceStatus === "source_backed"
+    && (!safeArray(question?.synthesizedAnswer?.reviewedSourcesUsed).length || !safeArray(question?.synthesizedAnswer?.reviewedFactsUsed).length),
+  );
+  const synthesizedScoringBoundaryViolation = allSynthesizedQuestions.some((question) =>
+    safeArray(question?.synthesizedAnswer?.reviewedSourcesUsed).some((source) => source?.scoringEligible)
+    || safeArray(question?.synthesizedAnswer?.sourceBoundary).some((entry) => /scoring_active/i.test(String(entry)) && !/not_scoring_active/i.test(String(entry))),
+  );
+  const providerOnlySynthesisOverclaimed = allSynthesizedQuestions.some((question) =>
+    question?.synthesizedAnswer?.evidenceStatus === "provider_reported"
+    && /source-backed|reviewed evidence proves|confirmed by reviewed/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
+  const computedSynthesisOverclaimed = allSynthesizedQuestions.some((question) =>
+    question?.synthesizedAnswer?.evidenceStatus === "computed"
+    && /reviewed evidence proves|source-backed/i.test(String(question?.synthesizedAnswer?.directAnswer || "")),
+  );
   const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
     && [
       ...safeArray(tokenomicsSupplyIntegrity.providerMarketCaps),
@@ -3879,6 +3964,23 @@ export function buildReviewBundleText({
       "Institutional questions:",
       bundleQuestions(questions),
     ]),
+    bundleSection("6B. Institutional Answer Synthesis v1", [
+      bundleField("Synthesis layer attached", allSynthesizedQuestions.length ? "yes" : "unknown"),
+      bundleField("Synthesis model", "deterministic/template-driven; no runtime LLM/freeform inference; reviewed evidence remains non-scoring-active"),
+      bundleField("Questions with synthesis", allSynthesizedQuestions.length),
+      "Synthesis QA summary:",
+      bundleList([
+        `missing synthesis on question rows: ${yesNoUnknown(synthesizedAnswerMissing)}`,
+        `generic methodology copy in synthesized direct answer: ${yesNoUnknown(genericMethodologySynthesisLeak)}`,
+        `bad renderable value in synthesized direct answer: ${yesNoUnknown(synthesizedBadRenderableValue)}`,
+        `source-backed synthesis without reviewed source/fact: ${yesNoUnknown(sourceBackedSynthesisWithoutSourceList)}`,
+        `reviewed evidence scoring boundary violation: ${yesNoUnknown(synthesizedScoringBoundaryViolation)}`,
+        `provider-only synthesis overclaimed as reviewed evidence: ${yesNoUnknown(providerOnlySynthesisOverclaimed)}`,
+        `computed synthesis overclaimed as reviewed evidence: ${yesNoUnknown(computedSynthesisOverclaimed)}`,
+      ]),
+      "Synthesized question answers:",
+      bundleQuestions(allSynthesizedQuestions),
+    ]),
     bundleSection("6A. Tokenomics / Supply Integrity Tab Mirror", [
       bundleField("Dedicated tab visible", tokenomicsSupplyIntegrity ? "yes - Tokenomics tab mirrors this section" : "unknown"),
       bundleField("Tab hierarchy", "Command Header -> Key Risk Summary -> Supply Snapshot -> Provider Comparison -> Formula Outputs -> Asset-Class Diligence/Q&A -> Score Logic -> Source Requirements -> Audit Boundary"),
@@ -4229,6 +4331,13 @@ export function buildReviewBundleText({
       bundleField("LST score collapses from missing evidence without confirmed failure", yesNoUnknown(lstScoreCollapsedOnMissingEvidence)),
       bundleField("WBTC-like selection appears bridged/high-risk", yesNoUnknown(wbtcLikelyBridgedSelection)),
       bundleField("Reviewed packet exists but Q&A still shows generic source-required answer", yesNoUnknown(reviewedPacketGenericSourceRequiredLeak)),
+      bundleField("Institutional Answer Synthesis attached to all visible question rows", yesNoUnknown(!synthesizedAnswerMissing)),
+      bundleField("Synthesized direct answers avoid methodology copy", yesNoUnknown(!genericMethodologySynthesisLeak)),
+      bundleField("Synthesized direct answers avoid null/undefined/NaN/Infinity", yesNoUnknown(!synthesizedBadRenderableValue)),
+      bundleField("Source-backed synthesized answer has reviewed sources/facts", yesNoUnknown(!sourceBackedSynthesisWithoutSourceList)),
+      bundleField("Reviewed evidence remains non-scoring-active in synthesis", yesNoUnknown(!synthesizedScoringBoundaryViolation)),
+      bundleField("Provider-only synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!providerOnlySynthesisOverclaimed)),
+      bundleField("Computed/formula synthesis avoids reviewed-evidence overclaim", yesNoUnknown(!computedSynthesisOverclaimed)),
       bundleField("Source-backed reviewed answer missing source list", yesNoUnknown(reviewedPacketSourceBackedNoSources)),
       bundleField("Reviewed demo evidence treated as scoring-active", yesNoUnknown(reviewedPacketScoringActive)),
       bundleField("Reviewed evidence allowed to change final verdict/overall score", reviewedPacketScoringActive ? "yes - QA violation" : "no - non-scoring display layer"),

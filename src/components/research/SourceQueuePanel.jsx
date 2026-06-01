@@ -134,6 +134,18 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     color: "#ffb020",
   }));
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
+  const synthesizedLeads = [
+    ...safeArray(model?.institutionalQuestions),
+    ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
+  ]
+    .filter((question) => question?.synthesizedAnswer)
+    .flatMap((question) => safeArray(question.synthesizedAnswer.missingEvidence).slice(0, 2).map((entry) => ({
+      label: `Question evidence gap: ${question.questionId || "institutional question"}`,
+      description: entry,
+      status: question.synthesizedAnswer.evidenceStatus === "source_required" ? "Source required" : "Remaining evidence gap",
+      source: "decisionModel.institutionalQuestions.synthesizedAnswer",
+      color: "#f9d976",
+    })));
   const reviewedCoverageLeads = [
     ...safeArray(reviewedEvidence.sourceQueueNotes).slice(0, 3).map((entry) => ({
       label: "Reviewed evidence mapped",
@@ -153,6 +165,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
 
   return dedupeByText([
     ...reviewedCoverageLeads,
+    ...synthesizedLeads,
     ...tokenomicsLeads,
     ...identityLeads,
     ...freshnessLeads,

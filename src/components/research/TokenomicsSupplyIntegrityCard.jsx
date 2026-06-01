@@ -122,12 +122,14 @@ export function TokenomicsSupplyQuestionCard({ tokenomics, styles }) {
           }}>
             <SectionRow label="Question" value={question.questionText} styles={styles} />
             <SectionRow label="Status" value={titleCase(question.answerStatus)} styles={styles} />
-            <SectionRow label="Short answer" value={question.shortAnswer || question.answerSummary || "Unavailable"} styles={styles} />
+            <SectionRow label="Short answer" value={question.synthesizedAnswer?.directAnswer || question.shortAnswer || question.answerSummary || "Source required"} styles={styles} />
+            <SectionRow label="Synthesis status" value={question.synthesizedAnswer?.evidenceStatus ? titleCase(question.synthesizedAnswer.evidenceStatus) : "Not attached"} styles={styles} />
             <ListBlock title="Data fields used" items={question.dataFieldsUsed} emptyText="No data fields were listed." color="#d5dcec" styles={styles} />
             <ListBlock title="Formula outputs used" items={question.formulaOutputsUsed} emptyText="No formula outputs were listed." color="#9bd7ff" styles={styles} />
-            <ListBlock title="Evidence used" items={question.evidenceUsed} emptyText="No reviewed evidence was attached." color="#a6f3c2" styles={styles} />
-            <ListBlock title="Missing evidence" items={question.missingEvidence} emptyText="No missing evidence was attached." color="#f9d976" styles={styles} />
-            <ListBlock title="What would change" items={question.whatWouldChange} emptyText="No change requirement was attached." color="#9bd7ff" styles={styles} />
+            <ListBlock title="Evidence used" items={safeArray(question.synthesizedAnswer?.evidenceUsed).length ? question.synthesizedAnswer.evidenceUsed : question.evidenceUsed} emptyText="No reviewed evidence was attached." color="#a6f3c2" styles={styles} />
+            <ListBlock title="What evidence does not prove" items={question.synthesizedAnswer?.whatEvidenceDoesNotProve} emptyText="No non-proof boundary was attached." color="#f9d976" styles={styles} />
+            <ListBlock title="Missing evidence" items={safeArray(question.synthesizedAnswer?.missingEvidence).length ? question.synthesizedAnswer.missingEvidence : question.missingEvidence} emptyText="No missing evidence was attached." color="#f9d976" styles={styles} />
+            <ListBlock title="What would change" items={safeArray(question.synthesizedAnswer?.whatWouldChange).length ? question.synthesizedAnswer.whatWouldChange : question.whatWouldChange} emptyText="No change requirement was attached." color="#9bd7ff" styles={styles} />
           </div>
         ))}
       </div>
