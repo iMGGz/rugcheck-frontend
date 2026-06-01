@@ -118,6 +118,33 @@ function synthesizedEvidenceTone(status) {
   }
 }
 
+function primaryQuestionStatusTone(question, synthesized) {
+  if (
+    synthesized?.evidenceStatus === "source_required"
+    && ["supported", "partially_supported"].includes(question?.answerStatus)
+  ) {
+    return { label: "Legacy support in audit", color: "#8a94a6" };
+  }
+  return questionStatusTone(question?.answerStatus);
+}
+
+function synthesizedPrimaryBadge(question, synthesizedTone) {
+  if (!synthesizedTone) return null;
+  if (
+    ["base_layer_security_validator_role", "base_layer_issuance_burn_staking"].includes(question?.questionId)
+    && ["source_backed", "partially_source_backed"].includes(question?.synthesizedAnswer?.evidenceStatus)
+  ) {
+    return { ...synthesizedTone, label: "Source-backed for mechanism" };
+  }
+  if (
+    ["base_layer_security_validator_role", "base_layer_issuance_burn_staking"].includes(question?.questionId)
+    && question?.synthesizedAnswer?.evidenceStatus === "source_required"
+  ) {
+    return { ...synthesizedTone, label: "Live review required" };
+  }
+  return synthesizedTone;
+}
+
 function answerFallback(question) {
   const status = questionStatusTone(question?.answerStatus).label;
   if (question?.synthesizedAnswer?.directAnswer) return question.synthesizedAnswer.directAnswer;
@@ -171,7 +198,8 @@ function InlineList({ title, items, emptyText, styles, color = "#aab7cc" }) {
 
 function InstitutionalQuestionAnswerCard({ question, styles }) {
   const [open, setOpen] = React.useState(false);
-  const status = questionStatusTone(question.answerStatus);
+  const synthesized = safeObject(question.synthesizedAnswer);
+  const status = primaryQuestionStatusTone(question, synthesized);
   const impact = verdictImpactTone(question.verdictImpact);
   const boundaries = normalizeRenderableList(question.sourceBoundary);
   const shortAnswer = answerFallback(question);
@@ -180,8 +208,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
   const contradictionItems = normalizeRenderableList(question.contradictionSignals);
   const changeItems = normalizeRenderableList(question.whatWouldChange);
   const reviewedTone = reviewedEvidenceTone(question.reviewedEvidenceStatus);
-  const synthesized = safeObject(question.synthesizedAnswer);
-  const synthesizedTone = synthesizedEvidenceTone(synthesized.evidenceStatus);
+  const synthesizedTone = synthesizedPrimaryBadge(question, synthesizedEvidenceTone(synthesized.evidenceStatus));
   const reviewedSources = safeArray(question.reviewedSourcesUsed);
   const reviewedFacts = safeArray(question.reviewedFactsUsed);
   const synthesizedSources = safeArray(synthesized.reviewedSourcesUsed);
