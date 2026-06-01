@@ -3661,6 +3661,27 @@ export function buildReviewBundleText({
   const analystBundleMirrorMissing = allSynthesizedQuestions.length > 0 && analystCards.some(({ card }) =>
     !card?.directAnswer || !card?.headlineStatus || !safeArray(card?.sourceBoundaryPlainEnglish).length,
   );
+  const stablecoinAnalystCards = analystCards.filter(({ question }) =>
+    /^stablecoin_/.test(String(question?.questionId || ""))
+    || (lens?.lensId === "STABLECOIN_SETTLEMENT" && /^tokenomics_/.test(String(question?.questionId || ""))),
+  );
+  const stablecoinTrustNotApplicableLeakage = stablecoinAnalystCards.some(({ question, card }) =>
+    ["stablecoin_trust_evidence", "stablecoin_what_changes"].includes(String(question?.questionId || ""))
+    && (
+      /not applicable/i.test(String(card?.headlineStatus || ""))
+      || /not applicable as a protocol-token value-capture question/i.test(String(card?.directAnswer || ""))
+    ),
+  );
+  const stablecoinProtocolNotApplicableMissing = lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && stablecoinAnalystCards.some(({ question, card }) =>
+      /burn_buyback|buyback|fee_switch|tokenholder_accrual|value_capture/i.test(String(question?.questionId || ""))
+      && !/not applicable/i.test(`${card?.headlineStatus || ""} ${card?.directAnswer || ""}`),
+    );
+  const stablecoinTokenomicsScarcityDominance = lens?.lensId === "STABLECOIN_SETTLEMENT"
+    && stablecoinAnalystCards.some(({ question, card }) =>
+      ["tokenomics_max_supply_credibility", "tokenomics_remaining_dilution"].includes(String(question?.questionId || ""))
+      && !/reserve|redemption|mint\/redeem|issuer|supported-network|peg|stablecoin/i.test(`${card?.directAnswer || ""} ${safeArray(card?.missingEvidence).join(" ")}`),
+    );
   const tokenomicsProviderBoundaryMissing = tokenomicsSupplyIntegrity
     && [
       ...safeArray(tokenomicsSupplyIntegrity.providerMarketCaps),
@@ -4014,6 +4035,9 @@ export function buildReviewBundleText({
       bundleField("Template IDs kept audit-only", yesNoUnknown(!analystPrimaryTemplateLeakage)),
       bundleField("Raw sourceBoundary enums kept audit-only", yesNoUnknown(!analystPrimaryRawEnumLeakage)),
       bundleField("Contradictory primary badge stack avoided", yesNoUnknown(!analystContradictoryBadgeStack)),
+      bundleField("Stablecoin trust rows avoid protocol-token not-applicable copy", yesNoUnknown(!stablecoinTrustNotApplicableLeakage)),
+      bundleField("Stablecoin tokenomics redirects max-supply/dilution to trust controls", yesNoUnknown(!stablecoinTokenomicsScarcityDominance)),
+      bundleField("Stablecoin protocol-token value-capture not-applicable cases preserved", yesNoUnknown(!stablecoinProtocolNotApplicableMissing)),
     ]),
     bundleSection("3. Decision Header / Command Header", [
       bundleField("Why allocation could make sense", safeModel.verdictSemantics?.positiveCase?.[0] || safeModel.primaryStrength),
@@ -4508,6 +4532,9 @@ export function buildReviewBundleText({
       bundleField("Provider-only analyst card avoids reviewed-evidence overclaim", yesNoUnknown(!analystProviderOnlyOverclaim)),
       bundleField("Formula-derived analyst card avoids reviewed-evidence overclaim", yesNoUnknown(!analystFormulaOverclaim)),
       bundleField("Bundle mirrors analyst-card primary answer/status/boundary", yesNoUnknown(!analystBundleMirrorMissing)),
+      bundleField("Stablecoin trust evidence is central, not not-applicable", yesNoUnknown(!stablecoinTrustNotApplicableLeakage)),
+      bundleField("Stablecoin max-supply/dilution rows do not dominate trust diligence", yesNoUnknown(!stablecoinTokenomicsScarcityDominance)),
+      bundleField("Stablecoin protocol-token value-capture remains not applicable where appropriate", yesNoUnknown(!stablecoinProtocolNotApplicableMissing)),
       bundleField("Stablecoin synthesis copy absent for non-stablecoin lens", yesNoUnknown(!stablecoinCopyLeakageInSynthesis)),
       bundleField("Irrelevant sector markers absent from synthesized primary answer context", yesNoUnknown(!irrelevantSectorSignalLeakageInSynthesis)),
       bundleField("Supported/source-required synthesis mismatch has explicit boundary", yesNoUnknown(!supportedSourceRequiredSynthesisMismatch)),
