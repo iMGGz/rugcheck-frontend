@@ -3391,6 +3391,95 @@ function yesNoUnknown(value) {
   return "unknown";
 }
 
+function buildIdentityLensLeakageForbiddenStringChecks({
+  bundleText,
+  asset,
+  lens,
+  assetIdentityResolution,
+  reviewedEvidencePacket,
+}) {
+  const assetText = `${asset?.symbol || ""} ${asset?.name || ""} ${asset?.id || ""} ${asset?.coingeckoId || ""} ${reviewedEvidencePacket?.packetId || ""}`;
+  const lensId = String(lens?.lensId || "");
+  const representationType = String(assetIdentityResolution?.representationType || "");
+  const wrappedStatus = String(assetIdentityResolution?.bridgedOrWrappedStatus || "");
+  const isWrappedOrBridgedContext = /WRAPPED_ASSET|wrapped_asset|bridged_asset/i.test(`${lensId} ${representationType} ${wrappedStatus} ${assetText}`);
+  const isLstContext = /LST_STAKING_DERIVATIVE|liquid_staking_derivative|steth|staked ether/i.test(`${lensId} ${representationType} ${assetText}`);
+  const isGamingContext = /GAMING_METAVERSE_CONSUMER|gaming|gamefi|naka/i.test(`${lensId} ${assetText}`);
+  const isDePinContext = /DEPIN|render-token|render network|render\b/i.test(`${lensId} ${assetText}`);
+  const isBaseLayerContext = /BASE_LAYER|NATIVE_MONETARY|ethereum|eth\b|bitcoin|btc\b|solana|sol\b|avalanche|avax\b/i.test(`${lensId} ${assetText}`);
+  const isOndoContext = /ondo/i.test(assetText);
+  const isRenderContext = /render|rndr/i.test(assetText);
+
+  const definitions = [
+    {
+      checkId: "ondo_wrapped_representation_leak",
+      applies: isOndoContext && !isWrappedOrBridgedContext,
+      pattern: /\bwrapped_asset\b|Wrapped\/bridged\/staking representation signal detected|native asset fundamentals do not automatically transfer/i,
+      forbidden: "ONDO-like non-wrapper contract asset shows wrapped/native-inheritance copy.",
+      allowedWhen: "Only allowed when selected asset has explicit wrapper/bridge/staking-derivative representation evidence.",
+    },
+    {
+      checkId: "steth_false_rwa_internal_ambiguity",
+      applies: isLstContext,
+      pattern: /internal classification suggests RWA \/ Hybrid|RWA \/ Hybrid Methodology Asset/i,
+      forbidden: "LST context shows equal-weight RWA/Hybrid provider/internal disagreement copy.",
+      allowedWhen: "Only allowed when direct RWA/product-rights evidence exists for the analyzed asset.",
+    },
+    {
+      checkId: "base_layer_gaming_copy_leak",
+      applies: isBaseLayerContext && !isGamingContext,
+      pattern: /Gaming utility or tokenomics documents|game volume|paying users/i,
+      forbidden: "Base-layer context shows gaming/GameFi demand-warning copy.",
+      allowedWhen: "Only allowed for gaming/GameFi question groups.",
+    },
+    {
+      checkId: "depin_gaming_copy_leak",
+      applies: isDePinContext && !isGamingContext,
+      pattern: /Gaming utility or tokenomics documents|game volume|paying users/i,
+      forbidden: "DePIN/resource context shows gaming/GameFi demand-warning copy.",
+      allowedWhen: "Only allowed for gaming/GameFi question groups.",
+    },
+    {
+      checkId: "ondo_render_migration_leak",
+      applies: isOndoContext && !isRenderContext,
+      pattern: /RNDR-to-RENDER|Solana upgraded token context|RENDER migration/i,
+      forbidden: "ONDO-like packet shows RENDER migration/canonical-representation copy.",
+      allowedWhen: "Only allowed for RENDER/RNDR packet identity reconciliation.",
+    },
+  ].filter((definition) => definition.applies);
+
+  return definitions.map((definition) => {
+    const matches = String(bundleText || "").match(definition.pattern) || [];
+    return {
+      ...definition,
+      passed: matches.length === 0,
+      matches: Array.from(new Set(matches)).slice(0, 5),
+      checkedFields: [
+        "assetIdentityResolution.identityWarnings",
+        "assetIdentityResolution.chainWarnings",
+        "assetIdentityResolution.sourceRequirements",
+        "resolvedInstitutionalLens.ambiguityFlags",
+        "reviewedEvidencePacket.questionMappings[].evidenceMappingWarnings",
+        "reviewedEvidencePacket.sourceQueueNotes",
+        "reviewedEvidencePacket.remainingSourceRequirements",
+        "Copy Review Bundle core sections",
+      ],
+      checkedBundleSections: [
+        "1. QA Bundle Header",
+        "1A. Asset Identity Resolution / Canonical Chain Guardrail",
+        "2. Resolved Institutional Lens Contract",
+        "2A. Reviewed Evidence Packet v1",
+        "6. Institutional Checklist",
+        "6A. Tokenomics / Supply Integrity Tab Mirror",
+        "9. Source Queue",
+        "10. Manual Review",
+        "11. Audit / Raw Key Fields",
+        "12. Cross-Tab Consistency Checklist",
+      ],
+    };
+  });
+}
+
 function bundleControlStatusLabel(value, kind, lensId) {
   if (lensId === "STABLECOIN_SETTLEMENT" && kind === "mint") {
     if (value === "requires_manual_review") return "present / issuer-controlled / requires policy review";
@@ -3906,7 +3995,7 @@ export function buildReviewBundleText({
     ]));
   const stethFalseRwaAmbiguityVisible = lens?.lensId === "LST_STAKING_DERIVATIVE"
     && /steth|staked ether|lido/i.test(`${safeAsset.symbol || ""} ${safeAsset.name || ""}`)
-    && safeArray(lens?.ambiguityFlags).some((flag) => /Competing RWA \/ Hybrid Methodology Asset/i.test(String(flag)));
+    && safeArray(lens?.ambiguityFlags).some((flag) => /Competing RWA \/ Hybrid Methodology Asset|internal classification suggests RWA \/ Hybrid|RWA \/ Hybrid Methodology Asset/i.test(String(flag)));
   const checklistSupportedWithoutAnswer = safeArray(questions).some((question) =>
     ["supported", "partially_supported"].includes(question?.answerStatus)
     && !String(question?.shortAnswer || question?.answerSummary || "").trim(),
@@ -4658,11 +4747,43 @@ export function buildReviewBundleText({
     ]),
   ];
 
-  return [
+  const bundleHeader = [
     "ThesisCore Cross-Tab QA Review Bundle",
     `Generated: ${new Date().toISOString()}`,
     "Purpose: paste this bundle into review to detect lens routing, wording, evidence-boundary, scoring/explanation, and frontend visibility issues.",
+  ];
+  const coreBundleText = [
+    ...bundleHeader,
     ...sections,
+  ].join("\n");
+  const leakageForbiddenStringChecks = buildIdentityLensLeakageForbiddenStringChecks({
+    bundleText: coreBundleText,
+    asset: safeAsset,
+    lens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  });
+  const leakageFailures = leakageForbiddenStringChecks.filter((check) => !check.passed);
+  const leakageQaSection = bundleSection("12B. Identity / Lens Leakage Recovery Patch #2 Text QA", [
+    bundleField("Text-level forbidden-string checks run", leakageForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
+    bundleField("Text-level forbidden-string failures", leakageFailures.length),
+    bundleField("Checked fields", leakageForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    bundleField("Checked bundle sections", leakageForbiddenStringChecks.flatMap((check) => check.checkedBundleSections).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    "Forbidden-string checks:",
+    bundleList(leakageForbiddenStringChecks.map((check) =>
+      `${check.checkId}: ${check.passed ? "PASS" : "FAIL"} | ${check.forbidden} | matches=${check.matches.join("; ") || "none"} | allowedWhen=${check.allowedWhen}`
+    )),
+    "False-negative prevention:",
+    bundleList([
+      "Checks scan the Copy Review Bundle core text mirror, not only boolean model flags.",
+      "Checks include identity warnings, ambiguity/provider-internal flags, reviewed-evidence warnings, Source Queue, Manual Review, and audit-mirror sections.",
+      "Checks are asset/lens scoped so valid RWA, wrapped, gaming, DePIN, and LST copy is not globally forbidden.",
+    ]),
+  ]);
+  return [
+    ...bundleHeader,
+    ...sections,
+    leakageQaSection,
   ].join("\n");
 }
 
