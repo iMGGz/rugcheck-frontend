@@ -3882,6 +3882,31 @@ export function buildReviewBundleText({
       /source_backed/i.test(String(question?.reviewedEvidenceStatus || ""))
       && /risk solved|risk eliminated|no withdrawal risk|no slashing risk|no depeg risk/i.test(`${question?.answerSummary || ""} ${question?.shortAnswer || ""}`)
     );
+  const reviewedPacketText = JSON.stringify(reviewedEvidencePacket || {});
+  const reviewedPacketRenderGamingCopyLeak = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
+    && /gaming utility|gameplay|active users|paying users|game volume|tournament|retention/i.test(reviewedPacketText);
+  const reviewedPacketOndoRenderWarningLeak = reviewedEvidencePacket?.packetId === "reviewed-demo-ondo-v1"
+    && /RNDR|RENDER|Solana upgraded|Render migration/i.test(JSON.stringify([
+      reviewedEvidencePacket?.identityEvidenceReconciliationWarnings,
+      reviewedEvidencePacket?.warnings,
+      assetIdentityResolution?.identityEvidenceReconciliationWarnings,
+      assetIdentityResolution?.chainWarnings,
+    ]));
+  const uniSourceCandidateRequirementsMissing = reviewedEvidencePacket?.packetId === "reviewed-demo-uni-v1"
+    && !/protocol-fee|fee switch|TokenJar|fee-routing|governance finality|materiality|market cap|direct economic benefit/i.test(JSON.stringify([
+      reviewedEvidencePacket?.sourceQueueNotes,
+      reviewedEvidencePacket?.remainingSourceRequirements,
+    ]));
+  const wbtcSingleProviderIdentityHidden = /wbtc|wrapped bitcoin/i.test(`${safeAsset.symbol || ""} ${safeAsset.name || ""}`)
+    && providerIds.length === 1
+    && !/single-provider|CoinGecko\/CoinMarketCap identity agreement|cross-provider/i.test(JSON.stringify([
+      assetIdentityResolution?.identityWarnings,
+      assetIdentityResolution?.sourceRequirements,
+      assetIdentityResolution?.evidenceSourceSummary,
+    ]));
+  const stethFalseRwaAmbiguityVisible = lens?.lensId === "LST_STAKING_DERIVATIVE"
+    && /steth|staked ether|lido/i.test(`${safeAsset.symbol || ""} ${safeAsset.name || ""}`)
+    && safeArray(lens?.ambiguityFlags).some((flag) => /Competing RWA \/ Hybrid Methodology Asset/i.test(String(flag)));
   const checklistSupportedWithoutAnswer = safeArray(questions).some((question) =>
     ["supported", "partially_supported"].includes(question?.answerStatus)
     && !String(question?.shortAnswer || question?.answerSummary || "").trim(),
@@ -4599,6 +4624,11 @@ export function buildReviewBundleText({
       bundleField("Reviewed evidence identity conflict hidden from UI", yesNoUnknown(reviewedEvidenceIdentityConflictHidden)),
       bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
       bundleField("LST source-backed mechanism displayed as risk elimination", yesNoUnknown(reviewedLstMechanismEliminatesRisk)),
+      bundleField("RENDER DePIN answer leaks gaming active-user copy", yesNoUnknown(reviewedPacketRenderGamingCopyLeak)),
+      bundleField("ONDO reviewed evidence leaks RENDER migration identity warning", yesNoUnknown(reviewedPacketOndoRenderWarningLeak)),
+      bundleField("UNI fee-switch/TokenJar source candidates missing from source requirements", yesNoUnknown(uniSourceCandidateRequirementsMissing)),
+      bundleField("WBTC single-provider identity context hidden", yesNoUnknown(wbtcSingleProviderIdentityHidden)),
+      bundleField("stETH LST displays false equal-weight RWA ambiguity", yesNoUnknown(stethFalseRwaAmbiguityVisible)),
       bundleField("Canonical and bridged/wrapped variants visually distinguishable in candidate UI", "yes - candidate cards show representation and wrong-asset risk when backend returns identitySummary"),
       bundleField("High-risk search candidate lacks warning labels", yesNoUnknown(highRiskSearchCandidateLooksSafe)),
       bundleField("Provider disagreement hidden in search identity", yesNoUnknown(providerDisagreementHidden)),
