@@ -3974,6 +3974,29 @@ export function buildReviewBundleText({
   const reviewedPacketText = JSON.stringify(reviewedEvidencePacket || {});
   const reviewedPacketRenderGamingCopyLeak = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
     && /gaming utility|gameplay|active users|paying users|game volume|tournament|retention/i.test(reviewedPacketText);
+  const renderDepinMechanismQuestionIds = [
+    "depin_resource_demand_visible",
+    "depin_payer_demand_to_token_demand",
+    "depin_provider_incentives_durability",
+    "depin_usage_vs_tokenholder_capture",
+  ];
+  const renderDepinMechanismMappings = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
+    ? reviewedPacketMappings.filter((mapping) => renderDepinMechanismQuestionIds.includes(String(mapping?.questionId || "")))
+    : [];
+  const renderDepinMechanismCollapsedToSourceRequired = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
+    && renderDepinMechanismMappings.length > 0
+    && renderDepinMechanismMappings.some((mapping) =>
+      /source_required/i.test(String(mapping?.reviewedEvidenceStatus || ""))
+      || !safeArray(mapping?.reviewedFactsUsed).some((fact) => /render-bme-payment-burn|render-bme-emissions|render-solana-token-context|render-rndr-to-render-upgrade/i.test(String(fact?.factId || "")))
+    );
+  const renderDepinLiveDemandIncorrectlyUpgraded = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
+    && reviewedPacketMappings.some((mapping) =>
+      String(mapping?.questionId || "") === "depin_prove_resource_market_demand"
+      && (/source_backed|partially_source_backed/i.test(String(mapping?.reviewedEvidenceStatus || "")) || mapping?.answerUpgradeAvailable === true)
+    );
+  const renderDepinMechanismFactsVisible = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
+    ? renderDepinMechanismMappings.some((mapping) => safeArray(mapping?.reviewedFactsUsed).some((fact) => /render-bme-payment-burn|render-bme-emissions|render-solana-token-context|render-rndr-to-render-upgrade/i.test(String(fact?.factId || ""))))
+    : null;
   const reviewedPacketOndoRenderWarningLeak = reviewedEvidencePacket?.packetId === "reviewed-demo-ondo-v1"
     && /RNDR|RENDER|Solana upgraded|Render migration/i.test(JSON.stringify([
       reviewedEvidencePacket?.identityEvidenceReconciliationWarnings,
@@ -4714,6 +4737,9 @@ export function buildReviewBundleText({
       bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
       bundleField("LST source-backed mechanism displayed as risk elimination", yesNoUnknown(reviewedLstMechanismEliminatesRisk)),
       bundleField("RENDER DePIN answer leaks gaming active-user copy", yesNoUnknown(reviewedPacketRenderGamingCopyLeak)),
+      bundleField("RENDER DePIN mechanism rows collapsed to pure source-required", yesNoUnknown(renderDepinMechanismCollapsedToSourceRequired)),
+      bundleField("RENDER live demand proof incorrectly source-backed", yesNoUnknown(renderDepinLiveDemandIncorrectlyUpgraded)),
+      bundleField("RENDER mechanism reviewed fact IDs visible", yesNoUnknown(renderDepinMechanismFactsVisible)),
       bundleField("ONDO reviewed evidence leaks RENDER migration identity warning", yesNoUnknown(reviewedPacketOndoRenderWarningLeak)),
       bundleField("UNI fee-switch/TokenJar source candidates missing from source requirements", yesNoUnknown(uniSourceCandidateRequirementsMissing)),
       bundleField("WBTC single-provider identity context hidden", yesNoUnknown(wbtcSingleProviderIdentityHidden)),
