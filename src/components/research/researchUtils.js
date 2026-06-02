@@ -309,6 +309,18 @@ export function normalizeAssetIdentityResolutionPayload(responseLike) {
   return {
     ...identity,
     canonicalProviderIds: safeObject(identity.canonicalProviderIds),
+    searchIdentityReconciliation: identity.searchIdentityReconciliation ? {
+      ...safeObject(identity.searchIdentityReconciliation),
+      providerContracts: safeArray(identity.searchIdentityReconciliation.providerContracts),
+      coinGeckoContracts: safeArray(identity.searchIdentityReconciliation.coinGeckoContracts),
+      coinMarketCapContracts: safeArray(identity.searchIdentityReconciliation.coinMarketCapContracts),
+      providerDisagreementReasons: safeArray(identity.searchIdentityReconciliation.providerDisagreementReasons),
+      selectionWarnings: safeArray(identity.searchIdentityReconciliation.selectionWarnings),
+      whyThisCandidate: safeArray(identity.searchIdentityReconciliation.whyThisCandidate),
+      whyNotThisCandidate: safeArray(identity.searchIdentityReconciliation.whyNotThisCandidate),
+      displayLabels: safeArray(identity.searchIdentityReconciliation.displayLabels),
+      sourceBoundary: safeArray(identity.searchIdentityReconciliation.sourceBoundary),
+    } : null,
     allKnownContracts: safeArray(identity.allKnownContracts),
     platformContracts: safeObject(identity.platformContracts),
     oldContracts: safeArray(identity.oldContracts),
@@ -3445,6 +3457,7 @@ export function buildReviewBundleText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
@@ -3776,6 +3789,12 @@ export function buildReviewBundleText({
     && !safeArray(tokenomicsSupplyIntegrity.hardBlockers).some((entry) => /confirmed|critical|honeypot|exploit/i.test(String(entry)));
   const wbtcLikelyBridgedSelection = /wbtc/i.test(String(safeAsset.symbol || safeAsset.name || ""))
     && (/bridged/i.test(String(safeAsset.name || "")) || assetIdentityResolution?.representationType === "bridged_asset" || assetIdentityResolution?.wrongAssetRisk === "high");
+  const highRiskSearchCandidateLooksSafe = searchIdentityReconciliation?.selectionSafetyLevel === "high_risk_manual"
+    && !safeArray(searchIdentityReconciliation.selectionWarnings).length;
+  const providerDisagreementHidden = searchIdentityReconciliation?.providerAgreement === "provider_disagreement"
+    && !safeArray(searchIdentityReconciliation.providerDisagreementReasons).length;
+  const riskySearchSelectionMissingBundleMirror = Boolean(searchIdentityReconciliation?.wrongAssetRisk && searchIdentityReconciliation.wrongAssetRisk !== "low")
+    && !safeArray(searchIdentityReconciliation.displayLabels).some((entry) => /wrong-asset risk|manual|wrapped|bridged|lp|lending|leveraged|legacy|metadata/i.test(String(entry)));
   const tokenomicsUnsafeNumericText = /NaN|Infinity|undefined/.test(JSON.stringify(tokenomicsSupplyIntegrity || {}));
   const reviewedPacketLoaded = Boolean(reviewedEvidencePacket?.packetLoaded);
   const reviewedPacketMappings = safeArray(reviewedEvidencePacket?.questionMappings);
@@ -3903,6 +3922,15 @@ export function buildReviewBundleText({
       bundleField("Analyzed contract", assetIdentityResolution?.analyzedContract),
       bundleField("Representation type", assetIdentityResolution?.representationType),
       bundleField("Wrong-asset risk", assetIdentityResolution?.wrongAssetRisk),
+      bundleField("Search candidate recommendation", searchIdentityReconciliation?.recommendedCanonicalMatch === undefined ? null : yesNoUnknown(searchIdentityReconciliation.recommendedCanonicalMatch)),
+      bundleField("Search candidate rank", searchIdentityReconciliation?.canonicalCandidateRank),
+      bundleField("Search selection safety", searchIdentityReconciliation?.selectionSafetyLevel),
+      bundleField("Search wrong-asset risk", searchIdentityReconciliation?.wrongAssetRisk),
+      bundleField("Search representation type", searchIdentityReconciliation?.representationType),
+      bundleField("Search provider agreement", searchIdentityReconciliation?.providerAgreement),
+      bundleField("Search contract match status", searchIdentityReconciliation?.contractMatchStatus),
+      bundleField("Search network match status", searchIdentityReconciliation?.networkMatchStatus),
+      bundleField("Search query intent match", searchIdentityReconciliation?.searchQueryIntentMatch),
       bundleField("Provider IDs", providerIds.join("; ")),
       bundleField("Identity confidence", lens?.confidence),
       bundleField("Canonical identity confidence", assetIdentityResolution?.identityConfidence),
@@ -3912,8 +3940,15 @@ export function buildReviewBundleText({
         ...safeArray(assetIdentityResolution?.chainWarnings),
         ...safeArray(assetIdentityResolution?.contractWarnings),
         ...safeArray(assetIdentityResolution?.identityEvidenceReconciliationWarnings),
+        ...safeArray(searchIdentityReconciliation?.selectionWarnings),
         ...identityWarnings.map((warning) => `${warning.id || "warning"} | ${warning.issue || "Review identity"} | verdict: ${warning.affectsVerdict ? "affects" : "diagnostic"} | scoring: ${warning.affectsScoring ? "affects" : "diagnostic"}`),
       ]),
+      "Search candidate labels:",
+      bundleList(searchIdentityReconciliation?.displayLabels),
+      "Why this search candidate:",
+      bundleList(searchIdentityReconciliation?.whyThisCandidate),
+      "Why not this search candidate:",
+      bundleList(searchIdentityReconciliation?.whyNotThisCandidate),
       bundleField("Last analyzed timestamp", lastAnalyzed),
       bundleField("Analysis freshness", `${analysisFreshness.freshnessLabel} - ${analysisFreshness.summary}`),
       bundleField("Delivery source", analysisFreshness.analysisSource),
@@ -3944,6 +3979,11 @@ export function buildReviewBundleText({
       bundleField("Multi-chain", yesNoUnknown(assetIdentityResolution?.isMultichain)),
       bundleField("Chain confidence", assetIdentityResolution?.chainConfidence),
       bundleField("Contract confidence", assetIdentityResolution?.contractConfidence),
+      bundleField("Selected search candidate display name", searchIdentityReconciliation?.candidateDisplayName),
+      bundleField("Selected search canonical identity", searchIdentityReconciliation?.canonicalIdentity),
+      bundleField("Selected search manual selection required", searchIdentityReconciliation?.requiresManualSelection === undefined ? null : yesNoUnknown(searchIdentityReconciliation.requiresManualSelection)),
+      "Selected search provider disagreement reasons:",
+      bundleList(searchIdentityReconciliation?.providerDisagreementReasons),
       "All known provider contracts:",
       bundleList(safeArray(assetIdentityResolution?.allKnownContracts).map((entry) => `${entry.provider}:${entry.network}:${entry.contractAddress} | ${entry.sourceField} | confidence:${entry.confidence}`)),
       "Old contracts:",
@@ -4560,6 +4600,9 @@ export function buildReviewBundleText({
       bundleField("Source-backed mapping still has material same-question gaps", yesNoUnknown(reviewedEvidenceSourceBackedWithMaterialSameGaps)),
       bundleField("LST source-backed mechanism displayed as risk elimination", yesNoUnknown(reviewedLstMechanismEliminatesRisk)),
       bundleField("Canonical and bridged/wrapped variants visually distinguishable in candidate UI", "yes - candidate cards show representation and wrong-asset risk when backend returns identitySummary"),
+      bundleField("High-risk search candidate lacks warning labels", yesNoUnknown(highRiskSearchCandidateLooksSafe)),
+      bundleField("Provider disagreement hidden in search identity", yesNoUnknown(providerDisagreementHidden)),
+      bundleField("Risky selected search candidate missing bundle mirror", yesNoUnknown(riskySearchSelectionMissingBundleMirror)),
       bundleField("tokenomicsIntegrityScore high despite unresolved critical caps", yesNoUnknown(tokenomicsHighScoreWithCriticalCaps)),
       bundleField("tokenomicsIntegrityScore too punitive for not-applicable fields", yesNoUnknown(tokenomicsTooPunitiveForNotApplicable)),
       bundleField("Wrapped/stable/LST/RWA missing redemption/reserve source requirements", tokenomicsSupplyIntegrity ? yesNoUnknown(

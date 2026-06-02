@@ -61,13 +61,48 @@ function buildCandidateMeta(candidate) {
 
 function candidateIdentityChips(candidate) {
   const summary = candidate?.identitySummary || {};
+  const reconciliation = candidate?.identityReconciliation || {};
   return [
+    reconciliation.recommendedCanonicalMatch ? "Recommended canonical match" : null,
+    reconciliation.selectionSafetyLevel ? `Selection: ${titleCase(reconciliation.selectionSafetyLevel)}` : null,
+    reconciliation.providerAgreement ? `Provider: ${titleCase(reconciliation.providerAgreement)}` : null,
+    reconciliation.contractMatchStatus ? `Contract: ${titleCase(reconciliation.contractMatchStatus)}` : null,
+    reconciliation.networkMatchStatus ? `Network: ${titleCase(reconciliation.networkMatchStatus)}` : null,
     ...(summary.badges || []),
     summary.networkLabel ? `Network: ${summary.networkLabel}` : null,
     summary.representationType ? `Representation: ${titleCase(summary.representationType)}` : null,
     summary.wrongAssetRisk ? `Wrong-asset risk: ${summary.wrongAssetRisk}` : null,
     summary.confidence ? `Identity confidence: ${summary.confidence}` : null,
   ].filter(Boolean).slice(0, 5);
+}
+
+function selectionButtonCopy(candidate) {
+  const safety = candidate?.identityReconciliation?.selectionSafetyLevel || candidate?.identitySummary?.selectionSafetyLevel;
+  if (safety === "recommended") return "Use recommended asset";
+  if (safety === "high_risk_manual") return "Use only if intended";
+  if (safety === "caution") return "Review then use";
+  return "Use this asset";
+}
+
+function selectionButtonStyle(candidate, styles) {
+  const safety = candidate?.identityReconciliation?.selectionSafetyLevel || candidate?.identitySummary?.selectionSafetyLevel;
+  if (safety === "high_risk_manual") {
+    return {
+      ...styles.selectorPrimaryButton,
+      borderColor: "rgba(248,113,113,0.72)",
+      background: "linear-gradient(135deg, rgba(127,29,29,0.72), rgba(30,41,59,0.92))",
+      color: "#fecaca",
+    };
+  }
+  if (safety === "caution") {
+    return {
+      ...styles.selectorPrimaryButton,
+      borderColor: "rgba(249,217,118,0.72)",
+      background: "linear-gradient(135deg, rgba(120,83,17,0.62), rgba(30,41,59,0.92))",
+      color: "#fde68a",
+    };
+  }
+  return styles.selectorPrimaryButton;
 }
 
 function SelectorActionButton({
@@ -194,6 +229,11 @@ export default function SearchSelectorPanel({
       <div style={styles.selectorGrid}>
         {filteredCandidates.map((candidate, index) => {
           const matchLabels = buildCandidateMatchLabels(candidate, pendingResolution?.query);
+          const reconciliation = candidate.identityReconciliation || {};
+          const warnings = [
+            ...(reconciliation.selectionWarnings || []),
+            candidate.identitySummary?.warning,
+          ].filter(Boolean);
           return (
             <div
               key={`${candidate.coingeckoId || candidate.coinmarketcapId || candidate.contractAddress || `${candidate.symbol}-${candidate.name}-${index}`}`}
@@ -214,13 +254,13 @@ export default function SearchSelectorPanel({
 
                 <SelectorActionButton
                   onClick={() => onSelectCandidate(candidate)}
-                  baseStyle={styles.selectorPrimaryButton}
+                  baseStyle={selectionButtonStyle(candidate, styles)}
                   hoverStyle={styles.selectorPrimaryButtonHover}
                   focusStyle={styles.selectorPrimaryButtonFocus}
                   pressedStyle={styles.selectorPrimaryButtonPressed}
                   disabledStyle={styles.selectorButtonDisabled}
                 >
-                  Use this asset
+                  {selectionButtonCopy(candidate)}
                 </SelectorActionButton>
               </div>
 
@@ -245,9 +285,27 @@ export default function SearchSelectorPanel({
                   <span key={label} style={styles.selectorChip}>{label}</span>
                 ))}
               </div>
-              {candidate.identitySummary?.warning ? (
-                <div style={styles.selectorBoundaryText}>{candidate.identitySummary.warning}</div>
+              {warnings.length ? (
+                <div style={styles.selectorBoundaryText}>{warnings.slice(0, 2).join(" ")}</div>
               ) : null}
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ ...styles.auditSummary, padding: "8px 0", color: "#dbeafe" }}>
+                  Identity reconciliation details
+                </summary>
+                <div style={styles.selectorCanonicalMeta}>
+                  {reconciliation.whyThisCandidate?.length
+                    ? `Why this candidate: ${reconciliation.whyThisCandidate.slice(0, 3).join(" ")}`
+                    : "Why this candidate: provider search metadata matched this result."}
+                </div>
+                {reconciliation.whyNotThisCandidate?.length ? (
+                  <div style={styles.selectorBoundaryText}>
+                    Why not: {reconciliation.whyNotThisCandidate.slice(0, 3).join(" ")}
+                  </div>
+                ) : null}
+                <div style={styles.selectorCanonicalMeta}>
+                  Boundary: provider identity metadata is not reviewed evidence.
+                </div>
+              </details>
             </div>
           );
         })}
