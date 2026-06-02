@@ -3480,6 +3480,83 @@ function buildIdentityLensLeakageForbiddenStringChecks({
   });
 }
 
+function buildBtcBenchmarkForbiddenStringChecks({
+  primaryText,
+  bundleText,
+  asset,
+  lens,
+  assetIdentityResolution,
+  reviewedEvidencePacket,
+}) {
+  const assetText = `${asset?.symbol || ""} ${asset?.name || ""} ${asset?.id || ""} ${asset?.coingeckoId || ""} ${reviewedEvidencePacket?.packetId || ""}`;
+  const identityText = `${assetIdentityResolution?.canonicalAssetName || ""} ${assetIdentityResolution?.canonicalAssetSymbol || ""} ${assetIdentityResolution?.canonicalProviderIds?.coingeckoId || ""} ${assetIdentityResolution?.nativeNetworkCandidate || ""} ${assetIdentityResolution?.canonicalNetworkCandidate || ""} ${assetIdentityResolution?.representationType || ""} ${assetIdentityResolution?.bridgedOrWrappedStatus || ""}`;
+  const lensText = `${lens?.lensId || ""} ${lens?.questionGroupId || ""}`;
+  const contextText = `${assetText} ${identityText} ${lensText}`.toLowerCase();
+  const isNativeBtcContext = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(contextText)
+    && !/\b(wrapped|bridged|wbtc|liquid staking|steth)\b/i.test(contextText);
+  if (!isNativeBtcContext) return [];
+
+  const textToCheck = String(primaryText || bundleText || "");
+  const definitions = [
+    {
+      checkId: "btc_eth_mechanism_copy_leak",
+      pattern: /Reviewed Ethereum sources|ETH staking|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards|slashing mechanics/i,
+      forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
+    },
+    {
+      checkId: "btc_gas_copy_leak",
+      pattern: /\bgas demand\b|\bgas\/settlement demand\b|\bgas asset\b/i,
+      forbidden: "Native BTC primary copy shows gas-asset wording instead of transaction/blockspace/fee-market wording.",
+    },
+    {
+      checkId: "btc_erc20_admin_copy_leak",
+      pattern: /ERC-20 admin|proxy\/admin|selected contract.*non-mintable|contract scan.*required|mint\/admin.*selected contract/i,
+      forbidden: "Native BTC primary copy shows ERC-20 contract/admin/proxy wording.",
+    },
+    {
+      checkId: "btc_stablecoin_trust_copy_leak",
+      pattern: /reserve composition|reserve attestation|redemption eligibility|issuer\/custodian|admin\/freeze policy|peg stress/i,
+      forbidden: "Native BTC primary copy shows stablecoin reserve/redemption/issuer-control wording.",
+    },
+    {
+      checkId: "btc_unlock_vesting_copy_leak",
+      pattern: /token unlock recipients|vesting schedule|insider vesting|next unlock materiality|unlock\/volume/i,
+      forbidden: "Native BTC primary copy shows ERC-20 unlock/vesting wording as a primary surface.",
+    },
+    {
+      checkId: "btc_protocol_accrual_copy_leak",
+      pattern: /fee switch|protocol-token value capture|buyback|treasury routing|tokenholder accrual model/i,
+      forbidden: "Native BTC primary copy shows protocol-token accrual/buyback wording as a primary surface.",
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const matches = textToCheck.match(definition.pattern) || [];
+    return {
+      ...definition,
+      passed: matches.length === 0,
+      matches: Array.from(new Set(matches)).slice(0, 5),
+      allowedWhen: "Only allowed when the selected asset is ETH/PoS, ERC-20, stablecoin, wrapped/LST, or protocol-token context rather than native BTC.",
+      checkedFields: [
+        "Decision primary model text",
+        "Institutional question synthesized answers",
+        "Tokenomics question answers",
+        "Source requirements",
+        "Reviewed evidence packet warnings",
+        "Copy Review Bundle primary mirror",
+      ],
+      checkedBundleSections: [
+        "2A. Reviewed Evidence Packet v1",
+        "5. Thesis Falsification",
+        "6. Institutional Checklist",
+        "6A. Tokenomics / Supply Integrity Tab Mirror",
+        "9. Source Queue",
+        "10. Manual Review",
+      ],
+    };
+  });
+}
+
 function bundleControlStatusLabel(value, kind, lensId) {
   if (lensId === "STABLECOIN_SETTLEMENT" && kind === "mint") {
     if (value === "requires_manual_review") return "present / issuer-controlled / requires policy review";
@@ -4782,6 +4859,37 @@ export function buildReviewBundleText({
     ...bundleHeader,
     ...sections,
   ].join("\n");
+  const btcPrimaryQaText = [
+    visiblePrimaryText,
+    ...safeArray(questions).flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.synthesizedAnswer?.directAnswer,
+      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
+      ...normalizeRenderableList(question?.missingEvidence),
+      ...normalizeRenderableList(question?.whatWouldChange),
+      ...normalizeRenderableList(question?.evidenceMappingWarnings),
+    ]),
+    ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.impactOnScoreOrConfidence,
+      ...normalizeRenderableList(question?.missingEvidence),
+      ...normalizeRenderableList(question?.whatWouldChange),
+    ]),
+    ...safeArray(tokenomicsSupplyIntegrity?.sourceRequirements),
+    ...safeArray(tokenomicsSupplyIntegrity?.manualReviewTriggers),
+    ...safeArray(tokenomicsSupplyIntegrity?.confidenceCaps),
+    ...safeArray(reviewedEvidencePacket?.questionMappings).flatMap((mapping) => [
+      mapping?.questionId,
+      ...normalizeRenderableList(mapping?.evidenceMappingWarnings),
+      ...normalizeRenderableList(mapping?.remainingMissingEvidence),
+    ]),
+    ...safeArray(reviewedEvidencePacket?.sourceQueueNotes),
+    ...safeArray(reviewedEvidencePacket?.remainingSourceRequirements),
+  ].filter(Boolean).join(" ");
   const leakageForbiddenStringChecks = buildIdentityLensLeakageForbiddenStringChecks({
     bundleText: coreBundleText,
     asset: safeAsset,
@@ -4790,6 +4898,15 @@ export function buildReviewBundleText({
     reviewedEvidencePacket,
   });
   const leakageFailures = leakageForbiddenStringChecks.filter((check) => !check.passed);
+  const btcBenchmarkForbiddenStringChecks = buildBtcBenchmarkForbiddenStringChecks({
+    primaryText: btcPrimaryQaText,
+    bundleText: coreBundleText,
+    asset: safeAsset,
+    lens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  });
+  const btcBenchmarkFailures = btcBenchmarkForbiddenStringChecks.filter((check) => !check.passed);
   const leakageQaSection = bundleSection("12B. Identity / Lens Leakage Recovery Patch #2 Text QA", [
     bundleField("Text-level forbidden-string checks run", leakageForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
     bundleField("Text-level forbidden-string failures", leakageFailures.length),
@@ -4806,10 +4923,27 @@ export function buildReviewBundleText({
       "Checks are asset/lens scoped so valid RWA, wrapped, gaming, DePIN, and LST copy is not globally forbidden.",
     ]),
   ]);
+  const btcBenchmarkQaSection = bundleSection("12C. BTC Benchmark Answer / Native Base-Layer Text QA", [
+    bundleField("BTC-native forbidden-string checks run", btcBenchmarkForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
+    bundleField("BTC-native forbidden-string failures", btcBenchmarkFailures.length),
+    bundleField("Checked fields", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    bundleField("Checked bundle sections", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedBundleSections).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    "Forbidden-string checks:",
+    bundleList(btcBenchmarkForbiddenStringChecks.map((check) =>
+      `${check.checkId}: ${check.passed ? "PASS" : "FAIL"} | ${check.forbidden} | matches=${check.matches.join("; ") || "none"} | allowedWhen=${check.allowedWhen}`
+    )),
+    "Native BTC expected surface:",
+    bundleList([
+      "Primary copy should use native proof-of-work, hard-cap/halving, blockspace/transaction-fee demand, miner economics, hashrate/security-budget, mining-pool concentration, liquidity/depth, custody/access, and liveness wording.",
+      "Wrapped WBTC or bridged BTC variants remain separate identity contexts and must not inherit native BTC treatment automatically.",
+      "Reviewed demo BTC evidence improves answer quality only; it is not scoring-active in v1.",
+    ]),
+  ]);
   return [
     ...bundleHeader,
     ...sections,
     leakageQaSection,
+    btcBenchmarkQaSection,
   ].join("\n");
 }
 
