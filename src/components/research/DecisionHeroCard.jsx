@@ -172,11 +172,12 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
         <LayerLegendItem
           title={freshness.freshnessLabel || "Freshness unknown"}
           detail={[
+            freshness.qaEligibilityWarning || "Verify freshness before relying on this analysis.",
             freshness.generatedAt ? `Generated: ${formatDateTime(freshness.generatedAt)}` : "Generated: unavailable",
             freshness.snapshotShortId ? `Snapshot: ${freshness.snapshotShortId}` : "Snapshot: unavailable",
             `Recomputed: ${freshness.recomputed === null || freshness.recomputed === undefined ? "unknown" : freshness.recomputed ? "yes" : "no"}`,
           ].join("; ")}
-          badge={freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness"}
+          badge={freshness.qaEligibilityLabel || (freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness")}
           tone={freshness.isFreshLive ? "#2fd67b" : freshness.isPartialRefresh || freshness.isSnapshot ? "#ffb020" : "#8a94a6"}
           styles={styles}
         />

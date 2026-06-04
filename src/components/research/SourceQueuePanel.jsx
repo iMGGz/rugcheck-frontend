@@ -111,10 +111,10 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       source: "decisionModel.analysisFreshness.missingSections",
       color: "#ffb020",
     })),
-    ...(freshness.isSnapshot || freshness.isPartialRefresh || freshness.freshnessStatus === "unknown" ? [{
+    ...(!freshness.freshQaEligible || freshness.isPartialRefresh ? [{
       label: "Verify analysis freshness",
-      description: freshness.summary || "Analysis source is unclear; verify current provider state before relying on the output.",
-      status: "Freshness review",
+      description: freshness.qaEligibilityWarning || freshness.summary || "Analysis source is unclear; verify current provider state before relying on the output.",
+      status: freshness.isSnapshot ? "Historical snapshot" : freshness.isPartialRefresh ? "Partial refresh caveat" : freshness.isCachedRecentMemo ? "Cached/recent memo" : "Freshness review",
       source: "decisionModel.analysisFreshness",
       color: "#ffb020",
     }] : []),
@@ -275,6 +275,7 @@ export default function SourceQueuePanel({
           { label: `${reviewLeads.length} review leads`, tone: reviewLeads.length ? "#f9d976" : "#d5dcec" },
           { label: `${researchRequirements.length} research requirements`, tone: researchRequirements.length ? "#7dd3fc" : "#d5dcec" },
           { label: "Candidate, not evidence", tone: "#d5dcec" },
+          { label: model?.analysisFreshness?.freshQaEligible ? "Current QA eligible" : "Run fresh analysis for QA", tone: model?.analysisFreshness?.freshQaEligible ? "#a6f3c2" : "#f9d976" },
         ]}
         styles={styles}
       >
@@ -282,6 +283,7 @@ export default function SourceQueuePanel({
           {boundaryChip(styles, "Source candidates are not evidence.")}
           {boundaryChip(styles, "Candidates require review before they can become report evidence.")}
           {boundaryChip(styles, "Candidate-only items cannot affect scoring.")}
+          {boundaryChip(styles, model?.analysisFreshness?.qaEligibilityWarning || "Freshness metadata should be checked before QA.")}
         </div>
         <SectionRow
           label="Current attachment"

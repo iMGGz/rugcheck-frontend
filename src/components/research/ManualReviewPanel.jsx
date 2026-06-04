@@ -106,7 +106,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
   const freshnessSignals = safeArray(freshness.freshnessWarnings).map((entry) => ({
     label: "Analysis freshness",
     description: entry,
-    status: freshness.isFreshLive ? "Freshness context" : "Manual review required",
+    status: freshness.freshQaEligible ? (freshness.isPartialRefresh ? "Partial refresh caveat" : "Freshness context") : "Fresh analysis required for QA",
     source: "decisionModel.analysisFreshness",
     color: freshness.isFreshLive ? "#7dd3fc" : "#ffb020",
   }));

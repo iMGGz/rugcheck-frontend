@@ -395,6 +395,7 @@ export default function EvidenceMapTab({
         badges={[
           { label: evidenceStatusProxy?.label || "Live evidence proxy", tone: "#7dd3fc" },
           { label: freshness.freshnessLabel || "Freshness unknown", tone: freshness.isFreshLive ? "#a6f3c2" : "#f9d976" },
+          { label: freshness.qaEligibilityLabel || "QA freshness unknown", tone: freshness.freshQaEligible ? "#a6f3c2" : "#f9d976" },
           { label: "Source boundaries preserved", tone: "#d5dcec" },
         ]}
         styles={styles}
@@ -404,6 +405,7 @@ export default function EvidenceMapTab({
           {boundaryChip(styles, "Report-only overlays are not connected to live scoring.")}
           {boundaryChip(styles, "Source candidates require review before becoming evidence.")}
           {boundaryChip(styles, `${freshness.freshnessLabel || "Freshness unknown"}: stale or missing sections require review, not negative inference.`)}
+          {boundaryChip(styles, freshness.qaEligibilityWarning || "Run fresh analysis before current QA if freshness is ambiguous.")}
         </div>
         <SectionRow
           label="Read this as"
@@ -412,7 +414,7 @@ export default function EvidenceMapTab({
         />
         <SectionRow
           label="Freshness boundary"
-          value={freshness.summary || "Freshness unknown. Missing provider sections are not proof of negative evidence; verify before relying on section-level conclusions."}
+          value={freshness.qaEligibilityWarning || freshness.summary || "Freshness unknown. Missing provider sections are not proof of negative evidence; verify before relying on section-level conclusions."}
           styles={styles}
         />
       </ExecutiveSummaryCard>

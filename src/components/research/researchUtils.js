@@ -479,15 +479,18 @@ function buildFreshnessWarnings({ status, freshSections, staleSections, missingS
   const warnings = [];
   if (status === "stored_snapshot") {
     warnings.push("Stored snapshot loaded; provider data may not reflect the latest state.");
+    warnings.push("Historical snapshot output is compare/audit context and is not eligible for current live QA.");
   }
   if (status === "partial_refresh") {
     warnings.push("Partial refresh loaded; review stale or missing sections before relying on affected tabs.");
   }
   if (status === "cached_recent") {
     warnings.push("Cached/recent memo loaded; verify current provider state when freshness matters.");
+    warnings.push("Cached/recent memo output should not be used as current live QA without a fresh run.");
   }
   if (status === "unknown") {
     warnings.push("Analysis freshness is unknown; verify before relying on this analysis.");
+    warnings.push("Run a fresh analysis before using this output for current QA.");
   }
   if (staleSections.length) {
     warnings.push(`Stale sections require review: ${staleSections.slice(0, 5).join(", ")}.`);
@@ -574,13 +577,47 @@ export function normalizeAnalysisFreshnessPayload(responseLike, fallbackSnapshot
   let freshnessStatus = "unknown";
   if (modeText.includes("partial") || sourceText.includes("partial")) {
     freshnessStatus = "partial_refresh";
-  } else if (sourceText.includes("snapshot") || modeText.includes("reuse_snapshot") || (snapshotId && recomputed === false)) {
+  } else if (sourceText.includes("snapshot") || sourceText.includes("history") || sourceText.includes("postgres_history") || modeText.includes("reuse_snapshot") || (snapshotId && recomputed === false)) {
     freshnessStatus = "stored_snapshot";
   } else if (sourceText.includes("cache") || sourceText.includes("memo") || sourceText.includes("recent")) {
     freshnessStatus = "cached_recent";
   } else if (sourceText.includes("live") || recomputed === true || delivery.isFresh === true) {
     freshnessStatus = "fresh_live";
   }
+
+  const freshQaEligible = freshnessStatus === "fresh_live" || freshnessStatus === "partial_refresh";
+  const bundleMode = freshnessStatus === "fresh_live"
+    ? "live_current_qa"
+    : freshnessStatus === "partial_refresh"
+      ? "partial_refresh_current_qa"
+      : freshnessStatus === "stored_snapshot"
+        ? "historical_snapshot_compare_only"
+        : freshnessStatus === "cached_recent"
+          ? "cached_recent_memo_review_only"
+          : "unknown_requires_fresh_analysis";
+  const currentProductTruthObject = freshnessStatus === "fresh_live"
+    ? "current_live_analysis"
+    : freshnessStatus === "partial_refresh"
+      ? "current_partial_refresh_analysis"
+      : freshnessStatus === "stored_snapshot"
+        ? "historical_snapshot_compare_only"
+        : freshnessStatus === "cached_recent"
+          ? "cached_recent_memo_not_current_qa"
+          : "unknown_requires_fresh_analysis";
+  const qaEligibilityLabel = freshQaEligible
+    ? freshnessStatus === "partial_refresh"
+      ? "Fresh QA eligible with partial-refresh caveat"
+      : "Fresh QA eligible"
+    : "Not eligible for current QA";
+  const qaEligibilityWarning = freshQaEligible
+    ? freshnessStatus === "partial_refresh"
+      ? "Partial refresh is current product truth, but stale or missing sections must be reviewed before strong conclusions."
+      : "This bundle is generated from the current live analysis object."
+    : freshnessStatus === "stored_snapshot"
+      ? "Historical snapshot output is compare/audit context only. Run a fresh analysis before current QA."
+      : freshnessStatus === "cached_recent"
+        ? "Cached/recent memo output is not a fresh recomputation. Run a fresh analysis before current QA."
+        : "Freshness metadata is insufficient. Run a fresh analysis before current QA.";
 
   const freshnessLabel = {
     fresh_live: "Live analysis",
@@ -623,6 +660,13 @@ export function normalizeAnalysisFreshnessPayload(responseLike, fallbackSnapshot
     isSnapshot: freshnessStatus === "stored_snapshot",
     isPartialRefresh: freshnessStatus === "partial_refresh",
     isFreshLive: freshnessStatus === "fresh_live",
+    isHistoricalSnapshotCompareOnly: freshnessStatus === "stored_snapshot",
+    isCachedRecentMemo: freshnessStatus === "cached_recent",
+    freshQaEligible,
+    bundleMode,
+    currentProductTruthObject,
+    qaEligibilityLabel,
+    qaEligibilityWarning,
     freshnessWarnings: buildFreshnessWarnings({
       status: freshnessStatus,
       freshSections: [...new Set(freshSections)],
@@ -3671,6 +3715,30 @@ export function buildReviewBundleText({
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
+  const bundleGeneratedAt = new Date().toISOString();
+  const normalizedFreshnessFromPayload = normalizeAnalysisFreshnessPayload(safeData, snapshot || safeData.snapshot);
+  const bundleUsesSameCurrentAnalysisObject = Boolean(
+    safeModel.analysisFreshness
+    && analysisFreshness.freshnessStatus === normalizedFreshnessFromPayload.freshnessStatus
+    && String(analysisFreshness.snapshotId || "") === String(normalizedFreshnessFromPayload.snapshotId || "")
+    && String(analysisFreshness.generatedAt || "") === String(normalizedFreshnessFromPayload.generatedAt || ""),
+  );
+  const freshnessTabsWithVisibility = [
+    "Decision Header",
+    "Right Rail",
+    "Evidence Map",
+    "Source Queue",
+    "Manual Review",
+    "Audit / Raw",
+    "Copy Review Bundle",
+  ];
+  const freshnessQaWarnings = [
+    !analysisFreshness.freshQaEligible ? analysisFreshness.qaEligibilityWarning : null,
+    !bundleUsesSameCurrentAnalysisObject ? "Bundle freshness metadata could not be proven identical to the normalized product-tab object." : null,
+    analysisFreshness.isSnapshot ? "Snapshot-derived output must remain historical/compare-only and cannot be used as post-patch fresh QA evidence." : null,
+    analysisFreshness.isCachedRecentMemo ? "Cached/recent memo output requires a fresh analysis before current QA." : null,
+    analysisFreshness.freshnessStatus === "unknown" ? "Freshness state is ambiguous; run fresh analysis before current QA." : null,
+  ].filter(Boolean);
   const questionMismatchWarnings = safeArray(calibrationWarnings).filter((warning) => warning?.id === "question_lens_mismatch");
   const providerInternalFlags = safeArray(lens?.ambiguityFlags).filter((flag) => /provider|internal|disagree|conflict|mismatch/i.test(flag));
   const lensAwarePrimaryDisplayActive = resolvedLensIsDisplayAuthoritative(lens) && Boolean(lensAware);
@@ -4168,6 +4236,43 @@ export function buildReviewBundleText({
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
 
   const sections = [
+    bundleSection("0. Analysis Freshness / Live-First QA Eligibility", [
+      bundleField("Bundle schema", "review-bundle-live-first-freshness-v1"),
+      bundleField("Bundle generated at", bundleGeneratedAt),
+      bundleField("Bundle mode", analysisFreshness.bundleMode),
+      bundleField("Fresh QA eligible", analysisFreshness.freshQaEligible ? "yes" : "no"),
+      bundleField("QA eligibility label", analysisFreshness.qaEligibilityLabel),
+      bundleField("Current product truth object", analysisFreshness.currentProductTruthObject),
+      bundleField("Freshness status", analysisFreshness.freshnessLabel),
+      bundleField("Delivery source", analysisFreshness.analysisSource),
+      bundleField("Recomputed", analysisFreshness.recomputed === null || analysisFreshness.recomputed === undefined ? "unknown" : analysisFreshness.recomputed ? "yes" : "no"),
+      bundleField("Analysis generated at", analysisFreshness.generatedAt),
+      bundleField("Bundle generated/read at", bundleGeneratedAt),
+      bundleField("Snapshot ID", analysisFreshness.snapshotId),
+      bundleField("Snapshot short ID", analysisFreshness.snapshotShortId),
+      bundleField("Snapshot timestamp", analysisFreshness.generatedAt),
+      bundleField("Snapshot age ms", analysisFreshness.snapshotAgeMs),
+      bundleField("Freshness window ms", analysisFreshness.freshnessWindowMs),
+      bundleField("Previous snapshot ID", analysisFreshness.previousSnapshotId),
+      bundleField("Previous snapshot at", analysisFreshness.previousSnapshotAt),
+      bundleField("Refresh mode", analysisFreshness.refreshMode),
+      bundleField("Full regeneration needed", analysisFreshness.fullRegenerationNeeded === null || analysisFreshness.fullRegenerationNeeded === undefined ? "unknown" : analysisFreshness.fullRegenerationNeeded ? "yes" : "no"),
+      bundleField("Partial refresh sufficient", analysisFreshness.partialRefreshSufficient === null || analysisFreshness.partialRefreshSufficient === undefined ? "unknown" : analysisFreshness.partialRefreshSufficient ? "yes" : "no"),
+      bundleField("Bundle uses same normalized product object", yesNoUnknown(bundleUsesSameCurrentAnalysisObject)),
+      bundleField("Live tabs are product truth; bundle is mirror", "yes"),
+      bundleField("Snapshot output compare-only", analysisFreshness.isSnapshot ? "yes - historical snapshot / compare mode" : "no"),
+      bundleField("Post-patch fresh QA evidence allowed", analysisFreshness.freshQaEligible ? "yes" : "no"),
+      "Fresh sections:",
+      bundleList(analysisFreshness.freshSections),
+      "Stale sections:",
+      bundleList(analysisFreshness.staleSections),
+      "Missing sections:",
+      bundleList(analysisFreshness.missingSections),
+      "Freshness warnings / QA prompts:",
+      bundleList(freshnessQaWarnings.length ? freshnessQaWarnings : analysisFreshness.freshnessWarnings),
+      "Live-tab visibility path:",
+      bundleList(freshnessTabsWithVisibility.map((entry) => `${entry}: ${analysisFreshness.freshnessLabel ? "freshness/QA eligibility model available" : "freshness unavailable"}`)),
+    ]),
     bundleSection("1. QA Bundle Header", [
       bundleField("Asset symbol", safeAsset.symbol),
       bundleField("Asset name", safeAsset.name || safeModel.assetName),
@@ -4190,6 +4295,10 @@ export function buildReviewBundleText({
       bundleField("Search network match status", searchIdentityReconciliation?.networkMatchStatus),
       bundleField("Search query intent match", searchIdentityReconciliation?.searchQueryIntentMatch),
       bundleField("Provider IDs", providerIds.join("; ")),
+      bundleField("Review Bundle role", "QA/export mirror only; live tabs are the product surface."),
+      bundleField("Current QA eligibility", `${analysisFreshness.qaEligibilityLabel || "Unknown"} - ${analysisFreshness.qaEligibilityWarning || "No warning attached."}`),
+      bundleField("Analysis freshness", `${analysisFreshness.freshnessLabel} | bundleMode=${analysisFreshness.bundleMode} | freshQaEligible=${analysisFreshness.freshQaEligible ? "yes" : "no"}`),
+      bundleField("Product truth object", analysisFreshness.currentProductTruthObject),
       bundleField("Identity confidence", lens?.confidence),
       bundleField("Canonical identity confidence", assetIdentityResolution?.identityConfidence),
       "Identity warnings:",
@@ -4922,6 +5031,11 @@ export function buildReviewBundleText({
       ) : "unknown"),
       bundleField("Calibration warnings visible if present", safeArray(calibrationWarnings).length ? "yes" : "unknown"),
       bundleField("Analysis freshness visible in live tabs", analysisFreshness.freshnessStatus !== "unknown" || analysisFreshness.freshnessWarnings.length ? "yes" : "unknown"),
+      bundleField("Live-first QA eligibility visible", analysisFreshness.qaEligibilityLabel ? "yes" : "unknown"),
+      bundleField("Snapshot-derived bundle blocked from current QA", analysisFreshness.isSnapshot ? yesNoUnknown(!analysisFreshness.freshQaEligible) : "not applicable"),
+      bundleField("Cached/recent bundle blocked from current QA", analysisFreshness.isCachedRecentMemo ? yesNoUnknown(!analysisFreshness.freshQaEligible) : "not applicable"),
+      bundleField("Partial refresh sections listed", analysisFreshness.isPartialRefresh ? yesNoUnknown(Boolean(safeArray(analysisFreshness.freshSections).length || safeArray(analysisFreshness.staleSections).length || safeArray(analysisFreshness.missingSections).length)) : "not applicable"),
+      bundleField("Bundle generated from same normalized product object", yesNoUnknown(bundleUsesSameCurrentAnalysisObject)),
       bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),
       bundleField("Any obvious institutional-quality wording issues", rawGenericVisible ? "yes" : "unknown"),
     ]),
@@ -4941,8 +5055,9 @@ export function buildReviewBundleText({
 
   const bundleHeader = [
     "ThesisCore Cross-Tab QA Review Bundle",
-    `Generated: ${new Date().toISOString()}`,
-    "Purpose: paste this bundle into review to detect lens routing, wording, evidence-boundary, scoring/explanation, and frontend visibility issues.",
+    `Generated: ${bundleGeneratedAt}`,
+    `Mode: ${analysisFreshness.bundleMode || "unknown"} | Fresh QA eligible: ${analysisFreshness.freshQaEligible ? "yes" : "no"}`,
+    "Purpose: paste this bundle into review to detect lens routing, wording, evidence-boundary, scoring/explanation, frontend visibility, and live-first freshness issues.",
   ];
   const coreBundleText = [
     ...bundleHeader,

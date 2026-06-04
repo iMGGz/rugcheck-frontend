@@ -1258,7 +1258,13 @@ export default function App() {
         security,
       });
       await writeClipboardText(bundle);
-      setCopyMessage("Review bundle copied");
+      if (decisionModel.analysisFreshness?.freshQaEligible) {
+        setCopyMessage(decisionModel.analysisFreshness?.isPartialRefresh
+          ? "Partial-refresh QA bundle copied; verify stale/missing sections."
+          : "Live QA review bundle copied");
+      } else {
+        setCopyMessage("Historical/review-only bundle copied; run fresh analysis for current QA.");
+      }
     } catch {
       setCopyMessage("Could not copy review bundle");
     }
@@ -1749,9 +1755,13 @@ export default function App() {
                   </div>
                   <div style={styles.reviewBundleActionGroup}>
                     <button type="button" onClick={copyReviewBundle} style={styles.reviewBundleButton}>
-                      Copy Review Bundle
+                      {decisionModel.analysisFreshness?.freshQaEligible ? "Copy Live QA Bundle" : "Copy Historical Bundle"}
                     </button>
-                    <div style={styles.reviewBundleHint}>Copies cross-tab QA fields for review.</div>
+                    <div style={styles.reviewBundleHint}>
+                      {decisionModel.analysisFreshness?.freshQaEligible
+                        ? "Copies current product-tab QA fields."
+                        : "Snapshot/cache export is compare-only; run fresh analysis for current QA."}
+                    </div>
                     {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
                   </div>
                 </div>

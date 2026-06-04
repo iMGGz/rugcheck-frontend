@@ -120,10 +120,14 @@ function FreshnessRailSection({ model, styles }) {
   if (!freshness.freshnessLabel) return null;
 
   return (
-    <RailSection title="Analysis Freshness" badge={freshness.freshnessLabel} styles={styles}>
+    <RailSection title="Analysis Freshness" badge={freshness.qaEligibilityLabel || freshness.freshnessLabel} styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Source</div>
         <div style={styles.railMiniValue}>{freshness.analysisSource || "Source unknown"}</div>
+      </div>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Product truth object</div>
+        <div style={styles.railMiniValue}>{freshness.currentProductTruthObject || "unknown"}</div>
       </div>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Generated / read</div>
@@ -135,9 +139,10 @@ function FreshnessRailSection({ model, styles }) {
         <div style={styles.railBoundaryPill}>Snapshot: {freshness.snapshotShortId || "unavailable"}</div>
         <div style={styles.railBoundaryPill}>Recomputed: {freshness.recomputed === null || freshness.recomputed === undefined ? "unknown" : freshness.recomputed ? "yes" : "no"}</div>
         <div style={styles.railBoundaryPill}>{freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness"}</div>
+        <div style={styles.railBoundaryPill}>QA: {freshness.freshQaEligible ? "eligible" : "not eligible"}</div>
       </div>
       <div style={styles.railBoundaryText}>
-        {freshness.summary || "Freshness unknown. Verify current provider state before relying on time-sensitive sections."}
+        {freshness.qaEligibilityWarning || freshness.summary || "Freshness unknown. Verify current provider state before relying on time-sensitive sections."}
       </div>
     </RailSection>
   );
