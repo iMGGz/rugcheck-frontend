@@ -3538,7 +3538,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
   const definitions = [
     {
       checkId: "btc_eth_mechanism_copy_leak",
-      pattern: /Reviewed Ethereum sources|ETH staking|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards|slashing mechanics/i,
+      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards?|slashing mechanics/i,
       forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
     },
     {
@@ -3548,7 +3548,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
     },
     {
       checkId: "btc_erc20_admin_copy_leak",
-      pattern: /ERC-20 admin|proxy\/admin|selected contract.*non-mintable|contract scan.*required|mint\/admin.*selected contract/i,
+      pattern: /ERC-20 admin|proxy\/admin|selected contract.*non-mintable|selected contract reported non-mintable|contract scan.*required|mint\/admin.*selected contract/i,
       forbidden: "Native BTC primary copy shows ERC-20 contract/admin/proxy wording.",
     },
     {
@@ -3563,8 +3563,13 @@ function buildBtcBenchmarkForbiddenStringChecks({
     },
     {
       checkId: "btc_protocol_accrual_copy_leak",
-      pattern: /fee switch|protocol-token value capture|buyback|treasury routing|tokenholder accrual model/i,
+      pattern: /fee switch|protocol-token value capture|burn\/buyback|buyback|fee burn|burn materiality|treasury routing|tokenholder accrual model/i,
       forbidden: "Native BTC primary copy shows protocol-token accrual/buyback wording as a primary surface.",
+    },
+    {
+      checkId: "btc_decision_thesis_repetition_guard",
+      pattern: /Resolve the critical pillar|Critical tokenomics evidence is missing|utility or vesting support|Close the weakest-link gaps/i,
+      forbidden: "Native BTC primary copy shows generic decision/tokenomics fallback wording instead of native monetary blocker copy.",
     },
   ];
 
