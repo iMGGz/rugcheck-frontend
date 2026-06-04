@@ -1441,11 +1441,55 @@ export default function App() {
               <SectionRow label="Analysis freshness" value={decisionModel.analysisFreshness?.freshnessLabel || "Unavailable"} styles={styles} />
               <SectionRow label="Asset identity resolution" value={decisionModel.assetIdentityResolution ? "Present" : "Unavailable"} styles={styles} />
               <SectionRow label="Tokenomics supply integrity" value={decisionModel.tokenomicsSupplyIntegrity ? "Present" : "Unavailable"} styles={styles} />
+              <SectionRow label="Engine Learning Backbone" value={decisionModel.engineLearningBackbone ? "Present" : "Unavailable"} styles={styles} />
               <ListBlock
                 title="Resolved lens source boundary"
                 items={decisionModel.resolvedInstitutionalLens?.sourceBoundary}
                 emptyText="No resolved lens source-boundary entries were attached."
                 color="#9bd7ff"
+                styles={styles}
+              />
+            </Card>
+            <Card title="Engine Learning Backbone" subtitle="Non-scoring institutional memory: rules, QA checks, source candidates, anomalies, and path-parity diagnostics." styles={styles}>
+              <SectionRow label="Version" value={decisionModel.engineLearningBackbone?.artifactVersion || "Unavailable"} styles={styles} />
+              <SectionRow label="Rules applied" value={safeArray(decisionModel.engineLearningBackbone?.assetClassRulesApplied).length} styles={styles} />
+              <SectionRow label="Findings tracked" value={safeArray(decisionModel.engineLearningBackbone?.findings).length} styles={styles} />
+              <SectionRow label="Output QA checks" value={safeArray(decisionModel.engineLearningBackbone?.outputQaChecks).length} styles={styles} />
+              <SectionRow label="Scoring boundary" value={decisionModel.engineLearningBackbone?.guardrails?.scoringChanged ? "Unexpected scoring change flag" : "Diagnostic only; scoring unchanged"} styles={styles} />
+              <SectionRow label="Provider boundary" value={decisionModel.engineLearningBackbone?.guardrails?.providerBehaviorChanged ? "Unexpected provider behavior flag" : "No provider behavior change"} styles={styles} />
+              <ListBlock
+                title="Applied rules"
+                items={safeArray(decisionModel.engineLearningBackbone?.assetClassRulesApplied).slice(0, 6).map((rule) => `${rule.title || rule.id}: ${rule.outputWarningTemplate || rule.summary || "Rule summary unavailable"}`)}
+                emptyText="No engine-learning rules were attached."
+                color="#9bd7ff"
+                styles={styles}
+              />
+              <ListBlock
+                title="Output QA checks"
+                items={safeArray(decisionModel.engineLearningBackbone?.outputQaChecks).slice(0, 6).map((check) => `${check.status || "status"} - ${check.description || check.id || "QA check"}`)}
+                emptyText="No output QA checks were attached."
+                color="#f9d976"
+                styles={styles}
+              />
+              <ListBlock
+                title="Source candidates (not reviewed evidence)"
+                items={safeArray(decisionModel.engineLearningBackbone?.sourceCandidates).slice(0, 6).map((candidate) => `${candidate.sourceCandidateTitle || candidate.candidateId || "Source candidate"} - ${candidate.candidateStatus || "candidate"}; scoring active: ${candidate.scoringActive ? "yes" : "no"}`)}
+                emptyText="No source candidates were attached for this asset/lens."
+                color="#9bd7ff"
+                styles={styles}
+              />
+              <ListBlock
+                title="Calibration anomalies"
+                items={safeArray(decisionModel.engineLearningBackbone?.calibrationAnomalies).slice(0, 6).map((anomaly) => `${anomaly.asset || "Asset"} - ${anomaly.description || anomaly.anomalyId || "Calibration anomaly"}`)}
+                emptyText="No calibration anomalies were attached."
+                color="#f9d976"
+                styles={styles}
+              />
+              <ListBlock
+                title="Deferred findings"
+                items={safeArray(decisionModel.engineLearningBackbone?.deferredFindings).map((finding) => `${finding.title || finding.id}: ${finding.recommendedAction || "Deferred cleanup"}`)}
+                emptyText="No deferred engine-learning findings were attached."
+                color="#8a94a6"
                 styles={styles}
               />
             </Card>

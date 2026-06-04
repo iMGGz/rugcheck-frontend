@@ -163,8 +163,26 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       color: "#f9d976",
     })),
   ];
+  const engineLearning = model?.engineLearningBackbone || {};
+  const engineLearningLeads = [
+    ...safeArray(engineLearning.sourceRequirementsTriggered).slice(0, 3).map((entry) => ({
+      label: "Engine-learning source requirement",
+      description: entry.title || entry.requirement || entry.id || "Source requirement",
+      status: entry.diagnosticOnly ? "Diagnostic only" : "Source required",
+      source: "decisionModel.engineLearningBackbone.sourceRequirementsTriggered",
+      color: "#f9d976",
+    })),
+    ...safeArray(engineLearning.sourceCandidates).slice(0, 3).map((entry) => ({
+      label: "Source candidate, not reviewed evidence",
+      description: `${entry.sourceCandidateTitle || entry.candidateId || "Source candidate"}${entry.publisher ? ` (${entry.publisher})` : ""}`,
+      status: entry.scoringActive ? "QA warning: scoring-active" : "Candidate only",
+      source: "decisionModel.engineLearningBackbone.sourceCandidates",
+      color: "#9bd7ff",
+    })),
+  ];
 
   return dedupeByText([
+    ...engineLearningLeads,
     ...reviewedCoverageLeads,
     ...synthesizedLeads,
     ...tokenomicsLeads,

@@ -248,6 +248,42 @@ export function normalizeReviewedEvidencePacketPayload(responseLike) {
   };
 }
 
+export function normalizeEngineLearningBackbonePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootBackbone = safeObject(root.engineLearningBackbone);
+  const nestedBackbone = safeObject(nestedAnalysis.engineLearningBackbone);
+  const backbone = rootBackbone.artifactVersion || rootBackbone.taskName
+    ? rootBackbone
+    : nestedBackbone.artifactVersion || nestedBackbone.taskName
+      ? nestedBackbone
+      : null;
+
+  if (!backbone) return null;
+
+  return {
+    ...backbone,
+    findings: safeArray(backbone.findings),
+    assetClassRulesApplied: safeArray(backbone.assetClassRulesApplied),
+    evidenceMappingPoliciesApplied: safeArray(backbone.evidenceMappingPoliciesApplied),
+    sourceRequirementsTriggered: safeArray(backbone.sourceRequirementsTriggered),
+    sourceCandidates: safeArray(backbone.sourceCandidates),
+    outputQaChecks: safeArray(backbone.outputQaChecks),
+    calibrationAnomalies: safeArray(backbone.calibrationAnomalies),
+    dependencyRequirements: safeArray(backbone.dependencyRequirements),
+    freshnessPointInTimeReadiness: safeArray(backbone.freshnessPointInTimeReadiness),
+    pathParityChecks: safeArray(backbone.pathParityChecks),
+    representativeAssetsCovered: safeArray(backbone.representativeAssetsCovered),
+    deferredFindings: safeArray(backbone.deferredFindings),
+    knownLimitations: safeArray(backbone.knownLimitations),
+    guardrails: safeObject(backbone.guardrails),
+    backendFrontendBundleContract: safeObject(backbone.backendFrontendBundleContract),
+    assetClassRuleRegistrySummary: safeObject(backbone.assetClassRuleRegistrySummary),
+    evidenceMappingPolicySummary: safeObject(backbone.evidenceMappingPolicySummary),
+    sourceRequirementRegistrySummary: safeObject(backbone.sourceRequirementRegistrySummary),
+  };
+}
+
 export function normalizeCalibrationWarningsPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2844,6 +2880,7 @@ export function buildDecisionTerminalModel({
   const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -3057,6 +3094,7 @@ export function buildDecisionTerminalModel({
     assetIdentityResolution,
     tokenomicsSupplyIntegrity,
     reviewedEvidencePacket,
+    engineLearningBackbone,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -3623,6 +3661,7 @@ export function buildReviewBundleText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
@@ -4675,6 +4714,7 @@ export function buildReviewBundleText({
         `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
         `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
+        `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
       ]),
@@ -4688,7 +4728,45 @@ export function buildReviewBundleText({
         rawGenericAudit ? "Generic protocol/unlock/vesting wording exists in raw backend/audit fields." : "No obvious generic raw copy detected by frontend heuristic.",
       ]),
     ]),
-    bundleSection("12. Cross-Tab Consistency Checklist", [
+    bundleSection("12. Engine Learning Backbone v1", [
+      bundleField("Backbone attached", engineLearningBackbone ? "yes" : "missing"),
+      bundleField("Artifact version", engineLearningBackbone?.artifactVersion),
+      bundleField("Task name", engineLearningBackbone?.taskName),
+      bundleField("Summary", engineLearningBackbone?.summary),
+      bundleField("Guardrail: scoring changed", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.scoringChanged) : "unknown"),
+      bundleField("Guardrail: verdict changed", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.verdictChanged) : "unknown"),
+      bundleField("Guardrail: provider behavior changed", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.providerBehaviorChanged) : "unknown"),
+      bundleField("Guardrail: evidence packet expansion occurred", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.evidencePacketExpansionOccurred) : "unknown"),
+      bundleField("Guardrail: reviewed evidence scoring-active", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.reviewedEvidenceScoringActive) : "unknown"),
+      bundleField("Guardrail: source candidates promoted", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.sourceCandidatesPromotedToReviewedEvidence) : "unknown"),
+      bundleField("Guardrail: ADA packet coverage added", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.adaPacketCoverageAdded) : "unknown"),
+      "Findings:",
+      bundleList(safeArray(engineLearningBackbone?.findings).map((finding) => `${finding.id || "finding"} | ${finding.category || "category unavailable"} | ${finding.severity || "severity unavailable"} | ${finding.reviewStatus || "review status unavailable"} | ${finding.recommendedAction || finding.title || "Review required"}`)),
+      "Asset-class rules applied:",
+      bundleList(safeArray(engineLearningBackbone?.assetClassRulesApplied).map((rule) => `${rule.id || "rule"} | ${rule.title || "Rule title unavailable"} | ${rule.outputWarningTemplate || rule.summary || "Rule summary unavailable"}`)),
+      "Evidence mapping policies:",
+      bundleList(safeArray(engineLearningBackbone?.evidenceMappingPoliciesApplied).map((policy) => `${policy.id || "policy"} | ${policy.status || "status unavailable"} | ${policy.sourceBoundary || "boundary unavailable"} | ${policy.displayLabel || policy.summary || "Policy summary unavailable"}`)),
+      "Source requirements triggered:",
+      bundleList(safeArray(engineLearningBackbone?.sourceRequirementsTriggered).map((requirement) => `${requirement.id || "requirement"} | ${requirement.title || "Requirement title unavailable"} | affects scoring: ${requirement.affectsScoring ? "yes" : "no"} | diagnostic: ${requirement.diagnosticOnly ? "yes" : "no"}`)),
+      "Source candidates:",
+      bundleList(safeArray(engineLearningBackbone?.sourceCandidates).map((candidate) => `${candidate.sourceCandidateTitle || candidate.candidateId || "candidate"} | status=${candidate.candidateStatus || "unknown"} | promoted=${candidate.promotedToReviewedEvidence ? "yes" : "no"} | scoring=${candidate.scoringActive ? "yes" : "no"} | boundary=${safeArray(candidate.sourceBoundary).join(", ") || "source candidate only"}`)),
+      "Output QA checks:",
+      bundleList(safeArray(engineLearningBackbone?.outputQaChecks).map((check) => `${check.id || "qa_check"} | ${check.status || "status unavailable"} | ${check.severity || "severity unavailable"} | ${check.description || check.remediation || "QA check"}`)),
+      "Calibration anomalies:",
+      bundleList(safeArray(engineLearningBackbone?.calibrationAnomalies).map((anomaly) => `${anomaly.anomalyId || "anomaly"} | ${anomaly.asset || "asset unavailable"} | ${anomaly.status || "status unavailable"} | ${anomaly.calibrationAction || anomaly.description || "Calibration review"}`)),
+      "Dependency requirements:",
+      bundleList(safeArray(engineLearningBackbone?.dependencyRequirements).map((dependency) => `${dependency.id || "dependency"} | ${dependency.title || "Dependency title unavailable"} | required=${safeArray(dependency.requiredFor).join(", ") || "unspecified"}`)),
+      "Freshness / point-in-time readiness:",
+      bundleList(safeArray(engineLearningBackbone?.freshnessPointInTimeReadiness).map((rule) => `${rule.id || "freshness_rule"} | ${rule.title || "Freshness rule"} | ${rule.status || "status unavailable"} | ${rule.outputWarning || rule.summary || "Point-in-time boundary"}`)),
+      "Path parity checks:",
+      bundleList(safeArray(engineLearningBackbone?.pathParityChecks).map((check) => `${check.path || check.id || "path"} | ${check.status || "status unavailable"} | required=${safeArray(check.requiredFields).join(", ")}`)),
+      "Deferred findings:",
+      bundleList(safeArray(engineLearningBackbone?.deferredFindings).map((finding) => `${finding.id || "deferred"} | ${finding.title || "Deferred finding"} | ${finding.recommendedAction || "Next cleanup pass"}`)),
+      "Known limitations:",
+      bundleList(engineLearningBackbone?.knownLimitations),
+      bundleField("Next resume pointer", engineLearningBackbone?.nextResumePointer),
+    ]),
+    bundleSection("13. Cross-Tab Consistency Checklist", [
       bundleField("Resolved lens matches Decision Header lens", lens && displayIdentity ? yesNoUnknown(String(displayIdentity.displayFraming || displayIdentity.displayAssetClass || "").toLowerCase().includes(String(lens.label || lens.lensId || "").split("/")[0].trim().toLowerCase())) : "unknown"),
       bundleField("Institutional question group matches resolved lens", questionMatchStatus),
       bundleField("Decision wording is lens-specific", yesNoUnknown(Boolean(lensAware))),
@@ -4721,6 +4799,12 @@ export function buildReviewBundleText({
       bundleField("Missing-input formula lacks source requirement", yesNoUnknown(tokenomicsMissingInputFormulaNoRequirement)),
       bundleField("Provider-reported value shown as reviewed evidence", yesNoUnknown(tokenomicsProviderReportedAsReviewed)),
       bundleField("Review Bundle mirrors question-first Tokenomics model", tokenomicsSupplyIntegrity ? yesNoUnknown(!tokenomicsQuestionAccordionMirrorMissing) : "unknown"),
+      bundleField("Engine Learning Backbone present in frontend model", engineLearningBackbone ? "yes" : "missing"),
+      bundleField("Engine Learning source candidates remain non-reviewed", engineLearningBackbone ? yesNoUnknown(safeArray(engineLearningBackbone.sourceCandidates).some((candidate) => candidate.promotedToReviewedEvidence)) : "unknown"),
+      bundleField("Engine Learning reviewed evidence stays non-scoring", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.reviewedEvidenceScoringActive) : "unknown"),
+      bundleField("Engine Learning ADA packet coverage added", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.adaPacketCoverageAdded) : "unknown"),
+      bundleField("Engine Learning critical output QA failures", engineLearningBackbone ? safeArray(engineLearningBackbone.outputQaChecks).filter((check) => check.status === "fail" && check.severity === "critical").length : "unknown"),
+      bundleField("Engine Learning path parity includes frontend and bundle", engineLearningBackbone ? yesNoUnknown(!safeArray(engineLearningBackbone.pathParityChecks).some((check) => ["frontend_normalization", "copy_review_bundle"].includes(check.path) && !["ready", "preserved"].includes(check.status))) : "unknown"),
       bundleField("Tokenomics key questions visible near top of tab", tokenomicsSupplyIntegrity ? "yes - Q&A renders after executive summary and key-risk summary" : "unknown"),
       bundleField("Tokenomics Q&A buried below detail sections", tokenomicsSupplyIntegrity ? "no - provider/identity/audit details are lower or collapsible" : "unknown"),
       bundleField("Tabs use executive answer / key question structure", "yes - Decision, Thesis, Evidence, Scoring, Source Queue, Manual Review, and Tokenomics include executive or question-first lead sections"),

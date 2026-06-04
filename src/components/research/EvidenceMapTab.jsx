@@ -289,6 +289,34 @@ function buildReviewedEvidenceRows(model) {
   ];
 }
 
+function buildEngineLearningEvidenceRows(model) {
+  const backbone = model?.engineLearningBackbone || {};
+  if (!backbone.artifactVersion) return [];
+  return [
+    {
+      key: "engine-learning-backbone-summary",
+      label: "Engine Learning Backbone v1",
+      value: `${backbone.findings?.length || 0} findings, ${backbone.assetClassRulesApplied?.length || 0} rules, ${backbone.outputQaChecks?.length || 0} output QA checks. Diagnostic-only; no scoring/provider behavior change.`,
+      sourceType: "Engine-learning diagnostic registry",
+      boundary: "Non-scoring institutional memory. Source candidates are not reviewed evidence.",
+    },
+    ...safeArray(backbone.sourceCandidates).slice(0, 4).map((candidate, index) => ({
+      key: `engine-learning-source-candidate-${candidate.candidateId || index}`,
+      label: "Source candidate",
+      value: `${candidate.sourceCandidateTitle || candidate.candidateId || "Candidate"} | promoted to reviewed evidence: ${candidate.promotedToReviewedEvidence ? "yes" : "no"} | scoring-active: ${candidate.scoringActive ? "yes" : "no"}`,
+      sourceType: "Source candidate queue",
+      boundary: "Candidate only; requires manual review before evidence use.",
+    })),
+    ...safeArray(backbone.outputQaChecks).slice(0, 4).map((check, index) => ({
+      key: `engine-learning-output-qa-${check.id || index}`,
+      label: "Output QA check",
+      value: `${check.status || "status"} | ${check.description || check.id || "QA check"}${check.remediation ? ` | ${check.remediation}` : ""}`,
+      sourceType: "Output QA diagnostic",
+      boundary: "QA visibility only; does not alter verdict/scoring.",
+    })),
+  ];
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -340,7 +368,9 @@ export default function EvidenceMapTab({
   const assetIdentityRows = buildAssetIdentityRows(model);
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
   const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
+  const engineLearningEvidenceRows = buildEngineLearningEvidenceRows(model);
   const lensBoundaryDisplayRows = [
+    ...engineLearningEvidenceRows,
     ...reviewedEvidenceRows,
     ...assetIdentityRows,
     ...tokenomicsEvidenceRows,

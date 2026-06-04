@@ -169,9 +169,30 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
         color: mapping.freshnessStatus === "stale" ? "#ffb020" : "#ff6b6b",
       })),
   ];
+  const engineLearning = model?.engineLearningBackbone || {};
+  const engineLearningSignals = [
+    ...safeArray(engineLearning.outputQaChecks)
+      .filter((check) => check.status === "fail" || check.status === "advisory")
+      .slice(0, 4)
+      .map((check) => ({
+        label: "Engine-learning output QA",
+        description: `${check.description || check.id || "Output QA check"} ${check.remediation ? `Remediation: ${check.remediation}` : ""}`.trim(),
+        status: check.status === "fail" ? "QA failure" : "QA advisory",
+        source: "decisionModel.engineLearningBackbone.outputQaChecks",
+        color: check.status === "fail" ? "#ff6b6b" : "#f9d976",
+      })),
+    ...safeArray(engineLearning.calibrationAnomalies).slice(0, 3).map((anomaly) => ({
+      label: "Engine-learning calibration anomaly",
+      description: anomaly.description || anomaly.calibrationAction || anomaly.anomalyId || "Calibration anomaly",
+      status: "Diagnostic only",
+      source: "decisionModel.engineLearningBackbone.calibrationAnomalies",
+      color: "#f9d976",
+    })),
+  ];
 
   const combined = [
     ...manual,
+    ...engineLearningSignals,
     ...synthesizedAnswerSignals,
     ...reviewedEvidenceSignals,
     ...tokenomicsSignals,
