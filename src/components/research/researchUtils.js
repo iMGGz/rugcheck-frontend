@@ -2335,8 +2335,8 @@ const RESOLVED_LENS_DISPLAY_LABELS = {
     assetFramingLabel: "Base-Layer Settlement Thesis",
   },
   NATIVE_MONETARY_BENCHMARK: {
-    assetClassLabel: "Base-Layer / Monetary Benchmark Asset",
-    assetFramingLabel: "Monetary Benchmark Thesis",
+    assetClassLabel: "Native PoW Monetary / Settlement Asset",
+    assetFramingLabel: "Native Monetary Benchmark / PoW Settlement Thesis",
   },
 };
 
@@ -2390,10 +2390,173 @@ const LENS_PRIMARY_COPY = {
     blocked: "Settlement/gas demand, validator/security role, issuance/burn/staking economics, liveness, and protocol-upgrade risk require direct evidence.",
   },
   NATIVE_MONETARY_BENCHMARK: {
-    positive: "BTC support depends on current transaction-fee/blockspace demand, proof-of-work security-budget durability, miner economics, hashrate quality, mining-pool concentration, liveness, liquidity/depth, and custody/access evidence.",
-    blocked: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF flow, and liveness evidence require direct live review.",
+    positive: "BTC has canonical native monetary-asset identity, source-backed proof-of-work and issuance/halving mechanism context, and benchmark market relevance. Allocation support depends on current transaction-fee/blockspace demand, fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
+    blocked: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF-flow, regulatory-access, and liveness evidence require direct live review.",
   },
 };
+
+const BTC_NATIVE_DISPLAY_COPY = {
+  assetClassLabel: "Native PoW Monetary / Settlement Asset",
+  assetFramingLabel: "Native Monetary Benchmark / PoW Settlement Thesis",
+  whyAllocationCouldMakeSense: "BTC has canonical native monetary-asset identity, source-backed proof-of-work and issuance/halving mechanism context, and benchmark market relevance. Allocation support depends on current transaction-fee/blockspace demand, fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
+  whyAllocationIsCapped: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF-flow, regulatory-access, and liveness evidence require direct live review.",
+  verdictInterpretation: "Investable - Medium Confidence means BTC clears the benchmark allocation threshold, while live market/security/liquidity evidence gaps keep confidence capped.",
+  primaryBlocker: "Current fee-market durability, miner economics, hashrate/security-budget resilience, and liquidity/depth evidence remain source-required.",
+  rightRailPrimaryBlocker: "Current fee-market, miner economics, security-budget, liquidity, custody/access, and liveness evidence remain source-required.",
+  weakestLink: "The weakest BTC assumption is whether current live fee-market, miner economics, hashrate/security budget, and liquidity evidence are strong enough to support the allocation thesis.",
+  decisionMemo: "BTC is directionally investable as a native PoW monetary benchmark, but confidence remains medium because current security-budget, fee-market, miner economics, liquidity, custody/access, and liveness evidence are not fully source-backed in the current live response.",
+  allocationThesis: "BTC thesis depends on canonical native monetary identity, proof-of-work settlement/security, fixed issuance/halving mechanism, current transaction-fee/blockspace demand, fee-market security-budget durability, miner economics, hashrate resilience, mining-pool decentralization, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
+  falsePositiveBoundary: "Bitcoin protocol evidence supports mechanism and monetary design. It does not prove current fee-market durability, miner economics, hashrate quality, mining-pool decentralization, market depth, ETF/custody flows, regulatory access, liveness, or allocation suitability.",
+  evidenceNeeded: [
+    "Current transaction-fee and blockspace demand evidence.",
+    "Fee-market durability and miner revenue mix: subsidy versus transaction fees.",
+    "Hashrate/security-budget resilience evidence.",
+    "Miner economics/profitability evidence.",
+    "Mining-pool concentration and liveness/congestion evidence.",
+    "Market depth, liquidity, slippage, and venue concentration evidence.",
+    "Custody/access, ETF-flow, and regulatory-access context.",
+  ],
+  whatWouldChange: [
+    "Stronger source-backed current transaction-fee/blockspace demand and fee-market sustainability.",
+    "Evidence that transaction fees and miner economics can sustain security budget as subsidy declines.",
+    "Stronger hashrate/security-budget resilience and lower mining-pool concentration.",
+    "Deeper liquidity, lower venue concentration, stronger custody/access and ETF-flow evidence.",
+    "Better liveness/congestion and regulatory-access context.",
+  ],
+  rightRailWhatWouldChange: [
+    "Stronger current transaction-fee/blockspace demand and fee-market durability evidence.",
+    "Evidence that miner economics and transaction fees can sustain security budget as subsidy declines.",
+    "Stronger hashrate/security-budget resilience, lower mining-pool concentration, and healthier liveness/liquidity conditions.",
+  ],
+  whatMustBeTrue: [
+    "Bitcoin's native PoW monetary mechanism remains credible.",
+    "Current fee market and blockspace demand are strong enough to support the security-budget thesis.",
+    "Miner economics and hashrate resilience remain healthy.",
+    "Mining-pool concentration does not create unacceptable centralization risk.",
+    "Liquidity/depth and institutional access remain sufficient for allocation use.",
+    "Custody/regulatory access and liveness risks do not materially deteriorate.",
+  ],
+  whatCouldBreak: [
+    "Weak transaction-fee/blockspace demand.",
+    "Deteriorating fee-market security budget.",
+    "Miner economics stress.",
+    "Falling hashrate/security resilience.",
+    "High mining-pool concentration.",
+    "Liveness/congestion failure.",
+    "Liquidity/depth deterioration.",
+    "Custody/access or regulatory-access deterioration.",
+    "Major dormant/founder-era supply movement or whale-flow shock once future on-chain monitoring exists.",
+  ],
+};
+
+function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
+  const assetText = [
+    asset?.symbol,
+    asset?.name,
+    asset?.id,
+    asset?.coingeckoId,
+    asset?.coinmarketcapId,
+    reviewedEvidencePacket?.packetId,
+    assetIdentityResolution?.canonicalAssetName,
+    assetIdentityResolution?.canonicalAssetSymbol,
+    assetIdentityResolution?.canonicalProviderIds?.coingeckoId,
+    assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId,
+    assetIdentityResolution?.nativeNetworkCandidate,
+    assetIdentityResolution?.canonicalNetworkCandidate,
+    assetIdentityResolution?.representationType,
+    assetIdentityResolution?.bridgedOrWrappedStatus,
+    lens?.lensId,
+    lens?.questionGroupId,
+  ].filter(Boolean).join(" ").toLowerCase();
+  const looksLikeNativeBtc = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(assetText);
+  const isWrappedOrDerivative = /\b(wbtc|wrapped|bridged|bridge|liquid staking|lst|steth|staking derivative)\b/i.test(assetText);
+  return looksLikeNativeBtc
+    && !isWrappedOrDerivative
+    && (lens?.lensId === "NATIVE_MONETARY_BENCHMARK" || /native_monetary_benchmark/i.test(assetText));
+}
+
+function buildNativeBtcDisplayOverlay(baseModel) {
+  const copy = BTC_NATIVE_DISPLAY_COPY;
+  const verdictSemantics = {
+    ...(baseModel.verdictSemantics || {}),
+    positiveCase: [copy.whyAllocationCouldMakeSense],
+    blockedCase: [copy.whyAllocationIsCapped],
+    summary: copy.verdictInterpretation,
+    missingEvidence: copy.evidenceNeeded,
+    whatWouldChange: copy.whatWouldChange,
+    boundary: "Primary BTC display copy is native PoW monetary benchmark wording; raw generic base-layer fields remain available only in Audit / Raw.",
+  };
+
+  return {
+    ...baseModel,
+    assetClassLabel: copy.assetClassLabel,
+    assetFramingLabel: copy.assetFramingLabel,
+    verdictSemantics,
+    allocationCase: {
+      ...(baseModel.allocationCase || {}),
+      forAllocation: [copy.whyAllocationCouldMakeSense],
+      againstAllocation: [copy.whyAllocationIsCapped],
+      missingEvidence: copy.evidenceNeeded,
+      whatWouldChange: copy.whatWouldChange,
+    },
+    missingCritical: copy.evidenceNeeded,
+    requiredConditions: copy.evidenceNeeded,
+    blockers: [copy.rightRailPrimaryBlocker],
+    decisionDrivers: [
+      copy.whyAllocationCouldMakeSense,
+      copy.primaryBlocker,
+      copy.falsePositiveBoundary,
+    ],
+    primaryStrength: copy.whyAllocationCouldMakeSense,
+    primaryWeakness: copy.whyAllocationIsCapped,
+    summaryMemo: copy.decisionMemo,
+    structuredThesisSummary: copy.allocationThesis,
+    tokenDemandTruth: "BTC demand support is a native monetary/blockspace thesis. Provider and protocol mechanism context do not prove current fee-market durability, miner economics, liquidity/depth, custody/access, ETF-flow, regulatory-access, or allocation suitability.",
+    failureMode: {
+      ...(baseModel.failureMode || {}),
+      primary: copy.falsePositiveBoundary,
+      trigger: copy.whatCouldBreak[0],
+    },
+    primaryBlocker: {
+      ...(baseModel.primaryBlocker || {}),
+      label: copy.primaryBlocker,
+      explanation: copy.rightRailPrimaryBlocker,
+      badge: "BTC-native source requirement",
+    },
+    weakestLink: {
+      ...(baseModel.weakestLink || {}),
+      label: copy.weakestLink,
+      explanation: copy.weakestLink,
+      badge: "BTC-native weakest link",
+    },
+    whatWouldChangeDecision: {
+      ...(baseModel.whatWouldChangeDecision || {}),
+      items: copy.rightRailWhatWouldChange,
+      badge: "BTC-native live requirements",
+      explanation: "Display wording is scoped to native Bitcoin proof-of-work monetary benchmark review; scoring and verdicts are unchanged.",
+    },
+    whyNow: copy.whyAllocationCouldMakeSense,
+    whyNotNow: copy.whyAllocationIsCapped,
+    whatMustBeTrue: copy.whatMustBeTrue,
+    whatCouldBreak: copy.whatCouldBreak,
+    nextCheckpoints: copy.whatWouldChange,
+    topPositiveDrivers: [copy.whyAllocationCouldMakeSense],
+    topNegativeDrivers: [copy.primaryBlocker, copy.weakestLink],
+    topNeutralDrivers: copy.whatWouldChange,
+    researchRequirements: copy.evidenceNeeded.map((requirement, index) => ({
+      id: `btc-native-final-surface-${index}`,
+      title: requirement,
+      assetClassLens: "NATIVE_MONETARY_BENCHMARK",
+      reason: "BTC-native PoW monetary benchmark source requirement. Source requirements are not reviewed evidence and do not change scoring.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["official_docs", "network_dashboard", "market_data", "custody_access_report", "manual_review"],
+      priority: index < 4 ? "high" : "medium",
+      verdictImpact: "Could clarify BTC benchmark thesis confidence if independently reviewed.",
+      currentStatus: "review_required",
+      canChangeVerdict: true,
+    })),
+  };
+}
 
 function resolvedLensIsDisplayAuthoritative(lens) {
   return Boolean(
@@ -2557,11 +2720,11 @@ export function buildLensSpecificResearchDomains(model = {}, displayIdentity = n
       "Protocol Upgrade Risk",
     ],
     NATIVE_MONETARY_BENCHMARK: [
-      "Monetary Policy",
-      "Market Depth",
-      "Security Budget",
-      "Settlement Reliability",
-      "Censorship Resistance",
+      "Transaction-Fee / Blockspace Demand",
+      "Fee-Market Security Budget",
+      "Miner Economics / Hashrate",
+      "Mining-Pool Concentration / Liveness",
+      "Market Depth / Custody / ETF Access",
     ],
     MEME_NARRATIVE: [
       "Narrative / Liquidity Tradability",
@@ -3117,7 +3280,7 @@ export function buildDecisionTerminalModel({
     }),
   });
 
-  return {
+  const baseDisplayModel = {
     assetName: asset?.name || asset?.symbol || "Asset",
     overallScore,
     confidenceScore,
@@ -3208,6 +3371,15 @@ export function buildDecisionTerminalModel({
     }),
     keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
+
+  return isNativeBtcDisplayContext({
+    asset,
+    lens: resolvedInstitutionalLens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  })
+    ? buildNativeBtcDisplayOverlay(baseDisplayModel)
+    : baseDisplayModel;
 }
 
 function bundleValue(value, fallback = "Unavailable in current frontend model") {
@@ -3582,7 +3754,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
   const definitions = [
     {
       checkId: "btc_eth_mechanism_copy_leak",
-      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking/i,
+      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|\bstaking\b|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking/i,
       forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
     },
     {
@@ -3597,7 +3769,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
     },
     {
       checkId: "btc_stablecoin_trust_copy_leak",
-      pattern: /reserve composition|reserve attestation|redemption eligibility|issuer\/custodian|admin\/freeze policy|peg stress/i,
+      pattern: /reserve composition|\battestation\b|reserve attestation|redemption eligibility|issuer\/custodian|admin\/freeze policy|peg stress/i,
       forbidden: "Native BTC primary copy shows stablecoin reserve/redemption/issuer-control wording.",
     },
     {
@@ -3628,6 +3800,9 @@ function buildBtcBenchmarkForbiddenStringChecks({
         "Decision Header / Command Header primary model text",
         "Decision Tab / Decision Snapshot primary model text",
         "Thesis Falsification primary model text",
+        "Right Rail / Research Intelligence Rail primary blocker and weakest link",
+        "Right Rail / What Would Change rail",
+        "Visible asset class / framing / lens labels",
         "Institutional Checklist questionText",
         "Institutional Checklist primaryMissingEvidence",
         "Institutional Checklist primaryWhatWouldChange",
@@ -5075,6 +5250,20 @@ export function buildReviewBundleText({
   ].join("\n");
   const btcPrimaryQaText = [
     visiblePrimaryText,
+    primaryAssetFramingText,
+    safeModel.assetClassLabel,
+    safeModel.assetFramingLabel,
+    displayIdentity?.displayAssetClass,
+    displayIdentity?.displayFraming,
+    displayIdentity?.primaryChip,
+    displayIdentity?.secondaryChip,
+    lens?.label,
+    lens?.lensId,
+    safeModel.primaryBlocker?.label,
+    safeModel.primaryBlocker?.explanation,
+    safeModel.weakestLink?.label,
+    safeModel.weakestLink?.explanation,
+    ...(safeModel.whatWouldChangeDecision?.items || []),
     ...safeArray(questions).flatMap((question) => [
       question?.questionText,
       question?.shortAnswer,

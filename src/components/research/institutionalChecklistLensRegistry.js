@@ -767,10 +767,10 @@ const IDENTITY_DISPLAY_BY_LENS = {
 
 const BACKEND_IDENTITY_DISPLAY_BY_LENS = {
   NATIVE_MONETARY_BENCHMARK: {
-    displayAssetClass: "Base-Layer / Monetary Benchmark Asset",
-    displayFraming: "Monetary Benchmark Thesis",
-    primaryChip: "Monetary Benchmark",
-    secondaryChip: "Native Asset",
+    displayAssetClass: "Native PoW Monetary / Settlement Asset",
+    displayFraming: "Native Monetary Benchmark / PoW Settlement Thesis",
+    primaryChip: "Native PoW Monetary",
+    secondaryChip: "Security Budget Lens",
   },
   BASE_LAYER_SETTLEMENT: {
     displayAssetClass: "Base-Layer / Settlement Asset",
