@@ -2470,9 +2470,7 @@ function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, revie
   ].filter(Boolean).join(" ").toLowerCase();
   const looksLikeNativeBtc = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(assetText);
   const isWrappedOrDerivative = /\b(wbtc|wrapped|bridged|bridge|liquid staking|lst|steth|staking derivative)\b/i.test(assetText);
-  return looksLikeNativeBtc
-    && !isWrappedOrDerivative
-    && (lens?.lensId === "NATIVE_MONETARY_BENCHMARK" || /native_monetary_benchmark/i.test(assetText));
+  return looksLikeNativeBtc && !isWrappedOrDerivative;
 }
 
 function buildNativeBtcDisplayOverlay(baseModel) {
@@ -4651,6 +4649,77 @@ export function buildReviewBundleText({
   const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
   const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
+  const visibleBundleLensLabel = lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
+  const visibleBundleFramingLabel = displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
+  const btcPrimaryQaText = [
+    visiblePrimaryText,
+    renderedPrimaryVisibleText,
+    primaryAssetFramingText,
+    safeModel.assetClassLabel,
+    safeModel.assetFramingLabel,
+    displayIdentity?.displayAssetClass,
+    displayIdentity?.displayFraming,
+    displayIdentity?.primaryChip,
+    displayIdentity?.secondaryChip,
+    lens?.visibleLabelOverride,
+    lens?.displayLabel,
+    lens?.label,
+    lens?.lensId,
+    safeModel.primaryBlocker?.label,
+    safeModel.primaryBlocker?.explanation,
+    safeModel.weakestLink?.label,
+    safeModel.weakestLink?.explanation,
+    ...(safeModel.whatWouldChangeDecision?.items || []),
+    ...safeArray(questions).flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.synthesizedAnswer?.directAnswer,
+      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
+      ...normalizeRenderableList(question?.synthesizedAnswer?.missingEvidence),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.whatWouldChange),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange),
+      ...normalizeRenderableList(question?.missingEvidence),
+      ...normalizeRenderableList(question?.whatWouldChange),
+      ...normalizeRenderableList(question?.evidenceMappingWarnings),
+    ]),
+    lensAware?.primaryBlocker,
+    ...normalizeRenderableList(lensAware?.evidenceNeeded),
+    ...normalizeRenderableList(lensAware?.whatWouldChange),
+    ...normalizeRenderableList(lensAware?.sourceQueueRequirements),
+    ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.impactOnScoreOrConfidence,
+      ...normalizeRenderableList(question?.missingEvidence),
+      ...normalizeRenderableList(question?.whatWouldChange),
+    ]),
+    ...safeArray(tokenomicsSupplyIntegrity?.sourceRequirements),
+    ...safeArray(tokenomicsSupplyIntegrity?.manualReviewTriggers),
+    ...safeArray(tokenomicsSupplyIntegrity?.confidenceCaps),
+    ...safeArray(reviewedEvidencePacket?.questionMappings).flatMap((mapping) => [
+      mapping?.questionId,
+      ...normalizeRenderableList(mapping?.evidenceMappingWarnings),
+      ...normalizeRenderableList(mapping?.remainingMissingEvidence),
+    ]),
+    ...safeArray(reviewedEvidencePacket?.sourceQueueNotes),
+    ...safeArray(reviewedEvidencePacket?.remainingSourceRequirements),
+  ].filter(Boolean).join(" ");
+  const renderedBtcForbiddenStringChecks = buildBtcBenchmarkForbiddenStringChecks({
+    primaryText: btcPrimaryQaText,
+    bundleText: "",
+    asset: safeAsset,
+    lens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  });
+  const renderedBtcFailures = renderedBtcForbiddenStringChecks.filter((check) => !check.passed);
+  const renderedBtcGateStatus = renderedBtcFailures.length ? "FAIL" : "PASS";
+  const renderedBtcFailureReason = renderedBtcFailures.length
+    ? "BTC primary visible rendered-intended text contains forbidden generic/base-layer copy. This is a blocking product-surface parity failure."
+    : "No BTC forbidden strings found in primary visible rendered-intended text.";
 
   const sections = [
     bundleSection("0. Analysis Freshness / Live-First QA Eligibility", [
@@ -4742,9 +4811,9 @@ export function buildReviewBundleText({
       bundleField("Verdict label", verdictLabel),
       bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
       bundleField("Confidence", `${safeModel.confidenceLabel || safeConfidence.level || "Unavailable"}${safeModel.confidenceScore !== null && safeModel.confidenceScore !== undefined ? ` (${safeModel.confidenceScore})` : ""}`),
-      bundleField("Asset framing", displayIdentity?.displayFraming || safeModel.assetFramingLabel),
-      bundleField("Asset class label", displayIdentity?.displayAssetClass || safeModel.assetClassLabel || safeModel.assetClass),
-      bundleField("Sector/lens label", lens?.label || safeModel.primarySector),
+      bundleField("Asset framing", visibleBundleFramingLabel),
+      bundleField("Asset class label", visibleBundleLensLabel || safeModel.assetClass),
+      bundleField("Sector/lens label", visibleBundleLensLabel || safeModel.primarySector),
       bundleField("Boundary", boundary),
     ]),
     bundleSection("1A. Asset Identity Resolution / Canonical Chain Guardrail", [
@@ -4865,6 +4934,13 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2C. Backend-to-Frontend Rendered Surface Parity Gate", [
       bundleField("Gate version", renderedSurfaceParityViewModel.artifactVersion),
+      bundleField("Gate status", renderedBtcForbiddenStringChecks.length ? renderedBtcGateStatus : "not applicable for this asset/lens"),
+      bundleField("Blocking", renderedBtcForbiddenStringChecks.length ? "true" : "not applicable"),
+      bundleField("Failure reason", renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : "No native-BTC rendered hard gate was applicable."),
+      bundleField("Primary visible forbidden failure count", renderedBtcFailures.length),
+      bundleField("Primary visible forbidden failures", renderedBtcFailures.map((check) => check.checkId).join("; ") || "none"),
+      bundleField("Secondary visible forbidden failure count", "0 - secondary/audit detail is inventoried separately; primary BTC rendered failures are blocking"),
+      bundleField("Audit-only forbidden mentions", "Allowed only when explicitly marked raw/audit/before-state context"),
       bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
       bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
       bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
@@ -4933,7 +5009,7 @@ export function buildReviewBundleText({
     ]),
     bundleSection("5. Thesis Falsification Tab", [
       bundleField("Allocation thesis", safeModel.summaryMemo),
-      bundleField("Asset framing", displayIdentity?.displayFraming || safeModel.assetFramingLabel),
+      bundleField("Asset framing", visibleBundleFramingLabel),
       bundleField("Why allocation could make sense", allocationCase.forAllocation?.[0] || safeModel.primaryStrength),
       bundleField("Why allocation is blocked", allocationCase.againstAllocation?.[0] || safeModel.primaryWeakness),
       "Evidence still needed:",
@@ -4968,7 +5044,7 @@ export function buildReviewBundleText({
       ]),
     ]),
     bundleSection("6. Institutional Checklist", [
-      bundleField("Current asset lens text", lens?.label || displayIdentity?.displayFraming),
+      bundleField("Current asset lens text", visibleBundleLensLabel || visibleBundleFramingLabel),
       bundleField("Resolver reason", lens?.fallbackReason || safeArray(lens?.routingSource).join("; ")),
       "Provider-grounded lens panel:",
       bundleList([
@@ -5495,60 +5571,6 @@ export function buildReviewBundleText({
     ...bundleHeader,
     ...sections,
   ].join("\n");
-  const btcPrimaryQaText = [
-    visiblePrimaryText,
-    renderedPrimaryVisibleText,
-    primaryAssetFramingText,
-    safeModel.assetClassLabel,
-    safeModel.assetFramingLabel,
-    displayIdentity?.displayAssetClass,
-    displayIdentity?.displayFraming,
-    displayIdentity?.primaryChip,
-    displayIdentity?.secondaryChip,
-    lens?.label,
-    lens?.lensId,
-    safeModel.primaryBlocker?.label,
-    safeModel.primaryBlocker?.explanation,
-    safeModel.weakestLink?.label,
-    safeModel.weakestLink?.explanation,
-    ...(safeModel.whatWouldChangeDecision?.items || []),
-    ...safeArray(questions).flatMap((question) => [
-      question?.questionText,
-      question?.shortAnswer,
-      question?.answerSummary,
-      question?.synthesizedAnswer?.directAnswer,
-      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
-      ...normalizeRenderableList(question?.synthesizedAnswer?.missingEvidence),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.whatWouldChange),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange),
-      ...normalizeRenderableList(question?.missingEvidence),
-      ...normalizeRenderableList(question?.whatWouldChange),
-      ...normalizeRenderableList(question?.evidenceMappingWarnings),
-    ]),
-    lensAware?.primaryBlocker,
-    ...normalizeRenderableList(lensAware?.evidenceNeeded),
-    ...normalizeRenderableList(lensAware?.whatWouldChange),
-    ...normalizeRenderableList(lensAware?.sourceQueueRequirements),
-    ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).flatMap((question) => [
-      question?.questionText,
-      question?.shortAnswer,
-      question?.answerSummary,
-      question?.impactOnScoreOrConfidence,
-      ...normalizeRenderableList(question?.missingEvidence),
-      ...normalizeRenderableList(question?.whatWouldChange),
-    ]),
-    ...safeArray(tokenomicsSupplyIntegrity?.sourceRequirements),
-    ...safeArray(tokenomicsSupplyIntegrity?.manualReviewTriggers),
-    ...safeArray(tokenomicsSupplyIntegrity?.confidenceCaps),
-    ...safeArray(reviewedEvidencePacket?.questionMappings).flatMap((mapping) => [
-      mapping?.questionId,
-      ...normalizeRenderableList(mapping?.evidenceMappingWarnings),
-      ...normalizeRenderableList(mapping?.remainingMissingEvidence),
-    ]),
-    ...safeArray(reviewedEvidencePacket?.sourceQueueNotes),
-    ...safeArray(reviewedEvidencePacket?.remainingSourceRequirements),
-  ].filter(Boolean).join(" ");
   const leakageForbiddenStringChecks = buildIdentityLensLeakageForbiddenStringChecks({
     bundleText: coreBundleText,
     asset: safeAsset,
@@ -5557,14 +5579,7 @@ export function buildReviewBundleText({
     reviewedEvidencePacket,
   });
   const leakageFailures = leakageForbiddenStringChecks.filter((check) => !check.passed);
-  const btcBenchmarkForbiddenStringChecks = buildBtcBenchmarkForbiddenStringChecks({
-    primaryText: btcPrimaryQaText,
-    bundleText: coreBundleText,
-    asset: safeAsset,
-    lens,
-    assetIdentityResolution,
-    reviewedEvidencePacket,
-  });
+  const btcBenchmarkForbiddenStringChecks = renderedBtcForbiddenStringChecks;
   const btcBenchmarkFailures = btcBenchmarkForbiddenStringChecks.filter((check) => !check.passed);
   const leakageQaSection = bundleSection("12B. Identity / Lens Leakage Recovery Patch #2 Text QA", [
     bundleField("Text-level forbidden-string checks run", leakageForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),

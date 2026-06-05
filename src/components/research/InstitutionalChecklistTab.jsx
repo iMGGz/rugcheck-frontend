@@ -443,6 +443,7 @@ function ChecklistEvidenceSummary({ questions, styles }) {
 
 function ResolvedLensPanel({ resolvedLens, styles }) {
   if (!resolvedLens?.lensId) return null;
+  const visibleLensLabel = resolvedLens.visibleLabelOverride || resolvedLens.displayLabel || resolvedLens.label;
   const providerEvidence = safeArray(resolvedLens.providerClassificationEvidence)
     .slice(0, 5)
     .map((item) => `${providerLabel(item.provider)} ${item.field}: ${extractRenderableText(item.value, "Unspecified")}`);
@@ -461,7 +462,7 @@ function ResolvedLensPanel({ resolvedLens, styles }) {
         {boundaryChip(styles, `${labelize(resolvedLens.confidence)} confidence`)}
         {boundaryChip(styles, `Question group: ${resolvedLens.questionGroupId}`)}
       </div>
-      <SectionRow label="Resolved lens" value={resolvedLens.label || "Unavailable"} styles={styles} />
+      <SectionRow label="Resolved lens" value={visibleLensLabel || "Unavailable"} styles={styles} />
       <SectionRow label="Asset-class group" value={resolvedLens.assetClassGroup || "Unavailable"} styles={styles} />
       <SectionRow
         label="Matched signals"
@@ -876,6 +877,9 @@ export default function InstitutionalChecklistTab({
     || null;
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(analysis)
     || normalizeResolvedInstitutionalLensPayload(model);
+  const visibleResolvedLensLabel = resolvedInstitutionalLens?.visibleLabelOverride
+    || resolvedInstitutionalLens?.displayLabel
+    || resolvedInstitutionalLens?.label;
   const hasInstitutionalAnswers = institutionalQuestions.length > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
@@ -904,7 +908,7 @@ export default function InstitutionalChecklistTab({
         tone="#9bd7ff"
         badges={[
           { label: hasInstitutionalAnswers ? `${institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
-          hasInstitutionalAnswers ? { label: `${questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: resolvedInstitutionalLens?.label || lensResolution.displayName, tone: "#9bd7ff" },
+          hasInstitutionalAnswers ? { label: `${questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: visibleResolvedLensLabel || lensResolution.displayName, tone: "#9bd7ff" },
           hasInstitutionalAnswers ? { label: `${questionCounts.sourceRequired + questionCounts.manualReview} source/review`, tone: "#f9d976" } : { label: "Provider metadata is context", tone: "#f9d976" },
           hasInstitutionalAnswers && questionCounts.notApplicable ? { label: `${questionCounts.notApplicable} not applicable`, tone: "#8a94a6" } : null,
         ].filter(Boolean)}
@@ -926,7 +930,7 @@ export default function InstitutionalChecklistTab({
             <SectionRow
               label="Current asset lens"
               value={resolvedInstitutionalLens
-                ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+                ? `${visibleResolvedLensLabel} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
                 : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
               styles={styles}
             />
@@ -963,7 +967,7 @@ export default function InstitutionalChecklistTab({
             <SectionRow
               label="Current asset lens"
               value={resolvedInstitutionalLens
-                ? `${resolvedInstitutionalLens.label} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+                ? `${visibleResolvedLensLabel} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
                 : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
               styles={styles}
             />

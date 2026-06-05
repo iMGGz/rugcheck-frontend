@@ -77,6 +77,7 @@ function EvidenceSignal({ item, styles }) {
 
 function LensIdentityRailSection({ model, displayIdentity, styles }) {
   const lens = model?.resolvedInstitutionalLens || {};
+  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label;
   const identity = model?.assetIdentityResolution || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged|lens|mapping/i.test(String(warning?.id || warning?.issue || "")));
@@ -86,7 +87,7 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
     <RailSection title="Lens / Identity" badge={lens.confidence ? `${lens.confidence} confidence` : "Review context"} styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Resolved lens</div>
-        <div style={styles.railMiniValue}>{lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable"}</div>
+        <div style={styles.railMiniValue}>{visibleLensLabel || displayIdentity?.displayFraming || "Resolved lens unavailable"}</div>
       </div>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Question group</div>
@@ -203,6 +204,7 @@ function MobileRailSummary({
 }) {
   const firstEvidenceSignal = evidenceItems[0] ? normalizeEvidenceProxyDisplayLabel(evidenceItems[0]) : null;
   const resolvedLens = model?.resolvedInstitutionalLens || {};
+  const visibleLensLabel = resolvedLens.visibleLabelOverride || resolvedLens.displayLabel || resolvedLens.label;
   const freshness = model?.analysisFreshness || {};
 
   return (
@@ -229,7 +231,7 @@ function MobileRailSummary({
         </div>
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Resolved lens</div>
-          <div style={styles.railMiniValue}>{resolvedLens.label || "Lens unavailable"}</div>
+          <div style={styles.railMiniValue}>{visibleLensLabel || "Lens unavailable"}</div>
         </div>
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Freshness</div>

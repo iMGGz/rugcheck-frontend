@@ -866,8 +866,50 @@ function backendLensIsUsable(lens) {
   );
 }
 
+function isNativeBtcDisplayContext(asset = {}, analysis = {}, decisionModel = {}) {
+  const lens = decisionModel?.resolvedInstitutionalLens || analysis?.resolvedInstitutionalLens || {};
+  const identity = decisionModel?.assetIdentityResolution || analysis?.assetIdentityResolution || {};
+  const text = normalizeText([
+    asset?.symbol,
+    asset?.name,
+    asset?.id,
+    asset?.coingeckoId,
+    asset?.coinmarketcapId,
+    decisionModel?.assetClassLabel,
+    decisionModel?.assetFramingLabel,
+    decisionModel?.resolvedInstitutionalLens?.visibleLabelOverride,
+    decisionModel?.resolvedInstitutionalLens?.displayLabel,
+    lens?.lensId,
+    lens?.questionGroupId,
+    identity?.canonicalAssetName,
+    identity?.canonicalAssetSymbol,
+    identity?.canonicalProviderIds,
+    identity?.representationType,
+    identity?.bridgedOrWrappedStatus,
+  ]);
+  const looksLikeBitcoin = /\b(bitcoin|btc|native pow monetary|native_monetary_benchmark)\b/i.test(text);
+  const isWrappedOrDerivative = /\b(wbtc|wrapped|bridged|bridge|liquid staking|lst|steth|staking derivative)\b/i.test(text);
+  return looksLikeBitcoin && !isWrappedOrDerivative;
+}
+
 export function buildInstitutionalAssetIdentity(asset = {}, analysis = {}, decisionModel = {}) {
   const backendLens = decisionModel?.resolvedInstitutionalLens || analysis?.resolvedInstitutionalLens;
+  if (isNativeBtcDisplayContext(asset, analysis, decisionModel)) {
+    const display = BACKEND_IDENTITY_DISPLAY_BY_LENS.NATIVE_MONETARY_BENCHMARK;
+    return {
+      ...display,
+      lensId: backendLens?.lensId || "NATIVE_MONETARY_BENCHMARK",
+      lensDisplayName: display.displayAssetClass,
+      confidence: backendLens?.confidence || "high",
+      reason: "Canonical native Bitcoin display context overrides generic base-layer visible framing; internal lens IDs remain audit context.",
+      matchedSignals: backendLens?.matchedSignals || ["native BTC display context"],
+      boundaryCopy: "Display identity only. Native BTC must not show gas-asset copy; scoring, provider behavior, and final verdict are unchanged.",
+      originalAssetClassLabel: decisionModel?.assetClassLabel || null,
+      originalAssetFramingLabel: decisionModel?.assetFramingLabel || null,
+      originalAssetBadges: decisionModel?.assetBadges || [],
+    };
+  }
+
   if (backendLensIsUsable(backendLens) && BACKEND_IDENTITY_DISPLAY_BY_LENS[backendLens.lensId]) {
     const display = BACKEND_IDENTITY_DISPLAY_BY_LENS[backendLens.lensId];
     return {

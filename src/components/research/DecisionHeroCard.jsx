@@ -103,6 +103,7 @@ function ScoreTile({ label, value, detail, styles }) {
 
 function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const lens = model?.resolvedInstitutionalLens || {};
+  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label;
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
@@ -129,7 +130,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
       </div>
       <div style={styles.decisionLayerLegendGrid}>
         <LayerLegendItem
-          title={lens.label || "Resolved lens unavailable"}
+          title={visibleLensLabel || "Resolved lens unavailable"}
           detail={`Lens: ${lens.lensId || "unavailable"}; question group: ${lens.questionGroupId || "unavailable"}.`}
           badge={lens.confidence ? `${lens.confidence} confidence` : "Lens pending"}
           tone="#7dd3fc"
