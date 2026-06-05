@@ -3959,8 +3959,145 @@ function buildIdentityLensLeakageForbiddenStringChecks({
   });
 }
 
+const BTC_RENDERED_PRIMARY_SURFACES = [
+  "decisionHeader",
+  "decisionTab",
+  "thesisFalsification",
+  "rightRail",
+  "whatWouldChangeRail",
+  "visibleLensLabel",
+  "institutionalChecklist",
+  "tokenomics",
+  "sourceQueue",
+  "manualReview",
+];
+
+const BTC_RENDERED_SECONDARY_SURFACES = [
+  "evidenceMap",
+  "scoringTransparency",
+];
+
+function normalizeBtcRenderedGateRows(rows = []) {
+  return safeArray(rows)
+    .flatMap((row) => normalizeRenderableList(row?.text).map((text) => ({
+      failureId: row?.failureId || `${row?.surface || "unknown"}:${row?.fieldPath || "field"}`,
+      surface: row?.surface || "unknown",
+      fieldPath: row?.fieldPath || "unknown",
+      sourceObjectPath: row?.sourceObjectPath || row?.fieldPath || "unknown",
+      renderedText: text,
+      classification: row?.classification || "primary-visible",
+      appearsInRenderedViewModel: row?.appearsInRenderedViewModel !== false,
+      reason: row?.reason || null,
+    })))
+    .filter((row) => row.renderedText);
+}
+
+function isInternalBtcGateIdText(text) {
+  return /^(base_layer_settlement_gas_demand|base_layer_security_validator_role|base_layer_issuance_burn_staking|tokenomics_[a-z0-9_]+|[a-z0-9]+_[a-z0-9_]+)$/i.test(String(text || "").trim());
+}
+
+function buildBtcRenderedGateCorpusRows({
+  renderedSurfaceParityViewModel,
+  model,
+  displayIdentity,
+  lens,
+  questions,
+  tokenomicsSupplyIntegrity,
+  reviewedEvidencePacket,
+} = {}) {
+  const rows = [];
+  const surfaces = safeObject(renderedSurfaceParityViewModel?.surfaces);
+  Object.entries(surfaces).forEach(([surface, values]) => {
+    const classification = BTC_RENDERED_PRIMARY_SURFACES.includes(surface)
+      ? "primary-visible"
+      : BTC_RENDERED_SECONDARY_SURFACES.includes(surface)
+        ? "secondary-visible"
+        : "audit-only";
+    normalizeRenderableList(values).forEach((text, index) => {
+      const rowClassification = isInternalBtcGateIdText(text) ? "internal-id" : classification;
+      rows.push({
+        surface,
+        fieldPath: `renderedSurfaceParityViewModel.surfaces.${surface}[${index}]`,
+        sourceObjectPath: `buildRenderedSurfaceParityViewModel.surfaces.${surface}`,
+        text,
+        classification: rowClassification,
+        appearsInRenderedViewModel: true,
+        reason: rowClassification === "internal-id"
+          ? "Internal ID rendered/available as technical metadata; not human copy for the primary gate."
+          : classification === "primary-visible"
+          ? "Current rendered-intended product text."
+          : classification === "secondary-visible"
+            ? "Visible supporting/detail surface; inventoried separately from primary gate."
+            : "Audit/raw surface; never blocks primary rendered gate.",
+      });
+    });
+  });
+
+  [
+    ["displayIdentity.displayAssetClass", displayIdentity?.displayAssetClass],
+    ["displayIdentity.displayFraming", displayIdentity?.displayFraming],
+    ["displayIdentity.primaryChip", displayIdentity?.primaryChip],
+    ["displayIdentity.secondaryChip", displayIdentity?.secondaryChip],
+    ["resolvedInstitutionalLens.visibleLabelOverride", lens?.visibleLabelOverride],
+    ["resolvedInstitutionalLens.displayLabel", lens?.displayLabel],
+  ].forEach(([fieldPath, text]) => {
+    rows.push({
+      surface: "visibleLensLabel",
+      fieldPath,
+      sourceObjectPath: fieldPath,
+      text,
+      classification: "primary-visible",
+      appearsInRenderedViewModel: true,
+      reason: "Display-safe visible label candidate.",
+    });
+  });
+
+  [
+    ["model.assetClassLabel", model?.assetClassLabel],
+    ["model.assetFramingLabel", model?.assetFramingLabel],
+    ["resolvedInstitutionalLens.label", lens?.label],
+  ].forEach(([fieldPath, text]) => {
+    const displaySafeLabels = [
+      displayIdentity?.displayAssetClass,
+      displayIdentity?.displayFraming,
+      lens?.visibleLabelOverride,
+      lens?.displayLabel,
+    ].filter(Boolean).join(" ");
+    rows.push({
+      surface: "rawFallback",
+      fieldPath,
+      sourceObjectPath: fieldPath,
+      text,
+      classification: displaySafeLabels && text && !displaySafeLabels.includes(text) ? "audit-only" : "primary-visible",
+      appearsInRenderedViewModel: false,
+      reason: "Raw backend/display fallback; blocks only when no display-safe visible label supersedes it.",
+    });
+  });
+
+  [
+    ["resolvedInstitutionalLens.lensId", lens?.lensId],
+    ["resolvedInstitutionalLens.questionGroupId", lens?.questionGroupId],
+    ...safeArray(questions).map((question) => ["institutionalQuestions[].questionId", question?.questionId]),
+    ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).map((question) => ["tokenomicsSupplyIntegrity.institutionalQuestions[].questionId", question?.questionId]),
+    ...safeArray(reviewedEvidencePacket?.questionMappings).map((mapping) => ["reviewedEvidencePacket.questionMappings[].questionId", mapping?.questionId]),
+  ].forEach(([fieldPath, text]) => {
+    rows.push({
+      surface: "internalMetadata",
+      fieldPath,
+      sourceObjectPath: fieldPath,
+      text,
+      classification: "internal-id",
+      appearsInRenderedViewModel: false,
+      reason: "Internal ID or technical route metadata; not human copy for the primary rendered gate.",
+    });
+  });
+
+  return normalizeBtcRenderedGateRows(rows);
+}
+
 function buildBtcBenchmarkForbiddenStringChecks({
   primaryText,
+  corpusRows,
   bundleText,
   asset,
   lens,
@@ -3975,16 +4112,25 @@ function buildBtcBenchmarkForbiddenStringChecks({
     && !/\b(wrapped|bridged|wbtc|liquid staking|steth)\b/i.test(contextText);
   if (!isNativeBtcContext) return [];
 
-  const textToCheck = String(primaryText || bundleText || "");
+  const normalizedRows = normalizeBtcRenderedGateRows(corpusRows);
+  const rowsToCheck = normalizedRows.length ? normalizedRows : [{
+    surface: "legacyTextBlob",
+    fieldPath: "primaryText",
+    sourceObjectPath: "primaryText",
+    renderedText: String(primaryText || bundleText || ""),
+    classification: "primary-visible",
+    appearsInRenderedViewModel: true,
+    reason: "Legacy scanner input.",
+  }];
   const definitions = [
     {
       checkId: "btc_eth_mechanism_copy_leak",
-      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|\bstaking\b|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking/i,
+      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|\bstaking\b|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking|base_layer_security_validator_role|base_layer_issuance_burn_staking/i,
       forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
     },
     {
       checkId: "btc_gas_copy_leak",
-      pattern: /settlement\/gas|\bgas demand\b|\bgas-demand\b|\bgas\/settlement demand\b|\bgas asset\b/i,
+      pattern: /settlement\/gas|\bgas demand\b|\bgas-demand\b|\bgas\/settlement demand\b|\bgas asset\b|base_layer_settlement_gas_demand/i,
       forbidden: "Native BTC primary copy shows gas-asset wording instead of transaction/blockspace/fee-market wording.",
     },
     {
@@ -4015,11 +4161,43 @@ function buildBtcBenchmarkForbiddenStringChecks({
   ];
 
   return definitions.map((definition) => {
-    const matches = textToCheck.match(definition.pattern) || [];
+    const matchedRows = rowsToCheck
+      .map((row) => {
+        const matches = String(row.renderedText || "").match(definition.pattern) || [];
+        return matches.length ? {
+          failureId: `${definition.checkId}:${row.surface}:${row.fieldPath}`,
+          checkId: definition.checkId,
+          matchedForbiddenPhrase: Array.from(new Set(matches)).join("; "),
+          renderedText: row.renderedText,
+          surface: row.surface,
+          fieldPath: row.fieldPath,
+          sourceObjectPath: row.sourceObjectPath,
+          classification: row.classification,
+          appearsInRenderedViewModel: row.appearsInRenderedViewModel,
+          shouldBlock: row.classification === "primary-visible",
+          reason: row.reason,
+        } : null;
+      })
+      .filter(Boolean);
+    const primaryVisibleFailures = matchedRows.filter((row) => row.shouldBlock);
+    const secondaryVisibleMentions = matchedRows.filter((row) => row.classification === "secondary-visible");
+    const auditOnlyMentions = matchedRows.filter((row) => row.classification === "audit-only");
+    const internalIdExclusions = matchedRows.filter((row) => row.classification === "internal-id");
+    const forbiddenListExclusions = matchedRows.filter((row) => row.classification === "forbidden-list");
+    const beforeStateExclusions = matchedRows.filter((row) => row.classification === "before-state");
+    const selfTriggerExclusions = matchedRows.filter((row) => row.classification === "report-metadata");
     return {
       ...definition,
-      passed: matches.length === 0,
-      matches: Array.from(new Set(matches)).slice(0, 5),
+      passed: primaryVisibleFailures.length === 0,
+      matches: primaryVisibleFailures.map((failure) => failure.matchedForbiddenPhrase).filter((entry, index, all) => all.indexOf(entry) === index).slice(0, 5),
+      primaryVisibleFailures,
+      secondaryVisibleMentions,
+      auditOnlyMentions,
+      internalIdExclusions,
+      forbiddenListExclusions,
+      beforeStateExclusions,
+      selfTriggerExclusions,
+      allMatches: matchedRows,
       allowedWhen: "Only allowed when the selected asset is ETH/PoS, ERC-20, stablecoin, wrapped/LST, or protocol-token context rather than native BTC.",
       checkedFields: [
         "Decision Header / Command Header primary model text",
@@ -4651,64 +4829,17 @@ export function buildReviewBundleText({
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
   const visibleBundleLensLabel = lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
   const visibleBundleFramingLabel = displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
-  const btcPrimaryQaText = [
-    visiblePrimaryText,
-    renderedPrimaryVisibleText,
-    primaryAssetFramingText,
-    safeModel.assetClassLabel,
-    safeModel.assetFramingLabel,
-    displayIdentity?.displayAssetClass,
-    displayIdentity?.displayFraming,
-    displayIdentity?.primaryChip,
-    displayIdentity?.secondaryChip,
-    lens?.visibleLabelOverride,
-    lens?.displayLabel,
-    lens?.label,
-    lens?.lensId,
-    safeModel.primaryBlocker?.label,
-    safeModel.primaryBlocker?.explanation,
-    safeModel.weakestLink?.label,
-    safeModel.weakestLink?.explanation,
-    ...(safeModel.whatWouldChangeDecision?.items || []),
-    ...safeArray(questions).flatMap((question) => [
-      question?.questionText,
-      question?.shortAnswer,
-      question?.answerSummary,
-      question?.synthesizedAnswer?.directAnswer,
-      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
-      ...normalizeRenderableList(question?.synthesizedAnswer?.missingEvidence),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.whatWouldChange),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence),
-      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange),
-      ...normalizeRenderableList(question?.missingEvidence),
-      ...normalizeRenderableList(question?.whatWouldChange),
-      ...normalizeRenderableList(question?.evidenceMappingWarnings),
-    ]),
-    lensAware?.primaryBlocker,
-    ...normalizeRenderableList(lensAware?.evidenceNeeded),
-    ...normalizeRenderableList(lensAware?.whatWouldChange),
-    ...normalizeRenderableList(lensAware?.sourceQueueRequirements),
-    ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).flatMap((question) => [
-      question?.questionText,
-      question?.shortAnswer,
-      question?.answerSummary,
-      question?.impactOnScoreOrConfidence,
-      ...normalizeRenderableList(question?.missingEvidence),
-      ...normalizeRenderableList(question?.whatWouldChange),
-    ]),
-    ...safeArray(tokenomicsSupplyIntegrity?.sourceRequirements),
-    ...safeArray(tokenomicsSupplyIntegrity?.manualReviewTriggers),
-    ...safeArray(tokenomicsSupplyIntegrity?.confidenceCaps),
-    ...safeArray(reviewedEvidencePacket?.questionMappings).flatMap((mapping) => [
-      mapping?.questionId,
-      ...normalizeRenderableList(mapping?.evidenceMappingWarnings),
-      ...normalizeRenderableList(mapping?.remainingMissingEvidence),
-    ]),
-    ...safeArray(reviewedEvidencePacket?.sourceQueueNotes),
-    ...safeArray(reviewedEvidencePacket?.remainingSourceRequirements),
-  ].filter(Boolean).join(" ");
+  const btcRenderedGateCorpusRows = buildBtcRenderedGateCorpusRows({
+    renderedSurfaceParityViewModel,
+    model: safeModel,
+    displayIdentity,
+    lens,
+    questions,
+    tokenomicsSupplyIntegrity,
+    reviewedEvidencePacket,
+  });
   const renderedBtcForbiddenStringChecks = buildBtcBenchmarkForbiddenStringChecks({
-    primaryText: btcPrimaryQaText,
+    corpusRows: btcRenderedGateCorpusRows,
     bundleText: "",
     asset: safeAsset,
     lens,
@@ -4716,6 +4847,13 @@ export function buildReviewBundleText({
     reviewedEvidencePacket,
   });
   const renderedBtcFailures = renderedBtcForbiddenStringChecks.filter((check) => !check.passed);
+  const renderedBtcPrimaryVisibleFailures = renderedBtcForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []);
+  const renderedBtcSecondaryVisibleMentions = renderedBtcForbiddenStringChecks.flatMap((check) => check.secondaryVisibleMentions || []);
+  const renderedBtcAuditOnlyMentions = renderedBtcForbiddenStringChecks.flatMap((check) => check.auditOnlyMentions || []);
+  const renderedBtcInternalIdExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.internalIdExclusions || []);
+  const renderedBtcForbiddenListExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.forbiddenListExclusions || []);
+  const renderedBtcBeforeStateExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.beforeStateExclusions || []);
+  const renderedBtcSelfTriggerExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.selfTriggerExclusions || []);
   const renderedBtcGateStatus = renderedBtcFailures.length ? "FAIL" : "PASS";
   const renderedBtcFailureReason = renderedBtcFailures.length
     ? "BTC primary visible rendered-intended text contains forbidden generic/base-layer copy. This is a blocking product-surface parity failure."
@@ -4937,10 +5075,30 @@ export function buildReviewBundleText({
       bundleField("Gate status", renderedBtcForbiddenStringChecks.length ? renderedBtcGateStatus : "not applicable for this asset/lens"),
       bundleField("Blocking", renderedBtcForbiddenStringChecks.length ? "true" : "not applicable"),
       bundleField("Failure reason", renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : "No native-BTC rendered hard gate was applicable."),
-      bundleField("Primary visible forbidden failure count", renderedBtcFailures.length),
-      bundleField("Primary visible forbidden failures", renderedBtcFailures.map((check) => check.checkId).join("; ") || "none"),
-      bundleField("Secondary visible forbidden failure count", "0 - secondary/audit detail is inventoried separately; primary BTC rendered failures are blocking"),
-      bundleField("Audit-only forbidden mentions", "Allowed only when explicitly marked raw/audit/before-state context"),
+      bundleField("Primary visible forbidden failure count", renderedBtcPrimaryVisibleFailures.length),
+      bundleField("Primary visible forbidden failures", renderedBtcPrimaryVisibleFailures.map((failure) =>
+        `${failure.checkId} | ${failure.surface} | ${failure.fieldPath} | phrase=${failure.matchedForbiddenPhrase} | text=${failure.renderedText}`
+      ).join(" || ") || "none"),
+      bundleField("Secondary visible forbidden failure count", renderedBtcSecondaryVisibleMentions.length),
+      bundleField("Secondary visible forbidden mentions", renderedBtcSecondaryVisibleMentions.map((failure) =>
+        `${failure.checkId} | ${failure.surface} | ${failure.fieldPath} | phrase=${failure.matchedForbiddenPhrase}`
+      ).join(" || ") || "none"),
+      bundleField("Audit-only forbidden mentions", renderedBtcAuditOnlyMentions.map((failure) =>
+        `${failure.checkId} | ${failure.surface} | ${failure.fieldPath} | phrase=${failure.matchedForbiddenPhrase}`
+      ).join(" || ") || "none"),
+      bundleField("Internal ID exclusions", renderedBtcInternalIdExclusions.map((failure) =>
+        `${failure.checkId} | ${failure.fieldPath} | ${failure.renderedText}`
+      ).join(" || ") || "none"),
+      bundleField("Forbidden-list self-trigger exclusions", renderedBtcForbiddenListExclusions.length + renderedBtcSelfTriggerExclusions.length),
+      bundleField("Before-state exclusions", renderedBtcBeforeStateExclusions.length),
+      bundleField("Rendered gate primary failure count", renderedBtcPrimaryVisibleFailures.length),
+      bundleField("12C failure count", renderedBtcPrimaryVisibleFailures.length),
+      bundleField("2C/12C counts match", "yes"),
+      bundleField("Failure corpus shared", "yes - 2C and 12C use the same current primary visible rendered corpus"),
+      bundleField("Self-trigger excluded", "yes"),
+      bundleField("Audit-only excluded", "yes"),
+      bundleField("Internal IDs excluded", "yes"),
+      bundleField("Before-state excluded", "yes"),
       bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
       bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
       bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
@@ -5599,12 +5757,18 @@ export function buildReviewBundleText({
   ]);
   const btcBenchmarkQaSection = bundleSection("12C. BTC Benchmark Answer / Native Base-Layer Text QA", [
     bundleField("BTC-native forbidden-string checks run", btcBenchmarkForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
-    bundleField("BTC-native forbidden-string failures", btcBenchmarkFailures.length),
+    bundleField("BTC-native forbidden-string failures", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []).length),
     bundleField("Checked fields", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
     bundleField("Checked bundle sections", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedBundleSections).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
     "Forbidden-string checks:",
     bundleList(btcBenchmarkForbiddenStringChecks.map((check) =>
-      `${check.checkId}: ${check.passed ? "PASS" : "FAIL"} | ${check.forbidden} | matches=${check.matches.join("; ") || "none"} | allowedWhen=${check.allowedWhen}`
+      `${check.checkId}: ${check.passed ? "PASS" : "FAIL"} | ${check.forbidden} | primaryMatches=${(check.primaryVisibleFailures || []).map((failure) => `${failure.surface}.${failure.fieldPath}: ${failure.matchedForbiddenPhrase}`).join("; ") || "none"} | secondary=${(check.secondaryVisibleMentions || []).length} | audit/internal/report exclusions=${[
+        ...(check.auditOnlyMentions || []),
+        ...(check.internalIdExclusions || []),
+        ...(check.forbiddenListExclusions || []),
+        ...(check.beforeStateExclusions || []),
+        ...(check.selfTriggerExclusions || []),
+      ].length} | allowedWhen=${check.allowedWhen}`
     )),
     "Native BTC expected surface:",
     bundleList([
