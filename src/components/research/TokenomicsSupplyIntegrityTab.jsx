@@ -229,8 +229,9 @@ function keyRiskItems(lensId) {
     case "RWA_HYBRID_INFRASTRUCTURE":
       return ["Are utility-token rights separated from RWA/security-token rights?", "Is canonical network/contract mapping verified?", "Can supply or cap policy change through governance?", "Are fee, staking, or gas-demand mechanics source-backed?"];
     case "BASE_LAYER_SETTLEMENT":
+      return ["Is monetary policy clear?", "Are issuance, base-fee burn, staking/validator, and L2/blob fee-market mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
     case "NATIVE_MONETARY_BENCHMARK":
-      return ["Is monetary policy clear?", "Are issuance, burn, staking/mining, and security-budget mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
+      return ["Is monetary policy clear?", "Are issuance, fee-market, miner/security-budget, and concentration mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
     case "MEME_NARRATIVE":
       return ["Is supply certainty clear?", "Are mint/admin controls safe for the selected contract?", "Is concentration/liquidity risk acceptable?", "Is the analysis avoiding fake protocol fundamentals?"];
     case "WRAPPED_ASSET":
@@ -545,8 +546,9 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
 function contextualNote(lensId) {
   switch (lensId) {
     case "BASE_LAYER_SETTLEMENT":
+      return "Native PoS/base-layer tokenomics should focus on issuance, base-fee burn, net issuance, staking/validator incentives, L2/blob fee contribution, security budget, client diversity, liveness, and market depth. A missing EVM contract scan is not itself negative evidence for native assets.";
     case "NATIVE_MONETARY_BENCHMARK":
-      return "Native/base-layer tokenomics should focus on issuance, burn, staking/miner incentives, security budget, and liveness. A missing EVM contract scan is not itself negative evidence.";
+      return "Native monetary tokenomics should focus on issuance schedule, fee-market durability, miner/security-budget incentives, concentration, liveness, and market depth. A missing EVM contract scan is not itself negative evidence.";
     case "DEFI_PROTOCOL_TOKEN":
     case "L2_GOVERNANCE_TOKEN":
       return "Protocol success does not automatically accrue to tokenholders; fee switch, fee routing, treasury, unlocks, and governance durability require source-backed review.";

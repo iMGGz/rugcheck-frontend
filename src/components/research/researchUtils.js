@@ -273,6 +273,10 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     dependencyRequirements: safeArray(backbone.dependencyRequirements),
     freshnessPointInTimeReadiness: safeArray(backbone.freshnessPointInTimeReadiness),
     pathParityChecks: safeArray(backbone.pathParityChecks),
+    benchmarkLearningRulesApplied: safeArray(backbone.benchmarkLearningRulesApplied),
+    benchmarkLearningSourceRequirementTemplates: safeArray(backbone.benchmarkLearningSourceRequirementTemplates),
+    benchmarkLearningRegistrySummary: safeObject(backbone.benchmarkLearningRegistrySummary),
+    benchmarkLearningRenderedParity: safeObject(backbone.benchmarkLearningRenderedParity),
     representativeAssetsCovered: safeArray(backbone.representativeAssetsCovered),
     deferredFindings: safeArray(backbone.deferredFindings),
     knownLimitations: safeArray(backbone.knownLimitations),
@@ -2449,6 +2453,56 @@ const BTC_NATIVE_DISPLAY_COPY = {
   ],
 };
 
+const ETH_POS_SETTLEMENT_DISPLAY_COPY = {
+  assetClassLabel: "PoS Smart-Contract Settlement / Gas Asset",
+  assetFramingLabel: "PoS Settlement / Gas / Burn / Staking / L2 Fee-Market Thesis",
+  whyAllocationCouldMakeSense: "ETH has native smart-contract settlement and gas-asset relevance, with protocol mechanics tied to transaction fees, EIP-1559 base-fee burn, staking/validator security, and L2 settlement/blob demand. Allocation support depends on current gas demand, fee-market durability, net issuance, staking participation, validator/client diversity, slashing/liveness history, L2/blob fee contribution, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
+  whyAllocationIsCapped: "Confidence remains capped because current gas demand, fee-market durability, base-fee burn/net issuance, staking/validator distribution, client diversity, slashing/liveness history, L2/blob fee-market contribution, liquidity/depth, custody/access, and regulatory-access evidence require direct live review.",
+  verdictInterpretation: "ETH can clear a smart-contract settlement benchmark while live fee-market, validator/security, L2/blob, liquidity, and access evidence gaps keep confidence capped.",
+  primaryBlocker: "Current gas demand, fee-market durability, validator/security distribution, L2/blob fee contribution, liquidity/depth, custody/access, and liveness evidence remain source-required.",
+  rightRailPrimaryBlocker: "Current gas demand, base-fee burn/net issuance, validator/client diversity, L2/blob fees, liquidity, custody/access, and liveness evidence remain source-required.",
+  weakestLink: "The weakest ETH assumption is whether current live gas demand, base-fee burn/net issuance, validator/client diversity, L2/blob fee contribution, and liquidity evidence are strong enough to support the allocation thesis.",
+  decisionMemo: "ETH is directionally investable as a native PoS smart-contract settlement and gas asset, but confidence remains capped because current fee-market durability, validator/security distribution, L2/blob economics, liquidity, custody/access, and liveness evidence are not fully source-backed in the current live response.",
+  allocationThesis: "ETH thesis depends on native smart-contract settlement demand, gas fee demand, EIP-1559 base-fee burn/net issuance mechanics, staking/validator security, validator and client diversity, liveness, L2 settlement and blob/data-availability fee contribution, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
+  falsePositiveBoundary: "Ethereum protocol/mechanism evidence can support staking, fee mechanics, base-fee burn, and settlement architecture. It does not prove current durable gas demand, net issuance quality, validator/client decentralization, L2/blob fee durability, market depth, ETF/custody flows, regulatory access, liveness, or allocation suitability without live/source-backed evidence.",
+  tokenDemandTruth: "ETH demand support is a native smart-contract settlement, gas, and L2/blob fee-market thesis. Provider and protocol mechanism context do not prove current fee-market durability, net issuance quality, validator/client decentralization, L2/blob fee durability, liquidity/depth, custody/access, ETF-flow, regulatory-access, or allocation suitability.",
+  tokenomicsSummary: "ETH native supply mechanics depend on issuance, staking rewards/penalties, base-fee burn, and protocol upgrades. Mechanism evidence can support the design, but current net issuance, burn materiality, staking participation, and fee-market durability require live/source-backed evidence.",
+  evidenceNeeded: [
+    "Current gas demand, transaction count, fee revenue, base fee, and priority fee evidence.",
+    "EIP-1559 base-fee burn, burn materiality, net issuance, and monetary-policy evidence.",
+    "Staking participation, validator count, validator distribution/concentration, and validator reward/penalty evidence.",
+    "Client diversity, slashing, liveness/outage, congestion, and protocol-security evidence.",
+    "L2 settlement activity, blob/data-availability fees, rollup demand, and L2 fee-market contribution evidence.",
+    "Evidence whether L2 growth strengthens or cannibalizes L1 fee-market/value-capture assumptions.",
+    "MEV, proposer-builder, relay centralization, protocol upgrade, and governance roadmap risk evidence.",
+    "Market depth, liquidity, slippage, venue concentration, custody/access, ETF-flow, and regulatory-access context.",
+  ],
+  whatWouldChange: [
+    "Stronger source-backed current gas demand, transaction-fee revenue, base-fee burn, and net issuance evidence.",
+    "Stronger staking participation, validator distribution, client diversity, slashing/liveness, and protocol-security evidence.",
+    "Clearer L2 settlement, blob fee, rollup economics, and L2 support-versus-cannibalization evidence.",
+    "Deeper liquidity, lower venue concentration, stronger custody/access and ETF-flow evidence.",
+    "Better MEV/proposer-builder/relay, protocol-upgrade, liveness, and regulatory-access context.",
+  ],
+  whatMustBeTrue: [
+    "Ethereum's native PoS smart-contract settlement role remains durable.",
+    "Current gas demand and transaction-fee demand are strong enough to support the fee-market thesis.",
+    "Base-fee burn and net issuance mechanics remain economically material under current conditions.",
+    "Staking participation, validator distribution, and client diversity remain resilient.",
+    "L2 settlement and blob/data-availability demand support rather than structurally cannibalize L1 economics.",
+    "Liquidity/depth, custody/access, ETF-flow, and regulatory access remain institutionally usable.",
+  ],
+  whatCouldBreak: [
+    "Weak current gas demand or transaction-fee demand.",
+    "Base-fee burn becoming immaterial relative to issuance.",
+    "Validator concentration, client concentration, slashing, or liveness deterioration.",
+    "L2/blob fee contribution failing to support L1 economics or materially cannibalizing L1 fee capture.",
+    "MEV, proposer-builder, or relay centralization risk worsening.",
+    "Liquidity/depth deterioration, venue concentration, custody/access friction, ETF-flow weakness, or regulatory-access deterioration.",
+    "Protocol upgrade or governance roadmap risk undermining fee-market, issuance, or security assumptions.",
+  ],
+};
+
 function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
   const assetText = [
     asset?.symbol,
@@ -2471,6 +2525,31 @@ function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, revie
   const looksLikeNativeBtc = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(assetText);
   const isWrappedOrDerivative = /\b(wbtc|wrapped|bridged|bridge|liquid staking|lst|steth|staking derivative)\b/i.test(assetText);
   return looksLikeNativeBtc && !isWrappedOrDerivative;
+}
+
+function isEthPosSettlementDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
+  const assetText = [
+    asset?.symbol,
+    asset?.name,
+    asset?.id,
+    asset?.coingeckoId,
+    asset?.coinmarketcapId,
+    reviewedEvidencePacket?.packetId,
+    assetIdentityResolution?.canonicalAssetName,
+    assetIdentityResolution?.canonicalAssetSymbol,
+    assetIdentityResolution?.canonicalProviderIds?.coingeckoId,
+    assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId,
+    assetIdentityResolution?.nativeNetworkCandidate,
+    assetIdentityResolution?.canonicalNetworkCandidate,
+    assetIdentityResolution?.representationType,
+    assetIdentityResolution?.bridgedOrWrappedStatus,
+    lens?.lensId,
+    lens?.questionGroupId,
+  ].filter(Boolean).join(" ").toLowerCase();
+  const looksLikeNativeEth = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(assetText)
+    && /\b(base_layer_settlement|base-layer|settlement|ethereum)\b/i.test(assetText);
+  const isWrappedOrDerivative = /\b(weth|wrapped|bridged|bridge|liquid staking|lst|steth|reth|cbeth|wsteth|staking derivative)\b/i.test(assetText);
+  return looksLikeNativeEth && !isWrappedOrDerivative;
 }
 
 function buildNativeBtcDisplayOverlay(baseModel) {
@@ -2558,6 +2637,98 @@ function buildNativeBtcDisplayOverlay(baseModel) {
       preferredSourceTypes: ["official_docs", "network_dashboard", "market_data", "custody_access_report", "manual_review"],
       priority: index < 4 ? "high" : "medium",
       verdictImpact: "Could clarify BTC benchmark thesis confidence if independently reviewed.",
+      currentStatus: "review_required",
+      canChangeVerdict: true,
+    })),
+  };
+}
+
+function buildEthPosSettlementDisplayOverlay(baseModel) {
+  const copy = ETH_POS_SETTLEMENT_DISPLAY_COPY;
+  const verdictSemantics = {
+    ...(baseModel.verdictSemantics || {}),
+    positiveCase: [copy.whyAllocationCouldMakeSense],
+    blockedCase: [copy.whyAllocationIsCapped],
+    summary: copy.verdictInterpretation,
+    missingEvidence: copy.evidenceNeeded,
+    whatWouldChange: copy.whatWouldChange,
+    boundary: "Primary ETH display copy is native PoS smart-contract settlement / gas / burn / staking / L2 fee-market wording; raw generic base-layer fields remain available only in Audit / Raw.",
+  };
+
+  return {
+    ...baseModel,
+    assetClassLabel: copy.assetClassLabel,
+    assetFramingLabel: copy.assetFramingLabel,
+    resolvedInstitutionalLens: {
+      ...(baseModel.resolvedInstitutionalLens || {}),
+      label: copy.assetClassLabel,
+      displayLabel: copy.assetClassLabel,
+      displayFraming: copy.assetFramingLabel,
+      visibleLabelOverride: copy.assetClassLabel,
+      visibleLabelSource: "native_eth_pos_settlement_rendered_surface_overlay",
+    },
+    verdictSemantics,
+    allocationCase: {
+      ...(baseModel.allocationCase || {}),
+      forAllocation: [copy.whyAllocationCouldMakeSense],
+      againstAllocation: [copy.whyAllocationIsCapped],
+      missingEvidence: copy.evidenceNeeded,
+      whatWouldChange: copy.whatWouldChange,
+    },
+    missingCritical: copy.evidenceNeeded,
+    requiredConditions: copy.evidenceNeeded,
+    blockers: [copy.rightRailPrimaryBlocker],
+    decisionDrivers: [
+      copy.whyAllocationCouldMakeSense,
+      copy.primaryBlocker,
+      copy.falsePositiveBoundary,
+    ],
+    primaryStrength: copy.whyAllocationCouldMakeSense,
+    primaryWeakness: copy.whyAllocationIsCapped,
+    summaryMemo: copy.decisionMemo,
+    structuredThesisSummary: copy.allocationThesis,
+    tokenDemandTruth: copy.tokenDemandTruth,
+    tokenomicsSummary: copy.tokenomicsSummary,
+    failureMode: {
+      ...(baseModel.failureMode || {}),
+      primary: copy.falsePositiveBoundary,
+      trigger: copy.whatCouldBreak[0],
+    },
+    primaryBlocker: {
+      ...(baseModel.primaryBlocker || {}),
+      label: copy.primaryBlocker,
+      explanation: copy.rightRailPrimaryBlocker,
+      badge: "ETH PoS settlement source requirement",
+    },
+    weakestLink: {
+      ...(baseModel.weakestLink || {}),
+      label: copy.weakestLink,
+      explanation: copy.weakestLink,
+      badge: "ETH PoS settlement weakest link",
+    },
+    whatWouldChangeDecision: {
+      ...(baseModel.whatWouldChangeDecision || {}),
+      items: copy.whatWouldChange.slice(0, 4),
+      badge: "ETH live requirements",
+      explanation: "Display wording is scoped to native ETH PoS smart-contract settlement and L2/blob fee-market review; scoring and verdicts are unchanged.",
+    },
+    whyNow: copy.whyAllocationCouldMakeSense,
+    whyNotNow: copy.whyAllocationIsCapped,
+    whatMustBeTrue: copy.whatMustBeTrue,
+    whatCouldBreak: copy.whatCouldBreak,
+    nextCheckpoints: copy.whatWouldChange,
+    topPositiveDrivers: [copy.whyAllocationCouldMakeSense],
+    topNegativeDrivers: [copy.primaryBlocker, copy.weakestLink],
+    topNeutralDrivers: copy.whatWouldChange,
+    researchRequirements: copy.evidenceNeeded.map((requirement, index) => ({
+      id: `eth-pos-settlement-final-surface-${index}`,
+      title: requirement,
+      assetClassLens: "BASE_LAYER_SETTLEMENT",
+      reason: "ETH-native PoS smart-contract settlement source requirement. Source requirements are not reviewed evidence and do not change scoring.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["official_docs", "network_dashboard", "market_data", "l2_dashboard", "custody_access_report", "manual_review"],
+      priority: index < 5 ? "high" : "medium",
+      verdictImpact: "Could clarify ETH settlement/gas/staking/burn/L2 fee-market thesis confidence if independently reviewed.",
       currentStatus: "review_required",
       canChangeVerdict: true,
     })),
@@ -3378,14 +3549,23 @@ export function buildDecisionTerminalModel({
     keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
 
-  return isNativeBtcDisplayContext({
+  if (isNativeBtcDisplayContext({
     asset,
     lens: resolvedInstitutionalLens,
     assetIdentityResolution,
     reviewedEvidencePacket,
-  })
-    ? buildNativeBtcDisplayOverlay(baseDisplayModel)
-    : baseDisplayModel;
+  })) {
+    return buildNativeBtcDisplayOverlay(baseDisplayModel);
+  }
+  if (isEthPosSettlementDisplayContext({
+    asset,
+    lens: resolvedInstitutionalLens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  })) {
+    return buildEthPosSettlementDisplayOverlay(baseDisplayModel);
+  }
+  return baseDisplayModel;
 }
 
 function bundleValue(value, fallback = "Unavailable in current frontend model") {
@@ -4232,6 +4412,140 @@ function buildBtcBenchmarkForbiddenStringChecks({
   });
 }
 
+function buildEthBenchmarkForbiddenStringChecks({
+  primaryText,
+  corpusRows,
+  bundleText,
+  asset,
+  lens,
+  assetIdentityResolution,
+  reviewedEvidencePacket,
+}) {
+  const assetText = `${asset?.symbol || ""} ${asset?.name || ""} ${asset?.id || ""} ${asset?.coingeckoId || ""} ${reviewedEvidencePacket?.packetId || ""}`;
+  const identityText = `${assetIdentityResolution?.canonicalAssetName || ""} ${assetIdentityResolution?.canonicalAssetSymbol || ""} ${assetIdentityResolution?.canonicalProviderIds?.coingeckoId || ""} ${assetIdentityResolution?.nativeNetworkCandidate || ""} ${assetIdentityResolution?.canonicalNetworkCandidate || ""} ${assetIdentityResolution?.representationType || ""} ${assetIdentityResolution?.bridgedOrWrappedStatus || ""}`;
+  const lensText = `${lens?.lensId || ""} ${lens?.questionGroupId || ""}`;
+  const contextText = `${assetText} ${identityText} ${lensText}`.toLowerCase();
+  const isNativeEthContext = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(contextText)
+    && /\b(base_layer_settlement|base-layer|settlement|ethereum)\b/i.test(contextText)
+    && !/\b(weth|wrapped|bridged|liquid staking|steth|reth|cbeth|wsteth)\b/i.test(contextText);
+  if (!isNativeEthContext) return [];
+
+  const normalizedRows = normalizeBtcRenderedGateRows(corpusRows);
+  const rowsToCheck = normalizedRows.length ? normalizedRows : [{
+    surface: "legacyTextBlob",
+    fieldPath: "primaryText",
+    sourceObjectPath: "primaryText",
+    renderedText: String(primaryText || bundleText || ""),
+    classification: "primary-visible",
+    appearsInRenderedViewModel: true,
+    reason: "Legacy scanner input.",
+  }];
+  const definitions = [
+    {
+      checkId: "eth_btc_pow_copy_leak",
+      pattern: /Native PoW|proof-of-work|proof of work|miner economics|miner revenue|hashrate|mining-pool|mining pool|halving|block subsidy|coinbase subsidy|native monetary benchmark/i,
+      forbidden: "Native ETH primary copy shows BTC PoW/miner/hashrate/halving/block-subsidy wording.",
+    },
+    {
+      checkId: "eth_wrapped_custody_backing_copy_leak",
+      pattern: /proof-of-reserves|proof of reserves|wrapped asset|wrapped exposure|custodian\/merchant|bridge controls|backing.*redemption|redemption path.*custodian/i,
+      forbidden: "Native ETH primary copy shows wrapped/custody/backing/redemption wording.",
+    },
+    {
+      checkId: "eth_stablecoin_trust_copy_leak",
+      pattern: /stablecoin|reserve composition|\battestation\b|reserve attestation|redemption eligibility|issuer\/custodian|admin\/freeze policy|peg stress/i,
+      forbidden: "Native ETH primary copy shows stablecoin reserve/redemption/issuer-control wording.",
+    },
+    {
+      checkId: "eth_rwa_rights_copy_leak",
+      pattern: /RWA NAV|legal claim|legal\/economic rights|tokenized asset|issuer, custodian, collateral|redemption enforceability|NAV/i,
+      forbidden: "Native ETH primary copy shows RWA legal/NAV/redemption wording.",
+    },
+    {
+      checkId: "eth_depin_gaming_meme_copy_leak",
+      pattern: /resource demand|compute\/storage|payer mapping|provider incentives|active players|paying users|game volume|meme|narrative asset/i,
+      forbidden: "Native ETH primary copy shows DePIN, gaming, or meme wording.",
+    },
+    {
+      checkId: "eth_erc20_admin_primary_copy_leak",
+      pattern: /ERC-20 admin|proxy\/admin|selected contract.*non-mintable|selected contract reported non-mintable|contract scan.*required|mint\/admin.*selected contract/i,
+      forbidden: "Native ETH primary copy shows ERC-20 contract/admin/proxy wording.",
+    },
+    {
+      checkId: "eth_generic_fallback_copy_leak",
+      pattern: /Resolve the critical pillar|Critical tokenomics evidence is missing|utility or vesting support|Close the weakest-link gaps/i,
+      forbidden: "Native ETH primary copy shows generic decision/tokenomics fallback wording instead of PoS settlement blocker copy.",
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const matchedRows = rowsToCheck
+      .map((row) => {
+        const matches = String(row.renderedText || "").match(definition.pattern) || [];
+        return matches.length ? {
+          failureId: `${definition.checkId}:${row.surface}:${row.fieldPath}`,
+          checkId: definition.checkId,
+          matchedForbiddenPhrase: Array.from(new Set(matches)).join("; "),
+          renderedText: row.renderedText,
+          surface: row.surface,
+          fieldPath: row.fieldPath,
+          sourceObjectPath: row.sourceObjectPath,
+          classification: row.classification,
+          appearsInRenderedViewModel: row.appearsInRenderedViewModel,
+          shouldBlock: row.classification === "primary-visible",
+          reason: row.reason,
+        } : null;
+      })
+      .filter(Boolean);
+    const primaryVisibleFailures = matchedRows.filter((row) => row.shouldBlock);
+    const secondaryVisibleMentions = matchedRows.filter((row) => row.classification === "secondary-visible");
+    const auditOnlyMentions = matchedRows.filter((row) => row.classification === "audit-only");
+    const internalIdExclusions = matchedRows.filter((row) => row.classification === "internal-id");
+    const forbiddenListExclusions = matchedRows.filter((row) => row.classification === "forbidden-list");
+    const beforeStateExclusions = matchedRows.filter((row) => row.classification === "before-state");
+    const selfTriggerExclusions = matchedRows.filter((row) => row.classification === "report-metadata");
+    return {
+      ...definition,
+      passed: primaryVisibleFailures.length === 0,
+      matches: primaryVisibleFailures.map((failure) => failure.matchedForbiddenPhrase).filter((entry, index, all) => all.indexOf(entry) === index).slice(0, 5),
+      primaryVisibleFailures,
+      secondaryVisibleMentions,
+      auditOnlyMentions,
+      internalIdExclusions,
+      forbiddenListExclusions,
+      beforeStateExclusions,
+      selfTriggerExclusions,
+      allMatches: matchedRows,
+      allowedWhen: "Only allowed when the selected asset is BTC/PoW, wrapped/LST, stablecoin, RWA, DePIN, gaming, meme, or ERC-20 contract-token context rather than native ETH.",
+      checkedFields: [
+        "Decision Header / Command Header primary model text",
+        "Decision Tab / Decision Snapshot primary model text",
+        "Thesis Falsification primary model text",
+        "Right Rail / Research Intelligence Rail primary blocker and weakest link",
+        "Right Rail / What Would Change rail",
+        "Visible asset class / framing / lens labels",
+        "Institutional Checklist questionText",
+        "Institutional Checklist primaryMissingEvidence",
+        "Institutional Checklist primaryWhatWouldChange",
+        "Institutional question synthesized answers",
+        "Tokenomics question answers and source requirements",
+        "Source Queue requirements",
+        "Manual Review signals",
+        "Copy Review Bundle live mirror",
+      ],
+      checkedBundleSections: [
+        "4. Decision / Command Header",
+        "5. Thesis Falsification",
+        "6. Institutional Checklist",
+        "6A. Tokenomics / Supply Integrity Tab Mirror",
+        "9. Source Queue",
+        "10. Manual Review",
+        "12D. ETH Benchmark Answer / PoS Settlement Text QA",
+      ],
+    };
+  });
+}
+
 function bundleControlStatusLabel(value, kind, lensId) {
   if (lensId === "STABLECOIN_SETTLEMENT" && kind === "mint") {
     if (value === "requires_manual_review") return "present / issuer-controlled / requires policy review";
@@ -4846,8 +5160,18 @@ export function buildReviewBundleText({
     assetIdentityResolution,
     reviewedEvidencePacket,
   });
+  const renderedEthForbiddenStringChecks = buildEthBenchmarkForbiddenStringChecks({
+    corpusRows: btcRenderedGateCorpusRows,
+    bundleText: "",
+    asset: safeAsset,
+    lens,
+    assetIdentityResolution,
+    reviewedEvidencePacket,
+  });
   const renderedBtcFailures = renderedBtcForbiddenStringChecks.filter((check) => !check.passed);
+  const renderedEthFailures = renderedEthForbiddenStringChecks.filter((check) => !check.passed);
   const renderedBtcPrimaryVisibleFailures = renderedBtcForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []);
+  const renderedEthPrimaryVisibleFailures = renderedEthForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []);
   const renderedBtcSecondaryVisibleMentions = renderedBtcForbiddenStringChecks.flatMap((check) => check.secondaryVisibleMentions || []);
   const renderedBtcAuditOnlyMentions = renderedBtcForbiddenStringChecks.flatMap((check) => check.auditOnlyMentions || []);
   const renderedBtcInternalIdExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.internalIdExclusions || []);
@@ -4855,9 +5179,13 @@ export function buildReviewBundleText({
   const renderedBtcBeforeStateExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.beforeStateExclusions || []);
   const renderedBtcSelfTriggerExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.selfTriggerExclusions || []);
   const renderedBtcGateStatus = renderedBtcFailures.length ? "FAIL" : "PASS";
+  const renderedEthGateStatus = renderedEthFailures.length ? "FAIL" : "PASS";
   const renderedBtcFailureReason = renderedBtcFailures.length
     ? "BTC primary visible rendered-intended text contains forbidden generic/base-layer copy. This is a blocking product-surface parity failure."
     : "No BTC forbidden strings found in primary visible rendered-intended text.";
+  const renderedEthFailureReason = renderedEthFailures.length
+    ? "ETH primary visible rendered-intended text contains forbidden BTC/wrapped/stablecoin/RWA/DePIN/gaming/ERC-20/generic copy. This is a blocking product-surface parity failure."
+    : "No ETH forbidden strings found in primary visible rendered-intended text.";
 
   const sections = [
     bundleSection("0. Analysis Freshness / Live-First QA Eligibility", [
@@ -5072,11 +5400,11 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2C. Backend-to-Frontend Rendered Surface Parity Gate", [
       bundleField("Gate version", renderedSurfaceParityViewModel.artifactVersion),
-      bundleField("Gate status", renderedBtcForbiddenStringChecks.length ? renderedBtcGateStatus : "not applicable for this asset/lens"),
-      bundleField("Blocking", renderedBtcForbiddenStringChecks.length ? "true" : "not applicable"),
-      bundleField("Failure reason", renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : "No native-BTC rendered hard gate was applicable."),
-      bundleField("Primary visible forbidden failure count", renderedBtcPrimaryVisibleFailures.length),
-      bundleField("Primary visible forbidden failures", renderedBtcPrimaryVisibleFailures.map((failure) =>
+      bundleField("Gate status", renderedBtcForbiddenStringChecks.length ? renderedBtcGateStatus : renderedEthForbiddenStringChecks.length ? renderedEthGateStatus : "not applicable for this asset/lens"),
+      bundleField("Blocking", renderedBtcForbiddenStringChecks.length || renderedEthForbiddenStringChecks.length ? "true" : "not applicable"),
+      bundleField("Failure reason", renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : renderedEthForbiddenStringChecks.length ? renderedEthFailureReason : "No native-BTC or native-ETH rendered hard gate was applicable."),
+      bundleField("Primary visible forbidden failure count", renderedBtcPrimaryVisibleFailures.length + renderedEthPrimaryVisibleFailures.length),
+      bundleField("Primary visible forbidden failures", [...renderedBtcPrimaryVisibleFailures, ...renderedEthPrimaryVisibleFailures].map((failure) =>
         `${failure.checkId} | ${failure.surface} | ${failure.fieldPath} | phrase=${failure.matchedForbiddenPhrase} | text=${failure.renderedText}`
       ).join(" || ") || "none"),
       bundleField("Secondary visible forbidden failure count", renderedBtcSecondaryVisibleMentions.length),
@@ -5091,10 +5419,11 @@ export function buildReviewBundleText({
       ).join(" || ") || "none"),
       bundleField("Forbidden-list self-trigger exclusions", renderedBtcForbiddenListExclusions.length + renderedBtcSelfTriggerExclusions.length),
       bundleField("Before-state exclusions", renderedBtcBeforeStateExclusions.length),
-      bundleField("Rendered gate primary failure count", renderedBtcPrimaryVisibleFailures.length),
+      bundleField("Rendered gate primary failure count", renderedBtcPrimaryVisibleFailures.length + renderedEthPrimaryVisibleFailures.length),
       bundleField("12C failure count", renderedBtcPrimaryVisibleFailures.length),
-      bundleField("2C/12C counts match", "yes"),
-      bundleField("Failure corpus shared", "yes - 2C and 12C use the same current primary visible rendered corpus"),
+      bundleField("12D failure count", renderedEthPrimaryVisibleFailures.length),
+      bundleField("2C/12C/12D counts match", renderedEthForbiddenStringChecks.length ? "yes - 2C includes ETH 12D failures" : "yes"),
+      bundleField("Failure corpus shared", "yes - 2C, 12C, and 12D use the same current primary visible rendered corpus when applicable"),
       bundleField("Self-trigger excluded", "yes"),
       bundleField("Audit-only excluded", "yes"),
       bundleField("Internal IDs excluded", "yes"),
@@ -5538,6 +5867,22 @@ export function buildReviewBundleText({
       bundleList(safeArray(engineLearningBackbone?.freshnessPointInTimeReadiness).map((rule) => `${rule.id || "freshness_rule"} | ${rule.title || "Freshness rule"} | ${rule.status || "status unavailable"} | ${rule.outputWarning || rule.summary || "Point-in-time boundary"}`)),
       "Path parity checks:",
       bundleList(safeArray(engineLearningBackbone?.pathParityChecks).map((check) => `${check.path || check.id || "path"} | ${check.status || "status unavailable"} | required=${safeArray(check.requiredFields).join(", ")}`)),
+      "Benchmark Learning / Reusable Engine Rules:",
+      bundleList([
+        `Rules matched: ${safeArray(engineLearningBackbone?.benchmarkLearningRulesApplied).length}`,
+        `Registry total: ${engineLearningBackbone?.benchmarkLearningRegistrySummary?.totalRules ?? "unknown"}`,
+        `Source benchmark assets: ${safeArray(engineLearningBackbone?.benchmarkLearningRegistrySummary?.sourceBenchmarkAssets).join(", ") || "unknown"}`,
+        `Scoring status: ${engineLearningBackbone?.benchmarkLearningRegistrySummary?.scoringStatus || "unknown"}`,
+        `Reviewed evidence status: ${engineLearningBackbone?.benchmarkLearningRegistrySummary?.reviewedEvidenceStatus || "unknown"}`,
+        `Frontend parity status: ${engineLearningBackbone?.benchmarkLearningRegistrySummary?.frontendParityStatus || "unknown"}`,
+        `BTC baseline 2C: ${engineLearningBackbone?.benchmarkLearningRenderedParity?.btcBaseline2CStatus || "unknown"}`,
+        `BTC baseline 12C failure count: ${engineLearningBackbone?.benchmarkLearningRenderedParity?.btcBaseline12CFailureCount ?? "unknown"}`,
+        `Shared primary-visible corpus: ${yesNoUnknown(engineLearningBackbone?.benchmarkLearningRenderedParity?.sharedPrimaryVisibleCorpus)}`,
+      ]),
+      "Benchmark rules applied:",
+      bundleList(safeArray(engineLearningBackbone?.benchmarkLearningRulesApplied).map((rule) => `${rule.ruleId || "rule"} | source=${rule.sourceBenchmarkAsset || "unknown"} | applies=${safeArray(rule.appliesToLens).join(", ") || "lens unknown"} | scoring=${rule.scoringStatus || "unknown"} | reviewedEvidence=${rule.reviewedEvidenceStatus || "unknown"} | ${rule.generalizedRule || "Rule summary unavailable"}`)),
+      "Benchmark source requirement templates:",
+      bundleList(safeArray(engineLearningBackbone?.benchmarkLearningSourceRequirementTemplates).slice(0, 12).map((template) => `${template.templateId || "template"} | ${template.requirementGroup || "group unavailable"} | ${template.requirementText || "Requirement unavailable"} | scoring=${template.scoringStatus || "unknown"}`)),
       "Deferred findings:",
       bundleList(safeArray(engineLearningBackbone?.deferredFindings).map((finding) => `${finding.id || "deferred"} | ${finding.title || "Deferred finding"} | ${finding.recommendedAction || "Next cleanup pass"}`)),
       "Known limitations:",
@@ -5583,6 +5928,10 @@ export function buildReviewBundleText({
       bundleField("Engine Learning ADA packet coverage added", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.guardrails?.adaPacketCoverageAdded) : "unknown"),
       bundleField("Engine Learning critical output QA failures", engineLearningBackbone ? safeArray(engineLearningBackbone.outputQaChecks).filter((check) => check.status === "fail" && check.severity === "critical").length : "unknown"),
       bundleField("Engine Learning path parity includes frontend and bundle", engineLearningBackbone ? yesNoUnknown(!safeArray(engineLearningBackbone.pathParityChecks).some((check) => ["frontend_normalization", "copy_review_bundle"].includes(check.path) && !["ready", "preserved"].includes(check.status))) : "unknown"),
+      bundleField("Benchmark learning registry mirrored", engineLearningBackbone ? yesNoUnknown(safeArray(engineLearningBackbone.benchmarkLearningRulesApplied).length > 0 || safeArray(engineLearningBackbone.benchmarkLearningRegistrySummary?.ruleIds).length > 0) : "unknown"),
+      bundleField("Benchmark learning remains non-scoring", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRegistrySummary?.scoringStatus === "non_scoring_v1") : "unknown"),
+      bundleField("Benchmark reviewed evidence remains non-scoring-active", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRegistrySummary?.reviewedEvidenceStatus === "reviewed_non_scoring_active_false") : "unknown"),
+      bundleField("BTC rendered baseline parity captured", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRenderedParity?.btcBaseline2CStatus === "PASS" && engineLearningBackbone.benchmarkLearningRenderedParity?.btcBaseline12CFailureCount === 0 && engineLearningBackbone.benchmarkLearningRenderedParity?.sharedPrimaryVisibleCorpus === true) : "unknown"),
       bundleField("Tokenomics key questions visible near top of tab", tokenomicsSupplyIntegrity ? "yes - Q&A renders after executive summary and key-risk summary" : "unknown"),
       bundleField("Tokenomics Q&A buried below detail sections", tokenomicsSupplyIntegrity ? "no - provider/identity/audit details are lower or collapsible" : "unknown"),
       bundleField("Tabs use executive answer / key question structure", "yes - Decision, Thesis, Evidence, Scoring, Source Queue, Manual Review, and Tokenomics include executive or question-first lead sections"),
@@ -5739,6 +6088,8 @@ export function buildReviewBundleText({
   const leakageFailures = leakageForbiddenStringChecks.filter((check) => !check.passed);
   const btcBenchmarkForbiddenStringChecks = renderedBtcForbiddenStringChecks;
   const btcBenchmarkFailures = btcBenchmarkForbiddenStringChecks.filter((check) => !check.passed);
+  const ethBenchmarkForbiddenStringChecks = renderedEthForbiddenStringChecks;
+  const ethBenchmarkFailures = ethBenchmarkForbiddenStringChecks.filter((check) => !check.passed);
   const leakageQaSection = bundleSection("12B. Identity / Lens Leakage Recovery Patch #2 Text QA", [
     bundleField("Text-level forbidden-string checks run", leakageForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
     bundleField("Text-level forbidden-string failures", leakageFailures.length),
@@ -5777,11 +6128,34 @@ export function buildReviewBundleText({
       "Reviewed demo BTC evidence improves answer quality only; it is not scoring-active in v1.",
     ]),
   ]);
+  const ethBenchmarkQaSection = bundleSection("12D. ETH Benchmark Answer / PoS Settlement Text QA", [
+    bundleField("ETH-native forbidden-string checks run", ethBenchmarkForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
+    bundleField("ETH-native forbidden-string failures", ethBenchmarkForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []).length),
+    bundleField("Checked fields", ethBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    bundleField("Checked bundle sections", ethBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedBundleSections).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
+    "Forbidden-string checks:",
+    bundleList(ethBenchmarkForbiddenStringChecks.map((check) =>
+      `${check.checkId}: ${check.passed ? "PASS" : "FAIL"} | ${check.forbidden} | primaryMatches=${(check.primaryVisibleFailures || []).map((failure) => `${failure.surface}.${failure.fieldPath}: ${failure.matchedForbiddenPhrase}`).join("; ") || "none"} | secondary=${(check.secondaryVisibleMentions || []).length} | audit/internal/report exclusions=${[
+        ...(check.auditOnlyMentions || []),
+        ...(check.internalIdExclusions || []),
+        ...(check.forbiddenListExclusions || []),
+        ...(check.beforeStateExclusions || []),
+        ...(check.selfTriggerExclusions || []),
+      ].length} | allowedWhen=${check.allowedWhen}`
+    )),
+    "Native ETH expected surface:",
+    bundleList([
+      "Primary copy should use PoS smart-contract settlement, gas demand, transaction-fee demand, EIP-1559 base-fee burn, net issuance, staking/validator security, client diversity, slashing/liveness, L2 settlement, blob/data-availability fees, liquidity/depth, custody/access, ETF-flow, and regulatory-access wording.",
+      "Native ETH should not show BTC PoW/miner/hashrate/halving/block-subsidy copy, wrapped backing/redemption copy, stablecoin reserves/attestation copy, RWA legal/NAV/redemption copy, DePIN/gaming/meme copy, or ERC-20 admin/proxy copy as primary visible framing.",
+      "Reviewed demo ETH evidence improves answer quality only; it is not scoring-active in v1.",
+    ]),
+  ]);
   return [
     ...bundleHeader,
     ...sections,
     leakageQaSection,
     btcBenchmarkQaSection,
+    ethBenchmarkQaSection,
   ].join("\n");
 }
 
