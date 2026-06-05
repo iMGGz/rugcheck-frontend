@@ -2390,8 +2390,8 @@ const LENS_PRIMARY_COPY = {
     blocked: "Settlement/gas demand, validator/security role, issuance/burn/staking economics, liveness, and protocol-upgrade risk require direct evidence.",
   },
   NATIVE_MONETARY_BENCHMARK: {
-    positive: "Monetary benchmark support depends on monetary policy, market depth, security budget, settlement reliability, and censorship-resistance evidence.",
-    blocked: "Benchmark recognition alone is not enough; monetary policy, market depth, security budget, and settlement resilience still define the thesis.",
+    positive: "BTC support depends on current transaction-fee/blockspace demand, proof-of-work security-budget durability, miner economics, hashrate quality, mining-pool concentration, liveness, liquidity/depth, and custody/access evidence.",
+    blocked: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF flow, and liveness evidence require direct live review.",
   },
 };
 
@@ -3582,12 +3582,12 @@ function buildBtcBenchmarkForbiddenStringChecks({
   const definitions = [
     {
       checkId: "btc_eth_mechanism_copy_leak",
-      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards?|slashing mechanics/i,
+      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking/i,
       forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
     },
     {
       checkId: "btc_gas_copy_leak",
-      pattern: /\bgas demand\b|\bgas\/settlement demand\b|\bgas asset\b/i,
+      pattern: /settlement\/gas|\bgas demand\b|\bgas-demand\b|\bgas\/settlement demand\b|\bgas asset\b/i,
       forbidden: "Native BTC primary copy shows gas-asset wording instead of transaction/blockspace/fee-market wording.",
     },
     {
@@ -3607,7 +3607,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
     },
     {
       checkId: "btc_protocol_accrual_copy_leak",
-      pattern: /fee switch|protocol-token value capture|burn\/buyback|buyback|fee burn|burn materiality|treasury routing|tokenholder accrual model/i,
+      pattern: /fee switch|protocol-token value capture|protocol-token accrual|burn\/buyback|buyback|fee burn|burn materiality|treasury routing|tokenholder accrual model/i,
       forbidden: "Native BTC primary copy shows protocol-token accrual/buyback wording as a primary surface.",
     },
     {
@@ -3625,14 +3625,24 @@ function buildBtcBenchmarkForbiddenStringChecks({
       matches: Array.from(new Set(matches)).slice(0, 5),
       allowedWhen: "Only allowed when the selected asset is ETH/PoS, ERC-20, stablecoin, wrapped/LST, or protocol-token context rather than native BTC.",
       checkedFields: [
-        "Decision primary model text",
+        "Decision Header / Command Header primary model text",
+        "Decision Tab / Decision Snapshot primary model text",
+        "Thesis Falsification primary model text",
+        "Institutional Checklist questionText",
+        "Institutional Checklist primaryMissingEvidence",
+        "Institutional Checklist primaryWhatWouldChange",
         "Institutional question synthesized answers",
-        "Tokenomics question answers",
-        "Source requirements",
-        "Reviewed evidence packet warnings",
-        "Copy Review Bundle primary mirror",
+        "Synthesized missingEvidence / whatWouldChange",
+        "Analyst missingEvidence / whatWouldChange",
+        "Tokenomics question answers and source requirements",
+        "Reviewed evidence packet remaining requirements",
+        "Source Queue requirements",
+        "Manual Review signals",
+        "Copy Review Bundle live mirror",
       ],
       checkedBundleSections: [
+        "1. QA Bundle Header",
+        "4. Decision / Command Header",
         "2A. Reviewed Evidence Packet v1",
         "5. Thesis Falsification",
         "6. Institutional Checklist",
@@ -5071,10 +5081,18 @@ export function buildReviewBundleText({
       question?.answerSummary,
       question?.synthesizedAnswer?.directAnswer,
       question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
+      ...normalizeRenderableList(question?.synthesizedAnswer?.missingEvidence),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.whatWouldChange),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence),
+      ...normalizeRenderableList(question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange),
       ...normalizeRenderableList(question?.missingEvidence),
       ...normalizeRenderableList(question?.whatWouldChange),
       ...normalizeRenderableList(question?.evidenceMappingWarnings),
     ]),
+    lensAware?.primaryBlocker,
+    ...normalizeRenderableList(lensAware?.evidenceNeeded),
+    ...normalizeRenderableList(lensAware?.whatWouldChange),
+    ...normalizeRenderableList(lensAware?.sourceQueueRequirements),
     ...safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions).flatMap((question) => [
       question?.questionText,
       question?.shortAnswer,
