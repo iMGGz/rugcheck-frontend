@@ -2491,6 +2491,14 @@ function buildNativeBtcDisplayOverlay(baseModel) {
     ...baseModel,
     assetClassLabel: copy.assetClassLabel,
     assetFramingLabel: copy.assetFramingLabel,
+    resolvedInstitutionalLens: {
+      ...(baseModel.resolvedInstitutionalLens || {}),
+      label: copy.assetClassLabel,
+      displayLabel: copy.assetClassLabel,
+      displayFraming: copy.assetFramingLabel,
+      visibleLabelOverride: copy.assetClassLabel,
+      visibleLabelSource: "native_btc_rendered_surface_overlay",
+    },
     verdictSemantics,
     allocationCase: {
       ...(baseModel.allocationCase || {}),
@@ -3444,6 +3452,225 @@ function bundleProviderEvidence(evidence = []) {
   return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
 }
 
+function renderedSurfaceList(...groups) {
+  return dedupeCaseInsensitive(
+    groups
+      .flatMap((group) => normalizeRenderableList(group))
+      .map((entry) => extractRenderableText(entry, null))
+      .filter(Boolean),
+  );
+}
+
+export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } = {}) {
+  const safeModel = safeObject(model);
+  const lens = safeModel.resolvedInstitutionalLens || {};
+  const verdictSemantics = safeObject(safeModel.verdictSemantics);
+  const allocationCase = safeObject(safeModel.allocationCase);
+  const primaryBlocker = safeObject(safeModel.primaryBlocker);
+  const weakestLink = safeObject(safeModel.weakestLink);
+  const whatWouldChange = safeModel.whatWouldChangeDecision?.items?.length
+    ? safeModel.whatWouldChangeDecision.items
+    : ["Additional verified evidence required."];
+  const assetClassLabel = displayIdentity?.displayAssetClass || safeModel.assetClassLabel || sanitizeSemanticLabel(safeModel.assetClass, "Asset class unavailable");
+  const assetFramingLabel = displayIdentity?.displayFraming || safeModel.assetFramingLabel || "Digital Asset Allocation Thesis";
+  const identityChip = displayIdentity?.primaryChip || assetClassLabel;
+  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
+  const lensIdentityRailLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
+
+  const decisionHeader = renderedSurfaceList(
+    verdictSemantics.summary,
+    verdictSemantics.positiveCase?.[0],
+    verdictSemantics.blockedCase?.[0],
+    assetClassLabel,
+    assetFramingLabel,
+    visibleLensLabel,
+    lensIdentityRailLabel,
+  );
+
+  const decisionTab = renderedSurfaceList(
+    verdictSemantics.label,
+    verdictSemantics.summary,
+    verdictSemantics.boundary,
+    verdictSemantics.missingEvidence,
+    primaryBlocker.label,
+    primaryBlocker.explanation,
+    weakestLink.label,
+    weakestLink.explanation,
+    whatWouldChange,
+    safeModel.whyNow,
+    safeModel.whyNotNow,
+    safeModel.summaryMemo,
+    safeModel.primaryWeakness,
+    safeModel.failureMode?.primary,
+    safeModel.structuredThesisSummary,
+    safeModel.missingCritical,
+    safeModel.requiredConditions,
+    safeModel.blockers,
+    safeModel.decisionDrivers,
+  );
+
+  const thesisFalsification = renderedSurfaceList(
+    safeModel.summaryMemo,
+    safeModel.tokenDemandTruth,
+    safeModel.primaryStrength,
+    assetFramingLabel,
+    safeModel.whatMustBeTrue,
+    safeModel.whatCouldBreak,
+    safeModel.requiredConditions,
+    safeModel.missingCritical,
+    safeModel.blockers,
+    safeModel.topNeutralDrivers,
+    safeModel.failureMode?.primary,
+    safeModel.failureMode?.trigger,
+    safeModel.auditAlerts,
+    safeModel.topNegativeDrivers,
+    primaryBlocker.label,
+    primaryBlocker.explanation,
+    weakestLink.label,
+    weakestLink.explanation,
+    whatWouldChange,
+    allocationCase.forAllocation,
+    allocationCase.againstAllocation,
+    allocationCase.missingEvidence,
+    allocationCase.whatWouldChange,
+  );
+
+  const rightRail = renderedSurfaceList(
+    safeModel.allocationOutcome?.label,
+    assetFramingLabel,
+    assetClassLabel,
+    identityChip,
+    safeModel.confidenceLabel,
+    lensIdentityRailLabel,
+    lens.questionGroupId,
+    primaryBlocker.label,
+    primaryBlocker.explanation,
+    weakestLink.label,
+    weakestLink.explanation,
+    whatWouldChange,
+  );
+
+  const sourceQueue = renderedSurfaceList(
+    safeModel.researchRequirements?.map((requirement) => [
+      requirement?.title,
+      requirement?.reason,
+      requirement?.evidenceNeeded,
+      requirement?.verdictImpact,
+    ]),
+  );
+
+  const manualReview = renderedSurfaceList(
+    safeModel.manualReviewStatus?.label,
+    safeModel.manualReviewStatus?.detail,
+    safeModel.auditAlerts,
+    safeModel.warnings,
+  );
+
+  const evidenceMap = renderedSurfaceList(
+    lens.sourceBoundary,
+    safeModel.engineLearningBackbone?.outputQaChecks?.map((check) => [
+      check?.id,
+      check?.status,
+      check?.description,
+      check?.remediation,
+    ]),
+    safeModel.reviewedEvidencePacket?.questionMappings?.map((mapping) => [
+      mapping?.questionId,
+      mapping?.reviewedEvidenceStatus,
+      mapping?.questionEvidenceScope,
+      mapping?.remainingMissingEvidence,
+      mapping?.evidenceMappingWarnings,
+    ]),
+  );
+
+  const scoringTransparency = renderedSurfaceList(
+    safeModel.allocationOutcome?.label,
+    safeModel.verdictSemantics?.label,
+    safeModel.verdictSemantics?.boundary,
+    safeModel.confidenceLabel,
+    safeModel.tokenomicsSupplyIntegrity?.sourceBoundary,
+    safeModel.engineLearningBackbone?.guardrails ? [
+      `scoringChanged=${safeModel.engineLearningBackbone.guardrails.scoringChanged ? "yes" : "no"}`,
+      `verdictChanged=${safeModel.engineLearningBackbone.guardrails.verdictChanged ? "yes" : "no"}`,
+      `providerBehaviorChanged=${safeModel.engineLearningBackbone.guardrails.providerBehaviorChanged ? "yes" : "no"}`,
+    ] : null,
+  );
+
+  const institutionalChecklist = renderedSurfaceList(
+    visibleLensLabel,
+    safeModel.institutionalQuestions?.flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.synthesizedAnswer?.directAnswer,
+      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
+      question?.missingEvidence,
+      question?.whatWouldChange,
+      question?.synthesizedAnswer?.missingEvidence,
+      question?.synthesizedAnswer?.whatWouldChange,
+      question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence,
+      question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange,
+    ]),
+  );
+
+  const tokenomics = renderedSurfaceList(
+    safeModel.tokenomicsSupplyIntegrity?.explanationSummary,
+    safeModel.tokenomicsSupplyIntegrity?.sourceRequirements,
+    safeModel.tokenomicsSupplyIntegrity?.manualReviewTriggers,
+    safeModel.tokenomicsSupplyIntegrity?.confidenceCaps,
+    safeModel.tokenomicsSupplyIntegrity?.institutionalQuestions?.flatMap((question) => [
+      question?.questionText,
+      question?.shortAnswer,
+      question?.answerSummary,
+      question?.missingEvidence,
+      question?.whatWouldChange,
+    ]),
+  );
+
+  const surfaces = {
+    decisionHeader,
+    decisionTab,
+    thesisFalsification,
+    rightRail,
+    whatWouldChangeRail: renderedSurfaceList(whatWouldChange),
+    visibleLensLabel: renderedSurfaceList(visibleLensLabel, assetClassLabel, assetFramingLabel),
+    institutionalChecklist,
+    tokenomics,
+    evidenceMap,
+    scoringTransparency,
+    sourceQueue,
+    manualReview,
+    auditRaw: renderedSurfaceList(
+      lens.lensId,
+      lens.questionGroupId,
+      safeModel.assetIdentityResolution?.sourceBoundary,
+      safeModel.analysisFreshness?.bundleMode,
+      safeModel.engineLearningBackbone?.knownLimitations,
+    ),
+  };
+
+  return {
+    artifactVersion: "rendered-surface-parity-view-model-v1",
+    doctrine: "Rendered-intended text mirrors the exact frontend normalized fields consumed by primary tabs, right rail, and Copy Review Bundle.",
+    surfaces,
+    componentConsumption: {
+      decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and resolvedInstitutionalLens label in the guardrail.",
+      decisionTab: "App.jsx Decision tab plus DecisionHeroSupportSections read verdictSemantics, primaryBlocker, weakestLink, whatWouldChangeDecision, and secondary display fields.",
+      thesisFalsification: "ThesisFalsificationTab.jsx reads summaryMemo, tokenDemandTruth, whatMustBeTrue, whatCouldBreak, allocationCase, blockers, and whatWouldChangeDecision.",
+      rightRail: "AnalysisRightRail.jsx reads displayIdentity labels, resolvedInstitutionalLens label, primaryBlocker, weakestLink, and whatWouldChangeDecision.",
+      evidenceMap: "EvidenceMapTab.jsx reads source/evidence boundary, reviewed evidence mapping, and Engine Learning output QA diagnostics.",
+      scoringTransparency: "ScoringTransparencyTab.jsx reads live score/verdict fields, caps/gates, diagnostic-only boundaries, and score-change guardrails.",
+      sourceQueue: "SourceQueuePanel.jsx reads researchRequirements and lens-aware source requirements from the normalized model.",
+      manualReview: "ManualReviewPanel.jsx reads manualReviewStatus, auditAlerts, warnings, and diagnostic/manual-review fields.",
+      auditRaw: "Audit / Raw surfaces preserve raw and technical context only; primary hard gates exclude this surface.",
+      bundle: "buildReviewBundleText mirrors this rendered-surface view model and runs BTC hard-gate checks against it.",
+    },
+    primaryVisibleText: Object.entries(surfaces)
+      .filter(([surface]) => !["auditRaw"].includes(surface))
+      .flatMap(([surface, values]) => values.map((value) => `${surface}: ${value}`)),
+  };
+}
+
 function bundleSynthesizedAnswer(question) {
   const answer = safeObject(question?.synthesizedAnswer);
   const card = getAnalystAnswerCard(question);
@@ -3960,6 +4187,11 @@ export function buildReviewBundleText({
       ...(requirement?.evidenceNeeded || []),
     ]),
   ].filter(Boolean).join(" ");
+  const renderedSurfaceParityViewModel = buildRenderedSurfaceParityViewModel({
+    model: safeModel,
+    displayIdentity,
+  });
+  const renderedPrimaryVisibleText = renderedSurfaceParityViewModel.primaryVisibleText.join("\n");
   const rawDecisionText = [
     ...(decisionFrame.whatMustBeTrue || []).map((item) => extractRenderableText(item, null)),
     ...(decisionFrame.nextCheckpoints || []).map((item) => extractRenderableText(item, null)),
@@ -4631,6 +4863,19 @@ export function buildReviewBundleText({
       bundleField("Stablecoin tokenomics redirects max-supply/dilution to trust controls", yesNoUnknown(!stablecoinTokenomicsScarcityDominance)),
       bundleField("Stablecoin protocol-token value-capture not-applicable cases preserved", yesNoUnknown(!stablecoinProtocolNotApplicableMissing)),
     ]),
+    bundleSection("2C. Backend-to-Frontend Rendered Surface Parity Gate", [
+      bundleField("Gate version", renderedSurfaceParityViewModel.artifactVersion),
+      bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
+      bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
+      bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
+      bundleField("Copy Review Bundle mirrors rendered view model", "yes - this section is generated from the same normalized model passed to product components."),
+      "Surface-to-field contract:",
+      bundleList(Object.entries(renderedSurfaceParityViewModel.componentConsumption).map(([surface, contract]) => `${surface}: ${contract}`)),
+      "Primary visible rendered-intended text:",
+      bundleList(renderedSurfaceParityViewModel.primaryVisibleText, "No rendered-intended primary text available.", 40),
+      "Surface coverage:",
+      bundleList(Object.entries(renderedSurfaceParityViewModel.surfaces).map(([surface, values]) => `${surface}: ${safeArray(values).length} rendered-intended text item(s)`)),
+    ]),
     bundleSection("3. Decision Header / Command Header", [
       bundleField("Why allocation could make sense", safeModel.verdictSemantics?.positiveCase?.[0] || safeModel.primaryStrength),
       bundleField("Why allocation is blocked", safeModel.verdictSemantics?.blockedCase?.[0] || safeModel.primaryWeakness),
@@ -5221,6 +5466,8 @@ export function buildReviewBundleText({
       bundleField("Cached/recent bundle blocked from current QA", analysisFreshness.isCachedRecentMemo ? yesNoUnknown(!analysisFreshness.freshQaEligible) : "not applicable"),
       bundleField("Partial refresh sections listed", analysisFreshness.isPartialRefresh ? yesNoUnknown(Boolean(safeArray(analysisFreshness.freshSections).length || safeArray(analysisFreshness.staleSections).length || safeArray(analysisFreshness.missingSections).length)) : "not applicable"),
       bundleField("Bundle generated from same normalized product object", yesNoUnknown(bundleUsesSameCurrentAnalysisObject)),
+      bundleField("Rendered-surface parity gate attached", renderedSurfaceParityViewModel.primaryVisibleText.length ? "yes" : "unknown"),
+      bundleField("Component consumes BTC-native lens label override where applicable", lens?.lensId === "NATIVE_MONETARY_BENCHMARK" ? yesNoUnknown(/Native PoW Monetary/i.test(renderedPrimaryVisibleText)) : "not applicable"),
       bundleField("Frontend appears to render backend fields", lens && questions?.length ? "yes" : "unknown"),
       bundleField("Any obvious institutional-quality wording issues", rawGenericVisible ? "yes" : "unknown"),
     ]),
@@ -5250,6 +5497,7 @@ export function buildReviewBundleText({
   ].join("\n");
   const btcPrimaryQaText = [
     visiblePrimaryText,
+    renderedPrimaryVisibleText,
     primaryAssetFramingText,
     safeModel.assetClassLabel,
     safeModel.assetFramingLabel,
