@@ -277,6 +277,7 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     benchmarkLearningSourceRequirementTemplates: safeArray(backbone.benchmarkLearningSourceRequirementTemplates),
     benchmarkLearningRegistrySummary: safeObject(backbone.benchmarkLearningRegistrySummary),
     benchmarkLearningRenderedParity: safeObject(backbone.benchmarkLearningRenderedParity),
+    assetInterpretationContractIntegration: safeObject(backbone.assetInterpretationContractIntegration),
     sourceDataRequirementMatrix: {
       ...safeObject(backbone.sourceDataRequirementMatrix),
       providersInventoried: safeArray(backbone.sourceDataRequirementMatrix?.providersInventoried),
@@ -296,6 +297,71 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     assetClassRuleRegistrySummary: safeObject(backbone.assetClassRuleRegistrySummary),
     evidenceMappingPolicySummary: safeObject(backbone.evidenceMappingPolicySummary),
     sourceRequirementRegistrySummary: safeObject(backbone.sourceRequirementRegistrySummary),
+  };
+}
+
+export function normalizeAssetInterpretationContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.assetInterpretationContract);
+  const nestedContract = safeObject(nestedAnalysis.assetInterpretationContract);
+  const contract = rootContract.artifactVersion || rootContract.visibleDisplayContract
+    ? rootContract
+    : nestedContract.artifactVersion || nestedContract.visibleDisplayContract
+      ? nestedContract
+      : null;
+
+  if (!contract) return null;
+
+  const visibleDisplayContract = safeObject(contract.visibleDisplayContract);
+  const institutionalQuestionContract = safeObject(contract.institutionalQuestionContract);
+  const evidenceInterpretationContract = safeObject(contract.evidenceInterpretationContract);
+  const renderingParityContract = safeObject(contract.renderingParityContract);
+
+  return {
+    ...contract,
+    canonicalAsset: safeObject(contract.canonicalAsset),
+    representationContext: {
+      ...safeObject(contract.representationContext),
+      contextOnlyWarnings: safeArray(contract.representationContext?.contextOnlyWarnings),
+    },
+    thesisLensContext: safeObject(contract.thesisLensContext),
+    visibleDisplayContract: {
+      ...visibleDisplayContract,
+      labelPrecedence: safeArray(visibleDisplayContract.labelPrecedence),
+      forbiddenVisibleLabelFamilies: safeArray(visibleDisplayContract.forbiddenVisibleLabelFamilies),
+      hardGateFailures: safeArray(visibleDisplayContract.hardGateFailures),
+      observedPrimaryVisibleLabels: safeArray(visibleDisplayContract.observedPrimaryVisibleLabels),
+    },
+    institutionalQuestionContract: {
+      ...institutionalQuestionContract,
+      activeQuestionIds: safeArray(institutionalQuestionContract.activeQuestionIds),
+      mismatchWarnings: safeArray(institutionalQuestionContract.mismatchWarnings),
+    },
+    evidenceInterpretationContract: {
+      ...evidenceInterpretationContract,
+      sourceMatrixEntryIds: safeArray(evidenceInterpretationContract.sourceMatrixEntryIds),
+      sourceMatrixGroups: safeArray(evidenceInterpretationContract.sourceMatrixGroups),
+      sourceMatrixEntries: safeArray(evidenceInterpretationContract.sourceMatrixEntries),
+      liveApiDataAvailable: safeArray(evidenceInterpretationContract.liveApiDataAvailable),
+      liveApiDataMissing: safeArray(evidenceInterpretationContract.liveApiDataMissing),
+      reviewedEvidenceAvailable: safeArray(evidenceInterpretationContract.reviewedEvidenceAvailable),
+      reviewedEvidenceMissing: safeArray(evidenceInterpretationContract.reviewedEvidenceMissing),
+      sourceCandidatesOnly: safeArray(evidenceInterpretationContract.sourceCandidatesOnly),
+      sourceUniverseTaxonomy: safeArray(evidenceInterpretationContract.sourceUniverseTaxonomy),
+      sourceBoundary: safeArray(evidenceInterpretationContract.sourceBoundary),
+    },
+    renderingParityContract: {
+      ...renderingParityContract,
+      visibleSurfaces: safeArray(renderingParityContract.visibleSurfaces),
+    },
+    scoringBoundary: safeObject(contract.scoringBoundary),
+    engineLearningIntegration: {
+      ...safeObject(contract.engineLearningIntegration),
+      ruleIds: safeArray(contract.engineLearningIntegration?.ruleIds),
+      findingIds: safeArray(contract.engineLearningIntegration?.findingIds),
+    },
+    knownLimitations: safeArray(contract.knownLimitations),
   };
 }
 
@@ -2754,7 +2820,16 @@ function resolvedLensIsDisplayAuthoritative(lens) {
   );
 }
 
-function displayLabelsForResolvedLens(lens) {
+function displayLabelsForResolvedLens(lens, assetInterpretationContract = null) {
+  const visibleContract = safeObject(assetInterpretationContract?.visibleDisplayContract);
+  if (visibleContract.primaryVisibleLabel || visibleContract.assetFramingLabel) {
+    return {
+      assetClassLabel: visibleContract.primaryVisibleLabel || visibleContract.assetFramingLabel,
+      assetFramingLabel: visibleContract.assetFramingLabel || visibleContract.primaryVisibleLabel,
+      labelSource: visibleContract.labelSource || "asset_interpretation_contract_v1",
+      labelFamily: visibleContract.labelFamily || null,
+    };
+  }
   return resolvedLensIsDisplayAuthoritative(lens) ? RESOLVED_LENS_DISPLAY_LABELS[lens.lensId] || null : null;
 }
 
@@ -3275,6 +3350,7 @@ export function buildDecisionTerminalModel({
   const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -3395,7 +3471,7 @@ export function buildDecisionTerminalModel({
     auditAlerts,
   });
   const rawVerdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
-  const lensDisplayLabels = displayLabelsForResolvedLens(resolvedInstitutionalLens);
+  const lensDisplayLabels = displayLabelsForResolvedLens(resolvedInstitutionalLens, assetInterpretationContract);
   const assetClassLabel = lensDisplayLabels?.assetClassLabel || deriveAssetClassLabel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
@@ -3489,6 +3565,7 @@ export function buildDecisionTerminalModel({
     assetIdentityResolution,
     tokenomicsSupplyIntegrity,
     reviewedEvidencePacket,
+    assetInterpretationContract,
     engineLearningBackbone,
     analysisFreshness,
     calibrationWarnings,
@@ -4623,6 +4700,7 @@ export function buildReviewBundleText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
@@ -5116,6 +5194,13 @@ export function buildReviewBundleText({
       reviewedEvidencePacket?.sourceQueueNotes,
       reviewedEvidencePacket?.remainingSourceRequirements,
     ]));
+  const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
+  const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
+  const providerIds = [
+    safeAsset.coingeckoId ? `coingecko: ${safeAsset.coingeckoId}` : null,
+    safeAsset.coinmarketcapId ? `coinmarketcap: ${safeAsset.coinmarketcapId}` : null,
+    safeAsset.cmcId ? `cmc: ${safeAsset.cmcId}` : null,
+  ].filter(Boolean);
   const wbtcSingleProviderIdentityHidden = /wbtc|wrapped bitcoin/i.test(`${safeAsset.symbol || ""} ${safeAsset.name || ""}`)
     && providerIds.length === 1
     && !/single-provider|CoinGecko\/CoinMarketCap identity agreement|cross-provider/i.test(JSON.stringify([
@@ -5140,20 +5225,26 @@ export function buildReviewBundleText({
   );
   const checklistLongSignalsRisk = safeArray(questions).some((question) => safeArray(question?.supportingSignals).length > 5);
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
-  const assetContract = safeAsset.contractAddress || safeAsset.contract || safeAsset.address || safeAsset.tokenAddress;
-  const assetChain = safeAsset.chain || safeAsset.network || safeAsset.platform || safeAsset.chainId;
-  const providerIds = [
-    safeAsset.coingeckoId ? `coingecko: ${safeAsset.coingeckoId}` : null,
-    safeAsset.coinmarketcapId ? `coinmarketcap: ${safeAsset.coinmarketcapId}` : null,
-    safeAsset.cmcId ? `cmc: ${safeAsset.cmcId}` : null,
-  ].filter(Boolean);
   const identityWarnings = safeArray(calibrationWarnings).filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const lastAnalyzed = safeData.lastAnalyzed || safeData.generatedAt || snapshot?.generatedAt || safeData.snapshot?.generatedAt || safeMeta.generatedAt;
   const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
   const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
-  const visibleBundleLensLabel = lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
-  const visibleBundleFramingLabel = displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
+  const visibleContractDisplay = safeObject(assetInterpretationContract?.visibleDisplayContract);
+  const visibleBundleLensLabel = visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
+  const visibleBundleFramingLabel = visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
+  const assetInterpretationContractMissing = Boolean(lens?.lensId) && !assetInterpretationContract;
+  const assetInterpretationHardGateFailure = assetInterpretationContract
+    && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "FAIL";
+  const assetInterpretationVisibleLabelMismatch = assetInterpretationContract
+    && visibleContractDisplay.primaryVisibleLabel
+    && visibleBundleLensLabel
+    && visibleContractDisplay.primaryVisibleLabel !== visibleBundleLensLabel;
+  const nonEthLensShowingEthGasLabel = assetInterpretationContract
+    && visibleContractDisplay.labelFamily !== "native_pos_settlement_gas"
+    && /PoS Smart-Contract Settlement \/ Gas Asset|Gas Asset/i.test(String(visibleBundleLensLabel));
+  const sourceUniversePromoted = safeArray(assetInterpretationContract?.evidenceInterpretationContract?.sourceUniverseTaxonomy)
+    .some((entry) => entry?.promotedToReviewedEvidence || entry?.reviewedEvidenceScoringActive);
   const btcRenderedGateCorpusRows = buildBtcRenderedGateCorpusRows({
     renderedSurfaceParityViewModel,
     model: safeModel,
@@ -5349,6 +5440,68 @@ export function buildReviewBundleText({
       bundleList(questionMismatchWarnings.map((warning) => `${warning.issue || warning.id}: ${warning.recommendedAction || warning.expectedBehavior || "Review required."}`)),
       "Provider/internal disagreement flags:",
       bundleList(providerInternalFlags),
+    ]),
+    bundleSection("2AA. Asset Interpretation Contract v1", [
+      bundleField("Contract attached", assetInterpretationContract ? "yes" : "missing"),
+      bundleField("Artifact version", assetInterpretationContract?.artifactVersion),
+      bundleField("Contract status", assetInterpretationContract?.contractStatus),
+      bundleField("Primary rule", assetInterpretationContract?.primaryRule || "network_is_context_not_asset_class"),
+      bundleField("Canonical asset", `${assetInterpretationContract?.canonicalAsset?.name || "Unavailable"} (${assetInterpretationContract?.canonicalAsset?.symbol || "Unavailable"})`),
+      bundleField("Canonical identity", assetInterpretationContract?.canonicalAsset?.canonicalIdentity),
+      bundleField("Representation type", assetInterpretationContract?.representationContext?.representationType),
+      bundleField("Canonical network candidate", assetInterpretationContract?.representationContext?.canonicalNetworkCandidate),
+      bundleField("Selected/analyzed network", `${assetInterpretationContract?.representationContext?.selectedNetwork || "Unavailable"} / ${assetInterpretationContract?.representationContext?.analyzedNetwork || "Unavailable"}`),
+      bundleField("Selected/analyzed contract", `${assetInterpretationContract?.representationContext?.selectedContract || "none"} / ${assetInterpretationContract?.representationContext?.analyzedContract || "none"}`),
+      bundleField("Resolved lens", assetInterpretationContract?.thesisLensContext?.lensId),
+      bundleField("Question group", assetInterpretationContract?.thesisLensContext?.questionGroupId),
+      bundleField("Network is classification authority", assetInterpretationContract?.thesisLensContext?.networkContextIsClassificationAuthority ? "yes - QA violation" : "no"),
+      bundleField("Visible label family", visibleContractDisplay.labelFamily),
+      bundleField("Primary visible label", visibleContractDisplay.primaryVisibleLabel),
+      bundleField("Asset framing label", visibleContractDisplay.assetFramingLabel),
+      bundleField("Hard gate status", visibleContractDisplay.hardGateStatus),
+      "Hard gate failures:",
+      bundleList(visibleContractDisplay.hardGateFailures, "No visible-label hard-gate failures."),
+      "Forbidden visible label families:",
+      bundleList(visibleContractDisplay.forbiddenVisibleLabelFamilies, "No forbidden label families listed."),
+      "Label precedence:",
+      bundleList(visibleContractDisplay.labelPrecedence),
+      bundleField("Expected question group", assetInterpretationContract?.institutionalQuestionContract?.expectedQuestionGroupId),
+      bundleField("Actual question group", assetInterpretationContract?.institutionalQuestionContract?.actualQuestionGroupId),
+      bundleField("Question group matches lens", yesNoUnknown(assetInterpretationContract?.institutionalQuestionContract?.questionGroupMatchesLens)),
+      "Question mismatch warnings:",
+      bundleList(assetInterpretationContract?.institutionalQuestionContract?.mismatchWarnings, "No question/lens mismatch warnings."),
+      "Source Matrix entries:",
+      bundleList(safeArray(assetInterpretationContract?.evidenceInterpretationContract?.sourceMatrixEntries).map((entry) =>
+        `${entry.id || "matrix"} | ${entry.lensGroup || "group unavailable"} | scoring=${entry.currentScoringStatus || "non-scoring"} | boundary=${entry.sourceBoundary || "boundary unavailable"}`
+      )),
+      "Live/API data missing:",
+      bundleList(assetInterpretationContract?.evidenceInterpretationContract?.liveApiDataMissing),
+      "Reviewed evidence missing:",
+      bundleList(assetInterpretationContract?.evidenceInterpretationContract?.reviewedEvidenceMissing),
+      "Source candidates only:",
+      bundleList(assetInterpretationContract?.evidenceInterpretationContract?.sourceCandidatesOnly),
+      "Source universe taxonomy:",
+      bundleList(safeArray(assetInterpretationContract?.evidenceInterpretationContract?.sourceUniverseTaxonomy).map((entry) =>
+        `${entry.sourceUniverseId || "source_universe"} | ${entry.currentStatus || "status unavailable"} | scoring=${entry.scoringStatus || "non-scoring"} | promoted=${entry.promotedToReviewedEvidence ? "yes" : "no"} | reviewedScoring=${entry.reviewedEvidenceScoringActive ? "yes" : "no"}`
+      )),
+      "Source boundary:",
+      bundleList(assetInterpretationContract?.evidenceInterpretationContract?.sourceBoundary),
+      "Rendering parity surfaces:",
+      bundleList(assetInterpretationContract?.renderingParityContract?.visibleSurfaces),
+      bundleField("Frontend normalization field", assetInterpretationContract?.renderingParityContract?.frontendNormalizationField),
+      bundleField("Review Bundle mirror status", assetInterpretationContract?.renderingParityContract?.copyReviewBundleMirrorStatus),
+      bundleField("Scoring changed", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.scoringChanged)),
+      bundleField("Verdict changed", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.verdictChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.providerBehaviorChanged)),
+      bundleField("Reviewed evidence packet expanded", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.reviewedEvidencePacketExpanded)),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.reviewedEvidenceScoringActive)),
+      bundleField("Source candidates promoted", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.sourceCandidatesPromoted)),
+      bundleField("Token-specific override added", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.tokenSpecificOverrideAdded)),
+      bundleField("ADA packet coverage added", yesNoUnknown(assetInterpretationContract?.scoringBoundary?.adaPacketCoverageAdded)),
+      "Engine Learning integration rules:",
+      bundleList(assetInterpretationContract?.engineLearningIntegration?.ruleIds),
+      "Known limitations:",
+      bundleList(assetInterpretationContract?.knownLimitations),
     ]),
     bundleSection("2A. Reviewed Evidence Packet v1", [
       bundleField("Packet loaded", reviewedEvidencePacket?.packetLoaded ? "yes" : "no"),
@@ -5832,6 +5985,7 @@ export function buildReviewBundleText({
         `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
         `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
+        `assetInterpretationContract: ${assetInterpretationContract ? "present" : "missing"}`,
         `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
@@ -5919,6 +6073,16 @@ export function buildReviewBundleText({
         `Source candidates promoted: ${yesNoUnknown(engineLearningBackbone?.sourceDataRequirementMatrix?.sourceCandidatesPromoted)}`,
         `ADA packet coverage added: ${yesNoUnknown(engineLearningBackbone?.sourceDataRequirementMatrix?.adaPacketCoverageAdded)}`,
       ]),
+      "Asset Interpretation Contract integration:",
+      bundleList([
+        `Integration attached: ${engineLearningBackbone?.assetInterpretationContractIntegration ? "yes" : "missing"}`,
+        `Backend field: ${engineLearningBackbone?.assetInterpretationContractIntegration?.backendResponseField || "unknown"}`,
+        `Visible label gate: ${engineLearningBackbone?.assetInterpretationContractIntegration?.visibleLabelGateStatus || "unknown"}`,
+        `Source Matrix integrated: ${yesNoUnknown(engineLearningBackbone?.assetInterpretationContractIntegration?.sourceMatrixIntegrated)}`,
+        `Scoring status: ${engineLearningBackbone?.assetInterpretationContractIntegration?.currentScoringStatus || "non_scoring_v1"}`,
+      ]),
+      "Asset Interpretation reusable rules:",
+      bundleList(engineLearningBackbone?.assetInterpretationContractIntegration?.ruleIds),
       "Matrix missing data categories:",
       bundleList(safeArray(engineLearningBackbone?.sourceDataRequirementMatrix?.missingDataCategories).slice(0, 16)),
       "Matrix source candidates generated:",
@@ -5983,6 +6147,18 @@ export function buildReviewBundleText({
       bundleField("Matrix source candidates remain candidate-only", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.sourceCandidatesPromoted) : "unknown"),
       bundleField("Matrix reviewed evidence remains non-scoring", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.reviewedEvidenceScoringActive) : "unknown"),
       bundleField("Matrix ADA packet coverage added", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.adaPacketCoverageAdded) : "unknown"),
+      bundleField("Asset Interpretation Contract present", yesNoUnknown(!assetInterpretationContractMissing)),
+      bundleField("Asset Interpretation visible label hard gate failed", yesNoUnknown(assetInterpretationHardGateFailure)),
+      bundleField("Asset Interpretation label matches bundle/display label", assetInterpretationContract ? yesNoUnknown(!assetInterpretationVisibleLabelMismatch) : "unknown"),
+      bundleField("Non-ETH lens showing ETH PoS/gas label", yesNoUnknown(nonEthLensShowingEthGasLabel)),
+      bundleField("Source universe taxonomy candidate-only", assetInterpretationContract ? yesNoUnknown(!sourceUniversePromoted) : "unknown"),
+      bundleField("Network treated as classification authority", assetInterpretationContract ? yesNoUnknown(assetInterpretationContract.thesisLensContext?.networkContextIsClassificationAuthority) : "unknown"),
+      bundleField("Asset Interpretation scoring boundary preserved", assetInterpretationContract ? yesNoUnknown(
+        assetInterpretationContract.scoringBoundary?.scoringChanged === false
+        && assetInterpretationContract.scoringBoundary?.verdictChanged === false
+        && assetInterpretationContract.scoringBoundary?.providerBehaviorChanged === false
+        && assetInterpretationContract.scoringBoundary?.sourceCandidatesPromoted === false
+      ) : "unknown"),
       bundleField("Tokenomics key questions visible near top of tab", tokenomicsSupplyIntegrity ? "yes - Q&A renders after executive summary and key-risk summary" : "unknown"),
       bundleField("Tokenomics Q&A buried below detail sections", tokenomicsSupplyIntegrity ? "no - provider/identity/audit details are lower or collapsible" : "unknown"),
       bundleField("Tabs use executive answer / key question structure", "yes - Decision, Thesis, Evidence, Scoring, Source Queue, Manual Review, and Tokenomics include executive or question-first lead sections"),
