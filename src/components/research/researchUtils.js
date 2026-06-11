@@ -278,6 +278,7 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     benchmarkLearningRegistrySummary: safeObject(backbone.benchmarkLearningRegistrySummary),
     benchmarkLearningRenderedParity: safeObject(backbone.benchmarkLearningRenderedParity),
     assetInterpretationContractIntegration: safeObject(backbone.assetInterpretationContractIntegration),
+    dataFirstNarrativeContractIntegration: safeObject(backbone.dataFirstNarrativeContractIntegration),
     sourceDataRequirementMatrix: {
       ...safeObject(backbone.sourceDataRequirementMatrix),
       providersInventoried: safeArray(backbone.sourceDataRequirementMatrix?.providersInventoried),
@@ -333,6 +334,13 @@ export function normalizeAssetInterpretationContractPayload(responseLike) {
       hardGateFailures: safeArray(visibleDisplayContract.hardGateFailures),
       observedPrimaryVisibleLabels: safeArray(visibleDisplayContract.observedPrimaryVisibleLabels),
     },
+    dataFirstNarrativeGate: {
+      ...safeObject(contract.dataFirstNarrativeGate),
+      primaryNarrativeFailures: safeArray(contract.dataFirstNarrativeGate?.primaryNarrativeFailures),
+      wrongAssetNameMentions: safeArray(contract.dataFirstNarrativeGate?.wrongAssetNameMentions),
+      forbiddenConceptMentions: safeArray(contract.dataFirstNarrativeGate?.forbiddenConceptMentions),
+      unsupportedClaimsDetected: safeArray(contract.dataFirstNarrativeGate?.unsupportedClaimsDetected),
+    },
     institutionalQuestionContract: {
       ...institutionalQuestionContract,
       activeQuestionIds: safeArray(institutionalQuestionContract.activeQuestionIds),
@@ -363,6 +371,56 @@ export function normalizeAssetInterpretationContractPayload(responseLike) {
     },
     knownLimitations: safeArray(contract.knownLimitations),
   };
+}
+
+export function normalizeDataFirstNarrativeContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.dataFirstNarrativeContract);
+  const nestedContract = safeObject(nestedAnalysis.dataFirstNarrativeContract);
+  const contract = rootContract.artifactVersion || rootContract.generatedNarrativeFields
+    ? rootContract
+    : nestedContract.artifactVersion || nestedContract.generatedNarrativeFields
+      ? nestedContract
+      : null;
+
+  if (!contract) return null;
+
+  return {
+    ...contract,
+    narrativeScope: safeObject(contract.narrativeScope),
+    availableEvidenceFacts: safeArray(contract.availableEvidenceFacts),
+    missingEvidenceGaps: safeArray(contract.missingEvidenceGaps),
+    notApplicableBoundaries: safeArray(contract.notApplicableBoundaries),
+    allowedNarrativeConcepts: safeArray(contract.allowedNarrativeConcepts),
+    forbiddenNarrativeConcepts: safeArray(contract.forbiddenNarrativeConcepts),
+    generatedNarrativeFields: safeArray(contract.generatedNarrativeFields).map((field) => ({
+      ...safeObject(field),
+      factsUsed: safeArray(field?.factsUsed),
+      gapsUsed: safeArray(field?.gapsUsed),
+      notApplicableBoundariesUsed: safeArray(field?.notApplicableBoundariesUsed),
+      unsupportedClaimsDetected: safeArray(field?.unsupportedClaimsDetected),
+      forbiddenConceptsDetected: safeArray(field?.forbiddenConceptsDetected),
+    })),
+    scoreExplanationInputs: {
+      ...safeObject(contract.scoreExplanationInputs),
+      dataCategoriesContributing: safeArray(contract.scoreExplanationInputs?.dataCategoriesContributing),
+      missingCriticalCategories: safeArray(contract.scoreExplanationInputs?.missingCriticalCategories),
+      confidenceCaps: safeArray(contract.scoreExplanationInputs?.confidenceCaps),
+    },
+    primaryNarrativeFailures: safeArray(contract.primaryNarrativeFailures),
+    wrongAssetNameMentions: safeArray(contract.wrongAssetNameMentions),
+    forbiddenConceptMentions: safeArray(contract.forbiddenConceptMentions),
+    unsupportedClaimsDetected: safeArray(contract.unsupportedClaimsDetected),
+    scoringAnomalyFindings: safeArray(contract.scoringAnomalyFindings),
+    scoringBoundary: safeObject(contract.scoringBoundary),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
+function dataFirstGeneratedText(contract, fieldName) {
+  return safeArray(contract?.generatedNarrativeFields)
+    .find((field) => field?.fieldName === fieldName && field?.status !== "FAIL")?.generatedText || null;
 }
 
 export function normalizeCalibrationWarningsPayload(responseLike) {
@@ -3351,6 +3409,7 @@ export function buildDecisionTerminalModel({
   const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
+  const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -3543,6 +3602,51 @@ export function buildDecisionTerminalModel({
       replacePlaceholders: true,
     }),
   });
+  const dataFirstDecisionHeader = dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader");
+  const dataFirstFinalDecision = dataFirstGeneratedText(dataFirstNarrativeContract, "finalDecisionExplanation");
+  const dataFirstPositive = dataFirstGeneratedText(dataFirstNarrativeContract, "whyAllocationCouldMakeSense");
+  const dataFirstBlocked = dataFirstGeneratedText(dataFirstNarrativeContract, "whyAllocationIsBlockedOrCapped");
+  const dataFirstVerdictInterpretation = dataFirstGeneratedText(dataFirstNarrativeContract, "verdictInterpretation");
+  const dataFirstMemo = dataFirstGeneratedText(dataFirstNarrativeContract, "decisionMemo");
+  const dataFirstThesis = dataFirstGeneratedText(dataFirstNarrativeContract, "thesisFalsificationSummary");
+  const dataFirstWeakestLink = dataFirstGeneratedText(dataFirstNarrativeContract, "rightRailWeakestLink");
+  const dataFirstWhatWouldChange = dataFirstGeneratedText(dataFirstNarrativeContract, "whatWouldChange");
+  const dataFirstGeneratedAvailable = Boolean(dataFirstNarrativeContract?.generatedNarrativeFields?.length);
+  const dataFirstVerdictSemantics = dataFirstGeneratedAvailable ? {
+    ...displayVerdictSemantics,
+    summary: dataFirstDecisionHeader || dataFirstFinalDecision || displayVerdictSemantics.summary,
+    boundary: "Primary display copy is data-first and bound to the current asset lens, representation, Source Matrix gaps, and evidence boundaries. Raw fallbacks remain audit-only.",
+    positiveCase: dedupeCaseInsensitive([
+      dataFirstPositive,
+      ...(displayVerdictSemantics.positiveCase || []),
+    ]).slice(0, 5),
+    blockedCase: dedupeCaseInsensitive([
+      dataFirstBlocked,
+      dataFirstFinalDecision,
+      ...(displayVerdictSemantics.blockedCase || []),
+    ]).slice(0, 5),
+    missingEvidence: displayEvidenceNeeded,
+    whatWouldChange: dataFirstWhatWouldChange
+      ? dedupeCaseInsensitive([dataFirstWhatWouldChange, ...(displayWhatWouldChangeDecision.items || [])]).slice(0, 5)
+      : displayWhatWouldChangeDecision.items,
+  } : displayVerdictSemantics;
+  const dataFirstWhatWouldChangeDecision = dataFirstWhatWouldChange ? {
+    items: dedupeCaseInsensitive([dataFirstWhatWouldChange, ...(displayWhatWouldChangeDecision.items || [])]).slice(0, 5),
+    badge: "Data-first requirements",
+    explanation: "Display wording is generated from dataFirstNarrativeContract; scoring and verdicts are unchanged.",
+  } : displayWhatWouldChangeDecision;
+  const dataFirstPrimaryBlocker = dataFirstBlocked ? {
+    ...displayPrimaryBlocker,
+    label: dataFirstBlocked,
+    explanation: "Data-first display wording from the current asset lens, representation, facts, and source gaps. Raw decision-layer blockers remain audit-only.",
+    badge: "Data-first requirement",
+  } : displayPrimaryBlocker;
+  const dataFirstWeakestLinkCard = dataFirstWeakestLink ? {
+    ...weakestLink,
+    label: dataFirstWeakestLink,
+    explanation: "Derived from dataFirstNarrativeContract missing-evidence gaps.",
+    badge: "Data-first weakest link",
+  } : weakestLink;
 
   const baseDisplayModel = {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -3550,13 +3654,13 @@ export function buildDecisionTerminalModel({
     confidenceScore,
     confidenceLabel: confidenceLabelText,
     allocationOutcome,
-    verdictSemantics: displayVerdictSemantics,
-    verdictClass: displayVerdictSemantics.verdictClass || null,
-    allocationCase: verdictSemantics.hasVerdictClass ? {
-      forAllocation: verdictSemantics.positiveCase,
-      againstAllocation: verdictSemantics.blockedCase,
+    verdictSemantics: dataFirstVerdictSemantics,
+    verdictClass: dataFirstVerdictSemantics.verdictClass || null,
+    allocationCase: dataFirstVerdictSemantics.hasVerdictClass ? {
+      forAllocation: dataFirstVerdictSemantics.positiveCase,
+      againstAllocation: dataFirstVerdictSemantics.blockedCase,
       missingEvidence: displayEvidenceNeeded,
-      whatWouldChange: displayWhatWouldChangeDecision.items,
+      whatWouldChange: dataFirstWhatWouldChangeDecision.items,
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
@@ -3566,16 +3670,17 @@ export function buildDecisionTerminalModel({
     tokenomicsSupplyIntegrity,
     reviewedEvidencePacket,
     assetInterpretationContract,
+    dataFirstNarrativeContract,
     engineLearningBackbone,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
-    verdictReasons: verdictSemantics.verdictReasons,
-    primaryStrength: lensSecondaryCopy.primaryStrength || primaryStrength,
-    primaryWeakness: lensSecondaryCopy.primaryWeakness || primaryWeakness,
+    verdictReasons: dataFirstVerdictSemantics.verdictReasons,
+    primaryStrength: dataFirstPositive || lensSecondaryCopy.primaryStrength || primaryStrength,
+    primaryWeakness: dataFirstBlocked || lensSecondaryCopy.primaryWeakness || primaryWeakness,
     failureMode: {
-      primary: lensSecondaryCopy.failurePrimary || failurePrimary,
-      trigger: lensSecondaryCopy.failureTrigger || failureTrigger,
+      primary: dataFirstThesis || lensSecondaryCopy.failurePrimary || failurePrimary,
+      trigger: dataFirstWhatWouldChange || lensSecondaryCopy.failureTrigger || failureTrigger,
       earlySignals,
     },
     investabilityStatus: investability.status || null,
@@ -3584,13 +3689,13 @@ export function buildDecisionTerminalModel({
     evidenceStrength: evidenceQuality.strength || null,
     evidenceConflicts,
     missingCritical: displayEvidenceNeeded,
-    blockers: lensSecondaryCopy.blockers || blockers,
+    blockers: dataFirstBlocked ? dedupeCaseInsensitive([dataFirstBlocked, ...(lensSecondaryCopy.blockers || blockers)]).slice(0, 4) : lensSecondaryCopy.blockers || blockers,
     requiredConditions: displayRequiredConditions,
     decisionDrivers: lensSecondaryCopy.decisionDrivers || dedupedDrivers,
     contradictionNote,
-    summaryMemo: lensSecondaryCopy.summaryMemo || summaryMemo,
-    structuredThesisSummary: lensSecondaryCopy.structuredThesisSummary || lensSecondaryCopy.summaryMemo || summaryMemo,
-    tokenDemandTruth: lensSecondaryCopy.tokenDemandTruth || tokenDemandTruth,
+    summaryMemo: dataFirstMemo || lensSecondaryCopy.summaryMemo || summaryMemo,
+    structuredThesisSummary: dataFirstThesis || lensSecondaryCopy.structuredThesisSummary || lensSecondaryCopy.summaryMemo || summaryMemo,
+    tokenDemandTruth: dataFirstVerdictInterpretation || lensSecondaryCopy.tokenDemandTruth || tokenDemandTruth,
     policySignals,
     warnings: userFacingWarnings,
     auditAlerts,
@@ -3602,12 +3707,12 @@ export function buildDecisionTerminalModel({
     primarySector: sectorClassification.primarySector || null,
     secondarySectors: dedupedSecondarySectors,
     assetBadges,
-    primaryBlocker: displayPrimaryBlocker,
-    weakestLink,
-    whatWouldChangeDecision: displayWhatWouldChangeDecision,
+    primaryBlocker: dataFirstPrimaryBlocker,
+    weakestLink: dataFirstWeakestLinkCard,
+    whatWouldChangeDecision: dataFirstWhatWouldChangeDecision,
     manualReviewStatus,
-    whyNow: lensSecondaryCopy.whyNow || sanitizedWhyNow,
-    whyNotNow: lensSecondaryCopy.whyNotNow || sanitizedWhyNotNow,
+    whyNow: dataFirstPositive || lensSecondaryCopy.whyNow || sanitizedWhyNow,
+    whyNotNow: dataFirstBlocked || lensSecondaryCopy.whyNotNow || sanitizedWhyNotNow,
     whatMustBeTrue: lensAwareExplanations?.requiredConditions?.length
       ? displayRequiredConditions
       : cleanUserFacingList(decisionFrame.whatMustBeTrue, {
@@ -3620,8 +3725,8 @@ export function buildDecisionTerminalModel({
       suppressGenericEpistemic: isBenchmark,
       replacePlaceholders: true,
     }),
-    nextCheckpoints: lensAwareExplanations?.whatWouldChange?.length
-      ? displayWhatWouldChangeDecision.items
+    nextCheckpoints: dataFirstWhatWouldChangeDecision.items?.length
+      ? dataFirstWhatWouldChangeDecision.items
       : cleanUserFacingList(decisionFrame.nextCheckpoints, {
         limit: 4,
         suppressGenericEpistemic: isBenchmark,
@@ -3732,6 +3837,8 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const lens = safeModel.resolvedInstitutionalLens || {};
   const verdictSemantics = safeObject(safeModel.verdictSemantics);
   const allocationCase = safeObject(safeModel.allocationCase);
+  const dataFirstNarrativeContract = safeObject(safeModel.dataFirstNarrativeContract);
+  const dataFirstFields = safeArray(dataFirstNarrativeContract.generatedNarrativeFields);
   const primaryBlocker = safeObject(safeModel.primaryBlocker);
   const weakestLink = safeObject(safeModel.weakestLink);
   const whatWouldChange = safeModel.whatWouldChangeDecision?.items?.length
@@ -3744,6 +3851,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const lensIdentityRailLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
 
   const decisionHeader = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader"),
     verdictSemantics.summary,
     verdictSemantics.positiveCase?.[0],
     verdictSemantics.blockedCase?.[0],
@@ -3754,6 +3862,8 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const decisionTab = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "finalDecisionExplanation"),
+    dataFirstGeneratedText(dataFirstNarrativeContract, "decisionMemo"),
     verdictSemantics.label,
     verdictSemantics.summary,
     verdictSemantics.boundary,
@@ -3776,6 +3886,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const thesisFalsification = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "thesisFalsificationSummary"),
     safeModel.summaryMemo,
     safeModel.tokenDemandTruth,
     safeModel.primaryStrength,
@@ -3802,6 +3913,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const rightRail = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "rightRailWeakestLink"),
     safeModel.allocationOutcome?.label,
     assetFramingLabel,
     assetClassLabel,
@@ -3817,6 +3929,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const sourceQueue = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "sourceQueueSummary"),
     safeModel.researchRequirements?.map((requirement) => [
       requirement?.title,
       requirement?.reason,
@@ -3826,6 +3939,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const manualReview = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "manualReviewSummary"),
     safeModel.manualReviewStatus?.label,
     safeModel.manualReviewStatus?.detail,
     safeModel.auditAlerts,
@@ -3850,6 +3964,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const scoringTransparency = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "scoreExplanation"),
     safeModel.allocationOutcome?.label,
     safeModel.verdictSemantics?.label,
     safeModel.verdictSemantics?.boundary,
@@ -3863,6 +3978,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const institutionalChecklist = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "institutionalChecklistSummary"),
     visibleLensLabel,
     safeModel.institutionalQuestions?.flatMap((question) => [
       question?.questionText,
@@ -3880,6 +3996,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const tokenomics = renderedSurfaceList(
+    dataFirstGeneratedText(dataFirstNarrativeContract, "tokenomicsSummary"),
     safeModel.tokenomicsSupplyIntegrity?.explanationSummary,
     safeModel.tokenomicsSupplyIntegrity?.sourceRequirements,
     safeModel.tokenomicsSupplyIntegrity?.manualReviewTriggers,
@@ -3907,6 +4024,12 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     sourceQueue,
     manualReview,
     auditRaw: renderedSurfaceList(
+      dataFirstFields.map((field) => [
+        field?.fieldName,
+        field?.status,
+        field?.forbiddenConceptsDetected,
+        field?.unsupportedClaimsDetected,
+      ]),
       lens.lensId,
       lens.questionGroupId,
       safeModel.assetIdentityResolution?.sourceBoundary,
@@ -4701,6 +4824,7 @@ export function buildReviewBundleText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
+  const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
@@ -5243,6 +5367,14 @@ export function buildReviewBundleText({
   const nonEthLensShowingEthGasLabel = assetInterpretationContract
     && visibleContractDisplay.labelFamily !== "native_pos_settlement_gas"
     && /PoS Smart-Contract Settlement \/ Gas Asset|Gas Asset/i.test(String(visibleBundleLensLabel));
+  const dataFirstNarrativeMissing = resolvedLensIsDisplayAuthoritative(lens) && !dataFirstNarrativeContract;
+  const dataFirstNarrativeFailing = dataFirstNarrativeContract
+    && dataFirstNarrativeContract.primaryNarrativeGateStatus === "FAIL";
+  const aicLabelPassButNarrativeFail = assetInterpretationContract
+    && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "PASS"
+    && dataFirstNarrativeFailing;
+  const scoreExplanationNotDataBound = dataFirstNarrativeContract
+    && dataFirstNarrativeContract.scoreExplanationInputs?.scoreExplanationDataBacked === false;
   const sourceUniversePromoted = safeArray(assetInterpretationContract?.evidenceInterpretationContract?.sourceUniverseTaxonomy)
     .some((entry) => entry?.promotedToReviewedEvidence || entry?.reviewedEvidenceScoringActive);
   const btcRenderedGateCorpusRows = buildBtcRenderedGateCorpusRows({
@@ -5502,6 +5634,49 @@ export function buildReviewBundleText({
       bundleList(assetInterpretationContract?.engineLearningIntegration?.ruleIds),
       "Known limitations:",
       bundleList(assetInterpretationContract?.knownLimitations),
+    ]),
+    bundleSection("2AB. Data-First Decision Narrative Contract", [
+      bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
+      bundleField("Artifact version", dataFirstNarrativeContract?.artifactVersion),
+      bundleField("Contract status", dataFirstNarrativeContract?.contractStatus),
+      bundleField("Primary narrative gate status", dataFirstNarrativeContract?.primaryNarrativeGateStatus),
+      bundleField("Primary narrative failure count", dataFirstNarrativeContract?.primaryNarrativeFailureCount),
+      bundleField("Decision surface data binding status", dataFirstNarrativeContract?.decisionSurfaceDataBindingStatus),
+      bundleField("Score explanation data-backed", yesNoUnknown(dataFirstNarrativeContract?.scoreExplanationInputs?.scoreExplanationDataBacked)),
+      bundleField("Frontend normalization field", dataFirstNarrativeContract?.frontendNormalizationField),
+      bundleField("Review Bundle section", dataFirstNarrativeContract?.reviewBundleSection),
+      bundleField("Narrative scope", [
+        dataFirstNarrativeContract?.narrativeScope?.assetSymbol,
+        dataFirstNarrativeContract?.narrativeScope?.primaryVisibleLabel,
+        dataFirstNarrativeContract?.narrativeScope?.representationType,
+        dataFirstNarrativeContract?.narrativeScope?.resolvedLensId,
+      ].filter(Boolean).join(" | ")),
+      "Generated narrative fields:",
+      bundleList(safeArray(dataFirstNarrativeContract?.generatedNarrativeFields).map((entry) =>
+        `${entry.fieldName || "field"} [${entry.status || "unknown"}]: ${entry.generatedText || "Unavailable"}`
+      ), "No generated data-first narrative fields.", 40),
+      "Facts used:",
+      bundleList(safeArray(dataFirstNarrativeContract?.availableEvidenceFacts).map((fact) =>
+        `${fact.factId || "fact"} | ${fact.sourceType || "source"} | ${fact.fieldPath || "field"} | ${fact.valueSummary || "value unavailable"} | proves=${fact.whatItCanProve || "scope unavailable"} | cannot=${fact.whatItCannotProve || "boundary unavailable"}`
+      ), "No narrative facts attached.", 30),
+      "Missing evidence gaps:",
+      bundleList(safeArray(dataFirstNarrativeContract?.missingEvidenceGaps).map((gap) =>
+        `${gap.gapId || "gap"} | ${gap.severity || "severity"} | ${gap.sourceRequirement || "requirement unavailable"} | notNegativeEvidence=${gap.notNegativeEvidence ? "yes" : "unknown"}`
+      ), "No narrative gaps attached.", 30),
+      "Allowed narrative concepts:",
+      bundleList(dataFirstNarrativeContract?.allowedNarrativeConcepts),
+      "Forbidden narrative concepts:",
+      bundleList(dataFirstNarrativeContract?.forbiddenNarrativeConcepts),
+      "Wrong asset name mentions:",
+      bundleList(dataFirstNarrativeContract?.wrongAssetNameMentions, "No wrong-asset subject mentions detected."),
+      "Forbidden concept mentions:",
+      bundleList(dataFirstNarrativeContract?.forbiddenConceptMentions, "No forbidden concept mentions detected."),
+      "Unsupported claims detected:",
+      bundleList(dataFirstNarrativeContract?.unsupportedClaimsDetected, "No unsupported claims detected."),
+      "Scoring anomaly findings:",
+      bundleList(dataFirstNarrativeContract?.scoringAnomalyFindings, "No scoring explanation anomalies detected."),
+      "Known limitations:",
+      bundleList(dataFirstNarrativeContract?.knownLimitations),
     ]),
     bundleSection("2A. Reviewed Evidence Packet v1", [
       bundleField("Packet loaded", reviewedEvidencePacket?.packetLoaded ? "yes" : "no"),
@@ -6083,6 +6258,16 @@ export function buildReviewBundleText({
       ]),
       "Asset Interpretation reusable rules:",
       bundleList(engineLearningBackbone?.assetInterpretationContractIntegration?.ruleIds),
+      "Data-First Narrative Contract integration:",
+      bundleList([
+        `Integration attached: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration ? "yes" : "missing"}`,
+        `Backend field: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.backendResponseField || "unknown"}`,
+        `Frontend field: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.frontendNormalizationField || "unknown"}`,
+        `Primary narrative gate: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.primaryNarrativeGateStatus || "unknown"}`,
+        `Decision surface binding: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.decisionSurfaceDataBindingStatus || "unknown"}`,
+        `Score explanation binding: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.scoreExplanationDataBindingStatus || "unknown"}`,
+        `Scoring status: ${engineLearningBackbone?.dataFirstNarrativeContractIntegration?.currentScoringStatus || "non_scoring_v1"}`,
+      ]),
       "Matrix missing data categories:",
       bundleList(safeArray(engineLearningBackbone?.sourceDataRequirementMatrix?.missingDataCategories).slice(0, 16)),
       "Matrix source candidates generated:",
@@ -6151,6 +6336,13 @@ export function buildReviewBundleText({
       bundleField("Asset Interpretation visible label hard gate failed", yesNoUnknown(assetInterpretationHardGateFailure)),
       bundleField("Asset Interpretation label matches bundle/display label", assetInterpretationContract ? yesNoUnknown(!assetInterpretationVisibleLabelMismatch) : "unknown"),
       bundleField("Non-ETH lens showing ETH PoS/gas label", yesNoUnknown(nonEthLensShowingEthGasLabel)),
+      bundleField("Data-first narrative contract present", yesNoUnknown(!dataFirstNarrativeMissing)),
+      bundleField("Data-first primary narrative gate failed", yesNoUnknown(dataFirstNarrativeFailing)),
+      bundleField("AIC label PASS but narrative FAIL", yesNoUnknown(aicLabelPassButNarrativeFail)),
+      bundleField("Score explanation not data-bound", yesNoUnknown(scoreExplanationNotDataBound)),
+      bundleField("Wrong-asset primary narrative mentions", dataFirstNarrativeContract ? safeArray(dataFirstNarrativeContract.wrongAssetNameMentions).length : "unknown"),
+      bundleField("Forbidden primary narrative concepts", dataFirstNarrativeContract ? safeArray(dataFirstNarrativeContract.forbiddenConceptMentions).length : "unknown"),
+      bundleField("Unsupported primary narrative claims", dataFirstNarrativeContract ? safeArray(dataFirstNarrativeContract.unsupportedClaimsDetected).length : "unknown"),
       bundleField("Source universe taxonomy candidate-only", assetInterpretationContract ? yesNoUnknown(!sourceUniversePromoted) : "unknown"),
       bundleField("Network treated as classification authority", assetInterpretationContract ? yesNoUnknown(assetInterpretationContract.thesisLensContext?.networkContextIsClassificationAuthority) : "unknown"),
       bundleField("Asset Interpretation scoring boundary preserved", assetInterpretationContract ? yesNoUnknown(
