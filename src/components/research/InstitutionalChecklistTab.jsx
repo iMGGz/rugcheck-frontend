@@ -511,17 +511,29 @@ function CategoryDrivenQuestionProfile({ model, styles }) {
 
   return (
     <CollapsibleDetail
-      title="Category-Driven Question Profile"
-      subtitle="Provider category/tags route diagnostic source questions; they are not reviewed evidence or scoring inputs."
+      title={contract.categoryAuthorityApplied ? "Authoritative Category Question Group" : "Category-Driven Question Profile"}
+      subtitle={contract.categoryAuthorityApplied
+        ? "High-confidence category family is driving display, DataFirst source gaps, and checklist question routing; scoring and verdicts are unchanged."
+        : "Provider category/tags route diagnostic source questions; they are not reviewed evidence or scoring inputs."}
       styles={styles}
       tone="#9bd7ff"
     >
       <div style={styles.sourceBoundaryStrip}>
-        {boundaryChip(styles, contract.frontendVisibleLabel || contract.primaryAssetFamily)}
+        {boundaryChip(styles, contract.primaryVisibleLabel || contract.frontendVisibleLabel || contract.primaryAssetFamily)}
+        {boundaryChip(styles, `Authority: ${contract.categoryAuthorityStatus || "unknown"}`)}
         {boundaryChip(styles, `Question group: ${contract.questionRegistryGroup?.groupId || "unavailable"}`)}
+        {boundaryChip(styles, `Source profile: ${contract.sourceRequirementProfile?.profileId || "unavailable"}`)}
+        {boundaryChip(styles, `AIC: ${contract.categoryAicAlignmentStatus || "unknown"}`)}
+        {boundaryChip(styles, `DataFirst: ${contract.categoryDataFirstAlignmentStatus || "unknown"}`)}
+        {boundaryChip(styles, `Questions: ${contract.categoryQuestionGroupAlignmentStatus || "unknown"}`)}
         {boundaryChip(styles, `Family confidence: ${contract.familyConfidence || "unknown"}`)}
         {boundaryChip(styles, diagnostics?.scoringIntegrationStatus || "non_scoring_v1")}
       </div>
+      <SectionRow
+        label="Authority reason"
+        value={contract.categoryAuthorityReason || contract.categoryAuthorityBlockedReason || "Category authority status unavailable."}
+        styles={styles}
+      />
       <SectionRow
         label="Category routing summary"
         value={providerSignals?.frontendVisibleSummary || "Provider category summary unavailable."}
@@ -995,6 +1007,10 @@ export default function InstitutionalChecklistTab({
 
       {hasInstitutionalAnswers ? (
         <>
+          {model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
+            <CategoryDrivenQuestionProfile model={model} styles={styles} />
+          ) : null}
+
           <InstitutionalQuestionAnswersSection
             questions={institutionalQuestions}
             provenance={institutionalQuestionsProvenance}
@@ -1004,7 +1020,9 @@ export default function InstitutionalChecklistTab({
 
           <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} />
 
-          <CategoryDrivenQuestionProfile model={model} styles={styles} />
+          {!model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
+            <CategoryDrivenQuestionProfile model={model} styles={styles} />
+          ) : null}
 
           <CollapsibleDetail
             title="Tokenomics Question Module"

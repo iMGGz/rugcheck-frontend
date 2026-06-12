@@ -199,19 +199,22 @@ function CategoryDrivenRailSection({ model, styles }) {
   if (!contract.primaryAssetFamily) return null;
 
   return (
-    <RailSection title="Category Questions" badge="Diagnostic only" styles={styles}>
+    <RailSection title="Category Questions" badge={contract.categoryAuthorityApplied ? "Authority applied" : "Diagnostic only"} styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Asset family</div>
-        <div style={styles.railMiniValue}>{contract.frontendVisibleLabel || contract.primaryAssetFamily}</div>
+        <div style={styles.railMiniValue}>{contract.primaryVisibleLabel || contract.frontendVisibleLabel || contract.primaryAssetFamily}</div>
       </div>
       <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Authority: {contract.categoryAuthorityStatus || "unknown"}</div>
         <div style={styles.railBoundaryPill}>Question group: {contract.questionRegistryGroup?.groupId || "unavailable"}</div>
         <div style={styles.railBoundaryPill}>Family confidence: {contract.familyConfidence || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>AIC: {contract.categoryAicAlignmentStatus || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>DataFirst: {contract.categoryDataFirstAlignmentStatus || "unknown"}</div>
         <div style={styles.railBoundaryPill}>Fit: {diagnostics.familyFitScore ?? "n/a"}</div>
         <div style={styles.railBoundaryPill}>Scoring: {diagnostics.scoringIntegrationStatus || "non_scoring_v1"}</div>
       </div>
       <div style={styles.railBoundaryText}>
-        Provider categories route source questions only. They do not change the final score or verdict.
+        {contract.categoryAuthorityReason || contract.categoryAuthorityBlockedReason || "Provider categories route source questions only. They do not change the final score or verdict."}
       </div>
     </RailSection>
   );
