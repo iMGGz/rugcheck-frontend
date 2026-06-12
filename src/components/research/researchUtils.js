@@ -724,11 +724,11 @@ export function normalizeAnalysisFreshnessPayload(responseLike, fallbackSnapshot
     freshnessStatus = "fresh_live";
   }
 
-  const freshQaEligible = freshnessStatus === "fresh_live" || freshnessStatus === "partial_refresh";
+  const freshQaEligible = freshnessStatus === "fresh_live";
   const bundleMode = freshnessStatus === "fresh_live"
     ? "live_current_qa"
     : freshnessStatus === "partial_refresh"
-      ? "partial_refresh_current_qa"
+      ? "partial_refresh_compare_only"
       : freshnessStatus === "stored_snapshot"
         ? "historical_snapshot_compare_only"
         : freshnessStatus === "cached_recent"
@@ -737,21 +737,17 @@ export function normalizeAnalysisFreshnessPayload(responseLike, fallbackSnapshot
   const currentProductTruthObject = freshnessStatus === "fresh_live"
     ? "current_live_analysis"
     : freshnessStatus === "partial_refresh"
-      ? "current_partial_refresh_analysis"
+      ? "partial_refresh_compare_only_not_current_product_truth"
       : freshnessStatus === "stored_snapshot"
         ? "historical_snapshot_compare_only"
         : freshnessStatus === "cached_recent"
           ? "cached_recent_memo_not_current_qa"
           : "unknown_requires_fresh_analysis";
-  const qaEligibilityLabel = freshQaEligible
-    ? freshnessStatus === "partial_refresh"
-      ? "Fresh QA eligible with partial-refresh caveat"
-      : "Fresh QA eligible"
-    : "Not eligible for current QA";
+  const qaEligibilityLabel = freshQaEligible ? "Fresh QA eligible" : "Not eligible for current QA";
   const qaEligibilityWarning = freshQaEligible
-    ? freshnessStatus === "partial_refresh"
-      ? "Partial refresh is current product truth, but stale or missing sections must be reviewed before strong conclusions."
-      : "This bundle is generated from the current live analysis object."
+    ? "This bundle is generated from the current live analysis object."
+    : freshnessStatus === "partial_refresh"
+      ? "Partial refresh output is compare/audit context only. Run a full live recompute before using primary tabs or Copy Live QA Bundle as current QA."
     : freshnessStatus === "stored_snapshot"
       ? "Historical snapshot output is compare/audit context only. Run a fresh analysis before current QA."
       : freshnessStatus === "cached_recent"
@@ -3964,9 +3960,21 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
 
   const decisionHeader = renderedSurfaceList(
     dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader"),
+    safeModel.allocationOutcome?.label,
+    safeModel.allocationOutcome?.description,
+    safeModel.verdictClass,
+    safeModel.confidenceLabel,
+    safeModel.overallScore === null || safeModel.overallScore === undefined ? null : `Overall score ${safeModel.overallScore}`,
     verdictSemantics.summary,
     verdictSemantics.positiveCase?.[0],
     verdictSemantics.blockedCase?.[0],
+    primaryBlocker.label,
+    primaryBlocker.explanation,
+    weakestLink.label,
+    weakestLink.explanation,
+    whatWouldChange?.[0],
+    safeModel.analysisFreshness?.qaEligibilityLabel,
+    safeModel.analysisFreshness?.qaEligibilityWarning,
     assetClassLabel,
     assetFramingLabel,
     visibleLensLabel,
@@ -4149,11 +4157,48 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       safeModel.engineLearningBackbone?.knownLimitations,
     ),
   };
+  const requiredLiveTabs = [
+    "decisionHeader",
+    "decisionTab",
+    "thesisFalsification",
+    "rightRail",
+    "visibleLensLabel",
+    "institutionalChecklist",
+    "tokenomics",
+    "evidenceMap",
+    "scoringTransparency",
+    "sourceQueue",
+    "manualReview",
+    "auditRaw",
+  ];
+  const tabMirrorCoverage = requiredLiveTabs.map((surface) => {
+    const values = safeArray(surfaces[surface]);
+    const classification = surface === "auditRaw"
+      ? "audit"
+      : ["evidenceMap", "scoringTransparency"].includes(surface)
+        ? "secondary"
+        : "primary";
+    return {
+      surface,
+      classification,
+      renderedItemCount: values.length,
+      mirroredInBundle: values.length > 0,
+      mirrorStatus: values.length > 0 ? "mirrored" : "missing_visible_text_model",
+      firstItem: values[0] || null,
+    };
+  });
+  const missingMirroredSurfaces = tabMirrorCoverage
+    .filter((entry) => !entry.mirroredInBundle)
+    .map((entry) => entry.surface);
 
   return {
-    artifactVersion: "rendered-surface-parity-view-model-v1",
+    artifactVersion: "rendered-surface-parity-view-model-v2-live-tab-mirror",
     doctrine: "Rendered-intended text mirrors the exact frontend normalized fields consumed by primary tabs, right rail, and Copy Review Bundle.",
     surfaces,
+    tabMirrorCoverage,
+    missingMirroredSurfaces,
+    allRequiredSurfacesMirrored: missingMirroredSurfaces.length === 0,
+    decisionHeaderRenderedItemCount: decisionHeader.length,
     componentConsumption: {
       decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and resolvedInstitutionalLens label in the guardrail.",
       decisionTab: "App.jsx Decision tab plus DecisionHeroSupportSections read verdictSemantics, primaryBlocker, weakestLink, whatWouldChangeDecision, and secondary display fields.",
@@ -5886,9 +5931,16 @@ export function buildReviewBundleText({
       bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
       bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
       bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
+      bundleField("Decision Header rendered item count", renderedSurfaceParityViewModel.decisionHeaderRenderedItemCount),
+      bundleField("All required live tabs mirrored", yesNoUnknown(renderedSurfaceParityViewModel.allRequiredSurfacesMirrored)),
+      bundleField("Missing mirrored live-tab surfaces", safeArray(renderedSurfaceParityViewModel.missingMirroredSurfaces).join("; ") || "none"),
       bundleField("Copy Review Bundle mirrors rendered view model", "yes - this section is generated from the same normalized model passed to product components."),
       "Surface-to-field contract:",
       bundleList(Object.entries(renderedSurfaceParityViewModel.componentConsumption).map(([surface, contract]) => `${surface}: ${contract}`)),
+      "Live tab mirror coverage:",
+      bundleList(safeArray(renderedSurfaceParityViewModel.tabMirrorCoverage).map((entry) =>
+        `${entry.surface}: ${entry.renderedItemCount} visible-model item(s) | ${entry.classification} | ${entry.mirrorStatus}${entry.firstItem ? ` | first=${entry.firstItem}` : ""}`
+      )),
       "Primary visible rendered-intended text:",
       bundleList(renderedSurfaceParityViewModel.primaryVisibleText, "No rendered-intended primary text available.", 40),
       "Surface coverage:",
