@@ -2638,6 +2638,17 @@ const ETH_POS_SETTLEMENT_DISPLAY_COPY = {
   ],
 };
 
+const DATA_FIRST_CONTRACT_MISSING_COPY = {
+  summary: "Data-first narrative contract missing or stale. Full recompute required before primary QA.",
+  boundary: "Current primary analysis requires dataFirstNarrativeContract. Old snapshot, cache, partial-refresh, or legacy fallback narrative is not current product truth.",
+  evidence: [
+    "Run a full live recompute before using Decision, Thesis, Checklist, Score Explanation, Source Queue, Manual Review, or Copy Live QA Bundle as current QA.",
+  ],
+  whatWouldChange: [
+    "A fresh live analysis with dataFirstNarrativeContract, generated narrative fields, Asset Interpretation Contract data-first gate, and Review Bundle 2AB attached.",
+  ],
+};
+
 function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
   const assetText = [
     asset?.symbol,
@@ -2663,6 +2674,27 @@ function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, revie
 }
 
 function isEthPosSettlementDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
+  const lensId = String(lens?.lensId || "").toUpperCase();
+  const questionGroupId = String(lens?.questionGroupId || "").toLowerCase();
+  const isEthCompatibleLens = lensId === "BASE_LAYER_SETTLEMENT"
+    && /base_layer|settlement|gas|native/.test(questionGroupId || "base_layer_settlement");
+  if (!isEthCompatibleLens) return false;
+
+  const representationType = String(assetIdentityResolution?.representationType || "").toLowerCase();
+  const isNativeRepresentation = assetIdentityResolution?.isNativeAsset === true
+    || representationType === "native_asset"
+    || representationType === "native";
+  if (!isNativeRepresentation) return false;
+
+  if (
+    assetIdentityResolution?.isContractRepresentation === true
+    || assetIdentityResolution?.selectedContract
+    || assetIdentityResolution?.analyzedContract
+    || asset?.contractAddress
+  ) {
+    return false;
+  }
+
   const assetText = [
     asset?.symbol,
     asset?.name,
@@ -2674,15 +2706,8 @@ function isEthPosSettlementDisplayContext({ asset, lens, assetIdentityResolution
     assetIdentityResolution?.canonicalAssetSymbol,
     assetIdentityResolution?.canonicalProviderIds?.coingeckoId,
     assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId,
-    assetIdentityResolution?.nativeNetworkCandidate,
-    assetIdentityResolution?.canonicalNetworkCandidate,
-    assetIdentityResolution?.representationType,
-    assetIdentityResolution?.bridgedOrWrappedStatus,
-    lens?.lensId,
-    lens?.questionGroupId,
   ].filter(Boolean).join(" ").toLowerCase();
-  const looksLikeNativeEth = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(assetText)
-    && /\b(base_layer_settlement|base-layer|settlement|ethereum)\b/i.test(assetText);
+  const looksLikeNativeEth = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(assetText);
   const isWrappedOrDerivative = /\b(weth|wrapped|bridged|bridge|liquid staking|lst|steth|reth|cbeth|wsteth|staking derivative)\b/i.test(assetText);
   return looksLikeNativeEth && !isWrappedOrDerivative;
 }
@@ -2867,6 +2892,89 @@ function buildEthPosSettlementDisplayOverlay(baseModel) {
       currentStatus: "review_required",
       canChangeVerdict: true,
     })),
+  };
+}
+
+function buildDataFirstContractMissingDisplayModel(baseModel) {
+  const copy = DATA_FIRST_CONTRACT_MISSING_COPY;
+  return {
+    ...baseModel,
+    verdictSemantics: {
+      ...(baseModel.verdictSemantics || {}),
+      summary: copy.summary,
+      positiveCase: [copy.summary],
+      blockedCase: [copy.summary],
+      missingEvidence: copy.evidence,
+      whatWouldChange: copy.whatWouldChange,
+      boundary: copy.boundary,
+    },
+    allocationCase: {
+      ...(baseModel.allocationCase || {}),
+      forAllocation: [copy.summary],
+      againstAllocation: [copy.summary],
+      missingEvidence: copy.evidence,
+      whatWouldChange: copy.whatWouldChange,
+    },
+    primaryStrength: copy.summary,
+    primaryWeakness: copy.summary,
+    summaryMemo: copy.summary,
+    structuredThesisSummary: copy.summary,
+    tokenDemandTruth: copy.summary,
+    failureMode: {
+      ...(baseModel.failureMode || {}),
+      primary: copy.summary,
+      trigger: copy.whatWouldChange[0],
+    },
+    missingCritical: copy.evidence,
+    blockers: [copy.summary],
+    requiredConditions: copy.evidence,
+    primaryBlocker: {
+      ...(baseModel.primaryBlocker || {}),
+      label: copy.summary,
+      explanation: copy.boundary,
+      badge: "Full recompute required",
+    },
+    weakestLink: {
+      ...(baseModel.weakestLink || {}),
+      label: copy.summary,
+      explanation: copy.boundary,
+      badge: "Contract missing",
+    },
+    whatWouldChangeDecision: {
+      ...(baseModel.whatWouldChangeDecision || {}),
+      items: copy.whatWouldChange,
+      badge: "Full recompute required",
+      explanation: copy.boundary,
+    },
+    whyNow: copy.summary,
+    whyNotNow: copy.summary,
+    whatMustBeTrue: copy.evidence,
+    whatCouldBreak: copy.evidence,
+    nextCheckpoints: copy.whatWouldChange,
+    topPositiveDrivers: [copy.summary],
+    topNegativeDrivers: [copy.summary],
+    topNeutralDrivers: copy.whatWouldChange,
+    researchRequirements: copy.whatWouldChange.map((requirement, index) => ({
+      id: `data-first-contract-missing-${index}`,
+      title: requirement,
+      assetClassLens: baseModel?.resolvedInstitutionalLens?.lensId || "unknown",
+      reason: "Current product surfaces require a data-first narrative contract. This is a recompute requirement, not asset evidence.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["fresh_live_analysis"],
+      priority: "critical",
+      verdictImpact: "Blocks current QA eligibility until recomputed.",
+      currentStatus: "full_recompute_required",
+      canChangeVerdict: false,
+    })),
+    analysisFreshness: {
+      ...(baseModel.analysisFreshness || {}),
+      freshQaEligible: false,
+      qaEligibilityLabel: "Full recompute required",
+      qaEligibilityWarning: copy.boundary,
+      bundleMode: "data_first_contract_missing_recompute_required",
+      fullRecomputeRequiredReason: "dataFirstNarrativeContract missing or stale",
+      freshQaEligibleBlockedByMissingDataFirstContract: true,
+    },
   };
 }
 
@@ -3741,6 +3849,10 @@ export function buildDecisionTerminalModel({
     }),
     keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
+
+  if (resolvedLensIsDisplayAuthoritative(resolvedInstitutionalLens) && !dataFirstNarrativeContract) {
+    return buildDataFirstContractMissingDisplayModel(baseDisplayModel);
+  }
 
   if (isNativeBtcDisplayContext({
     asset,
@@ -5358,8 +5470,12 @@ export function buildReviewBundleText({
   const visibleBundleLensLabel = visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
   const visibleBundleFramingLabel = visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
   const assetInterpretationContractMissing = Boolean(lens?.lensId) && !assetInterpretationContract;
-  const assetInterpretationHardGateFailure = assetInterpretationContract
-    && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "FAIL";
+  const dataFirstNarrativeMissing = resolvedLensIsDisplayAuthoritative(lens) && !dataFirstNarrativeContract;
+  const assetInterpretationHardGateFailure = Boolean(
+    (assetInterpretationContract
+      && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "FAIL")
+    || dataFirstNarrativeMissing,
+  );
   const assetInterpretationVisibleLabelMismatch = assetInterpretationContract
     && visibleContractDisplay.primaryVisibleLabel
     && visibleBundleLensLabel
@@ -5367,12 +5483,11 @@ export function buildReviewBundleText({
   const nonEthLensShowingEthGasLabel = assetInterpretationContract
     && visibleContractDisplay.labelFamily !== "native_pos_settlement_gas"
     && /PoS Smart-Contract Settlement \/ Gas Asset|Gas Asset/i.test(String(visibleBundleLensLabel));
-  const dataFirstNarrativeMissing = resolvedLensIsDisplayAuthoritative(lens) && !dataFirstNarrativeContract;
   const dataFirstNarrativeFailing = dataFirstNarrativeContract
     && dataFirstNarrativeContract.primaryNarrativeGateStatus === "FAIL";
   const aicLabelPassButNarrativeFail = assetInterpretationContract
     && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "PASS"
-    && dataFirstNarrativeFailing;
+    && (dataFirstNarrativeFailing || dataFirstNarrativeMissing);
   const scoreExplanationNotDataBound = dataFirstNarrativeContract
     && dataFirstNarrativeContract.scoreExplanationInputs?.scoreExplanationDataBacked === false;
   const sourceUniversePromoted = safeArray(assetInterpretationContract?.evidenceInterpretationContract?.sourceUniverseTaxonomy)
@@ -5637,6 +5752,7 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
+      bundleField("Current QA eligibility if missing", dataFirstNarrativeContract ? "eligible if freshness gate also passes" : "blocked - full live recompute required before primary QA"),
       bundleField("Artifact version", dataFirstNarrativeContract?.artifactVersion),
       bundleField("Contract status", dataFirstNarrativeContract?.contractStatus),
       bundleField("Primary narrative gate status", dataFirstNarrativeContract?.primaryNarrativeGateStatus),
