@@ -567,6 +567,27 @@ export function normalizeResolvedInstitutionalLensPayload(responseLike) {
   } : null;
 }
 
+export function normalizeEffectiveInstitutionalLensPayload(responseLike, assetInterpretationContract = null) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootLens = safeObject(root.effectiveInstitutionalLens);
+  const nestedLens = safeObject(nestedAnalysis.effectiveInstitutionalLens);
+  const contractLens = safeObject(assetInterpretationContract?.effectiveInstitutionalLens);
+  const lens = rootLens.lensId || rootLens.label
+    ? rootLens
+    : nestedLens.lensId || nestedLens.label
+      ? nestedLens
+      : contractLens.lensId || contractLens.label
+        ? contractLens
+        : null;
+  if (!lens) return null;
+  return {
+    ...lens,
+    sourceMatrixEntryIds: safeArray(lens.sourceMatrixEntryIds),
+    rawResolvedLensAuditOnly: safeObject(lens.rawResolvedLensAuditOnly),
+  };
+}
+
 export function normalizeLensAwareExplanationsPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -3644,6 +3665,7 @@ export function buildDecisionTerminalModel({
   const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
+  const effectiveInstitutionalLens = normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const providerCategorySignals = normalizeProviderCategorySignalsPayload(safeAnalysis);
@@ -3923,6 +3945,7 @@ export function buildDecisionTerminalModel({
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     resolvedInstitutionalLens,
+    effectiveInstitutionalLens,
     lensAwareExplanations,
     assetIdentityResolution,
     tokenomicsSupplyIntegrity,
@@ -4101,7 +4124,8 @@ function renderedSurfaceList(...groups) {
 
 export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } = {}) {
   const safeModel = safeObject(model);
-  const lens = safeModel.resolvedInstitutionalLens || {};
+  const rawLens = safeModel.resolvedInstitutionalLens || {};
+  const lens = safeModel.effectiveInstitutionalLens || rawLens || {};
   const verdictSemantics = safeObject(safeModel.verdictSemantics);
   const allocationCase = safeObject(safeModel.allocationCase);
   const dataFirstNarrativeContract = safeObject(safeModel.dataFirstNarrativeContract);
@@ -4329,6 +4353,8 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       ]),
       lens.lensId,
       lens.questionGroupId,
+      rawLens.lensId ? `Raw resolved lens: ${rawLens.lensId}` : null,
+      rawLens.questionGroupId ? `Raw resolved question group: ${rawLens.questionGroupId}` : null,
       safeModel.assetIdentityResolution?.sourceBoundary,
       safeModel.analysisFreshness?.bundleMode,
       safeModel.engineLearningBackbone?.knownLimitations,
@@ -5158,6 +5184,7 @@ export function buildReviewBundleText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
+  const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const providerCategorySignals = safeModel.providerCategorySignals || normalizeProviderCategorySignalsPayload(safeData) || normalizeProviderCategorySignalsPayload(safeAnalysis);
@@ -5230,7 +5257,10 @@ export function buildReviewBundleText({
     ]),
   ].filter(Boolean).join(" ");
   const renderedSurfaceParityViewModel = buildRenderedSurfaceParityViewModel({
-    model: safeModel,
+    model: {
+      ...safeModel,
+      effectiveInstitutionalLens,
+    },
     displayIdentity,
   });
   const renderedPrimaryVisibleText = renderedSurfaceParityViewModel.primaryVisibleText.join("\n");
@@ -5710,6 +5740,14 @@ export function buildReviewBundleText({
   const nonEthLensShowingEthGasLabel = assetInterpretationContract
     && visibleContractDisplay.labelFamily !== "native_pos_settlement_gas"
     && /PoS Smart-Contract Settlement \/ Gas Asset|Gas Asset/i.test(String(visibleBundleLensLabel));
+  const effectiveSourceMatrixIds = safeArray(effectiveInstitutionalLens?.sourceMatrixEntryIds || assetInterpretationContract?.effectiveInstitutionalLens?.sourceMatrixEntryIds || assetInterpretationContract?.evidenceInterpretationContract?.sourceMatrixEntryIds);
+  const sourceMatrixFamilyMismatch = categoryDrivenAssetFamilyContract?.primaryAssetFamily === "tokenized_gold_commodity_rwa"
+    ? !effectiveSourceMatrixIds.includes("matrix_tokenized_gold_commodity_rwa")
+    : categoryDrivenAssetFamilyContract?.primaryAssetFamily === "non_eth_l1_smart_contract_platform"
+      ? !effectiveSourceMatrixIds.includes("matrix_non_eth_l1_smart_contract_platform")
+      : false;
+  const visibleLensLabelMirror = safeArray(renderedSurfaceParityViewModel?.surfaces?.visibleLensLabel);
+  const visibleLensLabelMirrorMissing = !visibleLensLabelMirror.length && visibleBundleLensLabel !== "not_rendered_by_ui";
   const dataFirstNarrativeFailing = dataFirstNarrativeContract
     && dataFirstNarrativeContract.primaryNarrativeGateStatus === "FAIL";
   const aicLabelPassButNarrativeFail = assetInterpretationContract
@@ -5947,8 +5985,16 @@ export function buildReviewBundleText({
       bundleField("Canonical network candidate", assetInterpretationContract?.representationContext?.canonicalNetworkCandidate),
       bundleField("Selected/analyzed network", `${assetInterpretationContract?.representationContext?.selectedNetwork || "Unavailable"} / ${assetInterpretationContract?.representationContext?.analyzedNetwork || "Unavailable"}`),
       bundleField("Selected/analyzed contract", `${assetInterpretationContract?.representationContext?.selectedContract || "none"} / ${assetInterpretationContract?.representationContext?.analyzedContract || "none"}`),
-      bundleField("Resolved lens", assetInterpretationContract?.thesisLensContext?.lensId),
-      bundleField("Question group", assetInterpretationContract?.thesisLensContext?.questionGroupId),
+      bundleField("Raw resolved lens", assetInterpretationContract?.thesisLensContext?.lensId),
+      bundleField("Raw resolved question group", assetInterpretationContract?.thesisLensContext?.questionGroupId),
+      bundleField("Effective lens source", effectiveInstitutionalLens?.effectiveLensSource || assetInterpretationContract?.effectiveInstitutionalLens?.effectiveLensSource),
+      bundleField("Effective lens/family", effectiveInstitutionalLens?.lensId || assetInterpretationContract?.effectiveInstitutionalLens?.lensId),
+      bundleField("Effective visible label", effectiveInstitutionalLens?.label || assetInterpretationContract?.effectiveInstitutionalLens?.label),
+      bundleField("Effective question group", effectiveInstitutionalLens?.questionGroupId || assetInterpretationContract?.effectiveInstitutionalLens?.questionGroupId),
+      bundleField("Effective source profile", effectiveInstitutionalLens?.effectiveSourceMatrixProfile || assetInterpretationContract?.effectiveInstitutionalLens?.effectiveSourceMatrixProfile),
+      bundleField("Effective source matrix entries", safeArray(effectiveInstitutionalLens?.sourceMatrixEntryIds || assetInterpretationContract?.effectiveInstitutionalLens?.sourceMatrixEntryIds).join("; ") || "none"),
+      bundleField("Category authority overrides raw lens", yesNoUnknown(effectiveInstitutionalLens?.categoryAuthorityOverridesRawLens || assetInterpretationContract?.effectiveInstitutionalLens?.categoryAuthorityOverridesRawLens)),
+      bundleField("Raw/effective divergence warning", effectiveInstitutionalLens?.rawEffectiveLensDivergenceWarning || assetInterpretationContract?.effectiveInstitutionalLens?.rawEffectiveLensDivergenceWarning),
       bundleField("Network is classification authority", assetInterpretationContract?.thesisLensContext?.networkContextIsClassificationAuthority ? "yes - QA violation" : "no"),
       bundleField("Visible label family", visibleContractDisplay.labelFamily),
       bundleField("Primary visible label", visibleContractDisplay.primaryVisibleLabel),
@@ -6783,12 +6829,18 @@ export function buildReviewBundleText({
       bundleField("Category/AIC aligned", categoryDrivenAssetFamilyContract ? yesNoUnknown((categoryDrivenAssetFamilyContract.categoryAicAlignmentStatus || assetInterpretationContract?.categoryAuthorityBridge?.categoryAicAlignmentStatus) === "aligned") : "unknown"),
       bundleField("Category/DataFirst aligned", categoryDrivenAssetFamilyContract ? yesNoUnknown((categoryDrivenAssetFamilyContract.categoryDataFirstAlignmentStatus || assetInterpretationContract?.categoryAuthorityBridge?.categoryDataFirstAlignmentStatus) === "aligned") : "unknown"),
       bundleField("Category/question group aligned", categoryDrivenAssetFamilyContract ? yesNoUnknown((categoryDrivenAssetFamilyContract.categoryQuestionGroupAlignmentStatus || assetInterpretationContract?.categoryAuthorityBridge?.categoryQuestionGroupAlignmentStatus) === "aligned") : "unknown"),
+      bundleField("Effective category source matrix aligned", categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? yesNoUnknown(!sourceMatrixFamilyMismatch) : "not applicable"),
+      bundleField("visibleLensLabel mirror status", visibleLensLabelMirrorMissing ? "missing" : visibleLensLabelMirror.length ? "mirrored" : "not_rendered_by_ui"),
       bundleField("PAXG-like tokenized gold avoids manual primary label", categoryDrivenAssetFamilyContract?.primaryAssetFamily === "tokenized_gold_commodity_rwa" ? yesNoUnknown(!/manual classification|general low-coverage/i.test(`${visibleBundleLensLabel} ${visibleBundleFramingLabel} ${dataFirstNarrativeContract?.narrativeScope?.primaryVisibleLabel || ""}`)) : "not applicable"),
+      bundleField("PAXG-like tokenized gold source matrix is dedicated", categoryDrivenAssetFamilyContract?.primaryAssetFamily === "tokenized_gold_commodity_rwa" ? yesNoUnknown(effectiveSourceMatrixIds.includes("matrix_tokenized_gold_commodity_rwa") && !effectiveSourceMatrixIds.includes("matrix_rwa_hybrid_finance")) : "not applicable"),
       bundleField("ADA-like non-ETH L1 avoids AI routing", categoryDrivenAssetFamilyContract?.primaryAssetFamily === "non_eth_l1_smart_contract_platform" ? yesNoUnknown(!/ai_infrastructure|agent token/i.test(String(categoryDrivenAssetFamilyContract.primaryAssetFamily))) : "not applicable"),
+      bundleField("ADA-like non-ETH L1 source matrix is dedicated", categoryDrivenAssetFamilyContract?.primaryAssetFamily === "non_eth_l1_smart_contract_platform" ? yesNoUnknown(effectiveSourceMatrixIds.includes("matrix_non_eth_l1_smart_contract_platform") && !effectiveSourceMatrixIds.includes("matrix_native_pos_gas_eth")) : "not applicable"),
       bundleField("ADA-like non-ETH L1 avoids ETH-only source gaps", categoryDrivenAssetFamilyContract?.primaryAssetFamily === "non_eth_l1_smart_contract_platform" ? yesNoUnknown(!/EIP-1559|base-fee|base fee|priority fee|L2\/blob|blob fee|proposer-builder|relay centralization|ETF-flow|ETH fee-market/i.test([
         dataFirstNarrativeContract?.generatedNarrativeFields?.map((field) => field.generatedText).join(" "),
         dataFirstNarrativeContract?.missingEvidenceGaps?.map((gap) => gap.sourceRequirement).join(" "),
         categoryDrivenAssetFamilyContract?.sourceRequirementProfile?.priorityRequirements?.join(" "),
+        tokenomicsSupplyIntegrity?.sourceRequirements?.join(" "),
+        tokenomicsSupplyIntegrity?.institutionalQuestions?.map((question) => `${question.shortAnswer || ""} ${question.answerSummary || ""} ${safeArray(question.missingEvidence).join(" ")} ${safeArray(question.whatWouldChange).join(" ")}`).join(" "),
       ].join(" "))) : "not applicable"),
       bundleField("Ecosystem tags preserved as context", providerCategorySignals ? yesNoUnknown(safeArray(providerCategorySignals.ecosystemContextTags).length >= 0 && safeArray(categoryDrivenAssetFamilyContract?.excludedFamilies).every((entry) => !/classification authority/i.test(entry.reason || "") || /not authority/i.test(entry.reason || ""))) : "unknown"),
       bundleField("Category question requirements visible in Source Queue", categoryDrivenAssetFamilyContract ? yesNoUnknown(safeArray(safeModel.researchRequirements).some((requirement) => String(requirement?.id || "").startsWith("category-driven-"))) : "unknown"),
