@@ -3966,6 +3966,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     safeModel.confidenceLabel,
     safeModel.overallScore === null || safeModel.overallScore === undefined ? null : `Overall score ${safeModel.overallScore}`,
     verdictSemantics.summary,
+    verdictSemantics.boundary,
     verdictSemantics.positiveCase?.[0],
     verdictSemantics.blockedCase?.[0],
     primaryBlocker.label,
@@ -3979,6 +3980,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     assetFramingLabel,
     visibleLensLabel,
     lensIdentityRailLabel,
+    ["View final verdict logic", "Inspect blocker", "Trace evidence", "View requirements"],
   );
 
   const decisionTab = renderedSurfaceList(
@@ -4062,8 +4064,17 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     dataFirstGeneratedText(dataFirstNarrativeContract, "manualReviewSummary"),
     safeModel.manualReviewStatus?.label,
     safeModel.manualReviewStatus?.detail,
+    safeModel.researchRequirements?.map((requirement) => [
+      requirement?.title,
+      requirement?.reason,
+      requirement?.evidenceNeeded,
+      requirement?.verdictImpact,
+    ]),
+    safeModel.primaryBlocker?.explanation,
+    safeModel.weakestLink?.explanation,
     safeModel.auditAlerts,
     safeModel.warnings,
+    "Manual review boundary: missing evidence is not negative evidence; reviewed evidence remains separate from provider metadata and scoring-active fields.",
   );
 
   const evidenceMap = renderedSurfaceList(
@@ -4136,7 +4147,14 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     thesisFalsification,
     rightRail,
     whatWouldChangeRail: renderedSurfaceList(whatWouldChange),
-    visibleLensLabel: renderedSurfaceList(visibleLensLabel, assetClassLabel, assetFramingLabel),
+    visibleLensLabel: renderedSurfaceList(
+      visibleLensLabel,
+      assetClassLabel,
+      assetFramingLabel,
+      lensIdentityRailLabel,
+      lens.lensId ? `Lens ID: ${lens.lensId}` : null,
+      lens.questionGroupId ? `Question group: ${lens.questionGroupId}` : null,
+    ),
     institutionalChecklist,
     tokenomics,
     evidenceMap,
@@ -5574,6 +5592,27 @@ export function buildReviewBundleText({
   const renderedBtcSelfTriggerExclusions = renderedBtcForbiddenStringChecks.flatMap((check) => check.selfTriggerExclusions || []);
   const renderedBtcGateStatus = renderedBtcFailures.length ? "FAIL" : "PASS";
   const renderedEthGateStatus = renderedEthFailures.length ? "FAIL" : "PASS";
+  const requiredMirrorMissingSurfaces = safeArray(renderedSurfaceParityViewModel.missingMirroredSurfaces);
+  const requiredPrimaryZeroSurfaces = safeArray(renderedSurfaceParityViewModel.tabMirrorCoverage)
+    .filter((entry) => entry?.classification === "primary" && Number(entry?.renderedItemCount || 0) === 0)
+    .map((entry) => entry.surface);
+  const decisionHeaderMirrorMissing = Number(renderedSurfaceParityViewModel.decisionHeaderRenderedItemCount || 0) === 0;
+  const mirrorCoverageGateStatus = requiredMirrorMissingSurfaces.length || requiredPrimaryZeroSurfaces.length || decisionHeaderMirrorMissing
+    ? "FAIL"
+    : "PASS";
+  const renderedSpecificGateStatus = renderedBtcForbiddenStringChecks.length
+    ? renderedBtcGateStatus
+    : renderedEthForbiddenStringChecks.length
+      ? renderedEthGateStatus
+      : "PASS";
+  const renderedSurfaceOverallGateStatus = mirrorCoverageGateStatus === "FAIL"
+    ? "FAIL"
+    : renderedSpecificGateStatus === "FAIL"
+      ? "FAIL"
+      : "PASS";
+  const mirrorCoverageFailureReason = mirrorCoverageGateStatus === "FAIL"
+    ? `Required live-tab mirror coverage incomplete: missing=${requiredMirrorMissingSurfaces.join("; ") || "none"}; primaryZero=${requiredPrimaryZeroSurfaces.join("; ") || "none"}; decisionHeaderCount=${renderedSurfaceParityViewModel.decisionHeaderRenderedItemCount || 0}.`
+    : "All required live-tab mirror surfaces have rendered-intended text.";
   const renderedBtcFailureReason = renderedBtcFailures.length
     ? "BTC primary visible rendered-intended text contains forbidden generic/base-layer copy. This is a blocking product-surface parity failure."
     : "No BTC forbidden strings found in primary visible rendered-intended text.";
@@ -5606,7 +5645,7 @@ export function buildReviewBundleText({
       bundleField("Partial refresh sufficient", analysisFreshness.partialRefreshSufficient === null || analysisFreshness.partialRefreshSufficient === undefined ? "unknown" : analysisFreshness.partialRefreshSufficient ? "yes" : "no"),
       bundleField("Bundle uses same normalized product object", yesNoUnknown(bundleUsesSameCurrentAnalysisObject)),
       bundleField("Live tabs are product truth; bundle is mirror", "yes"),
-      bundleField("Snapshot output compare-only", analysisFreshness.isSnapshot ? "yes - historical snapshot / compare mode" : "no"),
+      bundleField("Snapshot output compare-only", analysisFreshness.isSnapshot ? "yes - historical snapshot / compare mode" : analysisFreshness.isPartialRefresh ? "yes - partial refresh compare-only / not current product truth" : "no"),
       bundleField("Post-patch fresh QA evidence allowed", analysisFreshness.freshQaEligible ? "yes" : "no"),
       "Fresh sections:",
       bundleList(analysisFreshness.freshSections),
@@ -5797,7 +5836,7 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
-      bundleField("Current QA eligibility if missing", dataFirstNarrativeContract ? "eligible if freshness gate also passes" : "blocked - full live recompute required before primary QA"),
+      bundleField("Current QA eligibility if missing", "not eligible; full live recompute required"),
       bundleField("Artifact version", dataFirstNarrativeContract?.artifactVersion),
       bundleField("Contract status", dataFirstNarrativeContract?.contractStatus),
       bundleField("Primary narrative gate status", dataFirstNarrativeContract?.primaryNarrativeGateStatus),
@@ -5900,9 +5939,12 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2C. Backend-to-Frontend Rendered Surface Parity Gate", [
       bundleField("Gate version", renderedSurfaceParityViewModel.artifactVersion),
-      bundleField("Gate status", renderedBtcForbiddenStringChecks.length ? renderedBtcGateStatus : renderedEthForbiddenStringChecks.length ? renderedEthGateStatus : "not applicable for this asset/lens"),
-      bundleField("Blocking", renderedBtcForbiddenStringChecks.length || renderedEthForbiddenStringChecks.length ? "true" : "not applicable"),
-      bundleField("Failure reason", renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : renderedEthForbiddenStringChecks.length ? renderedEthFailureReason : "No native-BTC or native-ETH rendered hard gate was applicable."),
+      bundleField("Gate status", renderedSurfaceOverallGateStatus),
+      bundleField("Mirror coverage gate status", mirrorCoverageGateStatus),
+      bundleField("Lens-specific text gate status", renderedSpecificGateStatus),
+      bundleField("Blocking", "true"),
+      bundleField("Failure reason", mirrorCoverageGateStatus === "FAIL" ? mirrorCoverageFailureReason : renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : renderedEthForbiddenStringChecks.length ? renderedEthFailureReason : "All required live-tab mirror surfaces are represented; no native-BTC or native-ETH rendered hard gate was applicable."),
+      bundleField("Required primary zero-count surfaces", requiredPrimaryZeroSurfaces.join("; ") || "none"),
       bundleField("Primary visible forbidden failure count", renderedBtcPrimaryVisibleFailures.length + renderedEthPrimaryVisibleFailures.length),
       bundleField("Primary visible forbidden failures", [...renderedBtcPrimaryVisibleFailures, ...renderedEthPrimaryVisibleFailures].map((failure) =>
         `${failure.checkId} | ${failure.surface} | ${failure.fieldPath} | phrase=${failure.matchedForbiddenPhrase} | text=${failure.renderedText}`
