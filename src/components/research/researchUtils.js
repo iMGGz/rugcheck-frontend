@@ -423,6 +423,124 @@ function dataFirstGeneratedText(contract, fieldName) {
     .find((field) => field?.fieldName === fieldName && field?.status !== "FAIL")?.generatedText || null;
 }
 
+export function normalizeProviderCategorySignalsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.providerCategorySignals);
+  const nestedContract = safeObject(nestedAnalysis.providerCategorySignals);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    coinGeckoCategories: safeArray(contract.coinGeckoCategories),
+    coinGeckoCategoryIds: safeArray(contract.coinGeckoCategoryIds),
+    coinGeckoAssetPlatforms: safeArray(contract.coinGeckoAssetPlatforms),
+    coinMarketCapTags: safeArray(contract.coinMarketCapTags),
+    coinMarketCapCategories: safeArray(contract.coinMarketCapCategories),
+    coinMarketCapSectors: safeArray(contract.coinMarketCapSectors),
+    coinMarketCapLiquiditySignals: safeArray(contract.coinMarketCapLiquiditySignals),
+    primaryProviderCategoryEvidence: safeArray(contract.primaryProviderCategoryEvidence),
+    secondaryProviderCategoryEvidence: safeArray(contract.secondaryProviderCategoryEvidence),
+    ecosystemContextTags: safeArray(contract.ecosystemContextTags),
+    assetClassCandidateTags: safeArray(contract.assetClassCandidateTags),
+    conflictingCategorySignals: safeArray(contract.conflictingCategorySignals),
+    selfReportedOrUnverifiedCategorySignals: safeArray(contract.selfReportedOrUnverifiedCategorySignals),
+    verifiedCategorySignals: safeArray(contract.verifiedCategorySignals),
+    providerCategoryBoundary: safeArray(contract.providerCategoryBoundary),
+    classifiedSignals: safeArray(contract.classifiedSignals),
+    endpointCandidates: safeArray(contract.endpointCandidates),
+    scoringBoundary: safeObject(contract.scoringBoundary),
+  };
+}
+
+export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.categoryDrivenAssetFamilyContract);
+  const nestedContract = safeObject(nestedAnalysis.categoryDrivenAssetFamilyContract);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    secondaryAssetFamilies: safeArray(contract.secondaryAssetFamilies),
+    excludedFamilies: safeArray(contract.excludedFamilies),
+    familyResolutionReasons: safeArray(contract.familyResolutionReasons),
+    categorySignalsUsed: safeArray(contract.categorySignalsUsed),
+    networkContextSignals: safeArray(contract.networkContextSignals),
+    assetClassSignals: safeArray(contract.assetClassSignals),
+    conflictWarnings: safeArray(contract.conflictWarnings),
+    questionRegistryGroup: {
+      ...safeObject(contract.questionRegistryGroup),
+      questions: safeArray(contract.questionRegistryGroup?.questions).map((question) => ({
+        ...safeObject(question),
+        sourceRequirements: safeArray(question?.sourceRequirements),
+        forbiddenPrimaryCopy: safeArray(question?.forbiddenPrimaryCopy),
+      })),
+    },
+    sourceRequirementProfile: {
+      ...safeObject(contract.sourceRequirementProfile),
+      priorityRequirements: safeArray(contract.sourceRequirementProfile?.priorityRequirements),
+      notApplicableRequirements: safeArray(contract.sourceRequirementProfile?.notApplicableRequirements),
+      forbiddenPrimaryNarrative: safeArray(contract.sourceRequirementProfile?.forbiddenPrimaryNarrative),
+    },
+    scoringBoundary: safeObject(contract.scoringBoundary),
+  };
+}
+
+export function normalizeCategoryDataRequirementProfilesPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.categoryDataRequirementProfiles);
+  const nestedContract = safeObject(nestedAnalysis.categoryDataRequirementProfiles);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    profiles: safeArray(contract.profiles).map((profile) => ({
+      ...safeObject(profile),
+      requiredDataCategories: safeArray(profile?.requiredDataCategories),
+      sourceRequirements: safeArray(profile?.sourceRequirements),
+      nonApplicableDataCategories: safeArray(profile?.nonApplicableDataCategories),
+      primaryFailureModes: safeArray(profile?.primaryFailureModes),
+    })),
+  };
+}
+
+export function normalizeCategoryAnswerBuilderPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.categoryAnswerBuilder);
+  const nestedContract = safeObject(nestedAnalysis.categoryAnswerBuilder);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    answerCards: safeArray(contract.answerCards).map((card) => ({
+      ...safeObject(card),
+      dataUsed: safeArray(card?.dataUsed),
+      missingEvidence: safeArray(card?.missingEvidence),
+      whatWouldChange: safeArray(card?.whatWouldChange),
+    })),
+  };
+}
+
+export function normalizeCategoryReadinessDiagnosticsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.categoryReadinessDiagnostics);
+  const nestedContract = safeObject(nestedAnalysis.categoryReadinessDiagnostics);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    manualReviewFlags: safeArray(contract.manualReviewFlags),
+    sourceRequiredFlags: safeArray(contract.sourceRequiredFlags),
+    falsePositiveRisks: safeArray(contract.falsePositiveRisks),
+    whatWouldImproveReadiness: safeArray(contract.whatWouldImproveReadiness),
+    scoringBoundary: safeObject(contract.scoringBoundary),
+  };
+}
+
 export function normalizeCalibrationWarningsPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -1849,6 +1967,18 @@ function dedupeCaseInsensitive(items) {
     const text = extractRenderableText(item, null);
     if (!text) return false;
     const key = text.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeObjectsByTitle(items) {
+  const seen = new Set();
+  return safeArray(items).filter((item) => {
+    const title = extractRenderableText(item?.title || item?.reason || item, null);
+    if (!title) return false;
+    const key = title.trim().toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -3515,6 +3645,11 @@ export function buildDecisionTerminalModel({
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
+  const providerCategorySignals = normalizeProviderCategorySignalsPayload(safeAnalysis);
+  const categoryDrivenAssetFamilyContract = normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
+  const categoryDataRequirementProfiles = normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
+  const categoryAnswerBuilder = normalizeCategoryAnswerBuilderPayload(safeAnalysis);
+  const categoryReadinessDiagnostics = normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -3668,7 +3803,7 @@ export function buildDecisionTerminalModel({
       badge: "Lens-aware requirement",
     }
     : primaryBlocker;
-  const displayResearchRequirements = lensAwareExplanations?.sourceQueueRequirements?.length
+  const baseDisplayResearchRequirements = lensAwareExplanations?.sourceQueueRequirements?.length
     ? lensAwareExplanations.sourceQueueRequirements.map((requirement, index) => ({
       id: `lens-aware-${lensAwareExplanations.lensId}-${index}`,
       title: requirement,
@@ -3682,6 +3817,24 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: true,
     }))
     : verdictSemantics.researchRequirements;
+  const categoryResearchRequirements = safeArray(categoryDrivenAssetFamilyContract?.sourceRequirementProfile?.priorityRequirements)
+    .slice(0, 8)
+    .map((requirement, index) => ({
+      id: `category-driven-${categoryDrivenAssetFamilyContract.primaryAssetFamily}-${index}`,
+      title: requirement,
+      assetClassLens: categoryDrivenAssetFamilyContract.primaryAssetFamily,
+      reason: `Category-driven question registry requirement for ${categoryDrivenAssetFamilyContract.frontendVisibleLabel}. Provider categories are context, not reviewed evidence.`,
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["official_docs", "provider_category_metadata", "reviewed_source"],
+      priority: index < 3 ? "high" : "medium",
+      verdictImpact: "Diagnostic-only; can improve answer quality after reviewed evidence is attached.",
+      currentStatus: "source_required",
+      canChangeVerdict: false,
+    }));
+  const displayResearchRequirements = dedupeObjectsByTitle([
+    ...baseDisplayResearchRequirements,
+    ...categoryResearchRequirements,
+  ]);
   const displayVerdictSemantics = lensAwareExplanations ? {
     ...verdictSemantics,
     missingEvidence: displayEvidenceNeeded,
@@ -3776,6 +3929,11 @@ export function buildDecisionTerminalModel({
     assetInterpretationContract,
     dataFirstNarrativeContract,
     engineLearningBackbone,
+    providerCategorySignals,
+    categoryDrivenAssetFamilyContract,
+    categoryDataRequirementProfiles,
+    categoryAnswerBuilder,
+    categoryReadinessDiagnostics,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -5001,6 +5159,11 @@ export function buildReviewBundleText({
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
+  const providerCategorySignals = safeModel.providerCategorySignals || normalizeProviderCategorySignalsPayload(safeData) || normalizeProviderCategorySignalsPayload(safeAnalysis);
+  const categoryDrivenAssetFamilyContract = safeModel.categoryDrivenAssetFamilyContract || normalizeCategoryDrivenAssetFamilyContractPayload(safeData) || normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
+  const categoryDataRequirementProfiles = safeModel.categoryDataRequirementProfiles || normalizeCategoryDataRequirementProfilesPayload(safeData) || normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
+  const categoryAnswerBuilder = safeModel.categoryAnswerBuilder || normalizeCategoryAnswerBuilderPayload(safeData) || normalizeCategoryAnswerBuilderPayload(safeAnalysis);
+  const categoryReadinessDiagnostics = safeModel.categoryReadinessDiagnostics || normalizeCategoryReadinessDiagnosticsPayload(safeData) || normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
@@ -5878,6 +6041,59 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(dataFirstNarrativeContract?.knownLimitations),
     ]),
+    bundleSection("2AC. Category-Driven Question Registry & API Category Signals", [
+      bundleField("Provider category signals attached", providerCategorySignals ? "yes" : "missing"),
+      bundleField("Asset-family contract attached", categoryDrivenAssetFamilyContract ? "yes" : "missing"),
+      bundleField("Primary asset family", categoryDrivenAssetFamilyContract?.primaryAssetFamily),
+      bundleField("Frontend label", categoryDrivenAssetFamilyContract?.frontendVisibleLabel),
+      bundleField("Family confidence", categoryDrivenAssetFamilyContract?.familyConfidence),
+      bundleField("Resolution status", categoryDrivenAssetFamilyContract?.familyResolutionStatus),
+      bundleField("Question registry group", categoryDrivenAssetFamilyContract?.questionRegistryGroup?.groupId),
+      bundleField("Source profile", categoryDrivenAssetFamilyContract?.sourceRequirementProfile?.profileId),
+      bundleField("Family fit score", categoryReadinessDiagnostics?.familyFitScore),
+      bundleField("Category evidence coverage score", categoryReadinessDiagnostics?.categoryEvidenceCoverageScore),
+      bundleField("Data requirement coverage score", categoryReadinessDiagnostics?.dataRequirementCoverageScore),
+      bundleField("Scoring integration", categoryReadinessDiagnostics?.scoringIntegrationStatus || "non_scoring_v1"),
+      bundleField("Scoring changed", yesNoUnknown(categoryDrivenAssetFamilyContract?.scoringBoundary?.scoringChanged)),
+      bundleField("Verdict changed", yesNoUnknown(categoryDrivenAssetFamilyContract?.scoringBoundary?.verdictChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(categoryDrivenAssetFamilyContract?.scoringBoundary?.providerBehaviorChanged)),
+      bundleField("Reviewed evidence promoted", yesNoUnknown(categoryDrivenAssetFamilyContract?.scoringBoundary?.reviewedEvidencePromoted)),
+      bundleField("Source candidates promoted", yesNoUnknown(categoryDrivenAssetFamilyContract?.scoringBoundary?.sourceCandidatesPromoted)),
+      "Provider category summary:",
+      bundleList([providerCategorySignals?.frontendVisibleSummary]),
+      "CoinGecko categories / platforms:",
+      bundleList([
+        `categories=${safeArray(providerCategorySignals?.coinGeckoCategories).join(", ") || "none"}`,
+        `platforms=${safeArray(providerCategorySignals?.coinGeckoAssetPlatforms).join(", ") || "none"}`,
+      ]),
+      "CoinMarketCap tags / categories:",
+      bundleList([
+        `tags=${safeArray(providerCategorySignals?.coinMarketCapTags).join(", ") || "none"}`,
+        `categories=${safeArray(providerCategorySignals?.coinMarketCapCategories).join(", ") || "none"}`,
+      ]),
+      "Asset-class category signals:",
+      bundleList(safeArray(providerCategorySignals?.assetClassCandidateTags).map((signal) => `${signal.provider}.${signal.field}: ${signal.value} | ${signal.classification} | ${signal.sourceBoundary}`)),
+      "Network/ecosystem context signals:",
+      bundleList(safeArray(providerCategorySignals?.ecosystemContextTags).map((signal) => `${signal.provider}.${signal.field}: ${signal.value} | context-only`)),
+      "Conflicting category signals:",
+      bundleList(providerCategorySignals?.conflictingCategorySignals, "No category conflicts detected."),
+      "Excluded families:",
+      bundleList(safeArray(categoryDrivenAssetFamilyContract?.excludedFamilies).map((entry) => `${entry.family}: ${entry.reason}`), "No family exclusions attached."),
+      "Category-driven questions:",
+      bundleList(safeArray(categoryDrivenAssetFamilyContract?.questionRegistryGroup?.questions).map((question) => `${question.questionId}: ${question.question}`)),
+      "Category source requirements:",
+      bundleList(categoryDrivenAssetFamilyContract?.sourceRequirementProfile?.priorityRequirements),
+      "Category answer cards:",
+      bundleList(safeArray(categoryAnswerBuilder?.answerCards).map((card) => `${card.questionId} | ${card.answerStatus}: ${card.shortAnswer} | missing=${safeArray(card.missingEvidence).join("; ")}`)),
+      "Category readiness manual-review flags:",
+      bundleList(categoryReadinessDiagnostics?.manualReviewFlags, "No category manual-review flags."),
+      "Category false-positive risks:",
+      bundleList(categoryReadinessDiagnostics?.falsePositiveRisks, "No category false-positive risks."),
+      "Inventoried category endpoints not consumed in v1:",
+      bundleList(safeArray(providerCategorySignals?.endpointCandidates).map((candidate) => `${candidate.provider} ${candidate.endpoint} | ${candidate.v1Status} | providerBehaviorChanged=${candidate.providerBehaviorChanged ? "yes" : "no"}`)),
+      "Provider category boundary:",
+      bundleList(providerCategorySignals?.providerCategoryBoundary),
+    ]),
     bundleSection("2A. Reviewed Evidence Packet v1", [
       bundleField("Packet loaded", reviewedEvidencePacket?.packetLoaded ? "yes" : "no"),
       bundleField("packetId", reviewedEvidencePacket?.packetId),
@@ -6372,6 +6588,11 @@ export function buildReviewBundleText({
         `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
         `assetInterpretationContract: ${assetInterpretationContract ? "present" : "missing"}`,
         `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
+        `providerCategorySignals: ${providerCategorySignals ? "present" : "missing"}`,
+        `categoryDrivenAssetFamilyContract: ${categoryDrivenAssetFamilyContract ? "present" : "missing"}`,
+        `categoryDataRequirementProfiles: ${categoryDataRequirementProfiles ? "present" : "missing"}`,
+        `categoryAnswerBuilder: ${categoryAnswerBuilder ? "present" : "missing"}`,
+        `categoryReadinessDiagnostics: ${categoryReadinessDiagnostics ? "present" : "missing"}`,
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
       ]),
@@ -6542,6 +6763,14 @@ export function buildReviewBundleText({
       bundleField("Matrix source candidates remain candidate-only", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.sourceCandidatesPromoted) : "unknown"),
       bundleField("Matrix reviewed evidence remains non-scoring", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.reviewedEvidenceScoringActive) : "unknown"),
       bundleField("Matrix ADA packet coverage added", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.adaPacketCoverageAdded) : "unknown"),
+      bundleField("Category signals present in frontend model", yesNoUnknown(Boolean(providerCategorySignals))),
+      bundleField("Category family contract present in frontend model", yesNoUnknown(Boolean(categoryDrivenAssetFamilyContract))),
+      bundleField("Category registry remains non-scoring", categoryReadinessDiagnostics ? yesNoUnknown(categoryReadinessDiagnostics.scoringIntegrationStatus === "non_scoring_v1") : "unknown"),
+      bundleField("Category provider behavior unchanged", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.providerBehaviorChanged === false) : "unknown"),
+      bundleField("Category source candidates promoted", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.sourceCandidatesPromoted) : "unknown"),
+      bundleField("Category reviewed evidence promoted", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.reviewedEvidencePromoted) : "unknown"),
+      bundleField("Ecosystem tags preserved as context", providerCategorySignals ? yesNoUnknown(safeArray(providerCategorySignals.ecosystemContextTags).length >= 0 && safeArray(categoryDrivenAssetFamilyContract?.excludedFamilies).every((entry) => !/classification authority/i.test(entry.reason || "") || /not authority/i.test(entry.reason || ""))) : "unknown"),
+      bundleField("Category question requirements visible in Source Queue", categoryDrivenAssetFamilyContract ? yesNoUnknown(safeArray(safeModel.researchRequirements).some((requirement) => String(requirement?.id || "").startsWith("category-driven-"))) : "unknown"),
       bundleField("Asset Interpretation Contract present", yesNoUnknown(!assetInterpretationContractMissing)),
       bundleField("Asset Interpretation visible label hard gate failed", yesNoUnknown(assetInterpretationHardGateFailure)),
       bundleField("Asset Interpretation label matches bundle/display label", assetInterpretationContract ? yesNoUnknown(!assetInterpretationVisibleLabelMismatch) : "unknown"),

@@ -193,6 +193,30 @@ function ReviewedEvidenceRailSection({ model, styles }) {
   );
 }
 
+function CategoryDrivenRailSection({ model, styles }) {
+  const contract = model?.categoryDrivenAssetFamilyContract || {};
+  const diagnostics = model?.categoryReadinessDiagnostics || {};
+  if (!contract.primaryAssetFamily) return null;
+
+  return (
+    <RailSection title="Category Questions" badge="Diagnostic only" styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Asset family</div>
+        <div style={styles.railMiniValue}>{contract.frontendVisibleLabel || contract.primaryAssetFamily}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Question group: {contract.questionRegistryGroup?.groupId || "unavailable"}</div>
+        <div style={styles.railBoundaryPill}>Family confidence: {contract.familyConfidence || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Fit: {diagnostics.familyFitScore ?? "n/a"}</div>
+        <div style={styles.railBoundaryPill}>Scoring: {diagnostics.scoringIntegrationStatus || "non_scoring_v1"}</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        Provider categories route source questions only. They do not change the final score or verdict.
+      </div>
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -324,6 +348,8 @@ export default function AnalysisRightRail({
           <TokenomicsRailSection model={model} styles={styles} />
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
+
+          <CategoryDrivenRailSection model={model} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

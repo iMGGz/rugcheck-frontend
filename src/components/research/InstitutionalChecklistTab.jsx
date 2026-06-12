@@ -502,6 +502,61 @@ function ResolvedLensPanel({ resolvedLens, styles }) {
   );
 }
 
+function CategoryDrivenQuestionProfile({ model, styles }) {
+  const contract = model?.categoryDrivenAssetFamilyContract;
+  const diagnostics = model?.categoryReadinessDiagnostics;
+  const providerSignals = model?.providerCategorySignals;
+  if (!contract?.primaryAssetFamily) return null;
+  const questions = safeArray(contract.questionRegistryGroup?.questions);
+
+  return (
+    <CollapsibleDetail
+      title="Category-Driven Question Profile"
+      subtitle="Provider category/tags route diagnostic source questions; they are not reviewed evidence or scoring inputs."
+      styles={styles}
+      tone="#9bd7ff"
+    >
+      <div style={styles.sourceBoundaryStrip}>
+        {boundaryChip(styles, contract.frontendVisibleLabel || contract.primaryAssetFamily)}
+        {boundaryChip(styles, `Question group: ${contract.questionRegistryGroup?.groupId || "unavailable"}`)}
+        {boundaryChip(styles, `Family confidence: ${contract.familyConfidence || "unknown"}`)}
+        {boundaryChip(styles, diagnostics?.scoringIntegrationStatus || "non_scoring_v1")}
+      </div>
+      <SectionRow
+        label="Category routing summary"
+        value={providerSignals?.frontendVisibleSummary || "Provider category summary unavailable."}
+        styles={styles}
+      />
+      <InlineList
+        title="Category-driven questions"
+        items={questions.map((question) => question.question)}
+        emptyText="No category-driven questions attached."
+        styles={styles}
+        color="#9bd7ff"
+      />
+      <InlineList
+        title="Priority source requirements"
+        items={contract.sourceRequirementProfile?.priorityRequirements}
+        emptyText="No category source requirements attached."
+        styles={styles}
+        color="#f9d976"
+      />
+      <InlineList
+        title="False-positive / context risks"
+        items={diagnostics?.falsePositiveRisks}
+        emptyText="No category false-positive risk attached."
+        styles={styles}
+        color="#ffb020"
+      />
+      <SectionRow
+        label="Boundary"
+        value="Provider categories and ecosystem tags are diagnostic routing signals only. They do not change final scoring, verdicts, provider behavior, or reviewed-evidence status."
+        styles={styles}
+      />
+    </CollapsibleDetail>
+  );
+}
+
 function CalibrationWarningsSummary({ warnings, styles }) {
   const items = safeArray(warnings);
   if (!items.length) return null;
@@ -949,6 +1004,8 @@ export default function InstitutionalChecklistTab({
 
           <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} />
 
+          <CategoryDrivenQuestionProfile model={model} styles={styles} />
+
           <CollapsibleDetail
             title="Tokenomics Question Module"
             subtitle="Supply-integrity questions remain available here, with the full experience in the Tokenomics tab."
@@ -992,6 +1049,8 @@ export default function InstitutionalChecklistTab({
       <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
 
       <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
+
+      <CategoryDrivenQuestionProfile model={model} styles={styles} />
 
       <TokenomicsSupplyQuestionCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} />
 
