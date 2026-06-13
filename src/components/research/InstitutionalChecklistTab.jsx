@@ -539,6 +539,19 @@ function CategoryDrivenQuestionProfile({ model, styles }) {
         value={providerSignals?.frontendVisibleSummary || "Provider category summary unavailable."}
         styles={styles}
       />
+      <div style={styles.sourceBoundaryStrip}>
+        {boundaryChip(styles, `Category data: ${providerSignals?.categoryDataCoverage || "unavailable"}`)}
+        {boundaryChip(styles, `CG categories: ${providerSignals?.coinGeckoCategoryUniverseStatus?.status || "unknown"}`)}
+        {boundaryChip(styles, `CMC categories: ${providerSignals?.coinMarketCapCategoryUniverseStatus?.status || "unknown"}`)}
+        {boundaryChip(styles, `Peers: ${providerSignals?.categoryPeerMarketStats?.peerCount ?? 0}`)}
+      </div>
+      <InlineList
+        title="Raw category/source requirements"
+        items={providerSignals?.categoryDataSourceRequirements}
+        emptyText="No category endpoint source requirements attached."
+        styles={styles}
+        color="#f9d976"
+      />
       <InlineList
         title="Category-driven questions"
         items={questions.map((question) => question.question)}

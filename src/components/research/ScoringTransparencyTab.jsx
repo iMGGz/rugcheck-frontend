@@ -86,6 +86,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   );
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
+  const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics || safeModel.providerRawDataExpansion?.rawDataCoverageDiagnostics);
 
   return [
     {
@@ -143,6 +144,16 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Does not change the existing overall score or verdict in this release.",
       attached: hasAttachedValue(tokenomicsSupplyIntegrity),
+    },
+    {
+      title: "Raw Data Coverage",
+      value: readableValue(rawDataCoverageDiagnostics.overallRawDataCoverageScore),
+      source: hasAttachedValue(rawDataCoverageDiagnostics) ? "rawDataCoverageDiagnostics.overallRawDataCoverageScore" : "Not attached",
+      rule: "Diagnostic provider/category/raw-data coverage score. It surfaces missing fields and source requirements only.",
+      live: "Diagnostic only in v1",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: "Does not change the existing overall score or verdict.",
+      attached: hasAttachedValue(rawDataCoverageDiagnostics),
     },
     {
       title: "Evidence Directness",

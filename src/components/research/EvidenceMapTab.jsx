@@ -317,6 +317,35 @@ function buildEngineLearningEvidenceRows(model) {
   ];
 }
 
+function buildRawDataCoverageRows(model) {
+  const expansion = model?.providerRawDataExpansion || {};
+  const diagnostics = model?.rawDataCoverageDiagnostics || expansion.rawDataCoverageDiagnostics || {};
+  if (!expansion.artifactVersion && diagnostics.overallRawDataCoverageScore === undefined) return [];
+  return [
+    {
+      key: "raw-data-coverage-summary",
+      label: "Provider raw-data coverage",
+      value: `Overall coverage ${diagnostics.overallRawDataCoverageScore ?? "n/a"}/100; category coverage ${expansion.categoryDataCoverage || "unknown"}; peer assets ${expansion.categoryPeerMarketStats?.peerCount ?? 0}.`,
+      sourceType: "Provider category/raw-data diagnostics",
+      boundary: "Provider-reported context only. Diagnostic/non-scoring in v1.",
+    },
+    ...safeArray(expansion.providerCategoryEndpointDiagnostics).slice(0, 6).map((entry, index) => ({
+      key: `provider-category-endpoint-${entry.provider}-${index}`,
+      label: `${providerLabel(entry.provider)} category endpoint`,
+      value: `${entry.endpoint || "endpoint"} | ${entry.status || "unknown"} | coverage=${entry.coverage || "unknown"} | mapped=${entry.mappingSucceeded ? "yes" : "no"}${entry.failureReason ? ` | ${entry.failureReason}` : ""}`,
+      sourceType: "Provider endpoint diagnostic",
+      boundary: entry.sourceBoundary || "Endpoint diagnostic only; not reviewed evidence.",
+    })),
+    ...safeArray(expansion.categoryDataSourceRequirements).slice(0, 6).map((entry, index) => ({
+      key: `raw-data-source-requirement-${index}`,
+      label: "Raw data source requirement",
+      value: entry,
+      sourceType: "Missing raw provider field",
+      boundary: "Missing provider data is a source requirement, not negative evidence.",
+    })),
+  ];
+}
+
 function EvidenceSignalRow({ item, styles }) {
   const display = normalizeEvidenceProxyDisplayLabel(item);
   const color = display.tone || "#aab7cc";
@@ -369,7 +398,9 @@ export default function EvidenceMapTab({
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
   const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
   const engineLearningEvidenceRows = buildEngineLearningEvidenceRows(model);
+  const rawDataCoverageRows = buildRawDataCoverageRows(model);
   const lensBoundaryDisplayRows = [
+    ...rawDataCoverageRows,
     ...engineLearningEvidenceRows,
     ...reviewedEvidenceRows,
     ...assetIdentityRows,

@@ -220,6 +220,30 @@ function CategoryDrivenRailSection({ model, styles }) {
   );
 }
 
+function RawDataCoverageRailSection({ model, styles }) {
+  const expansion = model?.providerRawDataExpansion || {};
+  const diagnostics = model?.rawDataCoverageDiagnostics || expansion.rawDataCoverageDiagnostics || {};
+  if (!expansion.artifactVersion && diagnostics.overallRawDataCoverageScore === undefined) return null;
+
+  return (
+    <RailSection title="Raw Data Coverage" badge="Non-scoring" styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Overall coverage</div>
+        <div style={styles.railMiniValue}>{diagnostics.overallRawDataCoverageScore ?? "n/a"}/100</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Category: {expansion.categoryDataCoverage || diagnostics.categoryDataCoverageScore || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Peers: {expansion.categoryPeerMarketStats?.peerCount ?? 0}</div>
+        <div style={styles.railBoundaryPill}>CoinGecko: {expansion.coinGeckoCategoryUniverse?.status || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>CMC: {expansion.coinMarketCapCategoryUniverse?.status || "unknown"}</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        Provider category/raw data is provider-reported context only. Missing fields become source requirements and do not change scoring or verdicts.
+      </div>
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -353,6 +377,8 @@ export default function AnalysisRightRail({
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 
           <CategoryDrivenRailSection model={model} styles={styles} />
+
+          <RawDataCoverageRailSection model={model} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

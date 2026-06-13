@@ -180,8 +180,21 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       color: "#9bd7ff",
     })),
   ];
+  const rawDataExpansion = model?.providerRawDataExpansion || {};
+  const rawDataCoverage = model?.rawDataCoverageDiagnostics || rawDataExpansion.rawDataCoverageDiagnostics || {};
+  const rawDataLeads = [
+    ...safeArray(rawDataExpansion.categoryDataSourceRequirements),
+    ...safeArray(rawDataCoverage.sourceCriticalMissingFields),
+  ].slice(0, 6).map((entry) => ({
+    label: "Provider raw-data requirement",
+    description: entry,
+    status: "Source required",
+    source: "decisionModel.providerRawDataExpansion.categoryDataSourceRequirements",
+    color: "#f9d976",
+  }));
 
   return dedupeByText([
+    ...rawDataLeads,
     ...engineLearningLeads,
     ...reviewedCoverageLeads,
     ...synthesizedLeads,

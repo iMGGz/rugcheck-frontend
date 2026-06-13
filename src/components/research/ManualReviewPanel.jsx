@@ -189,9 +189,22 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       color: "#f9d976",
     })),
   ];
+  const rawDataExpansion = model?.providerRawDataExpansion || {};
+  const rawDataCoverage = model?.rawDataCoverageDiagnostics || rawDataExpansion.rawDataCoverageDiagnostics || {};
+  const rawDataSignals = [
+    ...safeArray(rawDataCoverage.manualReviewRequiredFields),
+    ...safeArray(rawDataExpansion.categoryDataMissingFields).map((field) => `Missing provider raw-data field: ${field}`),
+  ].slice(0, 6).map((entry) => ({
+    label: "Provider raw-data coverage",
+    description: entry,
+    status: "Manual/source review",
+    source: "decisionModel.rawDataCoverageDiagnostics",
+    color: "#f9d976",
+  }));
 
   const combined = [
     ...manual,
+    ...rawDataSignals,
     ...engineLearningSignals,
     ...synthesizedAnswerSignals,
     ...reviewedEvidenceSignals,

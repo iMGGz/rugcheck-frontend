@@ -449,7 +449,101 @@ export function normalizeProviderCategorySignalsPayload(responseLike) {
     providerCategoryBoundary: safeArray(contract.providerCategoryBoundary),
     classifiedSignals: safeArray(contract.classifiedSignals),
     endpointCandidates: safeArray(contract.endpointCandidates),
+    coinGeckoCategoryUniverseStatus: safeObject(contract.coinGeckoCategoryUniverseStatus),
+    coinGeckoCategoryMarketContext: safeArray(contract.coinGeckoCategoryMarketContext),
+    coinGeckoPrimaryCategoryPeerSet: safeArray(contract.coinGeckoPrimaryCategoryPeerSet),
+    coinMarketCapCategoryUniverseStatus: safeObject(contract.coinMarketCapCategoryUniverseStatus),
+    coinMarketCapCategoryContext: safeArray(contract.coinMarketCapCategoryContext),
+    coinMarketCapPrimaryCategoryPeerSet: safeArray(contract.coinMarketCapPrimaryCategoryPeerSet),
+    primaryCategoryMarketContext: safeObject(contract.primaryCategoryMarketContext),
+    secondaryCategoryMarketContexts: safeArray(contract.secondaryCategoryMarketContexts),
+    categoryPeerAssets: safeArray(contract.categoryPeerAssets),
+    categoryPeerMarketStats: safeObject(contract.categoryPeerMarketStats),
+    providerCategoryEndpointDiagnostics: safeArray(contract.providerCategoryEndpointDiagnostics),
+    categoryDataMissingFields: safeArray(contract.categoryDataMissingFields),
+    categoryDataSourceRequirements: safeArray(contract.categoryDataSourceRequirements),
+    categoryDataBoundary: safeArray(contract.categoryDataBoundary),
     scoringBoundary: safeObject(contract.scoringBoundary),
+  };
+}
+
+export function normalizeProviderRawDataExpansionPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.providerRawDataExpansion);
+  const nestedContract = safeObject(nestedAnalysis.providerRawDataExpansion);
+  const contract = rootContract.artifactVersion ? rootContract : nestedContract.artifactVersion ? nestedContract : null;
+  if (!contract) return null;
+  const rawExtracts = safeObject(contract.providerRawDataExtracts);
+  return {
+    ...contract,
+    coinGeckoCategoryUniverse: {
+      ...safeObject(contract.coinGeckoCategoryUniverse),
+      categoriesList: safeArray(contract.coinGeckoCategoryUniverse?.categoriesList),
+      categoryIds: safeArray(contract.coinGeckoCategoryUniverse?.categoryIds),
+      categoryNames: safeArray(contract.coinGeckoCategoryUniverse?.categoryNames),
+    },
+    coinGeckoCategoryMarketData: safeArray(contract.coinGeckoCategoryMarketData),
+    coinGeckoPrimaryCategoryPeerSet: safeArray(contract.coinGeckoPrimaryCategoryPeerSet),
+    coinMarketCapCategoryUniverse: {
+      ...safeObject(contract.coinMarketCapCategoryUniverse),
+      categories: safeArray(contract.coinMarketCapCategoryUniverse?.categories),
+      categoryIds: safeArray(contract.coinMarketCapCategoryUniverse?.categoryIds),
+      names: safeArray(contract.coinMarketCapCategoryUniverse?.names),
+    },
+    coinMarketCapSingleCategoryData: safeArray(contract.coinMarketCapSingleCategoryData),
+    coinMarketCapPrimaryCategoryPeerSet: safeArray(contract.coinMarketCapPrimaryCategoryPeerSet),
+    primaryCategoryMarketContext: Object.keys(safeObject(contract.primaryCategoryMarketContext)).length ? safeObject(contract.primaryCategoryMarketContext) : null,
+    secondaryCategoryMarketContexts: safeArray(contract.secondaryCategoryMarketContexts),
+    categoryPeerAssets: safeArray(contract.categoryPeerAssets),
+    categoryPeerMarketStats: safeObject(contract.categoryPeerMarketStats),
+    providerCategoryEndpointDiagnostics: safeArray(contract.providerCategoryEndpointDiagnostics),
+    categoryDataMissingFields: safeArray(contract.categoryDataMissingFields),
+    categoryDataSourceRequirements: safeArray(contract.categoryDataSourceRequirements),
+    categoryDataBoundary: safeArray(contract.categoryDataBoundary),
+    rawProviderDataCoverage: safeObject(contract.rawProviderDataCoverage),
+    providerRawDataExtracts: {
+      ...rawExtracts,
+      categories: safeArray(rawExtracts.categories),
+      sectors: safeArray(rawExtracts.sectors),
+      tags: safeArray(rawExtracts.tags),
+      peerAssetsInCategory: safeArray(rawExtracts.peerAssetsInCategory),
+      contracts: safeArray(rawExtracts.contracts),
+      platforms: safeArray(rawExtracts.platforms),
+      securityIndicators: safeArray(rawExtracts.securityIndicators),
+      tokenUnlockVestingFundraising: safeArray(rawExtracts.tokenUnlockVestingFundraising),
+      officialLinks: safeArray(rawExtracts.officialLinks),
+      providerTimestamps: safeArray(rawExtracts.providerTimestamps),
+      missingFields: safeArray(rawExtracts.missingFields),
+      sourceBoundary: safeArray(rawExtracts.sourceBoundary),
+    },
+    rawDataCoverageDiagnostics: normalizeRawDataCoverageDiagnosticsPayload(contract),
+    scoringBoundary: safeObject(contract.scoringBoundary),
+  };
+}
+
+export function normalizeRawDataCoverageDiagnosticsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.rawDataCoverageDiagnostics);
+  const nestedContract = safeObject(nestedAnalysis.rawDataCoverageDiagnostics);
+  const embedded = safeObject(root.rawDataCoverageDiagnostics || root.rawDataCoverage || root.providerRawDataExpansion?.rawDataCoverageDiagnostics);
+  const contract = rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.artifactVersion
+      ? nestedContract
+      : root.artifactVersion === "raw-data-coverage-diagnostics-v1"
+        ? root
+        : embedded.artifactVersion
+        ? embedded
+        : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    sourceCriticalMissingFields: safeArray(contract.sourceCriticalMissingFields),
+    providerUnavailableFields: safeArray(contract.providerUnavailableFields),
+    manualReviewRequiredFields: safeArray(contract.manualReviewRequiredFields),
+    dataCoverageImpact: safeArray(contract.dataCoverageImpact),
   };
 }
 
@@ -3539,6 +3633,8 @@ export function buildDecisionTerminalModel({
   const categoryDataRequirementProfiles = normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
   const categoryAnswerBuilder = normalizeCategoryAnswerBuilderPayload(safeAnalysis);
   const categoryReadinessDiagnostics = normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
+  const providerRawDataExpansion = normalizeProviderRawDataExpansionPayload(safeAnalysis);
+  const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -3720,9 +3816,24 @@ export function buildDecisionTerminalModel({
       currentStatus: "source_required",
       canChangeVerdict: false,
     }));
+  const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
+    .slice(0, 8)
+    .map((requirement, index) => ({
+      id: `raw-data-coverage-${index}`,
+      title: requirement,
+      assetClassLens: categoryDrivenAssetFamilyContract?.primaryAssetFamily || resolvedInstitutionalLens?.lensId || "raw_data_coverage",
+      reason: "Generated from provider category/raw-data coverage diagnostics. Missing provider data is source-required, not negative evidence.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["provider_endpoint", "official_docs", "primary_source", "manual_review"],
+      priority: index < 3 ? "high" : "medium",
+      verdictImpact: "Diagnostic-only in v1; can improve answer quality after reviewed evidence or reliable provider data is attached.",
+      currentStatus: "source_required",
+      canChangeVerdict: false,
+    }));
   const displayResearchRequirements = dedupeObjectsByTitle([
     ...baseDisplayResearchRequirements,
     ...categoryResearchRequirements,
+    ...rawDataResearchRequirements,
   ]);
   const displayVerdictSemantics = lensAwareExplanations ? {
     ...verdictSemantics,
@@ -3824,6 +3935,8 @@ export function buildDecisionTerminalModel({
     categoryDataRequirementProfiles,
     categoryAnswerBuilder,
     categoryReadinessDiagnostics,
+    providerRawDataExpansion,
+    rawDataCoverageDiagnostics,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -5058,6 +5171,8 @@ export function buildReviewBundleText({
   const categoryDataRequirementProfiles = safeModel.categoryDataRequirementProfiles || normalizeCategoryDataRequirementProfilesPayload(safeData) || normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
   const categoryAnswerBuilder = safeModel.categoryAnswerBuilder || normalizeCategoryAnswerBuilderPayload(safeData) || normalizeCategoryAnswerBuilderPayload(safeAnalysis);
   const categoryReadinessDiagnostics = safeModel.categoryReadinessDiagnostics || normalizeCategoryReadinessDiagnosticsPayload(safeData) || normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
+  const providerRawDataExpansion = safeModel.providerRawDataExpansion || normalizeProviderRawDataExpansionPayload(safeData) || normalizeProviderRawDataExpansionPayload(safeAnalysis);
+  const rawDataCoverageDiagnostics = safeModel.rawDataCoverageDiagnostics || normalizeRawDataCoverageDiagnosticsPayload(safeData) || normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
@@ -6003,10 +6118,90 @@ export function buildReviewBundleText({
       bundleList(categoryReadinessDiagnostics?.manualReviewFlags, "No category manual-review flags."),
       "Category false-positive risks:",
       bundleList(categoryReadinessDiagnostics?.falsePositiveRisks, "No category false-positive risks."),
-      "Inventoried category endpoints not consumed in v1:",
+      "Provider category endpoint inventory/status:",
       bundleList(safeArray(providerCategorySignals?.endpointCandidates).map((candidate) => `${candidate.provider} ${candidate.endpoint} | ${candidate.v1Status} | providerBehaviorChanged=${candidate.providerBehaviorChanged ? "yes" : "no"}`)),
       "Provider category boundary:",
       bundleList(providerCategorySignals?.providerCategoryBoundary),
+    ]),
+    bundleSection("2AD. Provider Category Endpoint Ingestion & Raw Data Expansion v1", [
+      bundleField("Provider raw data expansion attached", providerRawDataExpansion ? "yes" : "missing"),
+      bundleField("Artifact version", providerRawDataExpansion?.artifactVersion),
+      bundleField("Provider category signals version", providerRawDataExpansion?.providerCategorySignalsVersion || providerCategorySignals?.providerCategorySignalsVersion || providerCategorySignals?.artifactVersion),
+      bundleField("CoinGecko category universe status", providerRawDataExpansion?.coinGeckoCategoryUniverse?.status || providerCategorySignals?.coinGeckoCategoryUniverseStatus?.status),
+      bundleField("CoinMarketCap category universe status", providerRawDataExpansion?.coinMarketCapCategoryUniverse?.status || providerCategorySignals?.coinMarketCapCategoryUniverseStatus?.status),
+      bundleField("Primary category data coverage", providerRawDataExpansion?.categoryDataCoverage || providerCategorySignals?.categoryDataCoverage),
+      bundleField("Category peer count", providerRawDataExpansion?.categoryPeerMarketStats?.peerCount ?? providerCategorySignals?.categoryPeerMarketStats?.peerCount),
+      bundleField("Category median market cap", providerRawDataExpansion?.categoryPeerMarketStats?.medianMarketCap),
+      bundleField("Category median volume 24h", providerRawDataExpansion?.categoryPeerMarketStats?.medianVolume24h),
+      bundleField("Primary category market context", providerRawDataExpansion?.primaryCategoryMarketContext
+        ? `${providerRawDataExpansion.primaryCategoryMarketContext.provider}:${providerRawDataExpansion.primaryCategoryMarketContext.categoryName || providerRawDataExpansion.primaryCategoryMarketContext.categoryId} marketCap=${providerRawDataExpansion.primaryCategoryMarketContext.marketCap ?? "unavailable"} volume24h=${providerRawDataExpansion.primaryCategoryMarketContext.volume24h ?? "unavailable"}`
+        : "unavailable"),
+      "Provider endpoint diagnostics:",
+      bundleList(safeArray(providerRawDataExpansion?.providerCategoryEndpointDiagnostics || providerCategorySignals?.providerCategoryEndpointDiagnostics).map((entry) =>
+        `${entry.provider} ${entry.endpoint} | status=${entry.status} | coverage=${entry.coverage} | raw=${entry.rawResponsePresent ? "yes" : "no"} | mapped=${entry.mappingSucceeded ? "yes" : "no"} | reason=${entry.failureReason || "none"}`
+      )),
+      "CoinGecko category market contexts:",
+      bundleList(safeArray(providerRawDataExpansion?.coinGeckoCategoryMarketData || providerCategorySignals?.coinGeckoCategoryMarketContext).map((entry) =>
+        `${entry.categoryId || "category"} | ${entry.categoryName || "name unavailable"} | marketCap=${entry.marketCap ?? "unavailable"} | volume24h=${entry.volume24h ?? "unavailable"} | status=${entry.status}`
+      )),
+      "CoinMarketCap category contexts:",
+      bundleList(safeArray(providerRawDataExpansion?.coinMarketCapSingleCategoryData || providerCategorySignals?.coinMarketCapCategoryContext).map((entry) =>
+        `${entry.categoryId || "category"} | ${entry.categoryName || "name unavailable"} | marketCap=${entry.marketCap ?? "unavailable"} | volume24h=${entry.volume24h ?? "unavailable"} | status=${entry.status}`
+      )),
+      "Category peer assets:",
+      bundleList(safeArray(providerRawDataExpansion?.categoryPeerAssets || providerCategorySignals?.categoryPeerAssets).slice(0, 20).map((peer) =>
+        `${peer.provider}:${peer.id || "id unavailable"} ${peer.symbol || ""} ${peer.name || ""} | mcap=${peer.marketCap ?? "unavailable"} | volume=${peer.volume24h ?? "unavailable"} | rank=${peer.rank ?? "unavailable"}`
+      ), "No category peer assets attached."),
+      "Raw provider data extracts:",
+      bundleList([
+        `price=${providerRawDataExpansion?.providerRawDataExtracts?.price ?? "unavailable"}`,
+        `marketCap=${providerRawDataExpansion?.providerRawDataExtracts?.marketCap ?? "unavailable"}`,
+        `fdv=${providerRawDataExpansion?.providerRawDataExtracts?.fdv ?? "unavailable"}`,
+        `volume24h=${providerRawDataExpansion?.providerRawDataExtracts?.volume24h ?? "unavailable"}`,
+        `circulating=${providerRawDataExpansion?.providerRawDataExtracts?.circulatingSupply ?? "unavailable"}`,
+        `total=${providerRawDataExpansion?.providerRawDataExtracts?.totalSupply ?? "unavailable"}`,
+        `max=${providerRawDataExpansion?.providerRawDataExtracts?.maxSupply ?? "unavailable"}`,
+        `liquidityUsd=${providerRawDataExpansion?.providerRawDataExtracts?.liquidityUsd ?? "unavailable"}`,
+        `tvlUsd=${providerRawDataExpansion?.providerRawDataExtracts?.tvlUsd ?? "unavailable"}`,
+        `fees24hUsd=${providerRawDataExpansion?.providerRawDataExtracts?.fees24hUsd ?? "unavailable"}`,
+        `revenue24hUsd=${providerRawDataExpansion?.providerRawDataExtracts?.revenue24hUsd ?? "unavailable"}`,
+      ]),
+      "Raw provider categories/tags/platforms/contracts:",
+      bundleList([
+        `categories=${safeArray(providerRawDataExpansion?.providerRawDataExtracts?.categories).join(", ") || "none"}`,
+        `tags=${safeArray(providerRawDataExpansion?.providerRawDataExtracts?.tags).join(", ") || "none"}`,
+        `platforms=${safeArray(providerRawDataExpansion?.providerRawDataExtracts?.platforms).join(", ") || "none"}`,
+        `contracts=${safeArray(providerRawDataExpansion?.providerRawDataExtracts?.contracts).slice(0, 12).join("; ") || "none"}`,
+      ]),
+      "Category data missing fields:",
+      bundleList(providerRawDataExpansion?.categoryDataMissingFields || providerCategorySignals?.categoryDataMissingFields),
+      "Category/raw-data source requirements:",
+      bundleList(providerRawDataExpansion?.categoryDataSourceRequirements || providerCategorySignals?.categoryDataSourceRequirements),
+      "Raw data coverage diagnostics:",
+      bundleList([
+        `overall=${rawDataCoverageDiagnostics?.overallRawDataCoverageScore ?? "unavailable"}`,
+        `category=${rawDataCoverageDiagnostics?.categoryDataCoverageScore ?? "unavailable"}`,
+        `market=${rawDataCoverageDiagnostics?.marketDataCoverageScore ?? "unavailable"}`,
+        `liquidity=${rawDataCoverageDiagnostics?.liquidityDataCoverageScore ?? "unavailable"}`,
+        `supply=${rawDataCoverageDiagnostics?.supplyDataCoverageScore ?? "unavailable"}`,
+        `security=${rawDataCoverageDiagnostics?.securityDataCoverageScore ?? "unavailable"}`,
+        `protocolEconomics=${rawDataCoverageDiagnostics?.protocolEconomicsCoverageScore ?? "unavailable"}`,
+        `scoringIntegration=${rawDataCoverageDiagnostics?.scoringIntegrationStatus || "non_scoring_v1"}`,
+      ]),
+      "Provider unavailable fields:",
+      bundleList(rawDataCoverageDiagnostics?.providerUnavailableFields),
+      "Manual review required fields:",
+      bundleList(rawDataCoverageDiagnostics?.manualReviewRequiredFields),
+      "Data coverage impact:",
+      bundleList(rawDataCoverageDiagnostics?.dataCoverageImpact),
+      "Raw-data boundary:",
+      bundleList(providerRawDataExpansion?.categoryDataBoundary || providerRawDataExpansion?.providerRawDataExtracts?.sourceBoundary || providerCategorySignals?.categoryDataBoundary),
+      bundleField("Scoring changed", yesNoUnknown(providerRawDataExpansion?.scoringBoundary?.scoringChanged === false ? false : false)),
+      bundleField("Verdict changed", yesNoUnknown(providerRawDataExpansion?.scoringBoundary?.verdictChanged === false ? false : false)),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(providerRawDataExpansion?.scoringBoundary?.reviewedEvidenceScoringActive)),
+      bundleField("Source candidates promoted", yesNoUnknown(providerRawDataExpansion?.scoringBoundary?.sourceCandidatesPromoted)),
+      bundleField("Token-specific overrides", yesNoUnknown(providerRawDataExpansion?.scoringBoundary?.tokenSpecificOverrides)),
+      bundleField("Provider behavior changed", providerRawDataExpansion ? "yes - optional category endpoint/raw-data expansion only; no scoring or verdict authority" : "unknown"),
     ]),
     bundleSection("2A. Reviewed Evidence Packet v1", [
       bundleField("Packet loaded", reviewedEvidencePacket?.packetLoaded ? "yes" : "no"),
@@ -6494,6 +6689,8 @@ export function buildReviewBundleText({
         `assetInterpretationContract: ${assetInterpretationContract ? "present" : "missing"}`,
         `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
         `providerCategorySignals: ${providerCategorySignals ? "present" : "missing"}`,
+        `providerRawDataExpansion: ${providerRawDataExpansion ? "present" : "missing"}`,
+        `rawDataCoverageDiagnostics: ${rawDataCoverageDiagnostics ? "present" : "missing"}`,
         `categoryDrivenAssetFamilyContract: ${categoryDrivenAssetFamilyContract ? "present" : "missing"}`,
         `categoryDataRequirementProfiles: ${categoryDataRequirementProfiles ? "present" : "missing"}`,
         `categoryAnswerBuilder: ${categoryAnswerBuilder ? "present" : "missing"}`,
@@ -6669,9 +6866,19 @@ export function buildReviewBundleText({
       bundleField("Matrix reviewed evidence remains non-scoring", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.reviewedEvidenceScoringActive) : "unknown"),
       bundleField("Matrix ADA packet coverage added", engineLearningBackbone?.sourceDataRequirementMatrix ? yesNoUnknown(engineLearningBackbone.sourceDataRequirementMatrix.adaPacketCoverageAdded) : "unknown"),
       bundleField("Category signals present in frontend model", yesNoUnknown(Boolean(providerCategorySignals))),
+      bundleField("Provider category signals v2 active", providerRawDataExpansion || providerCategorySignals?.providerCategorySignalsVersion === "provider-category-signals-v2" ? "yes" : "no"),
+      bundleField("Provider raw data expansion present in frontend model", yesNoUnknown(Boolean(providerRawDataExpansion))),
+      bundleField("Raw data coverage diagnostics present in frontend model", yesNoUnknown(Boolean(rawDataCoverageDiagnostics))),
+      bundleField("Category endpoint diagnostics visible", yesNoUnknown(safeArray(providerRawDataExpansion?.providerCategoryEndpointDiagnostics || providerCategorySignals?.providerCategoryEndpointDiagnostics).length > 0)),
+      bundleField("Category endpoint data remains non-scoring", providerRawDataExpansion ? yesNoUnknown(providerRawDataExpansion.scoringBoundary?.scoringChanged === false && providerRawDataExpansion.scoringBoundary?.verdictChanged === false) : "unknown"),
+      bundleField("Category endpoint data treated as reviewed evidence", providerRawDataExpansion ? yesNoUnknown(providerRawDataExpansion.scoringBoundary?.reviewedEvidenceScoringActive) : "unknown"),
+      bundleField("Raw missing provider fields visible as source requirements", providerRawDataExpansion || rawDataCoverageDiagnostics ? yesNoUnknown(safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields).length > 0) : "unknown"),
+      bundleField("Provider behavior change explicitly reported", providerRawDataExpansion ? "yes - optional CoinGecko/CoinMarketCap category endpoint and raw-data expansion only" : "no endpoint expansion attached"),
+      bundleField("Live-current-QA invariant preserved after provider expansion", yesNoUnknown(analysisFreshness.bundleMode === "live_current_qa" && analysisFreshness.primaryAnalysisPath === "live_full_recompute" && analysisFreshness.recomputed === true && analysisFreshness.snapshotDisabled === true && analysisFreshness.partialRefreshDisabled === true)),
+      bundleField("Snapshot/partial refresh blocked after provider expansion", yesNoUnknown(analysisFreshness.snapshotReuseBlocked === true && analysisFreshness.partialRefreshBlocked === true && analysisFreshness.partialRefreshUsed !== true)),
       bundleField("Category family contract present in frontend model", yesNoUnknown(Boolean(categoryDrivenAssetFamilyContract))),
       bundleField("Category registry remains non-scoring", categoryReadinessDiagnostics ? yesNoUnknown(categoryReadinessDiagnostics.scoringIntegrationStatus === "non_scoring_v1") : "unknown"),
-      bundleField("Category provider behavior unchanged", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.providerBehaviorChanged === false) : "unknown"),
+      bundleField("Category provider behavior status", providerRawDataExpansion ? "changed - optional endpoint/raw-data ingestion only; no scoring or verdict authority" : (categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.providerBehaviorChanged === false) : "unknown")),
       bundleField("Category source candidates promoted", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.sourceCandidatesPromoted) : "unknown"),
       bundleField("Category reviewed evidence promoted", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.scoringBoundary?.reviewedEvidencePromoted) : "unknown"),
       bundleField("Category authority applied when eligible", categoryDrivenAssetFamilyContract ? yesNoUnknown(categoryDrivenAssetFamilyContract.categoryAuthorityApplied) : "unknown"),

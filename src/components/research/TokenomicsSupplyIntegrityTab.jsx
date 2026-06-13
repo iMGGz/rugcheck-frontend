@@ -589,6 +589,8 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
     ? `${identity.analyzedNetwork || "network unavailable"} ${identity.analyzedContract}`
     : "No selected/analyzed contract attached";
   const primaryLensId = lens.lensId || tokenomics.supplySummary?.lensId;
+  const providerRawDataExpansion = model?.providerRawDataExpansion || {};
+  const rawDataCoverage = model?.rawDataCoverageDiagnostics || providerRawDataExpansion.rawDataCoverageDiagnostics || {};
   const scopeWarnings = [
     ...safeArray(identity.identityWarnings),
     ...safeArray(identity.chainWarnings),
@@ -659,6 +661,21 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Market cap / FDV method" value={`${status(tokenomics.marketCapMethod)} / ${status(tokenomics.fdvMethod)}`} styles={styles} />
         <SectionRow label="Max supply method" value={status(tokenomics.maxSupplyMethod)} styles={styles} />
       </Card>
+
+      {providerRawDataExpansion.artifactVersion ? (
+        <Card title="Provider Raw Data Context" subtitle="Category endpoint and peer context are provider-reported diagnostics, not reviewed evidence." styles={styles}>
+          <FieldGrid>
+            <MiniMetric label="Raw data coverage" value={rawDataCoverage.overallRawDataCoverageScore === undefined ? "Unavailable" : `${rawDataCoverage.overallRawDataCoverageScore}/100`} />
+            <MiniMetric label="Category coverage" value={providerRawDataExpansion.categoryDataCoverage || "Unavailable"} />
+            <MiniMetric label="Category peers" value={providerRawDataExpansion.categoryPeerMarketStats?.peerCount ?? 0} />
+            <MiniMetric label="CG category endpoint" value={providerRawDataExpansion.coinGeckoCategoryUniverse?.status || "Unavailable"} />
+            <MiniMetric label="CMC category endpoint" value={providerRawDataExpansion.coinMarketCapCategoryUniverse?.status || "Unavailable"} />
+            <MiniMetric label="Primary category mcap" value={displayUsd(providerRawDataExpansion.primaryCategoryMarketContext?.marketCap)} />
+          </FieldGrid>
+          <ListBlock title="Raw-data source requirements" items={safeArray(providerRawDataExpansion.categoryDataSourceRequirements).slice(0, 5)} emptyText="No raw-data source requirement attached." color="#f9d976" styles={styles} />
+          <SectionRow label="Boundary" value="Provider endpoint data can improve context and source requirements, but it is not reviewed evidence and does not change the current overall score or verdict." styles={styles} />
+        </Card>
+      ) : null}
 
       <Card title="Source Requirements / What Would Change" subtitle="The shortest path to improving tokenomics confidence." styles={styles}>
         <ListBlock title="Top source requirements" items={safeArray(tokenomics.sourceRequirements).slice(0, 5)} emptyText="No tokenomics source requirements attached." color="#9bd7ff" styles={styles} />
