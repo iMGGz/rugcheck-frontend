@@ -137,13 +137,13 @@ function FreshnessRailSection({ model, styles }) {
         </div>
       </div>
       <div style={styles.railBoundaryGrid}>
-        <div style={styles.railBoundaryPill}>Snapshot: {freshness.snapshotShortId || "unavailable"}</div>
+        <div style={styles.railBoundaryPill}>Path: {freshness.primaryAnalysisPath || "live_full_recompute"}</div>
         <div style={styles.railBoundaryPill}>Recomputed: {freshness.recomputed === null || freshness.recomputed === undefined ? "unknown" : freshness.recomputed ? "yes" : "no"}</div>
-        <div style={styles.railBoundaryPill}>{freshness.isPartialRefresh ? "Partial refresh" : freshness.isSnapshot ? "Stored snapshot" : freshness.isFreshLive ? "Live analysis" : "Verify freshness"}</div>
-        <div style={styles.railBoundaryPill}>QA: {freshness.freshQaEligible ? "eligible" : "not eligible"}</div>
+        <div style={styles.railBoundaryPill}>Live full recompute</div>
+        <div style={styles.railBoundaryPill}>QA: {freshness.freshQaEligible ? "eligible" : "verify"}</div>
       </div>
       <div style={styles.railBoundaryText}>
-        {freshness.qaEligibilityWarning || freshness.summary || "Freshness unknown. Verify current provider state before relying on time-sensitive sections."}
+        {freshness.qaEligibilityWarning || freshness.summary || "Current product output is generated from live full recompute only."}
       </div>
     </RailSection>
   );
@@ -239,7 +239,7 @@ function MobileRailSummary({
       <div style={styles.railMobileSummaryTopline}>
         <div>
           <div style={styles.railEyebrow}>Research Intelligence Summary</div>
-          <div style={styles.railTitle}>Live response snapshot</div>
+          <div style={styles.railTitle}>Live response summary</div>
         </div>
         <RailBadge styles={styles}>{evidenceStatusProxy?.label || "Live Evidence Proxy"}</RailBadge>
       </div>
@@ -333,7 +333,7 @@ export default function AnalysisRightRail({
             <div style={styles.railSubtitle}>Compact live context. Main cards remain the source of detail.</div>
           </div>
 
-          <RailSection title="Decision Snapshot" badge="Live response snapshot" styles={styles}>
+          <RailSection title="Decision Summary" badge="Live response summary" styles={styles}>
             <div style={styles.railDecisionOutcome}>{model?.allocationOutcome?.label || "Decision unavailable"}</div>
             <div style={styles.railMuted}>{assetFramingLabel}</div>
             <div style={styles.railChipRow}>

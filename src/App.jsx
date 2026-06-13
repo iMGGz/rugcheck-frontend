@@ -4,9 +4,6 @@ import HomepagePositioning from "./components/research/HomepagePositioning";
 import SearchPanel from "./components/research/SearchPanel";
 import NewsPanel from "./components/research/NewsPanel";
 import RisksPanel from "./components/research/RisksPanel";
-import TimelinePanel from "./components/research/TimelinePanel";
-import ComparePanel from "./components/research/ComparePanel";
-import SnapshotDetailPanel from "./components/research/SnapshotDetailPanel";
 import WatchlistPanel from "./components/research/WatchlistPanel";
 import ResearchContextPanel from "./components/research/ResearchContextPanel";
 import ResearchErrorBoundary from "./components/research/ResearchErrorBoundary";
@@ -429,21 +426,6 @@ export default function App() {
   const [pendingTabFocusTarget, setPendingTabFocusTarget] = useState(null);
   const [tabFocusPulse, setTabFocusPulse] = useState(false);
   const [activeWatchlistAsset, setActiveWatchlistAsset] = useState(null);
-  const [timelineData, setTimelineData] = useState([]);
-  const [timelinePageInfo, setTimelinePageInfo] = useState(null);
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState("");
-  const [compareAgainstId, setCompareAgainstId] = useState("");
-  const [compareData, setCompareData] = useState(null);
-  const [compareLoading, setCompareLoading] = useState(false);
-  const [compareError, setCompareError] = useState("");
-  const [snapshotDetailId, setSnapshotDetailId] = useState("");
-  const [snapshotDetailData, setSnapshotDetailData] = useState(null);
-  const [snapshotDetailLoading, setSnapshotDetailLoading] = useState(false);
-  const [snapshotDetailError, setSnapshotDetailError] = useState("");
-  const timelineRequestRef = useRef(0);
-  const compareRequestRef = useRef(0);
-  const snapshotDetailRequestRef = useRef(0);
   const providerHealthRequestRef = useRef(0);
   const watchlistRequestRef = useRef(0);
   const searchSectionRef = useRef(null);
@@ -614,122 +596,7 @@ export default function App() {
       : current.filter((entry) => entry !== key));
   }, []);
 
-  const loadTimeline = useCallback(async (tokenQuery, options = {}) => {
-    const cleanQuery = tokenQuery.trim();
-    if (!cleanQuery) return;
-
-    const { cursor = null, append = false } = options;
-    const requestId = ++timelineRequestRef.current;
-    setTimelineLoading(true);
-    if (!append) {
-      setTimelineError("");
-    }
-
-    try {
-      const search = new URLSearchParams({
-        query: cleanQuery,
-        limit: "8",
-      });
-      if (cursor) {
-        search.set("cursor", cursor);
-      }
-
-      const json = await fetchJson(`${API_BASE}/api/analyze/snapshots?${search.toString()}`, {}, 12000);
-
-      if (requestId !== timelineRequestRef.current) return;
-
-      const snapshots = Array.isArray(json?.snapshots) ? json.snapshots : [];
-      setTimelineData((previous) => append ? [...previous, ...snapshots] : snapshots);
-      setTimelinePageInfo(json?.pageInfo || null);
-      setTimelineError("");
-    } catch (err) {
-      if (requestId !== timelineRequestRef.current) return;
-      const message = err instanceof Error ? err.message : "Could not load snapshot history.";
-      if (message.toLowerCase().includes("no snapshot history found") || message.toLowerCase().includes("snapshot_not_found")) {
-        setTimelineData([]);
-        setTimelinePageInfo(null);
-        setCompareData(null);
-        setCompareAgainstId("");
-        setTimelineError("");
-      } else {
-        setTimelineError(normalizeErrorMessage(message));
-      }
-    } finally {
-      if (requestId === timelineRequestRef.current) {
-        setTimelineLoading(false);
-      }
-    }
-  }, []);
-
-  const loadComparison = useCallback(async (baseSnapshotId, againstSnapshotId) => {
-    if (!baseSnapshotId || !againstSnapshotId || baseSnapshotId === againstSnapshotId) {
-      setCompareData(null);
-      setCompareError("");
-      return;
-    }
-
-    const requestId = ++compareRequestRef.current;
-    setCompareLoading(true);
-    setCompareError("");
-
-    try {
-      const json = await fetchJson(
-        `${API_BASE}/api/analyze/snapshots/${baseSnapshotId}/compare?against=${encodeURIComponent(againstSnapshotId)}`,
-        {},
-        12000,
-      );
-
-      if (requestId !== compareRequestRef.current) return;
-      setCompareData(json?.comparison || null);
-    } catch (err) {
-      if (requestId !== compareRequestRef.current) return;
-      setCompareData(null);
-      setCompareError(normalizeErrorMessage(err instanceof Error ? err.message : "Could not load comparison."));
-    } finally {
-      if (requestId === compareRequestRef.current) {
-        setCompareLoading(false);
-      }
-    }
-  }, []);
-
-  const loadSnapshotDetail = useCallback(async (snapshotId) => {
-    if (!snapshotId) {
-      setSnapshotDetailId("");
-      setSnapshotDetailData(null);
-      setSnapshotDetailError("");
-      return;
-    }
-
-    const requestId = ++snapshotDetailRequestRef.current;
-    setSnapshotDetailId(snapshotId);
-    setSnapshotDetailLoading(true);
-    setSnapshotDetailError("");
-
-    try {
-      const json = await fetchJson(`${API_BASE}/api/analyze/snapshots/${encodeURIComponent(snapshotId)}`, {}, 12000);
-      if (requestId !== snapshotDetailRequestRef.current) return;
-      setSnapshotDetailData(json?.snapshot || null);
-    } catch (err) {
-      if (requestId !== snapshotDetailRequestRef.current) return;
-      setSnapshotDetailData(null);
-      setSnapshotDetailError(normalizeErrorMessage(err instanceof Error ? err.message : "Could not load stored snapshot."));
-    } finally {
-      if (requestId === snapshotDetailRequestRef.current) {
-        setSnapshotDetailLoading(false);
-      }
-    }
-  }, []);
-
   const resetAnalysisSubviews = useCallback(() => {
-    setTimelineData([]);
-    setTimelinePageInfo(null);
-    setTimelineError("");
-    setCompareData(null);
-    setCompareAgainstId("");
-    setCompareError("");
-    setSnapshotDetailId("");
-    setSnapshotDetailData(null);
-    setSnapshotDetailError("");
     setPendingTabFocusTarget(null);
     setTabFocusPulse(false);
   }, []);
@@ -785,7 +652,6 @@ export default function App() {
       if (nextNotice) {
         setNotice(nextNotice);
       }
-      void loadTimeline(buildAssetLookupQuery(payload.asset, cleanQuery), { append: false });
       checkHealth();
       loadProviderHealth();
     } catch (err) {
@@ -795,7 +661,7 @@ export default function App() {
       checkHealth();
       loadProviderHealth();
     }
-  }, [checkHealth, loadProviderHealth, loadTimeline, requestAnalysisPayload, resetAnalysisSubviews]);
+  }, [checkHealth, loadProviderHealth, requestAnalysisPayload, resetAnalysisSubviews]);
 
   const analyze = useCallback(async (nextQuery, mode = "full") => {
     const cleanQuery = nextQuery.trim();
@@ -872,38 +738,6 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [copyMessage]);
 
-  useEffect(() => {
-    if (!timelineData.length) {
-      setCompareAgainstId("");
-      setCompareData(null);
-      setCompareError("");
-      return;
-    }
-
-    const latestSnapshotId = timelineData[0]?.snapshotId;
-    const selectable = timelineData.filter((item) => item.snapshotId !== latestSnapshotId);
-
-    if (!selectable.length) {
-      setCompareAgainstId("");
-      setCompareData(null);
-      setCompareError("");
-      return;
-    }
-
-    if (!compareAgainstId || !selectable.some((item) => item.snapshotId === compareAgainstId)) {
-      setCompareAgainstId(selectable[0].snapshotId);
-    }
-  }, [timelineData, compareAgainstId]);
-
-  useEffect(() => {
-    const latestSnapshotId = timelineData[0]?.snapshotId;
-    if (!latestSnapshotId || !compareAgainstId || latestSnapshotId === compareAgainstId) {
-      return;
-    }
-
-    void loadComparison(latestSnapshotId, compareAgainstId);
-  }, [timelineData, compareAgainstId, loadComparison]);
-
   const analysis = useMemo(() => {
     if (!data) return null;
     const analysisBlock = data.analysis || {};
@@ -911,7 +745,7 @@ export default function App() {
     const calibrationWarnings = normalizeCalibrationWarningsPayload(data);
     const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(data);
     const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(data);
-    const analysisFreshness = normalizeAnalysisFreshnessPayload(data, data.snapshot);
+    const analysisFreshness = normalizeAnalysisFreshnessPayload(data, null);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
@@ -931,7 +765,7 @@ export default function App() {
   const whitepaperDocs = data?.whitepaperDocs;
   const newsIntelligence = data?.newsIntelligence;
   const onChainMetrics = data?.onChainMetrics;
-  const snapshot = data?.snapshot;
+  const snapshot = null;
   const sourceStatus = data?.sourceStatus;
   const meta = data?.meta;
   const confidence = analysis?.confidence || data?.confidence;
@@ -952,11 +786,6 @@ export default function App() {
   const backendMeta = statusMeta(backendStatus);
   const currentWatchlistKey = buildWatchlistKey(activeWatchlistAsset || asset);
   const isFavorite = currentWatchlistKey ? watchlistItems.some((item) => buildWatchlistKey(item) === currentWatchlistKey) : false;
-  const timelineQuery = buildAssetLookupQuery(asset, query);
-  const latestTimelineSnapshot = timelineData[0] || null;
-  const compareSelectionOptions = latestTimelineSnapshot
-    ? timelineData.filter((item) => item.snapshotId !== latestTimelineSnapshot.snapshotId)
-    : [];
   const analysisQualityExplanation = useMemo(() => buildAnalysisQualityExplanation({
     confidence,
     providerDiagnostics,
@@ -1250,21 +1079,15 @@ export default function App() {
         scores,
         confidence,
         meta,
-        snapshot,
-        timelineData,
-        compareData,
+        snapshot: null,
+        timelineData: [],
+        compareData: null,
         aiReport,
         fundamentals,
         security,
       });
       await writeClipboardText(bundle);
-      if (decisionModel.analysisFreshness?.freshQaEligible) {
-        setCopyMessage(decisionModel.analysisFreshness?.isPartialRefresh
-          ? "Partial-refresh QA bundle copied; verify stale/missing sections."
-          : "Live QA review bundle copied");
-      } else {
-        setCopyMessage("Historical/review-only bundle copied; run fresh analysis for current QA.");
-      }
+      setCopyMessage("Live QA review bundle copied");
     } catch {
       setCopyMessage("Could not copy review bundle");
     }
@@ -1499,26 +1322,20 @@ export default function App() {
                 styles={styles}
               />
             </Card>
-            <Card title="Analysis Freshness / Snapshot Details" subtitle="Shows live/snapshot/partial state without changing scoring or provider behavior." styles={styles}>
+            <Card title="Analysis Freshness / Live Recompute Details" subtitle="Current product output is generated from live full recompute only." styles={styles}>
               <SectionRow label="Analysis source" value={decisionModel.analysisFreshness?.analysisSource || "Analysis source unknown"} styles={styles} />
               <SectionRow label="Freshness status" value={decisionModel.analysisFreshness?.freshnessLabel || "Freshness unknown"} styles={styles} />
               <SectionRow label="Generated at" value={decisionModel.analysisFreshness?.generatedAt || "Unavailable"} styles={styles} />
               <SectionRow label="Read at" value={decisionModel.analysisFreshness?.readAt || "Unavailable"} styles={styles} />
-              <SectionRow label="Snapshot ID" value={decisionModel.analysisFreshness?.snapshotId || "Unavailable"} styles={styles} />
-              <SectionRow label="Previous snapshot" value={decisionModel.analysisFreshness?.previousSnapshotId || "Unavailable"} styles={styles} />
               <SectionRow
                 label="Recomputed"
                 value={decisionModel.analysisFreshness?.recomputed === null || decisionModel.analysisFreshness?.recomputed === undefined ? "Unknown" : decisionModel.analysisFreshness.recomputed ? "Yes" : "No"}
                 styles={styles}
               />
-              <SectionRow label="Refresh mode" value={decisionModel.analysisFreshness?.refreshMode || "Unavailable"} styles={styles} />
-              <SectionRow
-                label="Full regeneration needed"
-                value={decisionModel.analysisFreshness?.fullRegenerationNeeded === null || decisionModel.analysisFreshness?.fullRegenerationNeeded === undefined ? "Unknown" : decisionModel.analysisFreshness.fullRegenerationNeeded ? "Yes" : "No"}
-                styles={styles}
-              />
+              <SectionRow label="Primary analysis path" value={decisionModel.analysisFreshness?.primaryAnalysisPath || "live_full_recompute"} styles={styles} />
+              <SectionRow label="Snapshot disabled" value={decisionModel.analysisFreshness?.snapshotDisabled ? "Yes" : "No"} styles={styles} />
+              <SectionRow label="Partial refresh disabled" value={decisionModel.analysisFreshness?.partialRefreshDisabled ? "Yes" : "No"} styles={styles} />
               <ListBlock title="Fresh sections" items={decisionModel.analysisFreshness?.freshSections} emptyText="No fresh section list was attached." color="#9bd7ff" styles={styles} />
-              <ListBlock title="Stale sections" items={decisionModel.analysisFreshness?.staleSections} emptyText="No stale section list was attached." color="#f9d976" styles={styles} />
               <ListBlock title="Missing sections" items={decisionModel.analysisFreshness?.missingSections} emptyText="No missing section list was attached." color="#f9d976" styles={styles} />
               <ListBlock title="Freshness warnings" items={decisionModel.analysisFreshness?.freshnessWarnings} emptyText="No freshness warning was attached." color="#f9d976" styles={styles} />
             </Card>
@@ -1550,34 +1367,6 @@ export default function App() {
             <AuditSection title="Catalysts" subtitle="News and recent changes" styles={styles}>
               <NewsPanel newsIntelligence={newsIntelligence} snapshot={snapshot} styles={styles} />
             </AuditSection>
-            <TimelinePanel
-              timelineLoading={timelineLoading}
-              timelineError={timelineError}
-              timelineData={timelineData}
-              timelinePageInfo={timelinePageInfo}
-              timelineLoadingMore={timelineLoading}
-              loadTimeline={loadTimeline}
-              latestTimelineSnapshot={latestTimelineSnapshot}
-              asset={asset}
-              query={timelineQuery}
-              onOpenSnapshot={loadSnapshotDetail}
-              openedSnapshotId={snapshotDetailId}
-              styles={styles}
-            />
-          <div style={styles.advancedGrid}>
-            <ThesisDriftTimeline model={decisionModel} compareData={compareData} styles={styles} />
-            <ComparePanel
-              timelineData={timelineData}
-              compareSelectionOptions={compareSelectionOptions}
-              latestTimelineSnapshot={latestTimelineSnapshot}
-              compareAgainstId={compareAgainstId}
-              setCompareAgainstId={setCompareAgainstId}
-              compareLoading={compareLoading}
-              compareError={compareError}
-              compareData={compareData}
-              styles={styles}
-            />
-          </div>
             <details style={styles.auditSection}>
               <summary style={styles.auditSummary}>
                 <span>Advanced Quant Signals</span>
@@ -1755,12 +1544,10 @@ export default function App() {
                   </div>
                   <div style={styles.reviewBundleActionGroup}>
                     <button type="button" onClick={copyReviewBundle} style={styles.reviewBundleButton}>
-                      {decisionModel.analysisFreshness?.freshQaEligible ? "Copy Live QA Bundle" : "Copy Historical Bundle"}
+                      Copy Live QA Bundle
                     </button>
                     <div style={styles.reviewBundleHint}>
-                      {decisionModel.analysisFreshness?.freshQaEligible
-                        ? "Copies current product-tab QA fields."
-                        : "Snapshot/cache export is compare-only; run fresh analysis for current QA."}
+                      Copies current live full-recompute product-tab QA fields.
                     </div>
                     {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
                   </div>
@@ -1790,20 +1577,6 @@ export default function App() {
                     >
                       {renderActiveTab()}
                     </div>
-
-                    {(snapshotDetailId || snapshotDetailLoading || snapshotDetailError) ? (
-                      <SnapshotDetailPanel
-                        snapshotRecord={snapshotDetailData}
-                        loading={snapshotDetailLoading}
-                        error={snapshotDetailError}
-                        onClose={() => {
-                          setSnapshotDetailId("");
-                          setSnapshotDetailData(null);
-                          setSnapshotDetailError("");
-                        }}
-                        styles={styles}
-                      />
-                    ) : null}
                   </main>
                   <AnalysisRightRail
                     model={decisionModel}
