@@ -4103,8 +4103,16 @@ function renderedSurfaceList(...groups) {
 
 export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } = {}) {
   const safeModel = safeObject(model);
+  const assetInterpretationContract = safeObject(safeModel.assetInterpretationContract);
+  const visibleDisplayContract = safeObject(assetInterpretationContract.visibleDisplayContract);
   const rawLens = safeModel.resolvedInstitutionalLens || {};
-  const lens = safeModel.effectiveInstitutionalLens || rawLens || {};
+  const contractEffectiveLens = safeObject(assetInterpretationContract.effectiveInstitutionalLens);
+  const lens = safeModel.effectiveInstitutionalLens || contractEffectiveLens || rawLens || {};
+  const categoryDrivenAssetFamilyContract = safeObject(safeModel.categoryDrivenAssetFamilyContract);
+  const providerCategorySignals = safeObject(safeModel.providerCategorySignals);
+  const providerRawDataExpansion = safeObject(safeModel.providerRawDataExpansion);
+  const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics);
+  const sourceMatrixSummary = safeObject(safeModel.engineLearningBackbone?.sourceDataRequirementMatrix);
   const verdictSemantics = safeObject(safeModel.verdictSemantics);
   const allocationCase = safeObject(safeModel.allocationCase);
   const dataFirstNarrativeContract = safeObject(safeModel.dataFirstNarrativeContract);
@@ -4117,8 +4125,10 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const assetClassLabel = displayIdentity?.displayAssetClass || safeModel.assetClassLabel || sanitizeSemanticLabel(safeModel.assetClass, "Asset class unavailable");
   const assetFramingLabel = displayIdentity?.displayFraming || safeModel.assetFramingLabel || "Digital Asset Allocation Thesis";
   const identityChip = displayIdentity?.primaryChip || assetClassLabel;
-  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
-  const lensIdentityRailLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
+  const visibleLensLabel = visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
+  const effectiveVisibleLabel = lens.label || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || visibleLensLabel;
+  const lensIdentityRailLabel = visibleDisplayContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
+  const rawEffectiveDivergenceWarning = lens.rawEffectiveLensDivergenceWarning || contractEffectiveLens.rawEffectiveLensDivergenceWarning || null;
 
   const decisionHeader = renderedSurfaceList(
     dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader"),
@@ -4240,7 +4250,24 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const evidenceMap = renderedSurfaceList(
+    "Evidence Map",
+    "Provider metadata is context, not reviewed evidence.",
+    "Reviewed evidence, source candidates, live provider signals, report-only overlays, and scoring-active evidence remain separate.",
+    "Non-scoring evidence boundary applies unless explicitly marked scoring-active.",
     lens.sourceBoundary,
+    safeModel.sourceStatus?.summary,
+    sourceMatrixSummary.currentScoringStatus ? `Source Matrix: ${sourceMatrixSummary.currentScoringStatus}` : null,
+    sourceMatrixSummary.missingDataCategories,
+    categoryDrivenAssetFamilyContract.sourceRequirementProfile?.priorityRequirements,
+    providerCategorySignals.categoryDataBoundary,
+    providerRawDataExpansion.categoryDataBoundary,
+    rawDataCoverageDiagnostics.sourceBoundary,
+    rawDataCoverageDiagnostics.sourceCriticalMissingFields,
+    providerRawDataExpansion.categoryDataSourceRequirements,
+    providerRawDataExpansion.providerCategoryEndpointDiagnostics?.map((entry) => [
+      `${entry?.provider || "provider"} ${entry?.endpoint || "endpoint"} ${entry?.status || "status unavailable"}`,
+      entry?.sourceBoundary,
+    ]),
     safeModel.engineLearningBackbone?.outputQaChecks?.map((check) => [
       check?.id,
       check?.status,
@@ -4313,9 +4340,17 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       visibleLensLabel,
       assetClassLabel,
       assetFramingLabel,
+      visibleDisplayContract.primaryVisibleLabel,
+      visibleDisplayContract.assetFramingLabel,
+      visibleDisplayContract.labelFamily,
+      effectiveVisibleLabel,
+      lens.assetClassGroup ? `Effective family: ${lens.assetClassGroup}` : null,
       lensIdentityRailLabel,
       lens.lensId ? `Lens ID: ${lens.lensId}` : null,
       lens.questionGroupId ? `Question group: ${lens.questionGroupId}` : null,
+      rawLens.lensId ? `Raw resolved lens: ${rawLens.lensId}` : null,
+      rawLens.questionGroupId ? `Raw resolved question group: ${rawLens.questionGroupId}` : null,
+      rawEffectiveDivergenceWarning,
     ),
     institutionalChecklist,
     tokenomics,
@@ -4360,12 +4395,14 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       : ["evidenceMap", "scoringTransparency"].includes(surface)
         ? "secondary"
         : "primary";
+    const notRenderedByUi = values.length === 0 && ["visibleLensLabel", "evidenceMap", "scoringTransparency"].includes(surface);
+    const mirroredInBundle = values.length > 0 || notRenderedByUi;
     return {
       surface,
       classification,
       renderedItemCount: values.length,
-      mirroredInBundle: values.length > 0,
-      mirrorStatus: values.length > 0 ? "mirrored" : "missing_visible_text_model",
+      mirroredInBundle,
+      mirrorStatus: values.length > 0 ? "mirrored" : notRenderedByUi ? "not_rendered_by_ui" : "missing_visible_text_model",
       firstItem: values[0] || null,
     };
   });
