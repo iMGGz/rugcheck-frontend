@@ -5291,6 +5291,20 @@ export function buildReviewBundleText({
   ].filter(Boolean).join(" ");
   const rawGenericVisible = includesGenericPrimaryCopy(visiblePrimaryText);
   const rawGenericAudit = includesGenericPrimaryCopy(rawDecisionText);
+  const tokenizedGoldPrimaryContext = /tokenized_gold|tokenized gold|commodity-backed rwa|commodity backed rwa|paxg|pax gold|physical gold/i.test([
+    lens?.lensId,
+    lens?.questionGroupId,
+    visibleBundleLensLabel,
+    visibleBundleFramingLabel,
+    displayIdentity?.displayAssetClass,
+    displayIdentity?.displayFraming,
+    safeAsset.symbol,
+    safeAsset.name,
+  ].filter(Boolean).join(" "));
+  const tokenizedGoldPrimaryForbiddenPattern = /Confirm a clear vesting schedule and next unlock magnitude|Close the weakest-link gaps in token demand, governance, or security evidence|Critical tokenomics evidence is missing|utility or vesting support|Durable token demand remains too weak|durable token demand|Wrapped-asset underwriting|generic DeFi value capture|governance value capture/i;
+  const tokenizedGoldPrimaryAllowedPattern = /physical gold|gold backing|commodity backing|issuer|custodian|vault|attestation|audit|redemption|legal claim|KYC|jurisdiction|spot[- ]gold|liquidity|depth|venue|contract|admin|freeze/i;
+  const tokenizedGoldPrimaryCopyLeak = tokenizedGoldPrimaryContext && tokenizedGoldPrimaryForbiddenPattern.test(visiblePrimaryText);
+  const tokenizedGoldPrimaryCopyMissingAllowed = tokenizedGoldPrimaryContext && !tokenizedGoldPrimaryAllowedPattern.test(visiblePrimaryText);
   const suggestedResearchDomains = buildLensSpecificResearchDomains(safeModel, displayIdentity);
   const primaryAssetFramingText = [
     displayIdentity?.displayFraming,
@@ -5813,7 +5827,11 @@ export function buildReviewBundleText({
   const renderedEthGateStatus = renderedEthFailures.length ? "FAIL" : "PASS";
   const requiredMirrorMissingSurfaces = safeArray(renderedSurfaceParityViewModel.missingMirroredSurfaces);
   const requiredPrimaryZeroSurfaces = safeArray(renderedSurfaceParityViewModel.tabMirrorCoverage)
-    .filter((entry) => entry?.classification === "primary" && Number(entry?.renderedItemCount || 0) === 0)
+    .filter((entry) => (
+      entry?.classification === "primary"
+      && Number(entry?.renderedItemCount || 0) === 0
+      && entry?.mirrorStatus !== "not_rendered_by_ui"
+    ))
     .map((entry) => entry.surface);
   const decisionHeaderMirrorMissing = Number(renderedSurfaceParityViewModel.decisionHeaderRenderedItemCount || 0) === 0;
   const mirrorCoverageGateStatus = requiredMirrorMissingSurfaces.length || requiredPrimaryZeroSurfaces.length || decisionHeaderMirrorMissing
@@ -6332,6 +6350,9 @@ export function buildReviewBundleText({
       bundleField("Audit-only excluded", "yes"),
       bundleField("Internal IDs excluded", "yes"),
       bundleField("Before-state excluded", "yes"),
+      bundleField("not_rendered_by_ui primaryZero non-blocking", requiredPrimaryZeroSurfaces.includes("visibleLensLabel") ? "no - visibleLensLabel still blocks" : "yes"),
+      bundleField("Tokenized-gold primary copy guard status", tokenizedGoldPrimaryContext ? (tokenizedGoldPrimaryCopyLeak || tokenizedGoldPrimaryCopyMissingAllowed ? "FAIL" : "PASS") : "not applicable"),
+      bundleField("Tokenized-gold forbidden primary copy detected", yesNoUnknown(tokenizedGoldPrimaryCopyLeak)),
       bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
       bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
       bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
@@ -7027,6 +7048,8 @@ export function buildReviewBundleText({
       bundleField("Stablecoin synthesis copy absent for non-stablecoin lens", yesNoUnknown(!stablecoinCopyLeakageInSynthesis)),
       bundleField("Irrelevant sector markers absent from synthesized primary answer context", yesNoUnknown(!irrelevantSectorSignalLeakageInSynthesis)),
       bundleField("Supported/source-required synthesis mismatch has explicit boundary", yesNoUnknown(!supportedSourceRequiredSynthesisMismatch)),
+      bundleField("Tokenized-gold primary checklist avoids generic vesting/token-demand/wrapped copy", tokenizedGoldPrimaryContext ? yesNoUnknown(!tokenizedGoldPrimaryCopyLeak) : "not applicable"),
+      bundleField("Tokenized-gold primary checklist includes backing/custody/redemption/legal/market/control language", tokenizedGoldPrimaryContext ? yesNoUnknown(!tokenizedGoldPrimaryCopyMissingAllowed) : "not applicable"),
       bundleField("Source-backed reviewed answer missing source list", yesNoUnknown(reviewedPacketSourceBackedNoSources)),
       bundleField("Reviewed demo evidence treated as scoring-active", yesNoUnknown(reviewedPacketScoringActive)),
       bundleField("Reviewed evidence allowed to change final verdict/overall score", reviewedPacketScoringActive ? "yes - QA violation" : "no - non-scoring display layer"),
