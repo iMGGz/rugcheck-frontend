@@ -1142,15 +1142,47 @@ export default function App() {
     return Number.isFinite(expiresMs) && expiresMs > Date.now() + 1000;
   }
 
-  function requestInternalExportAccess(action) {
-    if (hasValidInternalExportToken()) {
-      action();
+  async function executeInternalExportAction(actionId, tokenOverride = null) {
+    const hasFreshToken = Boolean(tokenOverride) || hasValidInternalExportToken();
+    if (!hasFreshToken) {
+      setPendingInternalExportAction(actionId);
+      setInternalExportPassword("");
+      setInternalExportAuthError("");
+      setInternalExportPasswordModalOpen(true);
       return;
     }
-    setPendingInternalExportAction(() => action);
+
+    if (actionId === "copyBundle") {
+      await copyInternalDeveloperQaBundle();
+      return;
+    }
+
+    if (actionId === "downloadBundle") {
+      downloadInternalDeveloperQaBundle();
+      return;
+    }
+
+    setCopyMessage(`Password accepted, but export action failed: unknown action ${actionId || "none"}`);
+  }
+
+  function requestInternalExportAccess(actionId) {
+    if (hasValidInternalExportToken()) {
+      void executeInternalExportAction(actionId, internalExportToken);
+      return;
+    }
+    setPendingInternalExportAction(actionId);
     setInternalExportPassword("");
     setInternalExportAuthError("");
     setInternalExportPasswordModalOpen(true);
+  }
+
+  function normalizeInternalExportTokenResponse(response) {
+    const payload = response?.token ? response : response?.data || {};
+    return {
+      token: payload.token || "",
+      purpose: payload.purpose || "",
+      expiresAt: payload.expiresAt || payload.expires_at || "",
+    };
   }
 
   async function verifyInternalExportPassword(event) {
@@ -1163,16 +1195,21 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: internalExportPassword }),
       });
-      if (response?.purpose !== "internal_export" || !response?.token || !response?.expiresAt) {
+      const tokenPayload = normalizeInternalExportTokenResponse(response);
+      if (tokenPayload.purpose !== "internal_export" || !tokenPayload.token || !tokenPayload.expiresAt) {
         throw new Error("Internal export verification returned an invalid token.");
       }
-      setInternalExportToken(response.token);
-      setInternalExportTokenExpiresAt(response.expiresAt);
+      setInternalExportToken(tokenPayload.token);
+      setInternalExportTokenExpiresAt(tokenPayload.expiresAt);
       setInternalExportPassword("");
       setInternalExportPasswordModalOpen(false);
       const action = pendingInternalExportAction;
       setPendingInternalExportAction(null);
-      action?.();
+      if (action) {
+        await executeInternalExportAction(action, tokenPayload.token);
+      } else {
+        setCopyMessage("Password accepted, but export action failed: no pending action was recorded.");
+      }
     } catch (err) {
       setInternalExportAuthError(normalizeErrorMessage(err instanceof Error ? err.message : "Password verification failed"));
     } finally {
@@ -1199,20 +1236,29 @@ export default function App() {
   }
 
   async function copyInternalDeveloperQaBundle() {
-    const bundle = buildInternalDeveloperQaBundle();
     const filename = internalBundleFilename();
+    let bundle = "";
     try {
+      bundle = buildInternalDeveloperQaBundle();
       await writeClipboardText(bundle);
       setCopyMessage("Internal developer QA bundle copied");
     } catch {
-      setManualCopyModal({ open: true, text: bundle, filename });
-      setCopyMessage("Clipboard blocked; manual copy opened");
+      if (bundle) {
+        setManualCopyModal({ open: true, text: bundle, filename });
+        setCopyMessage("Clipboard blocked; manual copy opened");
+        return;
+      }
+      setCopyMessage("Password accepted, but export action failed: internal bundle generation failed.");
     }
   }
 
   function downloadInternalDeveloperQaBundle() {
-    downloadTextFile(buildInternalDeveloperQaBundle(), internalBundleFilename());
-    setCopyMessage("Internal developer QA bundle downloaded");
+    try {
+      downloadTextFile(buildInternalDeveloperQaBundle(), internalBundleFilename());
+      setCopyMessage("Internal developer QA bundle downloaded");
+    } catch (err) {
+      setCopyMessage(`Password accepted, but export action failed: ${normalizeErrorMessage(err instanceof Error ? err.message : "download failed")}`);
+    }
   }
 
   function downloadProtectedInvestorReport() {
@@ -1692,10 +1738,10 @@ export default function App() {
                     </button>
                     {SHOW_INTERNAL_EXPORTS ? (
                       <>
-                        <button type="button" onClick={() => requestInternalExportAccess(copyInternalDeveloperQaBundle)} style={styles.reviewBundleButton}>
+                        <button type="button" onClick={() => requestInternalExportAccess("copyBundle")} style={styles.reviewBundleButton}>
                           Copy Internal Developer QA Bundle
                         </button>
-                        <button type="button" onClick={() => requestInternalExportAccess(downloadInternalDeveloperQaBundle)} style={styles.reviewBundleButton}>
+                        <button type="button" onClick={() => requestInternalExportAccess("downloadBundle")} style={styles.reviewBundleButton}>
                           Download Internal Developer QA Bundle
                         </button>
                       </>
