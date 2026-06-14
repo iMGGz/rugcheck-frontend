@@ -948,6 +948,164 @@ export function normalizeRenderableList(items) {
     .filter(Boolean);
 }
 
+function formatReportList(items, fallback = "Not available yet.", limit = 6) {
+  const values = normalizeRenderableList(items).slice(0, limit);
+  if (!values.length) return [`- ${fallback}`];
+  return values.map((item) => `- ${item}`);
+}
+
+function reportLine(label, value) {
+  return `${label}: ${extractRenderableText(value, "Not available yet.")}`;
+}
+
+function scrubProtectedInvestorReportText(text) {
+  const forbiddenPatterns = [
+    /\b2C\b/gi,
+    /\b2AD\b/gi,
+    /\b2AB\b/gi,
+    /\bsource matrix\b/gi,
+    /\bmatrix[_-][a-z0-9_-]+\b/gi,
+    /\bengine learning\b/gi,
+    /\bregistry\b/gi,
+    /\bartifact\b/gi,
+    /\bprompt\b/gi,
+    /\braw JSON\b/gi,
+    /\bscoring formula\b/gi,
+    /\bweight(s|ed)?\b/gi,
+    /\bsrc\/[^\s]+/gi,
+    /\bbackend\b/gi,
+    /\bimplementation detail(s)?\b/gi,
+    /\bquestionId\b/gi,
+    /\bsourceBoundary\b/gi,
+    /\bscoringFieldsUsed\b/gi,
+    /\bprovider_metadata_not_reviewed_evidence\b/gi,
+  ];
+  return forbiddenPatterns.reduce((current, pattern) => current.replace(pattern, "redacted internal detail"), text);
+}
+
+export function buildProtectedInvestorReportText({
+  asset,
+  analysis,
+  data,
+  model,
+  displayIdentity,
+  evidenceStatusProxy,
+  sourceStatus,
+  providerDiagnostics,
+  providerHealth,
+  scores,
+  confidence,
+  meta,
+} = {}) {
+  const safeData = safeObject(data);
+  const safeAnalysis = safeObject(analysis || safeData.analysis);
+  const safeModel = safeObject(model);
+  const safeAsset = safeObject(asset || safeData.asset);
+  const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
+  const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
+  const safeMeta = safeObject(meta || safeData.meta);
+  const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
+  const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
+  const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const questions = safeArray(safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions);
+  const tokenomicsQuestions = safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions);
+  const sourceStatusObject = safeObject(sourceStatus || safeData.sourceStatus);
+  const providerDiagnosticsList = safeArray(providerDiagnostics || safeMeta.providerDiagnostics);
+  const providerNames = providerDiagnosticsList
+    .map((entry) => entry.provider || entry.name)
+    .filter(Boolean)
+    .slice(0, 8);
+  const providerHealthSummary = safeObject(providerHealth).status || safeObject(providerHealth).overallStatus || "Provider health context available in product UI when configured.";
+  const generatedAt = new Date().toISOString();
+  const assetLabel = [
+    safeAsset.name || displayIdentity?.assetName,
+    safeAsset.symbol ? `(${safeAsset.symbol})` : "",
+  ].filter(Boolean).join(" ") || "Selected asset";
+  const selectedQuestions = [...questions, ...tokenomicsQuestions].slice(0, 8);
+  const questionLines = selectedQuestions.flatMap((question, index) => {
+    const answer = question?.synthesizedAnswer || {};
+    const shortAnswer = answer.shortAnswer || answer.answerSummary || question?.shortAnswer || question?.answerSummary;
+    const status = answer.reviewedEvidenceStatus || answer.answerStatus || question?.answerStatus || question?.status || "source_required";
+    const missingEvidence = normalizeRenderableList(answer.missingEvidence || question?.missingEvidence).slice(0, 3);
+    return [
+      `${index + 1}. ${extractRenderableText(question?.question || question?.label || question?.title, "Institutional question")}`,
+      `   Status: ${titleCase(status)}`,
+      `   Answer: ${extractRenderableText(shortAnswer, "Source review required before a stronger answer is shown.")}`,
+      ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.join("; ")}`] : []),
+    ];
+  });
+  const missingEvidence = normalizeRenderableList([
+    safeModel.primaryBlocker?.label,
+    safeModel.primaryBlocker?.explanation,
+    safeModel.evidenceNeeded,
+    safeModel.blockers,
+    sourceStatusObject.missing,
+    tokenomicsSupplyIntegrity?.sourceRequirements,
+  ]).slice(0, 8);
+  const whatWouldChange = normalizeRenderableList([
+    safeModel.whatWouldChangeDecision?.items,
+    safeModel.whatWouldChange,
+    tokenomicsSupplyIntegrity?.whatWouldChange,
+  ]).slice(0, 8);
+  const providerSummary = [
+    providerNames.length ? `Provider context included: ${providerNames.join(", ")}.` : "Provider context was limited or not returned for this run.",
+    `Provider health: ${extractRenderableText(providerHealthSummary, "Not available yet.")}`,
+    "Provider data is context for diligence and requires independent verification.",
+  ];
+  const lines = [
+    "ThesisCore Protected Investor Report",
+    `Generated: ${generatedAt}`,
+    "",
+    "Confidentiality: External/demo report. Internal engine diagnostics, debug identifiers, and technical exports are intentionally omitted.",
+    "Boundary: Research support only. Not investment advice. No performance promise. Independent verification required.",
+    "",
+    "1. Asset / Thesis Classification",
+    reportLine("Asset", assetLabel),
+    reportLine("Canonical identity", assetIdentityResolution?.canonicalAssetName || safeAsset.coingeckoId || safeAsset.coinGeckoId),
+    reportLine("Provider IDs", [
+      safeAsset.coingeckoId || safeAsset.coinGeckoId ? `CoinGecko ${safeAsset.coingeckoId || safeAsset.coinGeckoId}` : null,
+      safeAsset.coinmarketcapId || safeAsset.coinMarketCapId ? `CoinMarketCap ${safeAsset.coinmarketcapId || safeAsset.coinMarketCapId}` : null,
+    ].filter(Boolean).join("; ")),
+    reportLine("Lens", lens?.label || lens?.lensId),
+    reportLine("Question group", lens?.questionGroupId),
+    reportLine("Analyzed network", assetIdentityResolution?.analyzedNetwork || assetIdentityResolution?.selectedNetwork),
+    reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
+    "",
+    "2. Decision Snapshot",
+    reportLine("Verdict", safeModel.verdictLabel || safeAnalysis.verdict || safeScores.verdict),
+    reportLine("Confidence", safeModel.confidenceLabel || safeConfidence.label || safeConfidence.level),
+    reportLine("Score", safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore),
+    reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
+    reportLine("Interpretation", safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
+    "",
+    "3. Key Institutional Questions",
+    ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
+    "",
+    "4. Tokenomics / Supply Integrity",
+    reportLine("Diagnostic tokenomics score", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore !== undefined ? `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100 (diagnostic only)` : "Not available yet."),
+    reportLine("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
+    reportLine("Max supply status", tokenomicsSupplyIntegrity?.maxSupplyStatus),
+    reportLine("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
+    reportLine("Primary tokenomics blocker", tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
+    "",
+    "5. Missing Evidence / Source Requirements",
+    ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
+    "",
+    "6. What Would Change",
+    ...formatReportList(whatWouldChange, "Reviewed sources and updated live provider data would be required before stronger language is shown.", 8),
+    "",
+    "7. Provider Context",
+    ...providerSummary.map((item) => `- ${item}`),
+    "",
+    "8. Methodology / Limitations",
+    "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
+    "- Provider-reported values are not treated as reviewed evidence.",
+    "- Missing data is not negative proof; it is a source requirement or confidence constraint.",
+    "- This protected report omits internal QA diagnostics and implementation details by design.",
+  ];
+  return scrubProtectedInvestorReportText(lines.join("\n"));
+}
+
 const devWarningKeys = new Set();
 
 export function devWarnOnce(key, message, details = undefined) {

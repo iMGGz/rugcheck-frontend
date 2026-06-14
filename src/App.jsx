@@ -32,6 +32,7 @@ import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
   buildDecisionTerminalModel,
+  buildProtectedInvestorReportText,
   deriveEvidenceStatusProxy,
   buildAssetLookupQuery,
   buildReviewBundleText,
@@ -89,6 +90,8 @@ const SEARCH_HISTORY_KEY = "rugcheck-history-v1";
 const WATCHLIST_KEY = "rugcheck-watchlist-v2";
 const WATCHLIST_CHECKS_KEY = "rugcheck-watchlist-checks-v1";
 const WATCHLIST_REFRESH_RESULTS_KEY = "rugcheck-watchlist-refresh-results-v1";
+const SHOW_INTERNAL_EXPORTS = import.meta.env.VITE_SHOW_INTERNAL_EXPORTS !== "false";
+const INTERNAL_EXPORT_HEADER = "PRIVATE INTERNAL QA EXPORT — DO NOT SHARE EXTERNALLY";
 
 function getViewportWidth() {
   if (typeof window === "undefined") return 1280;
@@ -421,6 +424,14 @@ export default function App() {
   const [watchlistFilter, setWatchlistFilter] = useState("all");
   const [watchlistSort, setWatchlistSort] = useState("newest_checked");
   const [copyMessage, setCopyMessage] = useState("");
+  const [internalExportToken, setInternalExportToken] = useState(null);
+  const [internalExportTokenExpiresAt, setInternalExportTokenExpiresAt] = useState("");
+  const [internalExportPasswordModalOpen, setInternalExportPasswordModalOpen] = useState(false);
+  const [internalExportPassword, setInternalExportPassword] = useState("");
+  const [internalExportAuthError, setInternalExportAuthError] = useState("");
+  const [internalExportAuthLoading, setInternalExportAuthLoading] = useState(false);
+  const [pendingInternalExportAction, setPendingInternalExportAction] = useState(null);
+  const [manualCopyModal, setManualCopyModal] = useState({ open: false, text: "", filename: "" });
   const [notice, setNotice] = useState("");
   const [pendingResolution, setPendingResolution] = useState(null);
   const [pendingTabFocusTarget, setPendingTabFocusTarget] = useState(null);
@@ -1042,6 +1053,133 @@ export default function App() {
     }
   }
 
+  function formatExportDate(date = new Date()) {
+    return date.toISOString().slice(0, 10);
+  }
+
+  function sanitizeFilenamePart(value, fallback = "asset") {
+    const normalized = String(value || fallback).trim().replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "");
+    return normalized || fallback;
+  }
+
+  function currentAssetSymbol() {
+    return sanitizeFilenamePart(asset?.symbol || asset?.name || query || "asset").toUpperCase();
+  }
+
+  function internalBundleFilename() {
+    return `thesiscore-internal-developer-qa-${currentAssetSymbol()}-${formatExportDate()}.txt`;
+  }
+
+  function protectedInvestorReportFilename() {
+    return `thesiscore-protected-investor-report-${currentAssetSymbol()}-${formatExportDate()}.txt`;
+  }
+
+  function downloadTextFile(text, filename) {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function buildInternalDeveloperQaBundle() {
+    const bundle = buildReviewBundleText({
+      asset,
+      analysis,
+      data,
+      model: decisionModel,
+      displayIdentity: institutionalAssetIdentity,
+      evidenceStatusProxy,
+      analysisQualityExplanation,
+      sourceStatus,
+      providerDiagnostics,
+      notableDiagnostics,
+      providerHealth,
+      officialLinks,
+      whitepaperDocs,
+      scores,
+      confidence,
+      meta,
+      snapshot: null,
+      timelineData: [],
+      compareData: null,
+      aiReport,
+      fundamentals,
+      security,
+    });
+    return [
+      INTERNAL_EXPORT_HEADER,
+      "Purpose: private developer QA/export mirror for ThesisCore internal review only.",
+      "",
+      bundle,
+    ].join("\n");
+  }
+
+  function buildProtectedReport() {
+    return buildProtectedInvestorReportText({
+      asset,
+      analysis,
+      data,
+      model: decisionModel,
+      displayIdentity: institutionalAssetIdentity,
+      evidenceStatusProxy,
+      sourceStatus,
+      providerDiagnostics,
+      providerHealth,
+      scores,
+      confidence,
+      meta,
+    });
+  }
+
+  function hasValidInternalExportToken() {
+    if (!internalExportToken || !internalExportTokenExpiresAt) return false;
+    const expiresMs = new Date(internalExportTokenExpiresAt).getTime();
+    return Number.isFinite(expiresMs) && expiresMs > Date.now() + 1000;
+  }
+
+  function requestInternalExportAccess(action) {
+    if (hasValidInternalExportToken()) {
+      action();
+      return;
+    }
+    setPendingInternalExportAction(() => action);
+    setInternalExportPassword("");
+    setInternalExportAuthError("");
+    setInternalExportPasswordModalOpen(true);
+  }
+
+  async function verifyInternalExportPassword(event) {
+    event?.preventDefault?.();
+    setInternalExportAuthLoading(true);
+    setInternalExportAuthError("");
+    try {
+      const response = await fetchJson(`${API_BASE}/api/internal-export/verify-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: internalExportPassword }),
+      });
+      if (response?.purpose !== "internal_export" || !response?.token || !response?.expiresAt) {
+        throw new Error("Internal export verification returned an invalid token.");
+      }
+      setInternalExportToken(response.token);
+      setInternalExportTokenExpiresAt(response.expiresAt);
+      setInternalExportPassword("");
+      setInternalExportPasswordModalOpen(false);
+      const action = pendingInternalExportAction;
+      setPendingInternalExportAction(null);
+      action?.();
+    } catch (err) {
+      setInternalExportAuthError(normalizeErrorMessage(err instanceof Error ? err.message : "Password verification failed"));
+    } finally {
+      setInternalExportAuthLoading(false);
+    }
+  }
+
   async function writeClipboardText(text) {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -1060,36 +1198,42 @@ export default function App() {
     if (!copied) throw new Error("Clipboard fallback failed");
   }
 
-  async function copyReviewBundle() {
+  async function copyInternalDeveloperQaBundle() {
+    const bundle = buildInternalDeveloperQaBundle();
+    const filename = internalBundleFilename();
     try {
-      const bundle = buildReviewBundleText({
-        asset,
-        analysis,
-        data,
-        model: decisionModel,
-        displayIdentity: institutionalAssetIdentity,
-        evidenceStatusProxy,
-        analysisQualityExplanation,
-        sourceStatus,
-        providerDiagnostics,
-        notableDiagnostics,
-        providerHealth,
-        officialLinks,
-        whitepaperDocs,
-        scores,
-        confidence,
-        meta,
-        snapshot: null,
-        timelineData: [],
-        compareData: null,
-        aiReport,
-        fundamentals,
-        security,
-      });
       await writeClipboardText(bundle);
-      setCopyMessage("Live QA review bundle copied");
+      setCopyMessage("Internal developer QA bundle copied");
     } catch {
-      setCopyMessage("Could not copy review bundle");
+      setManualCopyModal({ open: true, text: bundle, filename });
+      setCopyMessage("Clipboard blocked; manual copy opened");
+    }
+  }
+
+  function downloadInternalDeveloperQaBundle() {
+    downloadTextFile(buildInternalDeveloperQaBundle(), internalBundleFilename());
+    setCopyMessage("Internal developer QA bundle downloaded");
+  }
+
+  function downloadProtectedInvestorReport() {
+    downloadTextFile(buildProtectedReport(), protectedInvestorReportFilename());
+    setCopyMessage("Protected investor report downloaded");
+  }
+
+  async function copyManualBundleAgain() {
+    try {
+      await writeClipboardText(manualCopyModal.text);
+      setCopyMessage("Internal developer QA bundle copied");
+    } catch {
+      setCopyMessage("Clipboard still blocked; use Select all or Download .txt");
+    }
+  }
+
+  function selectManualBundleText() {
+    const textarea = document.getElementById("manual-internal-bundle-textarea");
+    if (textarea) {
+      textarea.focus();
+      textarea.select();
     }
   }
 
@@ -1543,11 +1687,21 @@ export default function App() {
                     <div style={styles.terminalNavHint}>Institutional workflow tabs keep live scoring, report-only evidence, source queues, and raw audit context separated.</div>
                   </div>
                   <div style={styles.reviewBundleActionGroup}>
-                    <button type="button" onClick={copyReviewBundle} style={styles.reviewBundleButton}>
-                      Copy Live QA Bundle
+                    <button type="button" onClick={downloadProtectedInvestorReport} style={styles.reviewBundleButton}>
+                      Download Protected Investor Report
                     </button>
+                    {SHOW_INTERNAL_EXPORTS ? (
+                      <>
+                        <button type="button" onClick={() => requestInternalExportAccess(copyInternalDeveloperQaBundle)} style={styles.reviewBundleButton}>
+                          Copy Internal Developer QA Bundle
+                        </button>
+                        <button type="button" onClick={() => requestInternalExportAccess(downloadInternalDeveloperQaBundle)} style={styles.reviewBundleButton}>
+                          Download Internal Developer QA Bundle
+                        </button>
+                      </>
+                    ) : null}
                     <div style={styles.reviewBundleHint}>
-                      Copies current live full-recompute product-tab QA fields.
+                      Investor report is redacted. Internal QA exports require password verification.
                     </div>
                     {copyMessage ? <div style={styles.copyMessage}>{copyMessage}</div> : null}
                   </div>
@@ -1618,6 +1772,77 @@ export default function App() {
               </button>
             </div>
           </section>
+        ) : null}
+
+        {internalExportPasswordModalOpen ? (
+          <div style={styles.exportModalOverlay} role="presentation">
+            <form style={styles.exportModalCard} onSubmit={verifyInternalExportPassword}>
+              <div style={styles.exportModalEyebrow}>Internal developer export</div>
+              <h2 style={styles.exportModalTitle}>Password required</h2>
+              <p style={styles.exportModalText}>
+                Internal QA bundles include engine diagnostics and are for private developer review only. Password verification happens on the backend; the token is kept in memory and expires quickly.
+              </p>
+              <label style={styles.exportModalLabel} htmlFor="internal-export-password">Internal export password</label>
+              <input
+                id="internal-export-password"
+                type="password"
+                value={internalExportPassword}
+                onChange={(event) => setInternalExportPassword(event.target.value)}
+                style={styles.exportModalInput}
+                autoFocus
+              />
+              {internalExportAuthError ? <div style={styles.exportModalError}>{internalExportAuthError}</div> : null}
+              <div style={styles.exportModalActions}>
+                <button type="submit" disabled={internalExportAuthLoading} style={styles.reviewBundleButton}>
+                  {internalExportAuthLoading ? "Verifying..." : "Verify and Continue"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInternalExportPasswordModalOpen(false);
+                    setPendingInternalExportAction(null);
+                    setInternalExportPassword("");
+                    setInternalExportAuthError("");
+                  }}
+                  style={styles.actionButton}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {manualCopyModal.open ? (
+          <div style={styles.exportModalOverlay} role="presentation">
+            <div style={styles.exportModalCard}>
+              <div style={styles.exportModalEyebrow}>Clipboard recovery</div>
+              <h2 style={styles.exportModalTitle}>Manual Copy Internal Developer QA Bundle</h2>
+              <p style={styles.exportModalText}>
+                Browser clipboard access was blocked. Select the full internal bundle below, retry clipboard copy, or download the text file.
+              </p>
+              <textarea
+                id="manual-internal-bundle-textarea"
+                value={manualCopyModal.text}
+                readOnly
+                style={styles.exportModalTextarea}
+              />
+              <div style={styles.exportModalActions}>
+                <button type="button" onClick={selectManualBundleText} style={styles.reviewBundleButton}>
+                  Select all
+                </button>
+                <button type="button" onClick={copyManualBundleAgain} style={styles.reviewBundleButton}>
+                  Copy again
+                </button>
+                <button type="button" onClick={() => downloadTextFile(manualCopyModal.text, manualCopyModal.filename || internalBundleFilename())} style={styles.reviewBundleButton}>
+                  Download .txt
+                </button>
+                <button type="button" onClick={() => setManualCopyModal({ open: false, text: "", filename: "" })} style={styles.actionButton}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         ) : null}
 
         <div style={styles.disclaimer}>
