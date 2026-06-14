@@ -5449,6 +5449,9 @@ export function buildReviewBundleText({
   ].filter(Boolean).join(" ");
   const rawGenericVisible = includesGenericPrimaryCopy(visiblePrimaryText);
   const rawGenericAudit = includesGenericPrimaryCopy(rawDecisionText);
+  const visibleContractDisplay = safeObject(assetInterpretationContract?.visibleDisplayContract);
+  const visibleBundleLensLabel = visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
+  const visibleBundleFramingLabel = visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
   const tokenizedGoldPrimaryContext = /tokenized_gold|tokenized gold|commodity-backed rwa|commodity backed rwa|paxg|pax gold|physical gold/i.test([
     lens?.lensId,
     lens?.questionGroupId,
@@ -5912,9 +5915,6 @@ export function buildReviewBundleText({
   const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
   const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
-  const visibleContractDisplay = safeObject(assetInterpretationContract?.visibleDisplayContract);
-  const visibleBundleLensLabel = visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
-  const visibleBundleFramingLabel = visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
   const assetInterpretationContractMissing = Boolean(lens?.lensId) && !assetInterpretationContract;
   const dataFirstNarrativeMissing = resolvedLensIsDisplayAuthoritative(lens) && !dataFirstNarrativeContract;
   const assetInterpretationHardGateFailure = Boolean(

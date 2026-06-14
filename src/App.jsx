@@ -1242,13 +1242,13 @@ export default function App() {
       bundle = buildInternalDeveloperQaBundle();
       await writeClipboardText(bundle);
       setCopyMessage("Internal developer QA bundle copied");
-    } catch {
+    } catch (err) {
       if (bundle) {
         setManualCopyModal({ open: true, text: bundle, filename });
         setCopyMessage("Clipboard blocked; manual copy opened");
         return;
       }
-      setCopyMessage("Password accepted, but export action failed: internal bundle generation failed.");
+      setCopyMessage(`Password accepted, but internal bundle generation failed at buildInternalDeveloperQaBundle: ${normalizeErrorMessage(err instanceof Error ? err.message : "bundle generation failed")}`);
     }
   }
 
