@@ -134,6 +134,18 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     source: "decisionModel.tokenomicsSupplyIntegrity",
     color: "#ffb020",
   }));
+  const readiness = model?.scoringReadinessContract || {};
+  const scoringReadinessSignals = [
+    ...safeArray(readiness.hardBlockers),
+    ...safeArray(readiness.confidenceCaps),
+    ...safeArray(readiness.whatWouldChangeScore).slice(0, 4),
+  ].map((entry) => ({
+    label: "Institutional scoring readiness",
+    description: entry,
+    status: "Diagnostic-only review item",
+    source: "decisionModel.scoringReadinessContract",
+    color: "#c7a7ff",
+  }));
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const synthesizedAnswerSignals = [
     ...safeArray(model?.institutionalQuestions),
@@ -208,6 +220,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     ...engineLearningSignals,
     ...synthesizedAnswerSignals,
     ...reviewedEvidenceSignals,
+    ...scoringReadinessSignals,
     ...tokenomicsSignals,
     ...identitySignals,
     ...freshnessSignals,

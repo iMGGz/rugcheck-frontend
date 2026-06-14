@@ -171,6 +171,29 @@ function TokenomicsRailSection({ model, styles }) {
   );
 }
 
+function ScoringReadinessRailSection({ model, styles }) {
+  const readiness = model?.scoringReadinessContract || {};
+  if (!readiness.artifactVersion) return null;
+
+  return (
+    <RailSection title="Scoring Readiness" badge="Diagnostic v1" styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Future scoring status</div>
+        <div style={styles.railMiniValue}>{readiness.overallReadinessStatus || "Status unavailable"}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Family: {readiness.assetFamilyLabel || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Source required: {readiness.sourceRequiredDimensionCount ?? "n/a"}</div>
+        <div style={styles.railBoundaryPill}>Ready: {readiness.scoringReadyDimensionCount ?? "n/a"}</div>
+        <div style={styles.railBoundaryPill}>Legacy score unchanged</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        Evidence-to-scoring architecture only. Reviewed evidence and source candidates are not scoring-active in v1.
+      </div>
+    </RailSection>
+  );
+}
+
 function ReviewedEvidenceRailSection({ model, styles }) {
   const packet = model?.reviewedEvidencePacket || {};
   if (!packet.packetLoaded) return null;
@@ -373,6 +396,8 @@ export default function AnalysisRightRail({
           <FreshnessRailSection model={model} styles={styles} />
 
           <TokenomicsRailSection model={model} styles={styles} />
+
+          <ScoringReadinessRailSection model={model} styles={styles} />
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 

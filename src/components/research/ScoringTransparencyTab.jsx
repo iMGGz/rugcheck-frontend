@@ -86,6 +86,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   );
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
+  const scoringReadinessContract = safeObject(safeModel.scoringReadinessContract);
   const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics || safeModel.providerRawDataExpansion?.rawDataCoverageDiagnostics);
 
   return [
@@ -144,6 +145,16 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Does not change the existing overall score or verdict in this release.",
       attached: hasAttachedValue(tokenomicsSupplyIntegrity),
+    },
+    {
+      title: "Institutional Scoring Readiness",
+      value: readableValue(scoringReadinessContract.overallReadinessStatus),
+      source: hasAttachedValue(scoringReadinessContract) ? "scoringReadinessContract.overallReadinessStatus" : "Not attached",
+      rule: "Evidence-to-scoring architecture for future calibrated scoring. It maps required evidence, live metrics, caps, and blockers without changing the current score.",
+      live: "Diagnostic only in v1",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: "Existing overall score and verdict remain unchanged.",
+      attached: hasAttachedValue(scoringReadinessContract),
     },
     {
       title: "Raw Data Coverage",
@@ -305,6 +316,71 @@ function CalibrationWarningTransparency({ warnings, styles }) {
   );
 }
 
+function ScoringReadinessTransparency({ readiness, styles }) {
+  const contract = safeObject(readiness);
+  if (!contract.artifactVersion) return null;
+  const dimensions = safeArray(contract.dimensions);
+  const sourceRequired = dimensions.filter((dimension) => dimension.evidenceStatus === "source_required" || safeArray(dimension.missingEvidence).length);
+  const scoringReady = dimensions.filter((dimension) => dimension.evidenceStatus === "scoring_ready");
+
+  return (
+    <Card
+      title="Institutional Scoring Readiness"
+      subtitle="Future evidence-to-scoring architecture. Diagnostic only; current overall score and verdict are unchanged."
+      styles={styles}
+    >
+      <div style={styles.scoringBoundaryStrip}>
+        {boundaryChip(styles, "Diagnostic only")}
+        {boundaryChip(styles, "Legacy score unchanged")}
+        {boundaryChip(styles, "Reviewed evidence not scoring-active")}
+        {boundaryChip(styles, "Source candidates not promoted")}
+      </div>
+      <div style={styles.scoringModuleGrid}>
+        <ModuleCard
+          module={{
+            title: "Asset-family readiness",
+            value: titleCase(contract.overallReadinessStatus || "Unavailable"),
+            source: "scoringReadinessContract",
+            rule: contract.committeeMemoPreview?.readinessSummary || `${contract.assetFamilyLabel || "Asset family"} readiness model.`,
+            live: "Diagnostic only in v1",
+            reportOnly: "No, mirrored in live tabs and bundle",
+            caveat: contract.legacyScoreBoundary || "Legacy score and verdict unchanged.",
+            attached: true,
+          }}
+          styles={styles}
+        />
+        <ModuleCard
+          module={{
+            title: "Dimension coverage",
+            value: `${contract.scoringReadyDimensionCount ?? scoringReady.length} ready / ${contract.sourceRequiredDimensionCount ?? sourceRequired.length} source-required`,
+            source: "scoringReadinessContract.dimensions",
+            rule: "Counts readiness dimensions that are source-backed, blocked, or still missing required evidence/live metrics.",
+            live: "Diagnostic only in v1",
+            reportOnly: "No",
+            caveat: "Readiness counts are not weights and do not replace the live score.",
+            attached: true,
+          }}
+          styles={styles}
+        />
+      </div>
+      <ListBlock
+        title="Top readiness gaps"
+        items={safeArray(contract.whatWouldChangeScore).slice(0, 6)}
+        emptyText="No scoring-readiness gap list was attached."
+        color="#f9d976"
+        styles={styles}
+      />
+      <ListBlock
+        title="Confidence caps / blockers"
+        items={[...safeArray(contract.confidenceCaps), ...safeArray(contract.hardBlockers)].slice(0, 8)}
+        emptyText="No scoring-readiness caps or blockers were attached."
+        color="#ffb020"
+        styles={styles}
+      />
+    </Card>
+  );
+}
+
 export default function ScoringTransparencyTab({
   analysis,
   scores,
@@ -329,6 +405,7 @@ export default function ScoringTransparencyTab({
   const overallModule = modules.find((module) => module.title === "Overall Score");
   const capsModule = modules.find((module) => module.title === "Policy Caps / Gates");
   const tokenomicsModule = modules.find((module) => module.title === "Tokenomics Supply Integrity");
+  const scoringReadinessModule = modules.find((module) => module.title === "Institutional Scoring Readiness");
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -377,15 +454,17 @@ export default function ScoringTransparencyTab({
         />
         <QuestionPromptCard
           question="Which signals are diagnostic-only?"
-          answer={tokenomicsModule?.rule || "Diagnostic-only module context was not attached."}
+          answer={scoringReadinessModule?.rule || tokenomicsModule?.rule || "Diagnostic-only module context was not attached."}
           status="Diagnostic only"
           impact="Not overall scoring"
-          sourceState={tokenomicsModule?.source || "Not attached"}
+          sourceState={scoringReadinessModule?.source || tokenomicsModule?.source || "Not attached"}
           styles={styles}
         />
       </div>
 
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
+
+      <ScoringReadinessTransparency readiness={model?.scoringReadinessContract} styles={styles} />
 
       <TokenomicsSupplyIntegrityCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} compact />
 

@@ -134,6 +134,23 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     source: "decisionModel.tokenomicsSupplyIntegrity.sourceRequirements",
     color: "#ffb020",
   }));
+  const readiness = model?.scoringReadinessContract || {};
+  const scoringReadinessLeads = [
+    ...safeArray(readiness.whatWouldChangeScore).slice(0, 6).map((entry) => ({
+      label: "Scoring-readiness evidence requirement",
+      description: entry,
+      status: "Diagnostic-only source requirement",
+      source: "decisionModel.scoringReadinessContract.whatWouldChangeScore",
+      color: "#c7a7ff",
+    })),
+    ...safeArray(readiness.liveMetricRequirements).slice(0, 4).map((entry) => ({
+      label: "Live metric readiness requirement",
+      description: entry,
+      status: "Future scoring input candidate",
+      source: "decisionModel.scoringReadinessContract.liveMetricRequirements",
+      color: "#9bd7ff",
+    })),
+  ];
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const synthesizedLeads = [
     ...safeArray(model?.institutionalQuestions),
@@ -198,6 +215,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     ...engineLearningLeads,
     ...reviewedCoverageLeads,
     ...synthesizedLeads,
+    ...scoringReadinessLeads,
     ...tokenomicsLeads,
     ...identityLeads,
     ...freshnessLeads,

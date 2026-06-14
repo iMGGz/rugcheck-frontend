@@ -240,6 +240,27 @@ function buildTokenomicsEvidenceRows(model) {
   ];
 }
 
+function buildScoringReadinessEvidenceRows(model) {
+  const readiness = model?.scoringReadinessContract || {};
+  if (!readiness.artifactVersion) return [];
+  return [
+    {
+      key: "scoring-readiness-summary",
+      label: "Institutional scoring readiness",
+      value: `${readiness.assetFamilyLabel || "Asset-family schema"} | ${readiness.overallReadinessStatus || "status unavailable"} | source-required dimensions: ${readiness.sourceRequiredDimensionCount ?? "unknown"}.`,
+      sourceType: "Diagnostic scoring-readiness contract",
+      boundary: readiness.legacyScoreBoundary || "Future evidence-to-scoring architecture only; current score and verdict unchanged.",
+    },
+    ...safeArray(readiness.sourceMatrixEntries).slice(0, 6).map((entry) => ({
+      key: `scoring-readiness-matrix-${entry.dimensionId}`,
+      label: `Readiness dimension: ${entry.dimensionId || "dimension"}`,
+      value: `Status: ${entry.evidenceStatus || "unknown"}; missing: ${safeArray(entry.missingEvidence).slice(0, 3).join("; ") || "none listed"}.`,
+      sourceType: "Evidence-to-scoring bridge",
+      boundary: "Required evidence/live metrics are diagnostic only in v1 and are not scoring-active.",
+    })),
+  ];
+}
+
 function buildReviewedEvidenceRows(model) {
   const packet = model?.reviewedEvidencePacket || {};
   const synthesizedRows = [
@@ -396,6 +417,7 @@ export default function EvidenceMapTab({
   const calibrationWarningRows = buildCalibrationWarningRows(model);
   const assetIdentityRows = buildAssetIdentityRows(model);
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
+  const scoringReadinessEvidenceRows = buildScoringReadinessEvidenceRows(model);
   const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
   const engineLearningEvidenceRows = buildEngineLearningEvidenceRows(model);
   const rawDataCoverageRows = buildRawDataCoverageRows(model);
@@ -404,6 +426,7 @@ export default function EvidenceMapTab({
     ...engineLearningEvidenceRows,
     ...reviewedEvidenceRows,
     ...assetIdentityRows,
+    ...scoringReadinessEvidenceRows,
     ...tokenomicsEvidenceRows,
     ...lensEvidenceRows,
     ...lensBoundaryRows,

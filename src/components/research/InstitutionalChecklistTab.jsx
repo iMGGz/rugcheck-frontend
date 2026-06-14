@@ -936,6 +936,40 @@ function ChecklistGroup({ group, signals, styles }) {
   );
 }
 
+function ScoringReadinessChecklistImpact({ readiness, styles }) {
+  const contract = safeObject(readiness);
+  if (!contract.artifactVersion) return null;
+  const dimensions = safeArray(contract.dimensions);
+  const sourceRequired = dimensions.filter((dimension) => dimension.evidenceStatus === "source_required" || safeArray(dimension.missingEvidence).length);
+
+  return (
+    <Card
+      title="Scoring Readiness Impact"
+      subtitle="Diagnostic mapping from institutional answers to future evidence-to-scoring readiness."
+      styles={styles}
+    >
+      <div style={styles.evidenceMapBoundaryStrip}>
+        {boundaryChip(styles, "Diagnostic only")}
+        {boundaryChip(styles, "Legacy score/verdict unchanged")}
+        {boundaryChip(styles, "Reviewed evidence not scoring-active")}
+      </div>
+      <div style={styles.checklistBridgeGrid}>
+        <div style={styles.checklistBridgeNode}>Family: {contract.assetFamilyLabel || "Unavailable"}</div>
+        <div style={styles.checklistBridgeNode}>Status: {labelize(contract.overallReadinessStatus || "unavailable")}</div>
+        <div style={styles.checklistBridgeNode}>Ready: {contract.scoringReadyDimensionCount ?? 0}</div>
+        <div style={styles.checklistBridgeNode}>Source required: {contract.sourceRequiredDimensionCount ?? sourceRequired.length}</div>
+      </div>
+      <ListBlock
+        title="Top readiness gaps"
+        items={safeArray(contract.whatWouldChangeScore).slice(0, 5)}
+        emptyText="No scoring-readiness gaps were attached."
+        color="#f9d976"
+        styles={styles}
+      />
+    </Card>
+  );
+}
+
 export default function InstitutionalChecklistTab({
   asset,
   analysis,
@@ -1030,6 +1064,8 @@ export default function InstitutionalChecklistTab({
             calibrationWarnings={calibrationWarnings || model?.calibrationWarnings}
             styles={styles}
           />
+
+          <ScoringReadinessChecklistImpact readiness={model?.scoringReadinessContract} styles={styles} />
 
           <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} />
 

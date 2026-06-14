@@ -418,6 +418,70 @@ export function normalizeDataFirstNarrativeContractPayload(responseLike) {
   };
 }
 
+export function normalizeScoringReadinessContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.scoringReadinessContract);
+  const nestedContract = safeObject(nestedAnalysis.scoringReadinessContract);
+  const contract = rootContract.artifactVersion || rootContract.dimensions
+    ? rootContract
+    : nestedContract.artifactVersion || nestedContract.dimensions
+      ? nestedContract
+      : null;
+
+  if (!contract) return null;
+
+  return {
+    ...contract,
+    sourceProfile: safeObject(contract.sourceProfile),
+    sourceMatrixEntries: safeArray(contract.sourceMatrixEntries).map((entry) => ({
+      ...safeObject(entry),
+      requiredEvidence: safeArray(entry?.requiredEvidence),
+      requiredLiveMetrics: safeArray(entry?.requiredLiveMetrics),
+      availableEvidence: safeArray(entry?.availableEvidence),
+      missingEvidence: safeArray(entry?.missingEvidence),
+    })),
+    dimensions: safeArray(contract.dimensions).map((dimension) => ({
+      ...safeObject(dimension),
+      requiredEvidence: safeArray(dimension?.requiredEvidence),
+      requiredLiveMetrics: safeArray(dimension?.requiredLiveMetrics),
+      availableEvidence: safeArray(dimension?.availableEvidence),
+      missingEvidence: safeArray(dimension?.missingEvidence),
+      hardBlockers: safeArray(dimension?.hardBlockers),
+      confidenceCaps: safeArray(dimension?.confidenceCaps),
+      whatImprovesReadiness: safeArray(dimension?.whatImprovesReadiness),
+      whatReducesReadiness: safeArray(dimension?.whatReducesReadiness),
+      whatWouldChange: safeArray(dimension?.whatWouldChange),
+      monitoringTriggers: safeArray(dimension?.monitoringTriggers),
+      sourceBoundary: safeArray(dimension?.sourceBoundary),
+    })),
+    evidenceToScoringBridge: {
+      ...safeObject(contract.evidenceToScoringBridge),
+      dimensions: safeArray(contract.evidenceToScoringBridge?.dimensions),
+      blockedDimensions: safeArray(contract.evidenceToScoringBridge?.blockedDimensions),
+      sourceRequiredDimensions: safeArray(contract.evidenceToScoringBridge?.sourceRequiredDimensions),
+      scoringReadyDimensions: safeArray(contract.evidenceToScoringBridge?.scoringReadyDimensions),
+      confidenceCapReasons: safeArray(contract.evidenceToScoringBridge?.confidenceCapReasons),
+      sourceBoundary: safeArray(contract.evidenceToScoringBridge?.sourceBoundary),
+    },
+    committeeMemoPreview: {
+      ...safeObject(contract.committeeMemoPreview),
+      majorEvidenceGaps: safeArray(contract.committeeMemoPreview?.majorEvidenceGaps),
+    },
+    hardBlockers: safeArray(contract.hardBlockers),
+    confidenceCaps: safeArray(contract.confidenceCaps),
+    liveMetricRequirements: safeArray(contract.liveMetricRequirements),
+    whatWouldChangeScore: safeArray(contract.whatWouldChangeScore),
+    monitoringTriggers: safeArray(contract.monitoringTriggers),
+    sourceBoundary: safeArray(contract.sourceBoundary),
+    guardrails: safeObject(contract.guardrails),
+    frontendContract: {
+      ...safeObject(contract.frontendContract),
+      visibleSurfaces: safeArray(contract.frontendContract?.visibleSurfaces),
+    },
+  };
+}
+
 function dataFirstGeneratedText(contract, fieldName) {
   return safeArray(contract?.generatedNarrativeFields)
     .find((field) => field?.fieldName === fieldName && field?.status !== "FAIL")?.generatedText || null;
@@ -1007,6 +1071,7 @@ export function buildProtectedInvestorReportText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const questions = safeArray(safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions);
   const tokenomicsQuestions = safeArray(tokenomicsSupplyIntegrity?.institutionalQuestions);
   const sourceStatusObject = safeObject(sourceStatus || safeData.sourceStatus);
@@ -1088,16 +1153,26 @@ export function buildProtectedInvestorReportText({
     reportLine("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
     reportLine("Primary tokenomics blocker", tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
     "",
-    "5. Missing Evidence / Source Requirements",
+    "5. Institutional Scoring Readiness",
+    reportLine("Readiness status", scoringReadinessContract?.overallReadinessStatus ? `${titleCase(scoringReadinessContract.overallReadinessStatus)} (diagnostic only)` : "Not available yet."),
+    reportLine("Asset-family model", scoringReadinessContract?.assetFamilyLabel),
+    reportLine("Legacy score boundary", scoringReadinessContract ? "Existing score and verdict unchanged; readiness is not scoring-active in v1." : "Not available yet."),
+    ...formatReportList(
+      normalizeRenderableList(scoringReadinessContract?.committeeMemoPreview?.majorEvidenceGaps || scoringReadinessContract?.whatWouldChangeScore).slice(0, 5),
+      "No scoring-readiness gap summary was surfaced in the protected report model.",
+      5,
+    ),
+    "",
+    "6. Missing Evidence / Source Requirements",
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
     "",
-    "6. What Would Change",
+    "7. What Would Change",
     ...formatReportList(whatWouldChange, "Reviewed sources and updated live provider data would be required before stronger language is shown.", 8),
     "",
-    "7. Provider Context",
+    "8. Provider Context",
     ...providerSummary.map((item) => `- ${item}`),
     "",
-    "8. Methodology / Limitations",
+    "9. Methodology / Limitations",
     "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
     "- Provider-reported values are not treated as reviewed evidence.",
     "- Missing data is not negative proof; it is a source requirement or confidence constraint.",
@@ -3785,6 +3860,7 @@ export function buildDecisionTerminalModel({
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
+  const scoringReadinessContract = normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const providerCategorySignals = normalizeProviderCategorySignalsPayload(safeAnalysis);
   const categoryDrivenAssetFamilyContract = normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
@@ -4087,6 +4163,7 @@ export function buildDecisionTerminalModel({
     reviewedEvidencePacket,
     assetInterpretationContract,
     dataFirstNarrativeContract,
+    scoringReadinessContract,
     engineLearningBackbone,
     providerCategorySignals,
     categoryDrivenAssetFamilyContract,
@@ -5360,6 +5437,7 @@ export function buildReviewBundleText({
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
+  const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const providerCategorySignals = safeModel.providerCategorySignals || normalizeProviderCategorySignalsPayload(safeData) || normalizeProviderCategorySignalsPayload(safeAnalysis);
   const categoryDrivenAssetFamilyContract = safeModel.categoryDrivenAssetFamilyContract || normalizeCategoryDrivenAssetFamilyContractPayload(safeData) || normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
@@ -6274,6 +6352,69 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(dataFirstNarrativeContract?.knownLimitations),
     ]),
+    bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
+      bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),
+      bundleField("Artifact version", scoringReadinessContract?.artifactVersion),
+      bundleField("Contract status", scoringReadinessContract?.contractStatus),
+      bundleField("Asset family", scoringReadinessContract?.assetFamily),
+      bundleField("Asset family label", scoringReadinessContract?.assetFamilyLabel),
+      bundleField("Overall readiness status", scoringReadinessContract?.overallReadinessStatus),
+      bundleField("Overall readiness score", scoringReadinessContract?.overallReadinessScore),
+      bundleField("Legacy score", scoringReadinessContract?.legacyScore),
+      bundleField("Legacy verdict", scoringReadinessContract?.legacyVerdict),
+      bundleField("Legacy confidence", scoringReadinessContract?.legacyConfidence),
+      bundleField("Legacy score boundary", scoringReadinessContract?.legacyScoreBoundary),
+      bundleField("Scoring integration", scoringReadinessContract?.scoringIntegration),
+      bundleField("Diagnostic only", yesNoUnknown(scoringReadinessContract?.guardrails?.diagnosticOnly)),
+      bundleField("Legacy score changed", yesNoUnknown(scoringReadinessContract?.guardrails?.legacyScoreChanged)),
+      bundleField("Legacy verdict changed", yesNoUnknown(scoringReadinessContract?.guardrails?.legacyVerdictChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(scoringReadinessContract?.guardrails?.providerBehaviorChanged)),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(scoringReadinessContract?.guardrails?.reviewedEvidenceScoringActive)),
+      bundleField("Source candidates promoted", yesNoUnknown(scoringReadinessContract?.guardrails?.sourceCandidatesPromoted)),
+      bundleField("Token-specific overrides", yesNoUnknown(scoringReadinessContract?.guardrails?.tokenSpecificOverrides)),
+      bundleField("Snapshot disabled", yesNoUnknown(scoringReadinessContract?.guardrails?.snapshotDisabled)),
+      bundleField("Partial refresh disabled", yesNoUnknown(scoringReadinessContract?.guardrails?.partialRefreshDisabled)),
+      bundleField("Ready / blocked / source-required dimensions", `${bundleValue(scoringReadinessContract?.scoringReadyDimensionCount)} / ${bundleValue(scoringReadinessContract?.blockedDimensionCount)} / ${bundleValue(scoringReadinessContract?.sourceRequiredDimensionCount)}`),
+      bundleField("Reviewed-evidence-ready dimensions", scoringReadinessContract?.reviewedEvidenceReadyDimensionCount),
+      bundleField("Live-data-required dimensions", scoringReadinessContract?.liveDataRequiredDimensionCount),
+      bundleField("Hard blocker count", scoringReadinessContract?.hardBlockerCount),
+      bundleField("Confidence cap count", scoringReadinessContract?.confidenceCapCount),
+      "Dimensions:",
+      bundleList(safeArray(scoringReadinessContract?.dimensions).map((dimension) =>
+        `${dimension.dimensionId || "dimension"} | ${dimension.dimensionLabel || "label unavailable"} | status=${dimension.evidenceStatus || "unknown"} | scoringActive=${dimension.isScoringActive ? "yes" : "no"} | missing=${safeArray(dimension.missingEvidence).slice(0, 3).join("; ") || "none"}`
+      )),
+      "Source matrix entries:",
+      bundleList(safeArray(scoringReadinessContract?.sourceMatrixEntries).map((entry) =>
+        `${entry.dimensionId || "dimension"} | status=${entry.evidenceStatus || "unknown"} | available=${safeArray(entry.availableEvidence).length} | missing=${safeArray(entry.missingEvidence).length}`
+      )),
+      "Evidence-to-scoring bridge:",
+      bundleList(safeArray(scoringReadinessContract?.evidenceToScoringBridge?.dimensions).map((entry) =>
+        `${entry.dimensionId || "dimension"} | status=${entry.evidenceStatus || "unknown"} | eligible=${entry.futureScoringEligible ? "future" : "no"} | scoringActive=${entry.isScoringActive ? "yes" : "no"} | blocked=${entry.blocked ? "yes" : "no"}`
+      )),
+      "Hard blockers:",
+      bundleList(scoringReadinessContract?.hardBlockers),
+      "Confidence caps:",
+      bundleList(scoringReadinessContract?.confidenceCaps),
+      "Live metric requirements:",
+      bundleList(scoringReadinessContract?.liveMetricRequirements),
+      "What would change score readiness:",
+      bundleList(scoringReadinessContract?.whatWouldChangeScore),
+      "Monitoring triggers:",
+      bundleList(scoringReadinessContract?.monitoringTriggers),
+      "Committee memo preview:",
+      bundleList([
+        scoringReadinessContract?.committeeMemoPreview?.readinessSummary,
+        scoringReadinessContract?.committeeMemoPreview?.committeeCaveat,
+        ...safeArray(scoringReadinessContract?.committeeMemoPreview?.majorEvidenceGaps),
+      ]),
+      "Frontend visibility:",
+      bundleList(scoringReadinessContract?.frontendContract?.visibleSurfaces),
+      bundleField("Frontend normalization field", scoringReadinessContract?.frontendContract?.frontendNormalizationField),
+      bundleField("Review Bundle section", scoringReadinessContract?.frontendContract?.reviewBundleSection),
+      bundleField("Protected Investor Report redaction", scoringReadinessContract?.frontendContract?.protectedInvestorReportRedaction),
+      "Source boundary:",
+      bundleList(scoringReadinessContract?.sourceBoundary),
+    ]),
     bundleSection("2AC. Category-Driven Question Registry & API Category Signals", [
       bundleField("Provider category signals attached", providerCategorySignals ? "yes" : "missing"),
       bundleField("Asset-family contract attached", categoryDrivenAssetFamilyContract ? "yes" : "missing"),
@@ -6767,6 +6908,13 @@ export function buildReviewBundleText({
       bundleObjectRows(tokenomicsSupplyIntegrity?.auditRawFields),
     ]),
     bundleSection("7. Evidence Map / Source Trace", [
+      "Scoring readiness evidence bridge:",
+      bundleList([
+        scoringReadinessContract
+          ? `${scoringReadinessContract.assetFamilyLabel || "Asset-family model"} | ${scoringReadinessContract.overallReadinessStatus || "status unavailable"} | reviewed-ready=${bundleValue(scoringReadinessContract.reviewedEvidenceReadyDimensionCount)} | source-required=${bundleValue(scoringReadinessContract.sourceRequiredDimensionCount)}`
+          : "Scoring readiness contract unavailable.",
+        ...safeArray(scoringReadinessContract?.sourceMatrixEntries).slice(0, 6).map((entry) => `${entry.dimensionId || "dimension"} | ${entry.evidenceStatus || "unknown"} | missing=${safeArray(entry.missingEvidence).slice(0, 2).join("; ") || "none"}`),
+      ]),
       "Live provider evidence rows / source statuses:",
       bundleObjectRows(sourceStatusObject),
       "Provider diagnostics summary:",
@@ -6816,6 +6964,14 @@ export function buildReviewBundleText({
       bundleList(safeModel.topNegativeDrivers),
       "Caveats / warnings:",
       bundleList([...safeModel.auditAlerts, ...warnings]),
+      "Institutional scoring readiness:",
+      bundleList([
+        scoringReadinessContract
+          ? `${scoringReadinessContract.overallReadinessStatus || "unknown"}; diagnostic-only; legacy score/verdict unchanged.`
+          : "Scoring readiness contract unavailable.",
+        ...safeArray(scoringReadinessContract?.confidenceCaps).slice(0, 5),
+        ...safeArray(scoringReadinessContract?.hardBlockers).slice(0, 5),
+      ]),
     ]),
     bundleSection("9. Source Queue", [
       bundleField("Source lifecycle explainer", "Candidate -> Manual intake -> ManualSourceEvidenceItem -> Mapping -> Report-only overlay. Candidate/report-only layers are not live scoring input."),
@@ -6832,6 +6988,7 @@ export function buildReviewBundleText({
         ...safeModel.requiredConditions,
         ...safeModel.missingCritical,
         ...(safeModel.whatWouldChangeDecision?.items || []),
+        ...safeArray(scoringReadinessContract?.whatWouldChangeScore).slice(0, 6),
       ]),
       "Suggested research domains:",
       bundleList(suggestedResearchDomains),
@@ -6907,6 +7064,7 @@ export function buildReviewBundleText({
         `providerCategorySignals: ${providerCategorySignals ? "present" : "missing"}`,
         `providerRawDataExpansion: ${providerRawDataExpansion ? "present" : "missing"}`,
         `rawDataCoverageDiagnostics: ${rawDataCoverageDiagnostics ? "present" : "missing"}`,
+        `scoringReadinessContract: ${scoringReadinessContract ? "present" : "missing"}`,
         `categoryDrivenAssetFamilyContract: ${categoryDrivenAssetFamilyContract ? "present" : "missing"}`,
         `categoryDataRequirementProfiles: ${categoryDataRequirementProfiles ? "present" : "missing"}`,
         `categoryAnswerBuilder: ${categoryAnswerBuilder ? "present" : "missing"}`,
@@ -7051,6 +7209,13 @@ export function buildReviewBundleText({
       bundleField("High FDV/market-cap without dilution note", yesNoUnknown(tokenomicsHighFdvWithoutDilutionNote)),
       bundleField("Provider numeric rows missing despite tokenomics values", yesNoUnknown(tokenomicsProviderRowsMissing)),
       bundleField("Tokenomics tab missing while tokenomics object exists", tokenomicsSupplyIntegrity ? "no" : "unknown"),
+      bundleField("Scoring Readiness contract present in frontend model", scoringReadinessContract ? "yes" : "missing"),
+      bundleField("Scoring Readiness remains diagnostic-only", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.diagnosticOnly === true && scoringReadinessContract.scoringIntegration === "diagnostic_only_v1_legacy_score_unchanged") : "unknown"),
+      bundleField("Scoring Readiness changed legacy score/verdict", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.legacyScoreChanged || scoringReadinessContract.guardrails?.legacyVerdictChanged) : "unknown"),
+      bundleField("Scoring Readiness promoted reviewed evidence to scoring-active", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.reviewedEvidenceScoringActive || safeArray(scoringReadinessContract.dimensions).some((dimension) => dimension.isScoringActive)) : "unknown"),
+      bundleField("Scoring Readiness source candidates promoted", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.sourceCandidatesPromoted) : "unknown"),
+      bundleField("Scoring Readiness visible in live tabs", scoringReadinessContract ? yesNoUnknown(safeArray(scoringReadinessContract.frontendContract?.visibleSurfaces).includes("Decision Header") && safeArray(scoringReadinessContract.frontendContract?.visibleSurfaces).includes("Scoring Transparency")) : "unknown"),
+      bundleField("Protected Investor Report redacts scoring-readiness internals", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.frontendContract?.protectedInvestorReportRedaction === "high_level_summary_only_no_internal_ids") : "unknown"),
       bundleField("Formula outputs missing while numeric inputs exist", yesNoUnknown(tokenomicsFormulaOutputsMissing)),
       bundleField("Q&A answers missing formula/data linkage", yesNoUnknown(tokenomicsQuestionsMissingLinkage)),
       bundleField("Tokenomics Q&A not rendered as question-first accordion model", yesNoUnknown(tokenomicsQuestionAccordionMirrorMissing)),
