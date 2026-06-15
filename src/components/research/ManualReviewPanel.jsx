@@ -182,6 +182,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       })),
   ];
   const engineLearning = model?.engineLearningBackbone || {};
+  const feedbackLoop = engineLearning.engineLearningFeedbackLoop || {};
   const engineLearningSignals = [
     ...safeArray(engineLearning.outputQaChecks)
       .filter((check) => check.status === "fail" || check.status === "advisory")
@@ -200,6 +201,16 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       source: "decisionModel.engineLearningBackbone.calibrationAnomalies",
       color: "#f9d976",
     })),
+    ...safeArray(feedbackLoop.findingsApplied)
+      .filter((finding) => finding.manualReviewRequired)
+      .slice(0, 5)
+      .map((finding) => ({
+        label: "Engine learning feedback",
+        description: `${finding.title || finding.findingType || "Finding"}: ${finding.summary || finding.expectedBehavior || "Manual review required."}`,
+        status: "Diagnostic review item",
+        source: "decisionModel.engineLearningBackbone.engineLearningFeedbackLoop.findingsApplied",
+        color: "#c7a7ff",
+      })),
   ];
   const rawDataExpansion = model?.providerRawDataExpansion || {};
   const rawDataCoverage = model?.rawDataCoverageDiagnostics || rawDataExpansion.rawDataCoverageDiagnostics || {};

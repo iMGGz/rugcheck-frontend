@@ -181,6 +181,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     })),
   ];
   const engineLearning = model?.engineLearningBackbone || {};
+  const feedbackLoop = engineLearning.engineLearningFeedbackLoop || {};
   const engineLearningLeads = [
     ...safeArray(engineLearning.sourceRequirementsTriggered).slice(0, 3).map((entry) => ({
       label: "Engine-learning source requirement",
@@ -195,6 +196,13 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       status: entry.scoringActive ? "QA warning: scoring-active" : "Candidate only",
       source: "decisionModel.engineLearningBackbone.sourceCandidates",
       color: "#9bd7ff",
+    })),
+    ...safeArray(feedbackLoop.sourceRequirementTemplatesProposed).slice(0, 5).map((entry) => ({
+      label: "Learning feedback source requirement",
+      description: entry,
+      status: "Diagnostic proposal",
+      source: "decisionModel.engineLearningBackbone.engineLearningFeedbackLoop.sourceRequirementTemplatesProposed",
+      color: "#c7a7ff",
     })),
   ];
   const rawDataExpansion = model?.providerRawDataExpansion || {};

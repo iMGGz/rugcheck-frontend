@@ -87,6 +87,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
   const scoringReadinessContract = safeObject(safeModel.scoringReadinessContract);
+  const engineLearningFeedbackLoop = safeObject(safeModel.engineLearningBackbone?.engineLearningFeedbackLoop);
   const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics || safeModel.providerRawDataExpansion?.rawDataCoverageDiagnostics);
 
   return [
@@ -155,6 +156,18 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Existing overall score and verdict remain unchanged.",
       attached: hasAttachedValue(scoringReadinessContract),
+    },
+    {
+      title: "Engine Learning Feedback Loop",
+      value: hasAttachedValue(engineLearningFeedbackLoop)
+        ? `${safeArray(engineLearningFeedbackLoop.findingsApplied).length} QA finding${safeArray(engineLearningFeedbackLoop.findingsApplied).length === 1 ? "" : "s"}`
+        : "Not attached",
+      source: hasAttachedValue(engineLearningFeedbackLoop) ? "engineLearningBackbone.engineLearningFeedbackLoop" : "Not attached",
+      rule: "Captures manual QA and deterministic runtime findings as inactive rule candidates.",
+      live: "Diagnostic only in v1",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: "Does not change score, verdict, provider behavior, or reviewed-evidence status.",
+      attached: hasAttachedValue(engineLearningFeedbackLoop),
     },
     {
       title: "Raw Data Coverage",
