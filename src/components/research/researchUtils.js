@@ -81,6 +81,24 @@ export function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+export const BENCHMARK_SEARCH_PRESETS = [
+  { presetId: "benchmark_btc_native_pow_monetary", symbol: "BTC", label: "BTC", query: "BTC", name: "Bitcoin", coingeckoId: "bitcoin", coinmarketcapId: 1, family: "Native PoW monetary / settlement benchmark", badge: "Native benchmark" },
+  { presetId: "benchmark_wbtc_wrapped_custodial", symbol: "WBTC", label: "WBTC", query: "WBTC", name: "Wrapped Bitcoin", coingeckoId: "wrapped-bitcoin", coinmarketcapId: 3717, family: "Wrapped BTC / backing and redemption benchmark", badge: "Wrapped backing" },
+  { presetId: "benchmark_eth_native_pos_gas", symbol: "ETH", label: "ETH", query: "ETH", name: "Ethereum", coingeckoId: "ethereum", coinmarketcapId: 1027, family: "PoS smart-contract settlement / gas asset", badge: "Settlement benchmark" },
+  { presetId: "benchmark_steth_lst", symbol: "stETH", label: "stETH", query: "stETH", name: "Lido Staked Ether", coingeckoId: "staked-ether", coinmarketcapId: 8085, family: "Liquid staking derivative", badge: "LST" },
+  { presetId: "benchmark_paxg_tokenized_gold", symbol: "PAXG", label: "PAXG", query: "PAXG", name: "PAX Gold", coingeckoId: "pax-gold", coinmarketcapId: 4705, family: "Tokenized commodity / RWA", badge: "RWA asset" },
+  { presetId: "benchmark_xrp_payments_settlement", symbol: "XRP", label: "XRP", query: "XRP", name: "XRP", coingeckoId: "ripple", coinmarketcapId: 52, family: "Payments / settlement network", badge: "Payments" },
+  { presetId: "benchmark_usdc_issuer_native_stablecoin", symbol: "USDC", label: "USDC", query: "USDC", name: "USDC", coingeckoId: "usd-coin", coinmarketcapId: 3408, family: "Issuer-native multichain stablecoin", badge: "Stablecoin" },
+  { presetId: "benchmark_ada_non_eth_l1", symbol: "ADA", label: "ADA", query: "ADA", name: "Cardano", coingeckoId: "cardano", coinmarketcapId: 2010, family: "PoS base-layer settlement asset", badge: "Native L1" },
+  { presetId: "benchmark_ondo_rwa_protocol_token", symbol: "ONDO", label: "ONDO", query: "ONDO", name: "Ondo", coingeckoId: "ondo-finance", coinmarketcapId: 21159, family: "RWA protocol / tokenized finance boundary", badge: "RWA protocol" },
+  { presetId: "benchmark_link_oracle_infrastructure", symbol: "LINK", label: "LINK", query: "LINK", name: "Chainlink", coingeckoId: "chainlink", coinmarketcapId: 1975, family: "Oracle / infrastructure security economics", badge: "Oracle" },
+  { presetId: "benchmark_uni_defi_governance", symbol: "UNI", label: "UNI", query: "UNI", name: "Uniswap", coingeckoId: "uniswap", coinmarketcapId: 7083, family: "DeFi governance / value-capture boundary", badge: "DeFi" },
+  { presetId: "benchmark_rss3_ambiguous_infra_data", symbol: "RSS3", label: "RSS3", query: "RSS3", name: "RSS3", coingeckoId: "rss3", coinmarketcapId: 17917, family: "Open information / infrastructure token", badge: "Infra" },
+  { presetId: "benchmark_avax_non_benchmark_l1", symbol: "AVAX", label: "AVAX", query: "AVAX", name: "Avalanche", coingeckoId: "avalanche-2", coinmarketcapId: 5805, family: "Non-benchmark native L1", badge: "Native L1" },
+  { presetId: "benchmark_ixs_rwa_exchange_infra", symbol: "IXS", label: "IXS", query: "IXS", name: "IX Swap", coingeckoId: "ix-swap", coinmarketcapId: 10631, family: "RWA exchange / infrastructure utility", badge: "RWA infra" },
+  { presetId: "benchmark_rio_rwa_infrastructure_multichain", symbol: "RIO", label: "RIO", query: "RIO", name: "Realio Network", coingeckoId: "realio-network", coinmarketcapId: 4166, family: "RWA infrastructure / hybrid utility", badge: "RWA infra" },
+];
+
 function normalizeSynthesizedAnswerPayload(value) {
   const answer = safeObject(value);
   if (!Object.keys(answer).length) return null;
@@ -260,6 +278,7 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
       : null;
 
   if (!backbone) return null;
+  const benchmarkAssetPresetRegistry = safeObject(backbone.benchmarkAssetPresetRegistry);
 
   return {
     ...backbone,
@@ -277,6 +296,31 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     benchmarkLearningSourceRequirementTemplates: safeArray(backbone.benchmarkLearningSourceRequirementTemplates),
     benchmarkLearningRegistrySummary: safeObject(backbone.benchmarkLearningRegistrySummary),
     benchmarkLearningRenderedParity: safeObject(backbone.benchmarkLearningRenderedParity),
+    benchmarkAssetPresetRegistry: Object.keys(benchmarkAssetPresetRegistry).length ? {
+      ...benchmarkAssetPresetRegistry,
+      benchmarkAssets: safeArray(benchmarkAssetPresetRegistry.benchmarkAssets),
+      presets: safeArray(benchmarkAssetPresetRegistry.presets).map((preset) => ({
+        ...safeObject(preset),
+        aliases: safeArray(preset?.aliases),
+        benchmarkLearningCapture: {
+          ...safeObject(preset?.benchmarkLearningCapture),
+          sourceRequirementTemplateLearning: safeArray(preset?.benchmarkLearningCapture?.sourceRequirementTemplateLearning),
+          generalizesToAssetFamilies: safeArray(preset?.benchmarkLearningCapture?.generalizesToAssetFamilies),
+          generalizesToExampleAssets: safeArray(preset?.benchmarkLearningCapture?.generalizesToExampleAssets),
+          mustNotGeneralizeTo: safeArray(preset?.benchmarkLearningCapture?.mustNotGeneralizeTo),
+          automationFutureUse: safeArray(preset?.benchmarkLearningCapture?.automationFutureUse),
+          sourceBoundary: safeArray(preset?.benchmarkLearningCapture?.sourceBoundary),
+          guardrails: safeObject(preset?.benchmarkLearningCapture?.guardrails),
+        },
+      })),
+      learningCaptureFields: safeArray(benchmarkAssetPresetRegistry.learningCaptureFields),
+      sourceRequirementTemplatesLearned: safeArray(benchmarkAssetPresetRegistry.sourceRequirementTemplatesLearned),
+      qaRegressionsLearned: safeArray(benchmarkAssetPresetRegistry.qaRegressionsLearned),
+      generalizationTargets: safeArray(benchmarkAssetPresetRegistry.generalizationTargets),
+      nonGeneralizationBoundaries: safeArray(benchmarkAssetPresetRegistry.nonGeneralizationBoundaries),
+      automationFutureUses: safeArray(benchmarkAssetPresetRegistry.automationFutureUses),
+      knownLimitations: safeArray(benchmarkAssetPresetRegistry.knownLimitations),
+    } : null,
     assetInterpretationContractIntegration: safeObject(backbone.assetInterpretationContractIntegration),
     dataFirstNarrativeContractIntegration: safeObject(backbone.dataFirstNarrativeContractIntegration),
     sourceDataRequirementMatrix: {
@@ -299,6 +343,33 @@ export function normalizeEngineLearningBackbonePayload(responseLike) {
     evidenceMappingPolicySummary: safeObject(backbone.evidenceMappingPolicySummary),
     sourceRequirementRegistrySummary: safeObject(backbone.sourceRequirementRegistrySummary),
   };
+}
+
+function normalizeComparableId(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+export function findBenchmarkSearchPresetForAsset(asset, analysis, engineLearningBackbone) {
+  const safeAsset = safeObject(asset);
+  const safeAnalysis = safeObject(analysis);
+  const identity = normalizeAssetIdentityResolutionPayload(safeAnalysis);
+  const registryPresets = safeArray(engineLearningBackbone?.benchmarkAssetPresetRegistry?.presets);
+  const candidates = registryPresets.length ? registryPresets : BENCHMARK_SEARCH_PRESETS;
+  const symbol = normalizeComparableId(safeAsset.symbol || safeAnalysis.asset?.symbol || identity?.canonicalAssetSymbol);
+  const name = normalizeComparableId(safeAsset.name || safeAnalysis.asset?.name || identity?.canonicalAssetName);
+  const coingeckoId = normalizeComparableId(safeAsset.coingeckoId || safeAnalysis.asset?.coingeckoId || identity?.coingeckoId);
+  const coinmarketcapId = safeAsset.coinmarketcapId || safeAnalysis.asset?.coinmarketcapId || identity?.coinmarketcapId || null;
+
+  return candidates.find((preset) => {
+    const aliases = safeArray(preset.aliases).map(normalizeComparableId);
+    return normalizeComparableId(preset.symbol) === symbol
+      || normalizeComparableId(preset.displaySymbol) === symbol
+      || normalizeComparableId(preset.assetName || preset.name) === name
+      || normalizeComparableId(preset.coingeckoId) === coingeckoId
+      || (preset.coinmarketcapId !== null && preset.coinmarketcapId !== undefined && Number(preset.coinmarketcapId) === Number(coinmarketcapId))
+      || aliases.includes(symbol)
+      || aliases.includes(name);
+  }) || null;
 }
 
 export function normalizeAssetInterpretationContractPayload(responseLike) {
@@ -3862,6 +3933,8 @@ export function buildDecisionTerminalModel({
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const scoringReadinessContract = normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
+  const benchmarkAssetPreset = findBenchmarkSearchPresetForAsset(asset, safeAnalysis, engineLearningBackbone);
+  const benchmarkLearningCapture = benchmarkAssetPreset?.benchmarkLearningCapture || null;
   const providerCategorySignals = normalizeProviderCategorySignalsPayload(safeAnalysis);
   const categoryDrivenAssetFamilyContract = normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
   const categoryDataRequirementProfiles = normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
@@ -4165,6 +4238,8 @@ export function buildDecisionTerminalModel({
     dataFirstNarrativeContract,
     scoringReadinessContract,
     engineLearningBackbone,
+    benchmarkAssetPreset,
+    benchmarkLearningCapture,
     providerCategorySignals,
     categoryDrivenAssetFamilyContract,
     categoryDataRequirementProfiles,
@@ -5439,6 +5514,9 @@ export function buildReviewBundleText({
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
+  const benchmarkAssetPresetRegistry = engineLearningBackbone?.benchmarkAssetPresetRegistry || null;
+  const selectedBenchmarkPreset = safeModel.benchmarkAssetPreset || findBenchmarkSearchPresetForAsset(safeAsset, safeAnalysis, engineLearningBackbone);
+  const selectedBenchmarkLearningCapture = safeModel.benchmarkLearningCapture || selectedBenchmarkPreset?.benchmarkLearningCapture || null;
   const providerCategorySignals = safeModel.providerCategorySignals || normalizeProviderCategorySignalsPayload(safeData) || normalizeProviderCategorySignalsPayload(safeAnalysis);
   const categoryDrivenAssetFamilyContract = safeModel.categoryDrivenAssetFamilyContract || normalizeCategoryDrivenAssetFamilyContractPayload(safeData) || normalizeCategoryDrivenAssetFamilyContractPayload(safeAnalysis);
   const categoryDataRequirementProfiles = safeModel.categoryDataRequirementProfiles || normalizeCategoryDataRequirementProfilesPayload(safeData) || normalizeCategoryDataRequirementProfilesPayload(safeAnalysis);
@@ -6415,6 +6493,54 @@ export function buildReviewBundleText({
       "Source boundary:",
       bundleList(scoringReadinessContract?.sourceBoundary),
     ]),
+    bundleSection("2AF. Benchmark Asset Preset Registry & Search Bar QA", [
+      bundleField("Registry attached", benchmarkAssetPresetRegistry ? "yes" : "missing"),
+      bundleField("Artifact version", benchmarkAssetPresetRegistry?.artifactVersion),
+      bundleField("Preset count", benchmarkAssetPresetRegistry?.presetCount || BENCHMARK_SEARCH_PRESETS.length),
+      bundleField("Top search bar presets", safeArray(benchmarkAssetPresetRegistry?.benchmarkAssets).join(", ") || BENCHMARK_SEARCH_PRESETS.map((preset) => preset.symbol).join(", ")),
+      bundleField("Selected benchmark preset", selectedBenchmarkPreset ? `${selectedBenchmarkPreset.displaySymbol || selectedBenchmarkPreset.symbol || selectedBenchmarkPreset.label} | ${selectedBenchmarkPreset.assetFamilyLabel || selectedBenchmarkPreset.family || "family unavailable"}` : "not a benchmark preset"),
+      bundleField("Learning capture attached", selectedBenchmarkLearningCapture ? "yes" : "not selected / missing"),
+      bundleField("Learning rule applied", selectedBenchmarkLearningCapture?.assetFamilyLearningRule),
+      bundleField("Expected family is proof", yesNoUnknown(selectedBenchmarkLearningCapture?.guardrails?.expectedFamilyIsProof)),
+      bundleField("Score override", yesNoUnknown(selectedBenchmarkLearningCapture?.guardrails?.scoreOverride || benchmarkAssetPresetRegistry?.scoringChanged)),
+      bundleField("Verdict override", yesNoUnknown(selectedBenchmarkLearningCapture?.guardrails?.verdictOverride || benchmarkAssetPresetRegistry?.verdictChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(benchmarkAssetPresetRegistry?.providerBehaviorChanged)),
+      bundleField("Source candidates promoted", yesNoUnknown(benchmarkAssetPresetRegistry?.sourceCandidatesPromoted || selectedBenchmarkLearningCapture?.guardrails?.unreviewedSourceCandidatesPromoted)),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(benchmarkAssetPresetRegistry?.reviewedEvidenceScoringActive || selectedBenchmarkLearningCapture?.guardrails?.reviewedEvidenceScoringActive)),
+      bundleField("Token-specific override", yesNoUnknown(benchmarkAssetPresetRegistry?.tokenSpecificOverrides || selectedBenchmarkLearningCapture?.guardrails?.tokenSpecificConclusion)),
+      "Selected learning capture:",
+      bundleList([
+        selectedBenchmarkLearningCapture?.benchmarkPurpose ? `purpose=${selectedBenchmarkLearningCapture.benchmarkPurpose}` : null,
+        selectedBenchmarkLearningCapture?.institutionalProblemRepresented ? `institutional problem=${selectedBenchmarkLearningCapture.institutionalProblemRepresented}` : null,
+        selectedBenchmarkLearningCapture?.expectedGeneralizablePattern ? `generalizable pattern=${selectedBenchmarkLearningCapture.expectedGeneralizablePattern}` : null,
+        selectedBenchmarkLearningCapture?.identityLearningRule ? `identity rule=${selectedBenchmarkLearningCapture.identityLearningRule}` : null,
+        selectedBenchmarkLearningCapture?.questionRoutingLearningRule ? `question routing=${selectedBenchmarkLearningCapture.questionRoutingLearningRule}` : null,
+        selectedBenchmarkLearningCapture?.evidenceBoundaryLearning ? `evidence boundary=${selectedBenchmarkLearningCapture.evidenceBoundaryLearning}` : null,
+        selectedBenchmarkLearningCapture?.qaRegressionLearning ? `QA regression=${selectedBenchmarkLearningCapture.qaRegressionLearning}` : null,
+      ], "No selected benchmark learning capture."),
+      "Generalizes to:",
+      bundleList(selectedBenchmarkLearningCapture?.generalizesToAssetFamilies || benchmarkAssetPresetRegistry?.generalizationTargets),
+      "Must not generalize to:",
+      bundleList(selectedBenchmarkLearningCapture?.mustNotGeneralizeTo || benchmarkAssetPresetRegistry?.nonGeneralizationBoundaries),
+      "Source requirement templates learned:",
+      bundleList(selectedBenchmarkLearningCapture?.sourceRequirementTemplateLearning || benchmarkAssetPresetRegistry?.sourceRequirementTemplatesLearned, "No benchmark source templates attached.", 20),
+      "Automation future use:",
+      bundleList(selectedBenchmarkLearningCapture?.automationFutureUse || benchmarkAssetPresetRegistry?.automationFutureUses),
+      "Preset registry rows:",
+      bundleList(safeArray(benchmarkAssetPresetRegistry?.presets).map((preset) =>
+        `${preset.displaySymbol || preset.symbol || "symbol"} | ${preset.assetFamilyLabel || preset.family || "family unavailable"} | search=${preset.searchQuery || preset.query || "query unavailable"} | badge=${preset.searchBadge || preset.badge || "badge unavailable"} | expectedQuestionGroup=${preset.expectedQuestionGroup || "unknown"}`
+      ), "Backend registry unavailable; frontend search presets remain configured.", 20),
+      "QA checks:",
+      bundleList([
+        `all 15 presets visible=${(benchmarkAssetPresetRegistry?.presetCount || BENCHMARK_SEARCH_PRESETS.length) === 15 ? "yes" : "no"}`,
+        "manual benchmark work captured as reusable engine learning, not token-specific conclusions",
+        "expected family routes questions/source templates but does not prove rights, reserves, usage, demand, value capture, score, verdict, or evidence facts",
+        "search shortcuts are product/navigation presets and do not alter provider calls",
+        "Review Bundle mirrors registry and selected preset without changing bundle content authority",
+      ]),
+      "Known limitations:",
+      bundleList(benchmarkAssetPresetRegistry?.knownLimitations),
+    ]),
     bundleSection("2AC. Category-Driven Question Registry & API Category Signals", [
       bundleField("Provider category signals attached", providerCategorySignals ? "yes" : "missing"),
       bundleField("Asset-family contract attached", categoryDrivenAssetFamilyContract ? "yes" : "missing"),
@@ -7236,6 +7362,11 @@ export function buildReviewBundleText({
       bundleField("Benchmark learning registry mirrored", engineLearningBackbone ? yesNoUnknown(safeArray(engineLearningBackbone.benchmarkLearningRulesApplied).length > 0 || safeArray(engineLearningBackbone.benchmarkLearningRegistrySummary?.ruleIds).length > 0) : "unknown"),
       bundleField("Benchmark learning remains non-scoring", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRegistrySummary?.scoringStatus === "non_scoring_v1") : "unknown"),
       bundleField("Benchmark reviewed evidence remains non-scoring-active", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRegistrySummary?.reviewedEvidenceStatus === "reviewed_non_scoring_active_false") : "unknown"),
+      bundleField("Benchmark asset preset registry present", engineLearningBackbone ? yesNoUnknown(Boolean(benchmarkAssetPresetRegistry)) : "unknown"),
+      bundleField("Benchmark asset preset registry has all 15 assets", benchmarkAssetPresetRegistry ? yesNoUnknown(benchmarkAssetPresetRegistry.presetCount === 15) : "unknown"),
+      bundleField("Benchmark preset selected for current asset", selectedBenchmarkPreset ? "yes" : "no / not benchmark preset"),
+      bundleField("Benchmark preset expected family treated as proof", benchmarkAssetPresetRegistry ? yesNoUnknown(benchmarkAssetPresetRegistry.expectedFamilyProofByItself) : "unknown"),
+      bundleField("Benchmark preset registry changed score/verdict/provider behavior", benchmarkAssetPresetRegistry ? yesNoUnknown(benchmarkAssetPresetRegistry.scoringChanged || benchmarkAssetPresetRegistry.verdictChanged || benchmarkAssetPresetRegistry.providerBehaviorChanged) : "unknown"),
       bundleField("BTC rendered baseline parity captured", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRenderedParity?.btcBaseline2CStatus === "PASS" && engineLearningBackbone.benchmarkLearningRenderedParity?.btcBaseline12CFailureCount === 0 && engineLearningBackbone.benchmarkLearningRenderedParity?.sharedPrimaryVisibleCorpus === true) : "unknown"),
       bundleField("ETH rendered baseline parity captured", engineLearningBackbone ? yesNoUnknown(engineLearningBackbone.benchmarkLearningRenderedParity?.ethBaseline2CStatus === "PASS" && engineLearningBackbone.benchmarkLearningRenderedParity?.ethBaseline12DFailureCount === 0 && engineLearningBackbone.benchmarkLearningRenderedParity?.sharedPrimaryVisibleCorpus === true) : "unknown"),
       bundleField("ETH benchmark learning captured without scoring authority", engineLearningBackbone ? yesNoUnknown(safeArray(engineLearningBackbone.benchmarkLearningRegistrySummary?.ruleIds).includes("eth_baseline_regression_fixture") && engineLearningBackbone.benchmarkLearningRegistrySummary?.scoringStatus === "non_scoring_v1") : "unknown"),

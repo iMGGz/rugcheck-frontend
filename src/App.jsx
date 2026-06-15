@@ -47,6 +47,7 @@ import {
   normalizeInstitutionalQuestionsPayload,
   normalizeWatchlistAsset,
   normalizeErrorMessage,
+  BENCHMARK_SEARCH_PRESETS,
   safeArray,
   statusMeta,
 } from "./components/research/researchUtils";
@@ -74,7 +75,7 @@ function resolveApiBase() {
 }
 
 const API_BASE = resolveApiBase();
-const QUICK_SEARCHES = ["BTC", "WBTC", "ETH", "XRP", "ADA", "UNI", "RENDER", "LINK", "AVAX", "ONDO", "USDT", "USDC", "RIO", "NAKA", "SOL", "PEPE"];
+const QUICK_SEARCHES = BENCHMARK_SEARCH_PRESETS;
 const RESEARCH_TABS = [
   { key: "overview", label: "Decision" },
   { key: "thesis_falsification", label: "Thesis Falsification" },

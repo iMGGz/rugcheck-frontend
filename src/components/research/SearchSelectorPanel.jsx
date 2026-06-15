@@ -34,6 +34,9 @@ function buildCandidateMatchLabels(candidate, query) {
   if (candidate?.coingeckoId || candidate?.coinmarketcapId || candidate?.contractAddress) {
     labels.push("Use Existing Metadata");
   }
+  if (candidate?.benchmarkSearchBadge) {
+    labels.push(candidate.benchmarkSearchBadge);
+  }
 
   return labels.slice(0, 4);
 }
@@ -72,6 +75,7 @@ function candidateIdentityChips(candidate) {
     summary.networkLabel ? `Network: ${summary.networkLabel}` : null,
     summary.representationType ? `Representation: ${titleCase(summary.representationType)}` : null,
     summary.wrongAssetRisk ? `Wrong-asset risk: ${summary.wrongAssetRisk}` : null,
+    candidate?.benchmarkPresetId ? "Benchmark preset: non-scoring QA/search context" : null,
     summary.confidence ? `Identity confidence: ${summary.confidence}` : null,
   ].filter(Boolean).slice(0, 5);
 }
@@ -287,6 +291,11 @@ export default function SearchSelectorPanel({
               </div>
               {warnings.length ? (
                 <div style={styles.selectorBoundaryText}>{warnings.slice(0, 2).join(" ")}</div>
+              ) : null}
+              {candidate.benchmarkLearningCapture ? (
+                <div style={styles.selectorBoundaryText}>
+                  Benchmark preset boundary: {candidate.benchmarkLearningCapture.expectedGeneralizablePattern || "Reusable learning context"}; not proof, score input, or verdict authority.
+                </div>
               ) : null}
               <details style={{ marginTop: 10 }}>
                 <summary style={{ ...styles.auditSummary, padding: "8px 0", color: "#dbeafe" }}>
