@@ -87,6 +87,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
   const scoringReadinessContract = safeObject(safeModel.scoringReadinessContract);
+  const benchmarkPack = safeObject(safeModel.benchmarkInstitutionalAnswerPack);
   const engineLearningFeedbackLoop = safeObject(safeModel.engineLearningBackbone?.engineLearningFeedbackLoop);
   const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics || safeModel.providerRawDataExpansion?.rawDataCoverageDiagnostics);
 
@@ -156,6 +157,18 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Existing overall score and verdict remain unchanged.",
       attached: hasAttachedValue(scoringReadinessContract),
+    },
+    {
+      title: "Benchmark Answer Pack Score Rationale",
+      value: benchmarkPack.packId
+        ? `${safeArray(benchmarkPack.questions).length} non-scoring answer checks`
+        : "Not attached",
+      source: benchmarkPack.packId ? "benchmarkInstitutionalAnswerPack.scoreRationale" : "Not attached",
+      rule: benchmarkPack.scoreRationale?.readinessSummary || "Benchmark answer packs explain future score rationale candidates, caps, and blockers without changing current score.",
+      live: "Diagnostic only in v1",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: benchmarkPack.packId ? "Existing overall score and verdict remain unchanged; pack scoringActive=false." : "No benchmark pack matched this asset.",
+      attached: Boolean(benchmarkPack.packId),
     },
     {
       title: "Engine Learning Feedback Loop",
@@ -419,6 +432,7 @@ export default function ScoringTransparencyTab({
   const capsModule = modules.find((module) => module.title === "Policy Caps / Gates");
   const tokenomicsModule = modules.find((module) => module.title === "Tokenomics Supply Integrity");
   const scoringReadinessModule = modules.find((module) => module.title === "Institutional Scoring Readiness");
+  const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -478,6 +492,24 @@ export default function ScoringTransparencyTab({
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
 
       <ScoringReadinessTransparency readiness={model?.scoringReadinessContract} styles={styles} />
+
+      {benchmarkPack.packId ? (
+        <Card
+          title="Benchmark Answer Pack Score Rationale"
+          subtitle="Future score-rationale preview only. Existing score and verdict are unchanged."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, "Diagnostic only")}
+            {boundaryChip(styles, "Not scoring-active")}
+            {boundaryChip(styles, "Legacy score unchanged")}
+          </div>
+          <SectionRow label="Readiness summary" value={benchmarkPack.scoreRationale?.readinessSummary || "Benchmark score rationale attached."} styles={styles} />
+          <ListBlock title="Candidate confidence caps" items={safeArray(benchmarkPack.confidenceCaps).slice(0, 6)} emptyText="No benchmark confidence caps attached." color="#f9d976" styles={styles} />
+          <ListBlock title="Candidate hard blockers" items={safeArray(benchmarkPack.hardBlockers).slice(0, 6)} emptyText="No benchmark blockers attached." color="#ffb020" styles={styles} />
+          <ListBlock title="Future score-readiness gaps" items={safeArray(benchmarkPack.scoreRationale?.scoreReadinessGaps).slice(0, 6)} emptyText="No benchmark score-readiness gaps attached." color="#c7a7ff" styles={styles} />
+        </Card>
+      ) : null}
 
       <TokenomicsSupplyIntegrityCard tokenomics={model?.tokenomicsSupplyIntegrity} styles={styles} compact />
 

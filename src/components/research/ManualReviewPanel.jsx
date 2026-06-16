@@ -181,6 +181,33 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
         color: mapping.freshnessStatus === "stale" ? "#ffb020" : "#ff6b6b",
       })),
   ];
+  const benchmarkPack = model?.benchmarkInstitutionalAnswerPack || {};
+  const benchmarkPackSignals = [
+    ...safeArray(benchmarkPack.hardBlockers).map((entry) => ({
+      label: "Benchmark answer-pack blocker",
+      description: entry,
+      status: "Diagnostic-only hard blocker",
+      source: "decisionModel.benchmarkInstitutionalAnswerPack.hardBlockers",
+      color: "#ffb020",
+    })),
+    ...safeArray(benchmarkPack.confidenceCaps).map((entry) => ({
+      label: "Benchmark answer-pack confidence cap",
+      description: entry,
+      status: "Diagnostic-only confidence cap",
+      source: "decisionModel.benchmarkInstitutionalAnswerPack.confidenceCaps",
+      color: "#c7a7ff",
+    })),
+    ...safeArray(benchmarkPack.questions)
+      .filter((question) => question.manualReviewRequired)
+      .slice(0, 5)
+      .map((question) => ({
+        label: "Benchmark institutional answer review",
+        description: `${question.questionText || question.questionId}: ${question.directAnswer || "Manual review required."}`,
+        status: question.priority === "critical" ? "Critical review" : "Manual review",
+        source: "decisionModel.benchmarkInstitutionalAnswerPack.questions",
+        color: question.priority === "critical" ? "#ff6b6b" : "#ffb020",
+      })),
+  ];
   const engineLearning = model?.engineLearningBackbone || {};
   const feedbackLoop = engineLearning.engineLearningFeedbackLoop || {};
   const engineLearningSignals = [
@@ -229,6 +256,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     ...manual,
     ...rawDataSignals,
     ...engineLearningSignals,
+    ...benchmarkPackSignals,
     ...synthesizedAnswerSignals,
     ...reviewedEvidenceSignals,
     ...scoringReadinessSignals,

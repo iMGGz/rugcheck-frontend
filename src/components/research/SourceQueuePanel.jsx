@@ -180,6 +180,25 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
       color: "#f9d976",
     })),
   ];
+  const benchmarkPack = model?.benchmarkInstitutionalAnswerPack || {};
+  const benchmarkPackLeads = [
+    ...safeArray(benchmarkPack.sourceRequirements).slice(0, 6).map((entry) => ({
+      label: "Benchmark answer-pack source requirement",
+      description: entry,
+      status: "Diagnostic-only source requirement",
+      source: "decisionModel.benchmarkInstitutionalAnswerPack.sourceRequirements",
+      color: "#c7a7ff",
+    })),
+    ...safeArray(benchmarkPack.questions).flatMap((question) =>
+      safeArray(question.sourceRequirements).slice(0, 2).map((entry) => ({
+        label: `Benchmark question source: ${question.questionId || "question"}`,
+        description: `${entry} ${question.directAnswer ? `Why: ${question.directAnswer}` : ""}`.trim(),
+        status: question.decisionImpact === "requires_manual_review" ? "Manual review" : "Source required",
+        source: "decisionModel.benchmarkInstitutionalAnswerPack.questions",
+        color: question.priority === "critical" ? "#ffb020" : "#c7a7ff",
+      }))
+    ).slice(0, 6),
+  ];
   const engineLearning = model?.engineLearningBackbone || {};
   const feedbackLoop = engineLearning.engineLearningFeedbackLoop || {};
   const engineLearningLeads = [
@@ -221,6 +240,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
   return dedupeByText([
     ...rawDataLeads,
     ...engineLearningLeads,
+    ...benchmarkPackLeads,
     ...reviewedCoverageLeads,
     ...synthesizedLeads,
     ...scoringReadinessLeads,

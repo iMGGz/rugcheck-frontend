@@ -266,6 +266,75 @@ export function normalizeReviewedEvidencePacketPayload(responseLike) {
   };
 }
 
+export function normalizeBenchmarkInstitutionalAnswerPackPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootPack = safeObject(root.benchmarkInstitutionalAnswerPack);
+  const nestedPack = safeObject(nestedAnalysis.benchmarkInstitutionalAnswerPack);
+  const pack = rootPack.packId || rootPack.schemaVersion
+    ? rootPack
+    : nestedPack.packId || nestedPack.schemaVersion
+      ? nestedPack
+      : null;
+
+  if (!pack) return null;
+
+  const normalizeSourceRef = (source) => ({
+    ...safeObject(source),
+    claimSupported: safeArray(source?.claimSupported),
+    doesNotProve: safeArray(source?.doesNotProve),
+    scoringActive: source?.scoringActive === true,
+  });
+  const normalizeClaim = (claim) => ({
+    ...safeObject(claim),
+    sourceRefs: safeArray(claim?.sourceRefs).map(normalizeSourceRef),
+    proves: safeArray(claim?.proves),
+    doesNotProve: safeArray(claim?.doesNotProve),
+    scoringActive: claim?.scoringActive === true,
+  });
+  const questions = safeArray(pack.questions).map((question) => ({
+    ...safeObject(question),
+    claims: safeArray(question?.claims).map(normalizeClaim),
+    evidenceBasis: safeArray(question?.evidenceBasis),
+    proven: safeArray(question?.proven),
+    notProven: safeArray(question?.notProven),
+    missingEvidence: safeArray(question?.missingEvidence),
+    sourceRequirements: safeArray(question?.sourceRequirements),
+    whatWouldChange: safeArray(question?.whatWouldChange),
+    sourceBoundary: safeArray(question?.sourceBoundary),
+    scoringEligible: question?.scoringEligible === true,
+  }));
+
+  return {
+    ...pack,
+    questions,
+    sourceRequirements: safeArray(pack.sourceRequirements),
+    missingEvidence: safeArray(pack.missingEvidence),
+    hardBlockers: safeArray(pack.hardBlockers),
+    confidenceCaps: safeArray(pack.confidenceCaps),
+    whatWouldChange: safeArray(pack.whatWouldChange),
+    monitoringTriggers: safeArray(pack.monitoringTriggers),
+    sourceBoundary: safeArray(pack.sourceBoundary),
+    limitations: safeArray(pack.limitations),
+    scoreRationale: {
+      ...safeObject(pack.scoreRationale),
+      positiveCandidateSignals: safeArray(pack.scoreRationale?.positiveCandidateSignals),
+      negativeCandidateSignals: safeArray(pack.scoreRationale?.negativeCandidateSignals),
+      hardBlockers: safeArray(pack.scoreRationale?.hardBlockers),
+      confidenceCaps: safeArray(pack.scoreRationale?.confidenceCaps),
+      scoreReadinessGaps: safeArray(pack.scoreRationale?.scoreReadinessGaps),
+    },
+    engineLearning: {
+      ...safeObject(pack.engineLearning),
+      sourceRequirementTemplates: safeArray(pack.engineLearning?.sourceRequirementTemplates),
+      qaRegressionRules: safeArray(pack.engineLearning?.qaRegressionRules),
+      whatGeneralizes: safeArray(pack.engineLearning?.whatGeneralizes),
+      mustNotGeneralize: safeArray(pack.engineLearning?.mustNotGeneralize),
+    },
+    guardrails: safeObject(pack.guardrails),
+  };
+}
+
 export function normalizeEngineLearningBackbonePayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -1183,6 +1252,7 @@ export function buildProtectedInvestorReportText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1277,16 +1347,22 @@ export function buildProtectedInvestorReportText({
       5,
     ),
     "",
-    "6. Missing Evidence / Source Requirements",
+    "6. Benchmark Institutional Answer Coverage",
+    reportLine("Benchmark pack attached", benchmarkInstitutionalAnswerPack ? "Yes - non-scoring answer-quality context" : "No"),
+    reportLine("Coverage improved", benchmarkInstitutionalAnswerPack ? `${safeArray(benchmarkInstitutionalAnswerPack.questions).length} benchmark institutional questions available` : "Not available for this asset"),
+    reportLine("Major gaps", normalizeRenderableList(benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).join("; ") || "No benchmark-pack gap summary attached"),
+    reportLine("Score preview boundary", benchmarkInstitutionalAnswerPack ? "Diagnostic only; existing score and verdict unchanged." : "Not available"),
+    "",
+    "7. Missing Evidence / Source Requirements",
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
     "",
-    "7. What Would Change",
+    "8. What Would Change",
     ...formatReportList(whatWouldChange, "Reviewed sources and updated live provider data would be required before stronger language is shown.", 8),
     "",
-    "8. Provider Context",
+    "9. Provider Context",
     ...providerSummary.map((item) => `- ${item}`),
     "",
-    "9. Methodology / Limitations",
+    "10. Methodology / Limitations",
     "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
     "- Provider-reported values are not treated as reviewed evidence.",
     "- Missing data is not negative proof; it is a source requirement or confidence constraint.",
@@ -3972,6 +4048,7 @@ export function buildDecisionTerminalModel({
   const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const benchmarkInstitutionalAnswerPack = normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -4278,6 +4355,7 @@ export function buildDecisionTerminalModel({
     assetIdentityResolution,
     tokenomicsSupplyIntegrity,
     reviewedEvidencePacket,
+    benchmarkInstitutionalAnswerPack,
     assetInterpretationContract,
     dataFirstNarrativeContract,
     scoringReadinessContract,
@@ -5553,6 +5631,7 @@ export function buildReviewBundleText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
+  const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -7223,6 +7302,7 @@ export function buildReviewBundleText({
         ...safeModel.missingCritical,
         ...(safeModel.whatWouldChangeDecision?.items || []),
         ...safeArray(scoringReadinessContract?.whatWouldChangeScore).slice(0, 6),
+        ...safeArray(benchmarkInstitutionalAnswerPack?.sourceRequirements).slice(0, 8),
       ]),
       "Suggested research domains:",
       bundleList(suggestedResearchDomains),
@@ -7249,7 +7329,9 @@ export function buildReviewBundleText({
         "Do not treat provider metadata as reviewed evidence.",
         "Do not promote source candidates or report-only overlays into live scoring.",
         ...safeModel.requiredConditions,
-      ]),
+        ...safeArray(benchmarkInstitutionalAnswerPack?.hardBlockers).slice(0, 6),
+        ...safeArray(benchmarkInstitutionalAnswerPack?.confidenceCaps).slice(0, 6),
+      ]), 
       "Review outcome legend:",
       bundleList(["requires_review", "accepted_for_report", "stale", "rejected", "duplicate", "low_relevance", "contradiction_review"]),
       bundleField("Failure mode matrix", safeModel.failureMode?.primary),
@@ -7293,6 +7375,7 @@ export function buildReviewBundleText({
         `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
         `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
+        `benchmarkInstitutionalAnswerPack: ${benchmarkInstitutionalAnswerPack ? "present" : "missing"}`,
         `assetInterpretationContract: ${assetInterpretationContract ? "present" : "missing"}`,
         `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
         `providerCategorySignals: ${providerCategorySignals ? "present" : "missing"}`,
@@ -7421,6 +7504,81 @@ export function buildReviewBundleText({
       bundleList(engineLearningBackbone?.knownLimitations),
       bundleField("Next resume pointer", engineLearningBackbone?.nextResumePointer),
     ]),
+    bundleSection("2AH. Benchmark Institutional Answer Bundle v1 - Batch 1", [
+      bundleField("Pack attached", benchmarkInstitutionalAnswerPack ? "yes" : "no"),
+      bundleField("Pack ID", benchmarkInstitutionalAnswerPack?.packId),
+      bundleField("Asset", benchmarkInstitutionalAnswerPack?.assetSymbol),
+      bundleField("Pack status", benchmarkInstitutionalAnswerPack?.packStatus),
+      bundleField("Review status", benchmarkInstitutionalAnswerPack?.reviewStatus),
+      bundleField("Expected family", benchmarkInstitutionalAnswerPack?.expectedFamily),
+      bundleField("Expected label", benchmarkInstitutionalAnswerPack?.expectedLabel),
+      bundleField("Expected question group", benchmarkInstitutionalAnswerPack?.expectedQuestionGroup),
+      bundleField("Expected source profile", benchmarkInstitutionalAnswerPack?.expectedSourceProfile),
+      bundleField("Questions attached", safeArray(benchmarkInstitutionalAnswerPack?.questions).length),
+      bundleField("Claims attached", safeArray(benchmarkInstitutionalAnswerPack?.questions).flatMap((question) => safeArray(question.claims)).length),
+      bundleField("Scoring active", benchmarkInstitutionalAnswerPack ? yesNoUnknown(benchmarkInstitutionalAnswerPack.scoringActive) : "unknown"),
+      bundleField("Verdict active", benchmarkInstitutionalAnswerPack ? yesNoUnknown(benchmarkInstitutionalAnswerPack.verdictActive) : "unknown"),
+      "Coverage summary:",
+      bundleList([
+        `critical=${safeArray(benchmarkInstitutionalAnswerPack?.questions).filter((question) => question.priority === "critical").length}`,
+        `source-required=${safeArray(benchmarkInstitutionalAnswerPack?.questions).filter((question) => /source_required|evidence_missing|manual_review/.test(String(question.answerStatus))).length}`,
+        `manual-review=${safeArray(benchmarkInstitutionalAnswerPack?.questions).filter((question) => question.manualReviewRequired).length}`,
+      ]),
+      "Benchmark questions:",
+      bundleList(safeArray(benchmarkInstitutionalAnswerPack?.questions).map((question) => `${question.questionId || "question"} | ${question.answerStatus || "status unavailable"} | ${question.directAnswer || "answer unavailable"} | impact=${question.decisionImpact || "unknown"} | scoringEligible=${question.scoringEligible ? "yes" : "no"}`)),
+      "Claims / evidence map mirror:",
+      bundleList(safeArray(benchmarkInstitutionalAnswerPack?.questions).flatMap((question) => safeArray(question.claims).map((claim) => `${claim.claimId || "claim"} | question=${question.questionId || "unknown"} | status=${claim.evidenceStatus || "unknown"} | scoring=${claim.scoringActive ? "yes" : "no"} | proves=${safeArray(claim.proves).join("; ") || "none"} | doesNotProve=${safeArray(claim.doesNotProve).join("; ") || "none"}`))),
+      "Source requirements:",
+      bundleList(benchmarkInstitutionalAnswerPack?.sourceRequirements),
+      "Missing evidence:",
+      bundleList(benchmarkInstitutionalAnswerPack?.missingEvidence),
+      "Hard blockers:",
+      bundleList(benchmarkInstitutionalAnswerPack?.hardBlockers),
+      "Confidence caps:",
+      bundleList(benchmarkInstitutionalAnswerPack?.confidenceCaps),
+      "Score rationale:",
+      bundleList([
+        benchmarkInstitutionalAnswerPack?.scoreRationale?.readinessSummary,
+        `futureScorePreviewStatus=${benchmarkInstitutionalAnswerPack?.scoreRationale?.futureScorePreviewStatus || "unknown"}`,
+        `legacyScoreBoundary=${benchmarkInstitutionalAnswerPack?.scoreRationale?.legacyScoreBoundary || "unknown"}`,
+        ...safeArray(benchmarkInstitutionalAnswerPack?.scoreRationale?.scoreReadinessGaps).slice(0, 8),
+      ]),
+      "What would change:",
+      bundleList(benchmarkInstitutionalAnswerPack?.whatWouldChange),
+      "Monitoring triggers:",
+      bundleList(benchmarkInstitutionalAnswerPack?.monitoringTriggers),
+      "Engine learning capture:",
+      bundleList([
+        benchmarkInstitutionalAnswerPack?.engineLearning?.familyRule,
+        benchmarkInstitutionalAnswerPack?.engineLearning?.answerGroundingRule,
+        `scoringStatus=${benchmarkInstitutionalAnswerPack?.engineLearning?.scoringStatus || "unknown"}`,
+        ...safeArray(benchmarkInstitutionalAnswerPack?.engineLearning?.sourceRequirementTemplates).slice(0, 8),
+        ...safeArray(benchmarkInstitutionalAnswerPack?.engineLearning?.qaRegressionRules).slice(0, 8),
+      ]),
+      "Guardrails:",
+      bundleList([
+        `legacyScoreChanged=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.legacyScoreChanged)}`,
+        `legacyVerdictChanged=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.legacyVerdictChanged)}`,
+        `providerBehaviorChanged=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.providerBehaviorChanged)}`,
+        `tokenSpecificScoreOverride=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.tokenSpecificScoreOverride)}`,
+        `sourceCandidatesPromoted=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.sourceCandidatesPromoted)}`,
+        `reviewedEvidenceScoringActive=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `snapshotReuseEnabled=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.snapshotReuseEnabled)}`,
+        `partialRefreshEnabled=${yesNoUnknown(benchmarkInstitutionalAnswerPack?.guardrails?.partialRefreshEnabled)}`,
+      ]),
+      "Frontend parity:",
+      bundleList([
+        "Institutional Checklist: benchmark questions injected as first-class institutionalQuestions.",
+        "Evidence Map: claims/source boundary rows.",
+        "Source Queue: benchmark source requirements.",
+        "Manual Review: blockers/caps/manual-review questions.",
+        "Scoring Transparency: diagnostic-only score rationale/caps/gaps.",
+        "Protected Investor Report: high-level redacted summary only.",
+      ]),
+      "Limitations:",
+      bundleList(benchmarkInstitutionalAnswerPack?.limitations),
+      bundleField("Source boundary", safeArray(benchmarkInstitutionalAnswerPack?.sourceBoundary).join(" | ")),
+    ]),
     bundleSection("13. Cross-Tab Consistency Checklist", [
       bundleField("Resolved lens matches Decision Header lens", lens && displayIdentity ? yesNoUnknown(String(displayIdentity.displayFraming || displayIdentity.displayAssetClass || "").toLowerCase().includes(String(lens.label || lens.lensId || "").split("/")[0].trim().toLowerCase())) : "unknown"),
       bundleField("Institutional question group matches resolved lens", questionMatchStatus),
@@ -7443,6 +7601,11 @@ export function buildReviewBundleText({
       bundleField("High FDV/market-cap without dilution note", yesNoUnknown(tokenomicsHighFdvWithoutDilutionNote)),
       bundleField("Provider numeric rows missing despite tokenomics values", yesNoUnknown(tokenomicsProviderRowsMissing)),
       bundleField("Tokenomics tab missing while tokenomics object exists", tokenomicsSupplyIntegrity ? "no" : "unknown"),
+      bundleField("Benchmark answer pack present for Batch 1 asset", ["bitcoin", "wrapped-bitcoin", "ethereum", "staked-ether", "usd-coin", "ripple"].includes(String(safeAsset.coingeckoId || assetIdentityResolution?.canonicalProviderIds?.coingeckoId || "").toLowerCase()) ? (benchmarkInstitutionalAnswerPack ? "yes" : "missing") : "not applicable"),
+      bundleField("Benchmark questions injected into Institutional Checklist", benchmarkInstitutionalAnswerPack ? yesNoUnknown(safeArray(questions).some((question) => String(question.questionId || "").startsWith("benchmark_"))) : "unknown"),
+      bundleField("Benchmark pack changes legacy score/verdict", benchmarkInstitutionalAnswerPack ? yesNoUnknown(benchmarkInstitutionalAnswerPack.guardrails?.legacyScoreChanged || benchmarkInstitutionalAnswerPack.guardrails?.legacyVerdictChanged) : "unknown"),
+      bundleField("Benchmark pack promotes reviewed evidence/source candidates", benchmarkInstitutionalAnswerPack ? yesNoUnknown(benchmarkInstitutionalAnswerPack.guardrails?.reviewedEvidenceScoringActive || benchmarkInstitutionalAnswerPack.guardrails?.sourceCandidatesPromoted) : "unknown"),
+      bundleField("Benchmark pack exposed in protected report as internal IDs", "no - protected report summary is high-level/redacted"),
       bundleField("Scoring Readiness contract present in frontend model", scoringReadinessContract ? "yes" : "missing"),
       bundleField("Scoring Readiness remains diagnostic-only", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.diagnosticOnly === true && scoringReadinessContract.scoringIntegration === "diagnostic_only_v1_legacy_score_unchanged") : "unknown"),
       bundleField("Scoring Readiness changed legacy score/verdict", scoringReadinessContract ? yesNoUnknown(scoringReadinessContract.guardrails?.legacyScoreChanged || scoringReadinessContract.guardrails?.legacyVerdictChanged) : "unknown"),

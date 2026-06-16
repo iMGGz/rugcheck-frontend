@@ -310,6 +310,30 @@ function buildReviewedEvidenceRows(model) {
   ];
 }
 
+function buildBenchmarkInstitutionalAnswerPackRows(model) {
+  const pack = model?.benchmarkInstitutionalAnswerPack || {};
+  if (!pack.packId) return [];
+  const claimRows = safeArray(pack.questions).flatMap((question) =>
+    safeArray(question.claims).map((claim) => ({
+      key: `benchmark-pack-claim-${claim.claimId || question.questionId}`,
+      label: `Benchmark answer claim: ${question.questionId || "question"}`,
+      value: `${claim.claim || question.directAnswer || "Claim unavailable"} | status=${claim.evidenceStatus || question.answerStatus || "unknown"} | scoring-active=${claim.scoringActive ? "yes" : "no"}`,
+      sourceType: "Benchmark Institutional Answer Pack",
+      boundary: `${safeArray(claim.doesNotProve).slice(0, 2).join("; ") || "Does not change legacy score or final verdict."}`,
+    }))
+  );
+  return [
+    {
+      key: "benchmark-institutional-answer-pack-summary",
+      label: "Benchmark Institutional Answer Bundle v1",
+      value: `${pack.expectedLabel || pack.expectedFamily || "Benchmark pack"} attached for ${pack.assetSymbol || "asset"} with ${safeArray(pack.questions).length} non-scoring questions.`,
+      sourceType: "Benchmark answer pack",
+      boundary: "Answer-quality and QA visibility only; legacy score/verdict unchanged and reviewed evidence remains non-scoring.",
+    },
+    ...claimRows.slice(0, 8),
+  ];
+}
+
 function buildEngineLearningEvidenceRows(model) {
   const backbone = model?.engineLearningBackbone || {};
   if (!backbone.artifactVersion) return [];
@@ -434,11 +458,13 @@ export default function EvidenceMapTab({
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
   const scoringReadinessEvidenceRows = buildScoringReadinessEvidenceRows(model);
   const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
+  const benchmarkPackEvidenceRows = buildBenchmarkInstitutionalAnswerPackRows(model);
   const engineLearningEvidenceRows = buildEngineLearningEvidenceRows(model);
   const rawDataCoverageRows = buildRawDataCoverageRows(model);
   const lensBoundaryDisplayRows = [
     ...rawDataCoverageRows,
     ...engineLearningEvidenceRows,
+    ...benchmarkPackEvidenceRows,
     ...reviewedEvidenceRows,
     ...assetIdentityRows,
     ...scoringReadinessEvidenceRows,
