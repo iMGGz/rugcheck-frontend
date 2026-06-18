@@ -81,6 +81,8 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
   const visibleLensLabel = primaryRoute.visibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label;
   const visibleQuestionGroup = primaryRoute.questionGroup || lens.primaryRouteQuestionGroup || lens.questionGroupId;
   const identity = model?.assetIdentityResolution || {};
+  const representationRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
+  const representationGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged|lens|mapping/i.test(String(warning?.id || warning?.issue || "")));
   if (!lens?.lensId && !identityWarnings.length && !displayIdentity?.displayFraming) return null;
@@ -102,6 +104,15 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
         </div>
       </div>
       <div style={styles.railBoundaryGrid}>
+        {representationRoute.selectedFamily ? (
+          <div style={styles.railBoundaryPill}>Family: {representationRoute.visibleLabel || representationRoute.selectedFamily}</div>
+        ) : null}
+        {representationRoute.routeSafety ? (
+          <div style={styles.railBoundaryPill}>Route safety: {representationRoute.routeSafety}</div>
+        ) : null}
+        {representationGates.length ? (
+          <div style={styles.railBoundaryPill}>Evidence gates: {representationGates.length}</div>
+        ) : null}
         <div style={styles.railBoundaryPill}>Provider metadata only</div>
         <div style={styles.railBoundaryPill}>Source requirement, not evidence</div>
         <div style={styles.railBoundaryPill}>Identity warnings require manual review</div>
@@ -283,6 +294,7 @@ function MobileRailSummary({
   const resolvedLens = model?.resolvedInstitutionalLens || {};
   const visibleLensLabel = primaryRoute.visibleLabel || resolvedLens.visibleLabelOverride || resolvedLens.displayLabel || resolvedLens.label;
   const freshness = model?.analysisFreshness || {};
+  const representationRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
 
   return (
     <div style={styles.railMobileSummary}>
@@ -309,6 +321,10 @@ function MobileRailSummary({
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Resolved lens</div>
           <div style={styles.railMiniValue}>{visibleLensLabel || "Lens unavailable"}</div>
+        </div>
+        <div style={styles.railMiniCard}>
+          <div style={styles.railMiniLabel}>Family route</div>
+          <div style={styles.railMiniValue}>{representationRoute.visibleLabel || primaryRoute.visibleLabel || "Family route unavailable"}</div>
         </div>
         <div style={styles.railMiniCard}>
           <div style={styles.railMiniLabel}>Freshness</div>

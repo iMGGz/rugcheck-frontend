@@ -589,6 +589,79 @@ export function normalizeAuthorityHierarchyContractPayload(responseLike) {
   };
 }
 
+export function normalizeRepresentationFamilyDecisionPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootDecision = safeObject(root.representationFamilyDecision);
+  const nestedDecision = safeObject(nestedAnalysis.representationFamilyDecision);
+  const aicDecision = safeObject(root.assetInterpretationContract?.representationFamilyDecision || nestedAnalysis.assetInterpretationContract?.representationFamilyDecision);
+  const decision = rootDecision.artifactVersion || rootDecision.route
+    ? rootDecision
+    : nestedDecision.artifactVersion || nestedDecision.route
+      ? nestedDecision
+      : aicDecision.artifactVersion || aicDecision.route
+        ? aicDecision
+        : null;
+  if (!decision) return null;
+  const route = safeObject(decision.route);
+  return {
+    ...decision,
+    allowedFamilies: safeArray(decision.allowedFamilies),
+    forbiddenFamilies: safeArray(decision.forbiddenFamilies),
+    validQuestionGroups: safeArray(decision.validQuestionGroups),
+    validSourceProfiles: safeArray(decision.validSourceProfiles),
+    validSourceMatrixEntries: safeArray(decision.validSourceMatrixEntries),
+    route: {
+      ...route,
+      sourceMatrixEntries: safeArray(route.sourceMatrixEntries),
+    },
+    conflicts: safeArray(decision.conflicts),
+    evidenceGates: safeArray(decision.evidenceGates),
+    manualReviewTriggers: safeArray(decision.manualReviewTriggers),
+    notApplicableRedirects: safeArray(decision.notApplicableRedirects),
+    sourceRequirementTemplates: safeArray(decision.sourceRequirementTemplates),
+    appliedRuleIds: safeArray(decision.appliedRuleIds),
+    guardrails: safeObject(decision.guardrails),
+    knownLimitations: safeArray(decision.knownLimitations),
+  };
+}
+
+export function normalizeRepresentationFamilyRoutePayload(responseLike, representationFamilyDecision = null) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootRoute = safeObject(root.representationFamilyRoute);
+  const nestedRoute = safeObject(nestedAnalysis.representationFamilyRoute);
+  const aicRoute = safeObject(root.assetInterpretationContract?.representationFamilyRoute || nestedAnalysis.assetInterpretationContract?.representationFamilyRoute);
+  const decisionRoute = safeObject(representationFamilyDecision?.route);
+  const route = rootRoute.selectedFamily || rootRoute.visibleLabel
+    ? rootRoute
+    : nestedRoute.selectedFamily || nestedRoute.visibleLabel
+      ? nestedRoute
+      : decisionRoute.selectedFamily || decisionRoute.visibleLabel
+        ? decisionRoute
+        : aicRoute.selectedFamily || aicRoute.visibleLabel
+          ? aicRoute
+          : null;
+  if (!route) return null;
+  return {
+    ...route,
+    sourceMatrixEntries: safeArray(route.sourceMatrixEntries),
+  };
+}
+
+export function normalizeRepresentationFamilyEvidenceGatesPayload(responseLike, representationFamilyDecision = null) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const gates = safeArray(root.representationFamilyEvidenceGates).length
+    ? safeArray(root.representationFamilyEvidenceGates)
+    : safeArray(nestedAnalysis.representationFamilyEvidenceGates).length
+      ? safeArray(nestedAnalysis.representationFamilyEvidenceGates)
+      : safeArray(representationFamilyDecision?.evidenceGates).length
+        ? safeArray(representationFamilyDecision.evidenceGates)
+        : safeArray(root.assetInterpretationContract?.representationFamilyEvidenceGates || nestedAnalysis.assetInterpretationContract?.representationFamilyEvidenceGates);
+  return gates;
+}
+
 export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHierarchyContract = null) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -610,6 +683,11 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
     rawLensAuditOnly: safeObject(route.rawLensAuditOnly),
     benchmarkExpectationAuditOnly: safeObject(route.benchmarkExpectationAuditOnly),
     providerCategoryAuditOnly: safeObject(route.providerCategoryAuditOnly),
+    representationFamilyAudit: {
+      ...safeObject(route.representationFamilyAudit),
+      conflicts: safeArray(route.representationFamilyAudit?.conflicts),
+      evidenceGates: safeArray(route.representationFamilyAudit?.evidenceGates),
+    },
   };
 }
 
@@ -1311,6 +1389,13 @@ export function buildProtectedInvestorReportText({
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
   const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
+  const representationFamilyDecision = safeModel.representationFamilyDecision || normalizeRepresentationFamilyDecisionPayload(safeData) || normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
+  const representationFamilyRoute = safeModel.representationFamilyRoute || normalizeRepresentationFamilyRoutePayload(safeData, representationFamilyDecision) || normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
+  const representationFamilyEvidenceGates = safeArray(safeModel.representationFamilyEvidenceGates).length
+    ? safeArray(safeModel.representationFamilyEvidenceGates)
+    : normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision).length
+      ? normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision)
+      : normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
@@ -1379,6 +1464,9 @@ export function buildProtectedInvestorReportText({
     reportLine("Primary route", primaryAnalysisRoute?.visibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || lens?.label || lens?.lensId),
     reportLine("Asset framing", primaryAnalysisRoute?.assetFramingLabel || displayIdentity?.displayFraming || safeModel.assetFramingLabel),
     reportLine("Question group", primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
+    reportLine("Representation family", representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily),
+    reportLine("Representation confidence", representationFamilyDecision?.identityConfidence),
+    reportLine("Major evidence gates", representationFamilyEvidenceGates.length ? `${representationFamilyEvidenceGates.length} source/manual-review gates` : "No representation-family gates attached"),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
     reportLine("Analyzed network", assetIdentityResolution?.analyzedNetwork || assetIdentityResolution?.selectedNetwork),
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
@@ -4193,6 +4281,9 @@ export function buildDecisionTerminalModel({
   const effectiveInstitutionalLens = normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const authorityHierarchyContract = normalizeAuthorityHierarchyContractPayload(safeAnalysis);
+  const representationFamilyDecision = normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
+  const representationFamilyRoute = normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
+  const representationFamilyEvidenceGates = normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
   const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const scoringReadinessContract = normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
@@ -4392,6 +4483,20 @@ export function buildDecisionTerminalModel({
       currentStatus: "source_required",
       canChangeVerdict: false,
     }));
+  const representationFamilyResearchRequirements = safeArray(representationFamilyEvidenceGates)
+    .slice(0, 8)
+    .map((gate, index) => ({
+      id: `representation-family-${gate.gateId || index}`,
+      title: gate.sourceRequirement || gate.label || "Representation-family evidence gate requires source review.",
+      assetClassLens: representationFamilyRoute?.selectedFamily || primaryAnalysisRoute?.assetFamily || "representation_family_authority",
+      reason: `${gate.label || "Evidence gate"} for ${representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily || "asset family route"}. Missing evidence is a source/manual-review gate, not a wrong-family route.`,
+      evidenceNeeded: [gate.label || gate.sourceRequirement || "Reviewed source required."],
+      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
+      priority: index < 3 ? "high" : "medium",
+      verdictImpact: gate.affectsVerdict ? "Could affect verdict if future scoring policy explicitly integrates reviewed evidence." : "Diagnostic/source-routing only in v1; does not change current verdict.",
+      currentStatus: gate.status || "source_required",
+      canChangeVerdict: false,
+    }));
   const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
     .slice(0, 8)
     .map((requirement, index) => ({
@@ -4408,6 +4513,7 @@ export function buildDecisionTerminalModel({
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
     ...baseDisplayResearchRequirements,
+    ...representationFamilyResearchRequirements,
     ...categoryResearchRequirements,
     ...rawDataResearchRequirements,
   ]);
@@ -4516,6 +4622,9 @@ export function buildDecisionTerminalModel({
     dataFirstNarrativeContract,
     authorityHierarchyContract,
     primaryAnalysisRoute,
+    representationFamilyDecision,
+    representationFamilyRoute,
+    representationFamilyEvidenceGates,
     scoringReadinessContract,
     engineLearningBackbone,
     benchmarkAssetPreset,
@@ -5795,6 +5904,13 @@ export function buildReviewBundleText({
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
   const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
+  const representationFamilyDecision = safeModel.representationFamilyDecision || normalizeRepresentationFamilyDecisionPayload(safeData) || normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
+  const representationFamilyRoute = safeModel.representationFamilyRoute || normalizeRepresentationFamilyRoutePayload(safeData, representationFamilyDecision) || normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
+  const representationFamilyEvidenceGates = safeArray(safeModel.representationFamilyEvidenceGates).length
+    ? safeArray(safeModel.representationFamilyEvidenceGates)
+    : normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision).length
+      ? normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision)
+      : normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const benchmarkAssetPresetRegistry = engineLearningBackbone?.benchmarkAssetPresetRegistry || null;
@@ -6733,6 +6849,87 @@ export function buildReviewBundleText({
       bundleList(authorityHierarchyContract?.frontendContract?.visibleSurfaces),
       "Known limitations:",
       bundleList(authorityHierarchyContract?.knownLimitations),
+    ]),
+    bundleSection("2AL. Representation-to-Family Authority Matrix v1", [
+      bundleField("Decision attached", representationFamilyDecision ? "yes" : "missing"),
+      bundleField("Artifact version", representationFamilyDecision?.artifactVersion),
+      bundleField("Decision status", representationFamilyDecision?.decisionStatus),
+      bundleField("Representation type", representationFamilyDecision?.representationType || assetIdentityResolution?.representationType),
+      bundleField("Selected family", representationFamilyRoute?.selectedFamily || representationFamilyDecision?.selectedFamily),
+      bundleField("Visible label", representationFamilyRoute?.visibleLabel),
+      bundleField("Question group", representationFamilyRoute?.questionGroup),
+      bundleField("Source profile", representationFamilyRoute?.sourceProfile),
+      bundleField("Route safety", representationFamilyRoute?.routeSafety),
+      bundleField("Route safe", yesNoUnknown(representationFamilyRoute?.routeSafe)),
+      bundleField("Route safe with manual review", yesNoUnknown(representationFamilyRoute?.routeSafeWithManualReview)),
+      bundleField("Route degraded", yesNoUnknown(representationFamilyRoute?.routeDegraded)),
+      bundleField("Route blocked", yesNoUnknown(representationFamilyRoute?.routeBlocked)),
+      bundleField("Evidence completeness separated from route", yesNoUnknown(representationFamilyRoute?.evidenceCompletenessSeparatedFromRoute)),
+      bundleField("Route safety reason", representationFamilyRoute?.routeSafetyReason),
+      bundleField("Identity confidence", representationFamilyDecision?.identityConfidence),
+      bundleField("Chain confidence", representationFamilyDecision?.chainConfidence),
+      bundleField("Contract confidence", representationFamilyDecision?.contractConfidence),
+      "Allowed families:",
+      bundleList(representationFamilyDecision?.allowedFamilies),
+      "Forbidden families:",
+      bundleList(representationFamilyDecision?.forbiddenFamilies),
+      "Valid question groups:",
+      bundleList(representationFamilyDecision?.validQuestionGroups),
+      "Valid source profiles:",
+      bundleList(representationFamilyDecision?.validSourceProfiles),
+      "Valid source matrix entries:",
+      bundleList(representationFamilyDecision?.validSourceMatrixEntries || representationFamilyRoute?.sourceMatrixEntries),
+      "Evidence gates:",
+      bundleList(representationFamilyEvidenceGates.map((gate) =>
+        `${gate.gateId || "gate"} | ${gate.label || "Evidence gate"} | status=${gate.status || "source_required"} | affectsRoute=${gate.affectsRoute ? "yes" : "no"} | affectsScoring=${gate.affectsScoring ? "yes" : "no"} | affectsVerdict=${gate.affectsVerdict ? "yes" : "no"} | affectsConfidence=${gate.affectsConfidence ? "yes" : "no"} | requirement=${gate.sourceRequirement || "Reviewed source required."}`
+      )),
+      "Manual review triggers:",
+      bundleList(representationFamilyDecision?.manualReviewTriggers),
+      "Not-applicable redirects:",
+      bundleList(representationFamilyDecision?.notApplicableRedirects),
+      "Source requirement templates:",
+      bundleList(representationFamilyDecision?.sourceRequirementTemplates),
+      "Conflicts detected:",
+      bundleList(safeArray(representationFamilyDecision?.conflicts).map((conflict) =>
+        `${conflict.conflictId || "conflict"} | type=${conflict.conflictType || "unknown"} | severity=${conflict.severity || "unknown"} | conflicting=${conflict.conflictingValue || "n/a"} | corrected=${conflict.correctedValue || "n/a"} | primaryAffected=${conflict.primaryRouteAffected ? "yes" : "no"}`
+      )),
+      "Override diagnostics:",
+      bundleList([
+        `provider category tried to override representation=${yesNoUnknown(representationFamilyDecision?.providerCategoryTriedToOverrideRepresentation)}`,
+        `raw lens tried to override representation=${yesNoUnknown(representationFamilyDecision?.rawLensTriedToOverrideRepresentation)}`,
+        `benchmark expectation tried to override representation=${yesNoUnknown(representationFamilyDecision?.benchmarkExpectationTriedToOverrideRepresentation)}`,
+        `AIC family tried to override representation=${yesNoUnknown(representationFamilyDecision?.aicFamilyTriedToOverrideRepresentation)}`,
+      ]),
+      "Guardrails:",
+      bundleList([
+        `scoringChanged=${yesNoUnknown(representationFamilyDecision?.guardrails?.scoringChanged)}`,
+        `verdictChanged=${yesNoUnknown(representationFamilyDecision?.guardrails?.verdictChanged)}`,
+        `providerBehaviorChanged=${yesNoUnknown(representationFamilyDecision?.guardrails?.providerBehaviorChanged)}`,
+        `providerFetchChanged=${yesNoUnknown(representationFamilyDecision?.guardrails?.providerFetchChanged)}`,
+        `runtimeAiDecisionAuthorityAdded=${yesNoUnknown(representationFamilyDecision?.guardrails?.runtimeAiDecisionAuthorityAdded)}`,
+        `tokenSpecificOverrideAdded=${yesNoUnknown(representationFamilyDecision?.guardrails?.tokenSpecificOverrideAdded)}`,
+        `sourceCandidatesPromoted=${yesNoUnknown(representationFamilyDecision?.guardrails?.sourceCandidatesPromoted)}`,
+        `reviewedEvidenceScoringActive=${yesNoUnknown(representationFamilyDecision?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `snapshotsReintroduced=${yesNoUnknown(representationFamilyDecision?.guardrails?.snapshotsReintroduced)}`,
+        `partialRefreshReintroduced=${yesNoUnknown(representationFamilyDecision?.guardrails?.partialRefreshReintroduced)}`,
+        `rawDiagnosticsRemoved=${yesNoUnknown(representationFamilyDecision?.guardrails?.rawDiagnosticsRemoved)}`,
+        `missingEvidenceTreatedAsWrongFamily=${yesNoUnknown(representationFamilyDecision?.guardrails?.missingEvidenceTreatedAsWrongFamily)}`,
+      ]),
+      "QA checks:",
+      bundleList([
+        `LST representation routed to generic wrapped family=${yesNoUnknown(representationFamilyDecision?.representationType === "liquid_staking_derivative" && representationFamilyRoute?.selectedFamily !== "liquid_staking_derivative")}`,
+        `Wrapped representation treated as route failure due missing evidence=${yesNoUnknown(["wrapped_asset", "bridged_asset", "wrapped_or_bridged_asset"].includes(String(representationFamilyDecision?.representationType)) && representationFamilyRoute?.selectedFamily === "wrapped_bridged_asset" && representationFamilyRoute?.routeBlocked)}`,
+        `Missing evidence gates affect route=${yesNoUnknown(representationFamilyEvidenceGates.some((gate) => gate.affectsRoute))}`,
+        `Provider category override affected primary=${yesNoUnknown(safeArray(representationFamilyDecision?.conflicts).some((conflict) => conflict.conflictType === "provider_category_tried_to_override_representation" && conflict.primaryRouteAffected))}`,
+        `Raw lens override affected primary=${yesNoUnknown(safeArray(representationFamilyDecision?.conflicts).some((conflict) => conflict.conflictType === "raw_lens_tried_to_override_representation" && conflict.primaryRouteAffected))}`,
+        `Benchmark override affected primary=${yesNoUnknown(safeArray(representationFamilyDecision?.conflicts).some((conflict) => conflict.conflictType === "benchmark_expectation_tried_to_override_representation" && conflict.primaryRouteAffected))}`,
+        `Copy Bundle 2AL present=yes`,
+        `Protected Investor Report redaction=high-level only`,
+      ]),
+      bundleField("Source boundary", representationFamilyDecision?.sourceBoundary || "Representation-family authority is diagnostic display/question/source routing, not scoring evidence."),
+      "Known limitations:",
+      bundleList(representationFamilyDecision?.knownLimitations),
+      bundleField("Next resume pointer", representationFamilyDecision?.nextResumePointer),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
@@ -7922,6 +8119,11 @@ export function buildReviewBundleText({
       bundleField("Primary question route mismatch diagnostic attached", primaryRouteQuestionGroupMismatch ? "no - QA failure" : "yes"),
       bundleField("Raw resolved lens remains audit-only", authorityHierarchyContract ? yesNoUnknown(authorityHierarchyContract.rawResolvedLensBoundary === "audit_only_not_primary_display") : "unknown"),
       bundleField("Benchmark preset remains reference-only", authorityHierarchyContract ? yesNoUnknown(authorityHierarchyContract.benchmarkPresetBoundary === "reference_only_not_primary_override") : "unknown"),
+      bundleField("Representation-Family Matrix present", representationFamilyDecision ? "yes" : "missing"),
+      bundleField("Representation route separates evidence gaps from wrong family", representationFamilyRoute ? yesNoUnknown(representationFamilyRoute.evidenceCompletenessSeparatedFromRoute && !representationFamilyEvidenceGates.some((gate) => gate.affectsRoute)) : "unknown"),
+      bundleField("LST degraded to generic wrapped route", representationFamilyDecision?.representationType === "liquid_staking_derivative" ? yesNoUnknown(representationFamilyRoute?.selectedFamily !== "liquid_staking_derivative") : "not applicable"),
+      bundleField("Wrapped route blocked only because evidence missing", ["wrapped_asset", "bridged_asset", "wrapped_or_bridged_asset"].includes(String(representationFamilyDecision?.representationType)) ? yesNoUnknown(representationFamilyRoute?.selectedFamily === "wrapped_bridged_asset" && representationFamilyRoute?.routeBlocked) : "not applicable"),
+      bundleField("Provider/raw/benchmark override touched primary family", representationFamilyDecision ? yesNoUnknown(safeArray(representationFamilyDecision.conflicts).some((conflict) => conflict.primaryRouteAffected && ["provider_category_tried_to_override_representation", "raw_lens_tried_to_override_representation", "benchmark_expectation_tried_to_override_representation"].includes(conflict.conflictType))) : "unknown"),
       bundleField("Authority hierarchy scoring/provider guardrails preserved", authorityHierarchyContract ? yesNoUnknown(
         authorityHierarchyContract.guardrails?.scoringChanged === false
         && authorityHierarchyContract.guardrails?.verdictChanged === false

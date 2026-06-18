@@ -111,6 +111,8 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const freshness = model?.analysisFreshness || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
+  const representationFamilyRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
+  const representationFamilyGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const providerIds = [
@@ -154,6 +156,15 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
           tone={identity.isNativeAsset ? "#2fd67b" : identity.isContractRepresentation || identity.isMultichain ? "#ffb020" : "#7dd3fc"}
           styles={styles}
         />
+        {representationFamilyRoute.selectedFamily ? (
+          <LayerLegendItem
+            title={`Family route: ${representationFamilyRoute.visibleLabel || representationFamilyRoute.selectedFamily}`}
+            detail={`Route safety: ${representationFamilyRoute.routeSafety || "unknown"}; evidence gates: ${representationFamilyGates.length}. Missing evidence is handled as source/manual-review gates, not wrong-family routing.`}
+            badge={representationFamilyRoute.routeBlocked ? "Route blocked" : representationFamilyRoute.routeDegraded ? "Route degraded" : representationFamilyRoute.routeSafeWithManualReview ? "Valid route, review gates" : "Valid route"}
+            tone={representationFamilyRoute.routeBlocked || representationFamilyRoute.routeDegraded ? "#ffb020" : "#2fd67b"}
+            styles={styles}
+          />
+        ) : null}
         {identityWarnings.slice(0, 1).map((warning) => (
           <LayerLegendItem
             key={warning.id}
