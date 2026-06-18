@@ -4,6 +4,7 @@ import {
   extractRenderableText,
   getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
+  normalizePrimaryAnalysisRoutePayload,
   normalizeRenderableList,
   normalizeResolvedInstitutionalLensPayload,
   providerLabel,
@@ -991,9 +992,21 @@ export default function InstitutionalChecklistTab({
     || null;
   const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(analysis)
     || normalizeResolvedInstitutionalLensPayload(model);
-  const visibleResolvedLensLabel = resolvedInstitutionalLens?.visibleLabelOverride
-    || resolvedInstitutionalLens?.displayLabel
-    || resolvedInstitutionalLens?.label;
+  const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(analysis)
+    || normalizePrimaryAnalysisRoutePayload(model);
+  const displayResolvedInstitutionalLens = primaryAnalysisRoute?.visibleLabel || primaryAnalysisRoute?.questionGroup
+    ? {
+      ...(resolvedInstitutionalLens || {}),
+      displayLabel: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.displayLabel || resolvedInstitutionalLens?.label,
+      visibleLabelOverride: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.visibleLabelOverride || resolvedInstitutionalLens?.label,
+      questionGroupId: primaryAnalysisRoute.questionGroup || resolvedInstitutionalLens?.questionGroupId,
+      primaryRouteAssetFamily: primaryAnalysisRoute.assetFamily || resolvedInstitutionalLens?.assetClassGroup,
+      confidence: primaryAnalysisRoute.primaryRouteConfidence || resolvedInstitutionalLens?.confidence,
+    }
+    : resolvedInstitutionalLens;
+  const visibleResolvedLensLabel = displayResolvedInstitutionalLens?.visibleLabelOverride
+    || displayResolvedInstitutionalLens?.displayLabel
+    || displayResolvedInstitutionalLens?.label;
   const hasInstitutionalAnswers = institutionalQuestions.length > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
@@ -1043,8 +1056,8 @@ export default function InstitutionalChecklistTab({
             />
             <SectionRow
               label="Current asset lens"
-              value={resolvedInstitutionalLens
-                ? `${visibleResolvedLensLabel} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+              value={displayResolvedInstitutionalLens
+                ? `${visibleResolvedLensLabel} (${displayResolvedInstitutionalLens.confidence || "route"} confidence)`
                 : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
               styles={styles}
             />
@@ -1090,30 +1103,30 @@ export default function InstitutionalChecklistTab({
           >
             <SectionRow
               label="Current asset lens"
-              value={resolvedInstitutionalLens
-                ? `${visibleResolvedLensLabel} (${resolvedInstitutionalLens.confidence} provider-grounded confidence)`
+              value={displayResolvedInstitutionalLens
+                ? `${visibleResolvedLensLabel} (${displayResolvedInstitutionalLens.confidence || "route"} confidence)`
                 : `${lensResolution.displayName} (${lensResolution.confidence} resolver confidence)`}
               styles={styles}
             />
             <SectionRow
               label="Resolver reason"
-              value={resolvedInstitutionalLens?.fallbackReason || lensResolution.reason}
+              value={primaryAnalysisRoute?.fallbackReason || displayResolvedInstitutionalLens?.fallbackReason || lensResolution.reason}
               styles={styles}
             />
             <SectionRow
               label="Matched routing signals"
-              value={resolvedInstitutionalLens?.matchedSignals?.length
-                ? resolvedInstitutionalLens.matchedSignals.join("; ")
+              value={displayResolvedInstitutionalLens?.matchedSignals?.length
+                ? displayResolvedInstitutionalLens.matchedSignals.join("; ")
                 : lensResolution.matchedSignals?.length ? lensResolution.matchedSignals.join("; ") : "No specialized routing signal attached. Using conservative fallback."}
               styles={styles}
             />
-            <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
+            <ResolvedLensPanel resolvedLens={displayResolvedInstitutionalLens} styles={styles} />
             <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
           </CollapsibleDetail>
         </>
       ) : (
         <>
-      <ResolvedLensPanel resolvedLens={resolvedInstitutionalLens} styles={styles} />
+      <ResolvedLensPanel resolvedLens={displayResolvedInstitutionalLens} styles={styles} />
 
       <CalibrationWarningsSummary warnings={calibrationWarnings || model?.calibrationWarnings} styles={styles} />
 

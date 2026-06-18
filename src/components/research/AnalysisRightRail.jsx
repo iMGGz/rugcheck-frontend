@@ -76,8 +76,10 @@ function EvidenceSignal({ item, styles }) {
 }
 
 function LensIdentityRailSection({ model, displayIdentity, styles }) {
+  const primaryRoute = model?.primaryAnalysisRoute || {};
   const lens = model?.resolvedInstitutionalLens || {};
-  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label;
+  const visibleLensLabel = primaryRoute.visibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label;
+  const visibleQuestionGroup = primaryRoute.questionGroup || lens.primaryRouteQuestionGroup || lens.questionGroupId;
   const identity = model?.assetIdentityResolution || {};
   const warnings = safeArray(model?.calibrationWarnings);
   const identityWarnings = warnings.filter((warning) => /identity|variant|wrapped|bridged|lens|mapping/i.test(String(warning?.id || warning?.issue || "")));
@@ -91,7 +93,7 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
       </div>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Question group</div>
-        <div style={styles.railMiniValue}>{lens.questionGroupId || "Question group unavailable"}</div>
+        <div style={styles.railMiniValue}>{visibleQuestionGroup || "Question group unavailable"}</div>
       </div>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Analyzed representation</div>
@@ -277,8 +279,9 @@ function MobileRailSummary({
   styles,
 }) {
   const firstEvidenceSignal = evidenceItems[0] ? normalizeEvidenceProxyDisplayLabel(evidenceItems[0]) : null;
+  const primaryRoute = model?.primaryAnalysisRoute || {};
   const resolvedLens = model?.resolvedInstitutionalLens || {};
-  const visibleLensLabel = resolvedLens.visibleLabelOverride || resolvedLens.displayLabel || resolvedLens.label;
+  const visibleLensLabel = primaryRoute.visibleLabel || resolvedLens.visibleLabelOverride || resolvedLens.displayLabel || resolvedLens.label;
   const freshness = model?.analysisFreshness || {};
 
   return (

@@ -554,6 +554,65 @@ export function normalizeAssetInterpretationContractPayload(responseLike) {
   };
 }
 
+export function normalizeAuthorityHierarchyContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.authorityHierarchyContract);
+  const nestedContract = safeObject(nestedAnalysis.authorityHierarchyContract);
+  const contract = rootContract.artifactVersion || rootContract.primaryAnalysisRoute
+    ? rootContract
+    : nestedContract.artifactVersion || nestedContract.primaryAnalysisRoute
+      ? nestedContract
+      : null;
+
+  if (!contract) return null;
+
+  const route = safeObject(contract.primaryAnalysisRoute);
+  return {
+    ...contract,
+    authorityPrecedence: safeArray(contract.authorityPrecedence),
+    primaryAnalysisRoute: {
+      ...route,
+      sourceMatrixEntries: safeArray(route.sourceMatrixEntries),
+      mismatchDiagnostics: safeArray(route.mismatchDiagnostics),
+      rawLensAuditOnly: safeObject(route.rawLensAuditOnly),
+      benchmarkExpectationAuditOnly: safeObject(route.benchmarkExpectationAuditOnly),
+      providerCategoryAuditOnly: safeObject(route.providerCategoryAuditOnly),
+    },
+    frontendContract: {
+      ...safeObject(contract.frontendContract),
+      visibleSurfaces: safeArray(contract.frontendContract?.visibleSurfaces),
+    },
+    bundleParity: safeObject(contract.bundleParity),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
+export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHierarchyContract = null) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootRoute = safeObject(root.primaryAnalysisRoute);
+  const nestedRoute = safeObject(nestedAnalysis.primaryAnalysisRoute);
+  const contractRoute = safeObject(authorityHierarchyContract?.primaryAnalysisRoute);
+  const route = rootRoute.assetFamily || rootRoute.visibleLabel
+    ? rootRoute
+    : nestedRoute.assetFamily || nestedRoute.visibleLabel
+      ? nestedRoute
+      : contractRoute.assetFamily || contractRoute.visibleLabel
+        ? contractRoute
+        : null;
+  if (!route) return null;
+  return {
+    ...route,
+    sourceMatrixEntries: safeArray(route.sourceMatrixEntries),
+    mismatchDiagnostics: safeArray(route.mismatchDiagnostics),
+    rawLensAuditOnly: safeObject(route.rawLensAuditOnly),
+    benchmarkExpectationAuditOnly: safeObject(route.benchmarkExpectationAuditOnly),
+    providerCategoryAuditOnly: safeObject(route.providerCategoryAuditOnly),
+  };
+}
+
 export function normalizeDataFirstNarrativeContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -1250,6 +1309,8 @@ export function buildProtectedInvestorReportText({
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
   const safeMeta = safeObject(meta || safeData.meta);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
+  const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
+  const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
@@ -1315,8 +1376,10 @@ export function buildProtectedInvestorReportText({
       safeAsset.coingeckoId || safeAsset.coinGeckoId ? `CoinGecko ${safeAsset.coingeckoId || safeAsset.coinGeckoId}` : null,
       safeAsset.coinmarketcapId || safeAsset.coinMarketCapId ? `CoinMarketCap ${safeAsset.coinmarketcapId || safeAsset.coinMarketCapId}` : null,
     ].filter(Boolean).join("; ")),
-    reportLine("Lens", lens?.label || lens?.lensId),
-    reportLine("Question group", lens?.questionGroupId),
+    reportLine("Primary route", primaryAnalysisRoute?.visibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || lens?.label || lens?.lensId),
+    reportLine("Asset framing", primaryAnalysisRoute?.assetFramingLabel || displayIdentity?.displayFraming || safeModel.assetFramingLabel),
+    reportLine("Question group", primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
+    reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
     reportLine("Analyzed network", assetIdentityResolution?.analyzedNetwork || assetIdentityResolution?.selectedNetwork),
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
     "",
@@ -3592,7 +3655,11 @@ function buildLensAwareSecondaryCopy(lens, lensAware, fallback = {}) {
 }
 
 export function buildLensSpecificResearchDomains(model = {}, displayIdentity = null) {
-  const resolvedLensId = model?.resolvedInstitutionalLens?.lensId || displayIdentity?.lensId;
+  const primaryRouteKey = model?.primaryAnalysisRoute?.assetFamily
+    || model?.primaryAnalysisRoute?.questionGroup
+    || model?.resolvedInstitutionalLens?.primaryRouteAssetFamily
+    || model?.resolvedInstitutionalLens?.primaryRouteQuestionGroup;
+  const resolvedLensId = primaryRouteKey || model?.resolvedInstitutionalLens?.lensId || displayIdentity?.lensId;
   const identity = model?.assetIdentityResolution || {};
   const identityNeeds = [
     identity?.canonicalNetworkCandidate || identity?.nativeNetworkCandidate ? `Canonical / analyzed representation: ${identity.canonicalNetworkCandidate || identity.nativeNetworkCandidate}` : null,
@@ -3601,6 +3668,79 @@ export function buildLensSpecificResearchDomains(model = {}, displayIdentity = n
   ].filter(Boolean);
 
   const map = {
+    native_btc_pow_monetary: [
+      "Native Monetary Benchmark",
+      "Issuance / Hard-Cap Credibility",
+      "Fee Market / Security Budget",
+      "Liquidity / Access",
+    ],
+    native_eth_pos_gas_l2_fee_market: [
+      "Smart-Contract Settlement",
+      "Gas / Fee Burn",
+      "Validator / Staking Security",
+      "L2 / Blob Settlement Demand",
+      "Liveness / Client Risk",
+    ],
+    rwa_hybrid_asset: [
+      "Legal / Economic Claim",
+      "Redemption Enforceability",
+      "Issuer / Custodian / Collateral",
+      "Jurisdiction / Compliance",
+      "Product vs Token Value Capture",
+      ...identityNeeds,
+    ],
+    rwa_hybrid: [
+      "Legal / Economic Claim",
+      "Redemption Enforceability",
+      "Issuer / Custodian / Collateral",
+      "Jurisdiction / Compliance",
+      "Product vs Token Value Capture",
+      ...identityNeeds,
+    ],
+    stablecoin_fiat_backed: [
+      "Reserves / Attestations",
+      "Redemption Path",
+      "Issuer / Custodian Dependency",
+      "Mint-Redeem / Admin Controls",
+      "Supported Networks",
+      ...identityNeeds,
+    ],
+    wrapped_asset: [
+      "Backing / Proof of Reserves",
+      "Custodian / Merchant Model",
+      "Mint / Burn / Redemption",
+      "Selected Contract / Bridge Boundary",
+      ...identityNeeds,
+    ],
+    lst_redemption_slashing: [
+      "Withdrawal / Redemption Path",
+      "Slashing / Operator Risk",
+      "Depeg / Liquidity Risk",
+      "Protocol / Admin Controls",
+      ...identityNeeds,
+    ],
+    payments_settlement: [
+      "Payments / Settlement",
+      "Validator / UNL / Finality",
+      "Escrow / Distribution",
+      "Fee Burn / Reserve Mechanics",
+      "Issuer / Ecosystem Dependency",
+    ],
+    payments_settlement_network: [
+      "Payments / Settlement",
+      "Validator / UNL / Finality",
+      "Escrow / Distribution",
+      "Fee Burn / Reserve Mechanics",
+      "Issuer / Ecosystem Dependency",
+    ],
+    rwa_infrastructure_utility: [
+      "RWA Infrastructure",
+      "Tokenized Assets",
+      "Utility Token vs Security Token Rights",
+      "Canonical Chain / Contract Migration",
+      "Supply Cap / Emissions",
+      ...identityNeeds,
+    ],
     PAYMENTS_SETTLEMENT: [
       "Payments / Settlement",
       "Validator / UNL / Finality",
@@ -4052,6 +4192,8 @@ export function buildDecisionTerminalModel({
   const assetInterpretationContract = normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = normalizeDataFirstNarrativeContractPayload(safeAnalysis);
+  const authorityHierarchyContract = normalizeAuthorityHierarchyContractPayload(safeAnalysis);
+  const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const scoringReadinessContract = normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const benchmarkAssetPreset = findBenchmarkSearchPresetForAsset(asset, safeAnalysis, engineLearningBackbone);
@@ -4182,7 +4324,13 @@ export function buildDecisionTerminalModel({
     auditAlerts,
   });
   const rawVerdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, thesisCore, safeAnalysis);
-  const lensDisplayLabels = displayLabelsForResolvedLens(resolvedInstitutionalLens, assetInterpretationContract);
+  const primaryRouteDisplayLabels = primaryAnalysisRoute?.visibleLabel || primaryAnalysisRoute?.assetFramingLabel ? {
+    assetClassLabel: primaryAnalysisRoute.visibleLabel || primaryAnalysisRoute.assetFramingLabel,
+    assetFramingLabel: primaryAnalysisRoute.assetFramingLabel || primaryAnalysisRoute.visibleLabel,
+    labelSource: primaryAnalysisRoute.authoritySource || "primaryAnalysisRoute",
+    labelFamily: primaryAnalysisRoute.assetFamily || null,
+  } : null;
+  const lensDisplayLabels = primaryRouteDisplayLabels || displayLabelsForResolvedLens(resolvedInstitutionalLens, assetInterpretationContract);
   const assetClassLabel = lensDisplayLabels?.assetClassLabel || deriveAssetClassLabel({
     assetClass: assetClassification.assetClass || null,
     assetSubtype: assetClassification.subtype || null,
@@ -4249,7 +4397,7 @@ export function buildDecisionTerminalModel({
     .map((requirement, index) => ({
       id: `raw-data-coverage-${index}`,
       title: requirement,
-      assetClassLens: categoryDrivenAssetFamilyContract?.primaryAssetFamily || resolvedInstitutionalLens?.lensId || "raw_data_coverage",
+      assetClassLens: primaryAnalysisRoute?.assetFamily || categoryDrivenAssetFamilyContract?.primaryAssetFamily || resolvedInstitutionalLens?.lensId || "raw_data_coverage",
       reason: "Generated from provider category/raw-data coverage diagnostics. Missing provider data is source-required, not negative evidence.",
       evidenceNeeded: [requirement],
       preferredSourceTypes: ["provider_endpoint", "official_docs", "primary_source", "manual_review"],
@@ -4349,7 +4497,15 @@ export function buildDecisionTerminalModel({
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
-    resolvedInstitutionalLens,
+    resolvedInstitutionalLens: primaryAnalysisRoute?.visibleLabel || primaryAnalysisRoute?.questionGroup ? {
+      ...(resolvedInstitutionalLens || {}),
+      displayLabel: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.displayLabel || resolvedInstitutionalLens?.label,
+      visibleLabelOverride: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.visibleLabelOverride || resolvedInstitutionalLens?.label,
+      displayFraming: primaryAnalysisRoute.assetFramingLabel || resolvedInstitutionalLens?.displayFraming,
+      primaryRouteQuestionGroup: primaryAnalysisRoute.questionGroup || resolvedInstitutionalLens?.questionGroupId,
+      primaryRouteAssetFamily: primaryAnalysisRoute.assetFamily || resolvedInstitutionalLens?.assetClassGroup,
+      visibleLabelSource: "primaryAnalysisRoute",
+    } : resolvedInstitutionalLens,
     effectiveInstitutionalLens,
     lensAwareExplanations,
     assetIdentityResolution,
@@ -4358,6 +4514,8 @@ export function buildDecisionTerminalModel({
     benchmarkInstitutionalAnswerPack,
     assetInterpretationContract,
     dataFirstNarrativeContract,
+    authorityHierarchyContract,
+    primaryAnalysisRoute,
     scoringReadinessContract,
     engineLearningBackbone,
     benchmarkAssetPreset,
@@ -4851,10 +5009,10 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     allRequiredSurfacesMirrored: missingMirroredSurfaces.length === 0,
     decisionHeaderRenderedItemCount: decisionHeader.length,
     componentConsumption: {
-      decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and resolvedInstitutionalLens label in the guardrail.",
+      decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and primaryAnalysisRoute label/question group in the guardrail; raw resolvedInstitutionalLens remains audit context.",
       decisionTab: "App.jsx Decision tab plus DecisionHeroSupportSections read verdictSemantics, primaryBlocker, weakestLink, whatWouldChangeDecision, and secondary display fields.",
       thesisFalsification: "ThesisFalsificationTab.jsx reads summaryMemo, tokenDemandTruth, whatMustBeTrue, whatCouldBreak, allocationCase, blockers, and whatWouldChangeDecision.",
-      rightRail: "AnalysisRightRail.jsx reads displayIdentity labels, resolvedInstitutionalLens label, primaryBlocker, weakestLink, and whatWouldChangeDecision.",
+      rightRail: "AnalysisRightRail.jsx reads displayIdentity labels, primaryAnalysisRoute label/question group, primaryBlocker, weakestLink, and whatWouldChangeDecision.",
       evidenceMap: "EvidenceMapTab.jsx reads source/evidence boundary, reviewed evidence mapping, and Engine Learning output QA diagnostics.",
       scoringTransparency: "ScoringTransparencyTab.jsx reads live score/verdict fields, caps/gates, diagnostic-only boundaries, and score-change guardrails.",
       sourceQueue: "SourceQueuePanel.jsx reads researchRequirements and lens-aware source requirements from the normalized model.",
@@ -5635,6 +5793,8 @@ export function buildReviewBundleText({
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
+  const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
+  const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const benchmarkAssetPresetRegistry = engineLearningBackbone?.benchmarkAssetPresetRegistry || null;
@@ -5730,8 +5890,8 @@ export function buildReviewBundleText({
   const rawGenericVisible = includesGenericPrimaryCopy(visiblePrimaryText);
   const rawGenericAudit = includesGenericPrimaryCopy(rawDecisionText);
   const visibleContractDisplay = safeObject(assetInterpretationContract?.visibleDisplayContract);
-  const visibleBundleLensLabel = visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
-  const visibleBundleFramingLabel = visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
+  const visibleBundleLensLabel = primaryAnalysisRoute?.visibleLabel || visibleContractDisplay.primaryVisibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || displayIdentity?.displayAssetClass || lens?.label || safeModel.assetClassLabel;
+  const visibleBundleFramingLabel = primaryAnalysisRoute?.assetFramingLabel || visibleContractDisplay.assetFramingLabel || displayIdentity?.displayFraming || lens?.displayFraming || safeModel.assetFramingLabel;
   const tokenizedGoldPrimaryContext = /tokenized_gold|tokenized gold|commodity-backed rwa|commodity backed rwa|paxg|pax gold|physical gold/i.test([
     lens?.lensId,
     lens?.questionGroupId,
@@ -6219,6 +6379,17 @@ export function buildReviewBundleText({
   const visibleLensLabelMirrorMissing = !visibleLensLabelMirror.length && visibleBundleLensLabel !== "not_rendered_by_ui";
   const dataFirstNarrativeFailing = dataFirstNarrativeContract
     && dataFirstNarrativeContract.primaryNarrativeGateStatus === "FAIL";
+  const authorityHierarchyMissing = !authorityHierarchyContract;
+  const primaryRouteMissing = !primaryAnalysisRoute;
+  const primaryRouteFallbackUsed = primaryAnalysisRoute?.fallbackUsed === true;
+  const primaryRouteNotSafe = primaryAnalysisRoute && primaryAnalysisRoute.isPrimaryRouteSafe === false;
+  const primaryRouteLabelMismatch = primaryAnalysisRoute?.visibleLabel
+    && visibleBundleLensLabel
+    && primaryAnalysisRoute.visibleLabel !== visibleBundleLensLabel;
+  const primaryRouteQuestionGroupMismatch = primaryAnalysisRoute?.questionGroup
+    && lens?.questionGroupId
+    && primaryAnalysisRoute.questionGroup !== lens.questionGroupId
+    && !safeArray(primaryAnalysisRoute.mismatchDiagnostics).some((entry) => entry?.mismatchId === "raw_question_group_diverges_from_primary_route");
   const aicLabelPassButNarrativeFail = assetInterpretationContract
     && assetInterpretationContract.visibleDisplayContract?.hardGateStatus === "PASS"
     && (dataFirstNarrativeFailing || dataFirstNarrativeMissing);
@@ -6509,6 +6680,59 @@ export function buildReviewBundleText({
       bundleList(assetInterpretationContract?.engineLearningIntegration?.ruleIds),
       "Known limitations:",
       bundleList(assetInterpretationContract?.knownLimitations),
+    ]),
+    bundleSection("2AK. Authority Hierarchy Primary Routing Contract v1", [
+      bundleField("Contract attached", authorityHierarchyContract ? "yes" : "missing"),
+      bundleField("Artifact version", authorityHierarchyContract?.artifactVersion),
+      bundleField("Contract status", authorityHierarchyContract?.contractStatus),
+      bundleField("Primary rule", authorityHierarchyContract?.primaryRule || "asset_interpretation_contract_effective_family_is_primary"),
+      bundleField("Primary route field", authorityHierarchyContract?.frontendContract?.primaryRouteField || "primaryAnalysisRoute"),
+      bundleField("Frontend normalization field", authorityHierarchyContract?.frontendContract?.frontendNormalizationField || "model.authorityHierarchyContract"),
+      bundleField("Primary display field", authorityHierarchyContract?.frontendContract?.primaryDisplayField || "model.primaryAnalysisRoute"),
+      bundleField("Primary route safe", primaryAnalysisRoute ? yesNoUnknown(primaryAnalysisRoute.isPrimaryRouteSafe) : "unknown"),
+      bundleField("Primary route fallback used", primaryAnalysisRoute ? yesNoUnknown(primaryAnalysisRoute.fallbackUsed) : "unknown"),
+      bundleField("Fallback reason", primaryAnalysisRoute?.fallbackReason),
+      bundleField("Primary asset family", primaryAnalysisRoute?.assetFamily),
+      bundleField("Primary visible label", primaryAnalysisRoute?.visibleLabel),
+      bundleField("Primary asset framing", primaryAnalysisRoute?.assetFramingLabel),
+      bundleField("Primary question group", primaryAnalysisRoute?.questionGroup),
+      bundleField("Primary source profile", primaryAnalysisRoute?.sourceProfile),
+      bundleField("Primary route confidence", primaryAnalysisRoute?.primaryRouteConfidence),
+      bundleField("Authority source", primaryAnalysisRoute?.authoritySource),
+      bundleField("Raw resolved lens boundary", authorityHierarchyContract?.rawResolvedLensBoundary || "audit_only_not_primary_display"),
+      bundleField("Benchmark preset boundary", authorityHierarchyContract?.benchmarkPresetBoundary || "reference_only_not_primary_override"),
+      bundleField("Provider category boundary", authorityHierarchyContract?.providerCategoryBoundary || "context_only_not_reviewed_evidence"),
+      bundleField("Raw lens audit-only", primaryAnalysisRoute?.rawLensAuditOnly?.lensId),
+      bundleField("Raw question group audit-only", primaryAnalysisRoute?.rawQuestionGroupAuditOnly),
+      bundleField("Benchmark expected family audit-only", primaryAnalysisRoute?.benchmarkExpectationAuditOnly?.expectedLensFamily),
+      bundleField("Benchmark expected question group audit-only", primaryAnalysisRoute?.benchmarkExpectationAuditOnly?.expectedQuestionGroup),
+      bundleField("Provider category audit-only family", primaryAnalysisRoute?.providerCategoryAuditOnly?.primaryAssetFamily),
+      bundleField("Copy Review Bundle mirrors primary route", yesNoUnknown(authorityHierarchyContract?.bundleParity?.copyReviewBundleMirrorsPrimaryRoute)),
+      bundleField("Internal Developer QA Bundle preserves raw lens", yesNoUnknown(authorityHierarchyContract?.bundleParity?.internalDeveloperQaBundlePreservesRawLens)),
+      bundleField("Protected report redacts internals", yesNoUnknown(authorityHierarchyContract?.bundleParity?.protectedReportRedactsInternals)),
+      bundleField("Scoring changed", yesNoUnknown(authorityHierarchyContract?.guardrails?.scoringChanged)),
+      bundleField("Verdict changed", yesNoUnknown(authorityHierarchyContract?.guardrails?.verdictChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(authorityHierarchyContract?.guardrails?.providerBehaviorChanged)),
+      bundleField("Provider fetch changed", yesNoUnknown(authorityHierarchyContract?.guardrails?.providerFetchChanged)),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(authorityHierarchyContract?.guardrails?.reviewedEvidenceScoringActive)),
+      bundleField("Source candidates promoted", yesNoUnknown(authorityHierarchyContract?.guardrails?.sourceCandidatesPromoted)),
+      bundleField("Token-specific override added", yesNoUnknown(authorityHierarchyContract?.guardrails?.tokenSpecificOverrideAdded)),
+      bundleField("Snapshot reuse enabled", yesNoUnknown(authorityHierarchyContract?.guardrails?.snapshotReuseEnabled)),
+      bundleField("Partial refresh enabled", yesNoUnknown(authorityHierarchyContract?.guardrails?.partialRefreshEnabled)),
+      "Authority precedence:",
+      bundleList(safeArray(authorityHierarchyContract?.authorityPrecedence).map((entry) =>
+        `${entry.precedenceRank}. ${entry.source} | field=${entry.sourceField} | primary=${entry.usedForPrimarySurface ? "yes" : "no"} | ${entry.rationale || "No rationale attached."}`
+      )),
+      "Primary source matrix entries:",
+      bundleList(primaryAnalysisRoute?.sourceMatrixEntries),
+      "Mismatch diagnostics:",
+      bundleList(safeArray(primaryAnalysisRoute?.mismatchDiagnostics).map((entry) =>
+        `${entry.mismatchId || "mismatch"} | severity=${entry.severity || "unknown"} | primaryAffected=${entry.primarySurfaceAffected ? "yes" : "no"} | raw=${entry.rawValue || "n/a"} | primary=${entry.primaryValue || "n/a"} | ${entry.description || "Review route mismatch."}`
+      )),
+      "Visible surfaces:",
+      bundleList(authorityHierarchyContract?.frontendContract?.visibleSurfaces),
+      "Known limitations:",
+      bundleList(authorityHierarchyContract?.knownLimitations),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
@@ -7690,6 +7914,23 @@ export function buildReviewBundleText({
       bundleField("Data-first narrative contract present", yesNoUnknown(!dataFirstNarrativeMissing)),
       bundleField("Data-first primary narrative gate failed", yesNoUnknown(dataFirstNarrativeFailing)),
       bundleField("AIC label PASS but narrative FAIL", yesNoUnknown(aicLabelPassButNarrativeFail)),
+      bundleField("Authority Hierarchy Contract present", yesNoUnknown(!authorityHierarchyMissing)),
+      bundleField("Primary Analysis Route present", yesNoUnknown(!primaryRouteMissing)),
+      bundleField("Primary route safe for visible surfaces", primaryAnalysisRoute ? yesNoUnknown(!primaryRouteNotSafe) : "unknown"),
+      bundleField("Primary route fallback used", primaryAnalysisRoute ? yesNoUnknown(primaryRouteFallbackUsed) : "unknown"),
+      bundleField("Primary visible label sourced from primaryAnalysisRoute", primaryAnalysisRoute?.visibleLabel ? yesNoUnknown(!primaryRouteLabelMismatch) : "unknown"),
+      bundleField("Primary question route mismatch diagnostic attached", primaryRouteQuestionGroupMismatch ? "no - QA failure" : "yes"),
+      bundleField("Raw resolved lens remains audit-only", authorityHierarchyContract ? yesNoUnknown(authorityHierarchyContract.rawResolvedLensBoundary === "audit_only_not_primary_display") : "unknown"),
+      bundleField("Benchmark preset remains reference-only", authorityHierarchyContract ? yesNoUnknown(authorityHierarchyContract.benchmarkPresetBoundary === "reference_only_not_primary_override") : "unknown"),
+      bundleField("Authority hierarchy scoring/provider guardrails preserved", authorityHierarchyContract ? yesNoUnknown(
+        authorityHierarchyContract.guardrails?.scoringChanged === false
+        && authorityHierarchyContract.guardrails?.verdictChanged === false
+        && authorityHierarchyContract.guardrails?.providerBehaviorChanged === false
+        && authorityHierarchyContract.guardrails?.providerFetchChanged === false
+        && authorityHierarchyContract.guardrails?.reviewedEvidenceScoringActive === false
+        && authorityHierarchyContract.guardrails?.sourceCandidatesPromoted === false
+        && authorityHierarchyContract.guardrails?.tokenSpecificOverrideAdded === false
+      ) : "unknown"),
       bundleField("Score explanation not data-bound", yesNoUnknown(scoreExplanationNotDataBound)),
       bundleField("Wrong-asset primary narrative mentions", dataFirstNarrativeContract ? safeArray(dataFirstNarrativeContract.wrongAssetNameMentions).length : "unknown"),
       bundleField("Forbidden primary narrative concepts", dataFirstNarrativeContract ? safeArray(dataFirstNarrativeContract.forbiddenConceptMentions).length : "unknown"),

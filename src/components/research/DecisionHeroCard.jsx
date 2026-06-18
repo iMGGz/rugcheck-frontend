@@ -102,8 +102,11 @@ function ScoreTile({ label, value, detail, styles }) {
 }
 
 function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
+  const primaryRoute = model?.primaryAnalysisRoute || {};
   const lens = model?.resolvedInstitutionalLens || {};
-  const visibleLensLabel = lens.visibleLabelOverride || lens.displayLabel || lens.label;
+  const visibleLensLabel = primaryRoute.visibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label;
+  const visibleQuestionGroup = primaryRoute.questionGroup || lens.primaryRouteQuestionGroup || lens.questionGroupId;
+  const visibleAssetFamily = primaryRoute.assetFamily || lens.primaryRouteAssetFamily || lens.lensId;
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
@@ -132,8 +135,8 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
       <div style={styles.decisionLayerLegendGrid}>
         <LayerLegendItem
           title={visibleLensLabel || "Resolved lens unavailable"}
-          detail={`Lens: ${lens.lensId || "unavailable"}; question group: ${lens.questionGroupId || "unavailable"}.`}
-          badge={lens.confidence ? `${lens.confidence} confidence` : "Lens pending"}
+          detail={`Primary family: ${visibleAssetFamily || "unavailable"}; question group: ${visibleQuestionGroup || "unavailable"}. Raw resolver remains audit-only when it diverges.`}
+          badge={primaryRoute.primaryRouteConfidence ? `${primaryRoute.primaryRouteConfidence} route` : lens.confidence ? `${lens.confidence} confidence` : "Lens pending"}
           tone="#7dd3fc"
           styles={styles}
         />
