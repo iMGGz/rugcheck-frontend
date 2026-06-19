@@ -84,7 +84,7 @@ export default function EvidenceStatusSummaryCard({ proxy, styles }) {
                   Source basis: {item.sourceLabel} - Live response proxy only
                 </div>
                 <div style={styles.evidenceStatusSourceLine}>
-                  Boundary: {display.boundaryLabel}; not scoring-active evidence.
+                  Boundary: {display.boundaryLabel}; explanation support before calibrated score integration.
                 </div>
               </div>
             );

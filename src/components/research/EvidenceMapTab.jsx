@@ -8,6 +8,7 @@ import SourcesPanel from "./SourcesPanel";
 import {
   diagnosticTone,
   extractRenderableText,
+  cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeEvidenceProxyDisplayLabel,
   normalizeProviderHealth,
@@ -82,7 +83,7 @@ function normalizeProviderHealthRows(providerHealth) {
         name: providerName === "anthropic" ? "Decision memo service" : providerLabel(providerName),
         status: tone.label,
         statusColor: tone.color,
-        contribution: `Provider availability diagnostic: ${tone.statusLabel}${entry?.reason ? ` (${titleCase(entry.reason)})` : ""}. Provider availability is diagnostic context, not thesis evidence quality.`,
+        contribution: `Provider availability context: ${tone.statusLabel}${entry?.reason ? ` (${titleCase(entry.reason)})` : ""}. Availability is not thesis evidence quality.`,
         freshness: entry?.latencyMs !== null && entry?.latencyMs !== undefined ? `${entry.latencyMs} ms latency` : "Freshness unavailable",
         sourceLabel: "provider health endpoint",
       };
@@ -221,7 +222,7 @@ function buildTokenomicsEvidenceRows(model) {
       label: "Tokenomics supply integrity",
       value: `${tokenomics.explanationSummary || "Supply integrity summary unavailable."} Max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`,
       sourceType: "Supply underwriting diagnostic",
-      boundary: "Separate source-boundary-aware diagnostic; it does not change the live overall score.",
+      boundary: "Separate supply-integrity context; score integration requires a calibrated release.",
     },
     ...safeArray(tokenomics.sourceContradictions).map((entry, index) => ({
       key: `tokenomics-contradiction-${index}`,
@@ -248,7 +249,7 @@ function buildScoringReadinessEvidenceRows(model) {
       key: "scoring-readiness-summary",
       label: "Institutional scoring readiness",
       value: `${readiness.assetFamilyLabel || "Asset-family schema"} | ${readiness.overallReadinessStatus || "status unavailable"} | source-required dimensions: ${readiness.sourceRequiredDimensionCount ?? "unknown"}.`,
-      sourceType: "Diagnostic scoring-readiness contract",
+      sourceType: "Scoring-readiness context",
       boundary: readiness.legacyScoreBoundary || "Future evidence-to-scoring architecture only; current score and verdict unchanged.",
     },
     ...safeArray(readiness.sourceMatrixEntries).slice(0, 6).map((entry) => ({
@@ -256,7 +257,7 @@ function buildScoringReadinessEvidenceRows(model) {
       label: `Readiness dimension: ${entry.dimensionId || "dimension"}`,
       value: `Status: ${entry.evidenceStatus || "unknown"}; missing: ${safeArray(entry.missingEvidence).slice(0, 3).join("; ") || "none listed"}.`,
       sourceType: "Evidence-to-scoring bridge",
-      boundary: "Required evidence/live metrics are diagnostic only in v1 and are not scoring-active.",
+      boundary: "Required evidence/live metrics explain readiness before score integration.",
     })),
   ];
 }
@@ -272,7 +273,7 @@ function buildReviewedEvidenceRows(model) {
     .map((question) => ({
       key: `synthesized-answer-${question.questionId}`,
       label: `Synthesized answer: ${question.questionId}`,
-      value: `${getAnalystAnswerCard(question).directAnswer || question.synthesizedAnswer.directAnswer || "Direct answer unavailable"} | status: ${getAnalystAnswerCard(question).headlineStatus || question.synthesizedAnswer.evidenceStatus || "source_required"} | boundary: ${safeArray(getAnalystAnswerCard(question).sourceBoundaryPlainEnglish)[0] || "source boundary unavailable"}`,
+      value: `${cleanPrimaryAnswerText(getAnalystAnswerCard(question).directAnswer || question.synthesizedAnswer.directAnswer || "Direct answer unavailable")} | status: ${cleanPrimaryAnswerText(getAnalystAnswerCard(question).headlineStatus || question.synthesizedAnswer.evidenceStatus || "source_required")} | boundary: ${cleanPrimaryAnswerText(safeArray(getAnalystAnswerCard(question).sourceBoundaryPlainEnglish)[0] || "source boundary unavailable")}`,
       sourceType: "Institutional answer synthesis",
       boundary: "Deterministic display synthesis. It uses mapped provider/review/formula fields and does not affect scoring.",
     }));
@@ -281,8 +282,8 @@ function buildReviewedEvidenceRows(model) {
     {
       key: "reviewed-evidence-packet-summary",
       label: "Reviewed Evidence Packet v1",
-      value: `${packet.packetId || "packet"} loaded as ${packet.reviewStatus || "review status unavailable"}. Reviewed demo evidence is not scoring-active in v1.`,
-      sourceType: "Reviewed demo evidence",
+      value: `${packet.packetId || "packet"} loaded as ${packet.reviewStatus || "review status unavailable"}. Reviewed evidence improves answer quality before score integration.`,
+      sourceType: "Reviewed evidence",
       boundary: "Question-level source-backed context. Separate from provider metadata and final scoring.",
     },
     ...safeArray(packet.sources).slice(0, 5).map((source, index) => ({
@@ -304,7 +305,7 @@ function buildReviewedEvidenceRows(model) {
       label: "Reviewed identity reconciliation",
       value: warning,
       sourceType: "Reviewed evidence / identity guardrail",
-      boundary: "Reviewed evidence can refine identity review requirements but is not scoring-active.",
+      boundary: "Reviewed evidence can refine identity review requirements before score integration.",
     })),
     ...synthesizedRows,
   ];
@@ -318,17 +319,17 @@ function buildBenchmarkInstitutionalAnswerPackRows(model) {
       key: `benchmark-pack-claim-${claim.claimId || question.questionId}`,
       label: `Benchmark answer claim: ${question.questionId || "question"}`,
       value: `${claim.claim || question.directAnswer || "Claim unavailable"} | status=${claim.evidenceStatus || question.answerStatus || "unknown"} | scoring-active=${claim.scoringActive ? "yes" : "no"}`,
-      sourceType: "Benchmark Institutional Answer Pack",
+      sourceType: "Institutional answer context",
       boundary: `${safeArray(claim.doesNotProve).slice(0, 2).join("; ") || "Does not change legacy score or final verdict."}`,
     }))
   );
   return [
     {
       key: "benchmark-institutional-answer-pack-summary",
-      label: "Benchmark Institutional Answer Bundle v1",
-      value: `${pack.expectedLabel || pack.expectedFamily || "Benchmark pack"} attached for ${pack.assetSymbol || "asset"} with ${safeArray(pack.questions).length} non-scoring questions.`,
-      sourceType: "Benchmark answer pack",
-      boundary: "Answer-quality and QA visibility only; legacy score/verdict unchanged and reviewed evidence remains non-scoring.",
+      label: "Institutional answer coverage",
+      value: `${pack.expectedLabel || pack.expectedFamily || "Asset-family coverage"} attached for ${pack.assetSymbol || "asset"} with ${safeArray(pack.questions).length} institutional questions.`,
+      sourceType: "Institutional answer context",
+      boundary: "Answer-quality context; score integration requires a calibrated release.",
     },
     ...claimRows.slice(0, 8),
   ];
@@ -342,9 +343,9 @@ function buildEngineLearningEvidenceRows(model) {
     {
       key: "engine-learning-backbone-summary",
       label: "Engine Learning Backbone v1",
-      value: `${backbone.findings?.length || 0} findings, ${backbone.assetClassRulesApplied?.length || 0} rules, ${backbone.outputQaChecks?.length || 0} output QA checks. Diagnostic-only; no scoring/provider behavior change.`,
-      sourceType: "Engine-learning diagnostic registry",
-      boundary: "Non-scoring institutional memory. Source candidates are not reviewed evidence.",
+      value: `${backbone.findings?.length || 0} findings, ${backbone.assetClassRulesApplied?.length || 0} rules, ${backbone.outputQaChecks?.length || 0} output QA checks. Methodology context only.`,
+      sourceType: "Methodology memory",
+      boundary: "Institutional memory for review workflow. Candidate sources require review before evidence use.",
     },
     ...safeArray(backbone.sourceCandidates).slice(0, 4).map((candidate, index) => ({
       key: `engine-learning-source-candidate-${candidate.candidateId || index}`,
@@ -365,7 +366,7 @@ function buildEngineLearningEvidenceRows(model) {
       label: "Engine Learning Feedback Loop",
       value: `${safeArray(feedbackLoop.seedManualFindings).length} manual QA seed findings, ${safeArray(feedbackLoop.autoGeneratedFindings).length} runtime auto findings, ${safeArray(feedbackLoop.candidateRulesGenerated).length} inactive rule candidates.`,
       sourceType: "Diagnostic learning feedback",
-      boundary: "Runtime/manual findings are QA diagnostics only. Candidates are inactive and not scoring-active.",
+      boundary: "Runtime/manual findings are review context. Candidate rules require calibration before score integration.",
     }] : []),
     ...safeArray(feedbackLoop.autoGeneratedFindings).slice(0, 4).map((finding) => ({
       key: `engine-learning-feedback-auto-${finding.findingId}`,
@@ -386,15 +387,15 @@ function buildRawDataCoverageRows(model) {
       key: "raw-data-coverage-summary",
       label: "Provider raw-data coverage",
       value: `Overall coverage ${diagnostics.overallRawDataCoverageScore ?? "n/a"}/100; category coverage ${expansion.categoryDataCoverage || "unknown"}; peer assets ${expansion.categoryPeerMarketStats?.peerCount ?? 0}.`,
-      sourceType: "Provider category/raw-data diagnostics",
-      boundary: "Provider-reported context only. Diagnostic/non-scoring in v1.",
+      sourceType: "Provider category/raw-data context",
+      boundary: "Provider-reported context only; source review is required for stronger claims.",
     },
     ...safeArray(expansion.providerCategoryEndpointDiagnostics).slice(0, 6).map((entry, index) => ({
       key: `provider-category-endpoint-${entry.provider}-${index}`,
       label: `${providerLabel(entry.provider)} category endpoint`,
       value: `${entry.endpoint || "endpoint"} | ${entry.status || "unknown"} | coverage=${entry.coverage || "unknown"} | mapped=${entry.mappingSucceeded ? "yes" : "no"}${entry.failureReason ? ` | ${entry.failureReason}` : ""}`,
       sourceType: "Provider endpoint diagnostic",
-      boundary: entry.sourceBoundary || "Endpoint diagnostic only; not reviewed evidence.",
+      boundary: cleanPrimaryAnswerText(entry.sourceBoundary || "Endpoint context only; source review required."),
     })),
     ...safeArray(expansion.categoryDataSourceRequirements).slice(0, 6).map((entry, index) => ({
       key: `raw-data-source-requirement-${index}`,

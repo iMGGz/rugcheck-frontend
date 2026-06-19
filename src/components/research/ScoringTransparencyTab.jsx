@@ -4,6 +4,7 @@ import ScoreContributorsPanel from "./ScoreContributorsPanel";
 import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 import {
+  cleanPrimaryAnswerText,
   extractRenderableText,
   formatScoreValue,
   normalizeRenderableList,
@@ -143,7 +144,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       value: readableValue(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore),
       source: hasAttachedValue(tokenomicsSupplyIntegrity) ? "tokenomicsSupplyIntegrity.tokenomicsIntegrityScore" : "Not attached",
       rule: "Separate supply-integrity underwriting signal for dilution, unlocks, supply authority, and provider contradictions.",
-      live: "Diagnostic only in v1",
+      live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Does not change the existing overall score or verdict in this release.",
       attached: hasAttachedValue(tokenomicsSupplyIntegrity),
@@ -153,21 +154,21 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       value: readableValue(scoringReadinessContract.overallReadinessStatus),
       source: hasAttachedValue(scoringReadinessContract) ? "scoringReadinessContract.overallReadinessStatus" : "Not attached",
       rule: "Evidence-to-scoring architecture for future calibrated scoring. It maps required evidence, live metrics, caps, and blockers without changing the current score.",
-      live: "Diagnostic only in v1",
+      live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Existing overall score and verdict remain unchanged.",
       attached: hasAttachedValue(scoringReadinessContract),
     },
     {
-      title: "Benchmark Answer Pack Score Rationale",
+      title: "Institutional Answer Coverage",
       value: benchmarkPack.packId
-        ? `${safeArray(benchmarkPack.questions).length} non-scoring answer checks`
+        ? `${safeArray(benchmarkPack.questions).length} answer-quality checks`
         : "Not attached",
       source: benchmarkPack.packId ? "benchmarkInstitutionalAnswerPack.scoreRationale" : "Not attached",
       rule: benchmarkPack.scoreRationale?.readinessSummary || "Benchmark answer packs explain future score rationale candidates, caps, and blockers without changing current score.",
-      live: "Diagnostic only in v1",
+      live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
-      caveat: benchmarkPack.packId ? "Existing overall score and verdict remain unchanged; pack scoringActive=false." : "No benchmark pack matched this asset.",
+      caveat: benchmarkPack.packId ? "Existing overall score and verdict remain unchanged; answer coverage is not yet score-integrated." : "No answer-coverage pack matched this asset.",
       attached: Boolean(benchmarkPack.packId),
     },
     {
@@ -176,8 +177,8 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
         ? `${safeArray(engineLearningFeedbackLoop.findingsApplied).length} QA finding${safeArray(engineLearningFeedbackLoop.findingsApplied).length === 1 ? "" : "s"}`
         : "Not attached",
       source: hasAttachedValue(engineLearningFeedbackLoop) ? "engineLearningBackbone.engineLearningFeedbackLoop" : "Not attached",
-      rule: "Captures manual QA and deterministic runtime findings as inactive rule candidates.",
-      live: "Diagnostic only in v1",
+      rule: "Captures manual QA and deterministic runtime findings as review context.",
+      live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Does not change score, verdict, provider behavior, or reviewed-evidence status.",
       attached: hasAttachedValue(engineLearningFeedbackLoop),
@@ -186,8 +187,8 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       title: "Raw Data Coverage",
       value: readableValue(rawDataCoverageDiagnostics.overallRawDataCoverageScore),
       source: hasAttachedValue(rawDataCoverageDiagnostics) ? "rawDataCoverageDiagnostics.overallRawDataCoverageScore" : "Not attached",
-      rule: "Diagnostic provider/category/raw-data coverage score. It surfaces missing fields and source requirements only.",
-      live: "Diagnostic only in v1",
+      rule: "Provider/category/raw-data coverage context. It surfaces missing fields and source requirements only.",
+      live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Does not change the existing overall score or verdict.",
       attached: hasAttachedValue(rawDataCoverageDiagnostics),
@@ -201,7 +202,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
         : "Evidence Directness is not attached as a distinct live module in this response.",
       live: hasAttachedValue(evidenceDirectness) ? "Yes, as evidence-quality context" : "No attached module",
       reportOnly: "No",
-      caveat: "Directness does not mean report-only evidence is scoring-active.",
+      caveat: "Directness does not mean explanatory evidence is score-integrated.",
       attached: hasAttachedValue(evidenceDirectness),
     },
     {
@@ -230,7 +231,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       rule: "Translates live scoring and gates into the visible decision posture.",
       live: "Yes",
       reportOnly: "No",
-      caveat: "Report-only overlays are not live verdict inputs.",
+      caveat: "Explanatory overlays are not live verdict inputs.",
       attached: hasAttachedValue(firstAttached(safeModel.allocationOutcome?.label, safeModel.posture, decisionLayer.posture, decisionLayer.finalDecision)),
     },
   ];
@@ -293,7 +294,7 @@ function ModuleCard({ module, styles }) {
       <div style={styles.scoringModuleMetaGrid}>
         <SectionRow label="Source field" value={module.source} styles={styles} />
         <SectionRow label="Affects live scoring" value={module.live} styles={styles} />
-        <SectionRow label="Report-only" value={module.reportOnly} styles={styles} />
+        <SectionRow label="Explanatory" value={module.reportOnly} styles={styles} />
         <SectionRow label="Caveat" value={module.caveat} styles={styles} />
       </div>
     </div>
@@ -313,9 +314,9 @@ function CalibrationWarningTransparency({ warnings, styles }) {
   const items = safeArray(warnings);
   if (!items.length) return null;
   return (
-    <Card title="Diagnostic Warnings / Scoring Boundary" subtitle="Warnings can guide review without becoming evidence." styles={styles}>
+    <Card title="Review Warnings / Scoring Boundary" subtitle="Warnings can guide review without becoming evidence." styles={styles}>
       <div style={styles.scoringBoundaryStrip}>
-        {boundaryChip(styles, "Diagnostic warning")}
+        {boundaryChip(styles, "Review warning")}
         {boundaryChip(styles, "Source requirement, not evidence")}
         {boundaryChip(styles, "Affects verdict/scoring only when explicitly marked")}
       </div>
@@ -324,10 +325,10 @@ function CalibrationWarningTransparency({ warnings, styles }) {
           <div key={`${warning.id || "warning"}-${index}`} style={styles.scoringModuleCard}>
             <div style={styles.scoringModuleTopline}>
               <div>
-                <div style={styles.metaLabel}>{titleCase(String(warning.id || "diagnostic warning").replace(/_/g, " "))}</div>
+                <div style={styles.metaLabel}>{titleCase(String(warning.id || "Review warning").replace(/_/g, " "))}</div>
                 <div style={styles.scoreContributorSummary}>{warning.issue || warning.expectedBehavior || "Manual review required."}</div>
               </div>
-              {chip(styles, warning.affectsScoring ? "Affects scoring" : "Diagnostic only", warning.affectsScoring ? "#ff6b6b" : "#ffb020")}
+              {chip(styles, warning.affectsScoring ? "Affects scoring" : "Explanation context", warning.affectsScoring ? "#ff6b6b" : "#ffb020")}
             </div>
             <div style={styles.scoringModuleMetaGrid}>
               <SectionRow label="Affects verdict" value={warning.affectsVerdict ? "Yes" : "No"} styles={styles} />
@@ -352,14 +353,14 @@ function ScoringReadinessTransparency({ readiness, styles }) {
   return (
     <Card
       title="Institutional Scoring Readiness"
-      subtitle="Future evidence-to-scoring architecture. Diagnostic only; current overall score and verdict are unchanged."
+      subtitle="Future evidence-to-scoring architecture. Explanation context; current overall score and verdict are unchanged."
       styles={styles}
     >
       <div style={styles.scoringBoundaryStrip}>
-        {boundaryChip(styles, "Diagnostic only")}
-        {boundaryChip(styles, "Legacy score unchanged")}
-        {boundaryChip(styles, "Reviewed evidence not scoring-active")}
-        {boundaryChip(styles, "Source candidates not promoted")}
+        {boundaryChip(styles, "Explanation context")}
+        {boundaryChip(styles, "Current score unchanged")}
+        {boundaryChip(styles, "Evidence checks explain confidence")}
+        {boundaryChip(styles, "Candidate sources need review")}
       </div>
       <div style={styles.scoringModuleGrid}>
         <ModuleCard
@@ -368,7 +369,7 @@ function ScoringReadinessTransparency({ readiness, styles }) {
             value: titleCase(contract.overallReadinessStatus || "Unavailable"),
             source: "scoringReadinessContract",
             rule: contract.committeeMemoPreview?.readinessSummary || `${contract.assetFamilyLabel || "Asset family"} readiness model.`,
-            live: "Diagnostic only in v1",
+            live: "Shown as explanatory context",
             reportOnly: "No, mirrored in live tabs and bundle",
             caveat: contract.legacyScoreBoundary || "Legacy score and verdict unchanged.",
             attached: true,
@@ -381,7 +382,7 @@ function ScoringReadinessTransparency({ readiness, styles }) {
             value: `${contract.scoringReadyDimensionCount ?? scoringReady.length} ready / ${contract.sourceRequiredDimensionCount ?? sourceRequired.length} source-required`,
             source: "scoringReadinessContract.dimensions",
             rule: "Counts readiness dimensions that are source-backed, blocked, or still missing required evidence/live metrics.",
-            live: "Diagnostic only in v1",
+            live: "Shown as explanatory context",
             reportOnly: "No",
             caveat: "Readiness counts are not weights and do not replace the live score.",
             attached: true,
@@ -439,25 +440,25 @@ export default function ScoringTransparencyTab({
       <ExecutiveSummaryCard
         eyebrow="Scoring Transparency"
         title="Why does the score look like this?"
-        answer="This view separates live scoring-active fields from diagnostics, report-only context, and source candidates. It explains boundaries before raw modules."
+        answer="This view separates the current score from explanatory context, source requirements, and review workflow items. It explains boundaries before raw modules."
         tone="#7dd3fc"
         badges={[
           { label: `Overall: ${overallModule?.value || "Unavailable"}`, tone: "#7dd3fc" },
           { label: capsAndGates.length ? `${capsAndGates.length} cap/gate signals` : "No cap table attached", tone: capsAndGates.length ? "#f9d976" : "#d5dcec" },
-          { label: "Report-only not scoring", tone: "#d5dcec" },
+          { label: "Explanation context", tone: "#d5dcec" },
         ]}
         styles={styles}
       >
         <div style={styles.scoringBoundaryStrip}>
           {boundaryChip(styles, "Only the live scoring layer affects the current decision.")}
-          {boundaryChip(styles, "Report-only evidence is context only.")}
-          {boundaryChip(styles, "Source candidates require review and cannot affect scoring.")}
+          {boundaryChip(styles, "Explanatory evidence is context until integrated.")}
+          {boundaryChip(styles, "Candidate sources require review before use.")}
           {boundaryChip(styles, "Manual review is workflow, not automatic proof of failure.")}
           {boundaryChip(styles, "Proxy-derived values are not explicit backend scoring modules.")}
         </div>
         <SectionRow
           label="Boundary"
-          value="Report-only evidence, source candidates, and manual-review workflow items are not scoring inputs unless explicitly integrated in a future calibrated release."
+          value="Explanatory evidence, candidate sources, and manual-review workflow items do not change the current score unless explicitly integrated in a future calibrated release."
           styles={styles}
         />
       </ExecutiveSummaryCard>
@@ -480,9 +481,9 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
         <QuestionPromptCard
-          question="Which signals are diagnostic-only?"
-          answer={scoringReadinessModule?.rule || tokenomicsModule?.rule || "Diagnostic-only module context was not attached."}
-          status="Diagnostic only"
+          question="Which signals are explanatory?"
+          answer={scoringReadinessModule?.rule || tokenomicsModule?.rule || "No explanatory module context was attached."}
+          status="Explanation context"
           impact="Not overall scoring"
           sourceState={scoringReadinessModule?.source || tokenomicsModule?.source || "Not attached"}
           styles={styles}
@@ -500,9 +501,9 @@ export default function ScoringTransparencyTab({
           styles={styles}
         >
           <div style={styles.scoringBoundaryStrip}>
-            {boundaryChip(styles, "Diagnostic only")}
-            {boundaryChip(styles, "Not scoring-active")}
-            {boundaryChip(styles, "Legacy score unchanged")}
+            {boundaryChip(styles, "Explanation context")}
+            {boundaryChip(styles, "Current score unchanged")}
+            {boundaryChip(styles, "Current score unchanged")}
           </div>
           <SectionRow label="Readiness summary" value={benchmarkPack.scoreRationale?.readinessSummary || "Benchmark score rationale attached."} styles={styles} />
           <ListBlock title="Candidate confidence caps" items={safeArray(benchmarkPack.confidenceCaps).slice(0, 6)} emptyText="No benchmark confidence caps attached." color="#f9d976" styles={styles} />
@@ -516,14 +517,14 @@ export default function ScoringTransparencyTab({
       <div style={styles.scoringLayerGrid}>
         <LayerCard
           title="Live Scoring Layer"
-          badge="Scoring-active"
+          badge="Current scoring"
           color="#2fd67b"
           description="Uses scoring modules and decision-layer fields attached to the current live analysis response."
           status="Affects current decision."
           styles={styles}
         />
         <LayerCard
-          title="Report-Only Evidence Layer"
+          title="Explanatory Evidence Layer"
           badge="Context only"
           color="#7dd3fc"
           description="Manual/source-backed workflow context when attached later. It does not change the live score."
@@ -534,7 +535,7 @@ export default function ScoringTransparencyTab({
           title="Source Candidate Layer"
           badge="Candidate only"
           color="#ffb020"
-          description="Source candidates require review before becoming report evidence."
+          description="Candidate sources require review before use."
           status="Cannot affect scoring."
           styles={styles}
         />
@@ -595,3 +596,4 @@ export default function ScoringTransparencyTab({
     </div>
   );
 }
+

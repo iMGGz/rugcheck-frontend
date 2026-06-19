@@ -81,6 +81,80 @@ export function safeObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+export const PRIMARY_ANSWER_FORBIDDEN_TERMS = [
+  "source_required",
+  "live_data_required",
+  "non_scoring",
+  "not scoring-active",
+  "not scoring active",
+  "diagnostic only",
+  "benchmark pack",
+  "benchmark answer pack",
+  "reviewed demo",
+  "reviewed_demo_seed",
+  "provider metadata is not reviewed evidence",
+  "source candidates are not promoted",
+  "reviewed evidence remains non-scoring",
+  "this does not change score",
+  "this does not change verdict",
+  "score formula unchanged",
+  "verdict formula unchanged",
+  "artifact version",
+  "QA gate",
+  "bundle mirror",
+  "frontend normalization",
+  "claimIds",
+  "packId",
+  "scoreImpact=",
+  "scoringActive=no",
+  "sourcePromotionActive=false",
+  "scoring_active_existing_field",
+  "provider_metadata_not_reviewed_evidence",
+  "reviewed_demo_evidence_not_scoring_active",
+  "no_scoring_impact_report_only",
+];
+
+export function cleanPrimaryAnswerText(value) {
+  let text = String(value || "").trim();
+  if (!text) return "";
+  [
+    [/\bsource_required\b/gi, "Needs verification"],
+    [/\blive_data_required\b/gi, "Needs current data"],
+    [/\bpartially_source_backed\b/gi, "Partially supported"],
+    [/\bsource_backed\b/gi, "Source-backed"],
+    [/\bmanual_review_required\b/gi, "Manual review required"],
+    [/\bnot_applicable\b/gi, "Not relevant for this asset"],
+    [/\bnot scoring-active\b/gi, "Not yet included in the numerical score"],
+    [/\bnot scoring active\b/gi, "Not yet included in the numerical score"],
+    [/\bdiagnostic[- ]only\b/gi, "Methodology context"],
+    [/\bbenchmark answer pack\b/gi, "Answer-quality context"],
+    [/\bbenchmark pack\b/gi, "Answer-quality context"],
+    [/provider metadata is not reviewed evidence/gi, "Provider context still needs source review"],
+    [/source candidates are not promoted/gi, "Candidate sources still need review"],
+    [/reviewed evidence remains non-scoring/gi, "Reviewed evidence improves explanation before score integration"],
+    [/this does not change score/gi, "This is explanatory context"],
+    [/this does not change verdict/gi, "This is explanatory context"],
+    [/score formula unchanged/gi, "Current score remains unchanged"],
+    [/verdict formula unchanged/gi, "Current verdict remains unchanged"],
+    [/artifact version/gi, "Technical version"],
+    [/QA gate/gi, "Quality check"],
+    [/bundle mirror/gi, "Export mirror"],
+    [/frontend normalization/gi, "Display formatting"],
+    [/claimIds?/gi, "Reviewed claim references"],
+    [/packId/gi, "Evidence packet reference"],
+    [/scoreImpact=/gi, "Score impact: "],
+    [/scoringActive=no/gi, "Not yet included in the numerical score"],
+    [/sourcePromotionActive=false/gi, "Candidate source review still required"],
+    [/scoring_active_existing_field/gi, "Existing score field"],
+    [/provider_metadata_not_reviewed_evidence/gi, "Provider context"],
+    [/reviewed_demo_evidence_not_scoring_active/gi, "Reviewed evidence improves explanation before score integration"],
+    [/no_scoring_impact_report_only/gi, "Explanatory context"],
+  ].forEach(([pattern, replacement]) => {
+    text = text.replace(pattern, replacement);
+  });
+  return text.replace(/\s+/g, " ").trim();
+}
+
 export const BENCHMARK_SEARCH_PRESETS = [
   { presetId: "benchmark_btc_native_pow_monetary", symbol: "BTC", label: "BTC", query: "BTC", name: "Bitcoin", coingeckoId: "bitcoin", coinmarketcapId: 1, family: "Native PoW monetary / settlement benchmark", badge: "Native benchmark" },
   { presetId: "benchmark_wbtc_wrapped_custodial", symbol: "WBTC", label: "WBTC", query: "WBTC", name: "Wrapped Bitcoin", coingeckoId: "wrapped-bitcoin", coinmarketcapId: 3717, family: "Wrapped BTC / backing and redemption benchmark", badge: "Wrapped backing" },
@@ -137,6 +211,29 @@ function normalizeSynthesizedAnswerPayload(value) {
 }
 
 export function getAnalystAnswerCard(question) {
+  const surfaceCard = safeObject(question?.institutionalUserAnswerCard);
+  if (Object.keys(surfaceCard).length) return {
+    questionId: question?.questionId || surfaceCard.cardId || "question_unavailable",
+    questionText: cleanPrimaryAnswerText(surfaceCard.question || question?.questionText || "Institutional question"),
+    directAnswer: cleanPrimaryAnswerText(surfaceCard.shortAnswer || surfaceCard.fundamentalAnalysis || "Needs verification."),
+    headlineStatus: cleanPrimaryAnswerText(surfaceCard.statusLabel || surfaceCard.sourceStateLabel || "Needs verification"),
+    evidenceBasis: safeArray(surfaceCard.evidenceWeHave).map(cleanPrimaryAnswerText),
+    evidenceStatus: surfaceCard.sourceStateLabel || "Needs verification",
+    reviewedEvidenceUsed: [],
+    providerContextUsed: [],
+    formulaContextUsed: [],
+    liveDataUsed: safeArray(surfaceCard.keyMetrics).map(cleanPrimaryAnswerText),
+    whatEvidenceDoesNotProve: safeArray(surfaceCard.notApplicableNotes).map(cleanPrimaryAnswerText),
+    missingEvidence: safeArray(surfaceCard.openChecks).map(cleanPrimaryAnswerText),
+    decisionImpact: cleanPrimaryAnswerText(surfaceCard.riskImpact || surfaceCard.impactLabel || "Confidence depends on the unresolved checks."),
+    whatWouldChange: safeArray(surfaceCard.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
+    sourceBoundaryPlainEnglish: [cleanPrimaryAnswerText(surfaceCard.methodologyLinkLabel || "See Methodology for how evidence status is interpreted.")],
+    confidenceBoundary: cleanPrimaryAnswerText(surfaceCard.scoreImpactPlainEnglish || "These checks explain confidence before any future scoring integration."),
+    manualReviewImplication: cleanPrimaryAnswerText(safeArray(surfaceCard.openChecks)[0] || "Review the open checks before relying on stronger conclusions."),
+    assetClassSpecificKeyIssue: cleanPrimaryAnswerText(surfaceCard.fundamentalAnalysis || surfaceCard.shortAnswer),
+    primaryBadges: [cleanPrimaryAnswerText(surfaceCard.statusLabel || "Needs verification")],
+    auditFields: surfaceCard.auditDetailAvailable ? ["Clean primary card attached; raw diagnostic detail remains in Audit / Raw."] : [],
+  };
   const synthesized = safeObject(question?.synthesizedAnswer);
   const card = safeObject(synthesized.analystAnswerCard);
   if (Object.keys(card).length) return {
@@ -157,7 +254,7 @@ export function getAnalystAnswerCard(question) {
     questionId: question?.questionId || synthesized.questionId || "question_unavailable",
     questionText: question?.questionText || synthesized.questionText || "Institutional question",
     directAnswer: synthesized.directAnswer || question?.shortAnswer || question?.answerSummary || "Source review required; direct evidence is not yet attached.",
-    headlineStatus: synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required"),
+    headlineStatus: cleanPrimaryAnswerText(synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required")),
     evidenceBasis: safeArray(synthesized.evidenceUsed).length ? safeArray(synthesized.evidenceUsed) : safeArray(question?.supportingSignals),
     evidenceStatus: synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus || "source_required",
     reviewedEvidenceUsed: [
@@ -172,12 +269,12 @@ export function getAnalystAnswerCard(question) {
     decisionImpact: synthesized.impact || question?.impactOnScoreOrConfidence || "Confidence remains source-boundary constrained until direct evidence is reviewed.",
     whatWouldChange: safeArray(synthesized.whatWouldChange).length ? safeArray(synthesized.whatWouldChange) : safeArray(question?.whatWouldChange),
     sourceBoundaryPlainEnglish: safeArray(synthesized.sourceBoundary).length
-      ? safeArray(synthesized.sourceBoundary).map((entry) => String(entry).replace(/_/g, " "))
-      : ["Provider metadata is context, not reviewed evidence unless a reviewed source is attached."],
-    confidenceBoundary: "No scoring or verdict change is inferred from this display card.",
+      ? safeArray(synthesized.sourceBoundary).map((entry) => cleanPrimaryAnswerText(String(entry).replace(/_/g, " ")))
+      : ["Provider context helps identify what still needs source review."],
+    confidenceBoundary: "This answer explains confidence; numerical score integration requires a calibrated release.",
     manualReviewImplication: safeArray(synthesized.missingEvidence).length ? "Manual/source review remains useful because material evidence is still missing." : "No separate manual-review implication beyond the current source boundary.",
     assetClassSpecificKeyIssue: "Answer the precise institutional question without overclaiming source support.",
-    primaryBadges: [synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required")],
+    primaryBadges: [cleanPrimaryAnswerText(synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required"))],
     auditFields: [
       synthesized.synthesisTemplateId ? `synthesisTemplateId=${synthesized.synthesisTemplateId}` : null,
       safeArray(question?.sourceBoundary).length ? `sourceBoundary=${safeArray(question.sourceBoundary).join(", ")}` : null,
@@ -185,9 +282,85 @@ export function getAnalystAnswerCard(question) {
   };
 }
 
+export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.institutionalAnswerSurfaceContract);
+  const nestedContract = safeObject(nestedAnalysis.institutionalAnswerSurfaceContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    userAnswerCards: safeArray(contract.userAnswerCards).map((card) => ({
+      ...safeObject(card),
+      evidenceWeHave: safeArray(card?.evidenceWeHave).map(cleanPrimaryAnswerText),
+      openChecks: safeArray(card?.openChecks).map(cleanPrimaryAnswerText),
+      whatWouldImproveConfidence: safeArray(card?.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
+      whatWouldWeakenConfidence: safeArray(card?.whatWouldWeakenConfidence).map(cleanPrimaryAnswerText),
+      keyMetrics: safeArray(card?.keyMetrics).map(cleanPrimaryAnswerText),
+      watchItems: safeArray(card?.watchItems).map(cleanPrimaryAnswerText),
+      notApplicableNotes: safeArray(card?.notApplicableNotes).map(cleanPrimaryAnswerText),
+      shortAnswer: cleanPrimaryAnswerText(card?.shortAnswer),
+      fundamentalAnalysis: cleanPrimaryAnswerText(card?.fundamentalAnalysis),
+      riskImpact: cleanPrimaryAnswerText(card?.riskImpact),
+      scoreImpactPlainEnglish: cleanPrimaryAnswerText(card?.scoreImpactPlainEnglish),
+    })),
+    sourceSummary: {
+      ...safeObject(contract.sourceSummary),
+      evidenceWeHave: safeArray(contract.sourceSummary?.evidenceWeHave).map(cleanPrimaryAnswerText),
+      openChecks: safeArray(contract.sourceSummary?.openChecks).map(cleanPrimaryAnswerText),
+      sourceQueueSummary: safeArray(contract.sourceSummary?.sourceQueueSummary).map(cleanPrimaryAnswerText),
+      reviewedEvidenceSummary: safeArray(contract.sourceSummary?.reviewedEvidenceSummary).map(cleanPrimaryAnswerText),
+    },
+    riskSummary: {
+      ...safeObject(contract.riskSummary),
+      primaryRisks: safeArray(contract.riskSummary?.primaryRisks).map(cleanPrimaryAnswerText),
+      watchItems: safeArray(contract.riskSummary?.watchItems).map(cleanPrimaryAnswerText),
+      manualReviewSummary: safeArray(contract.riskSummary?.manualReviewSummary).map(cleanPrimaryAnswerText),
+    },
+    scoreSummary: {
+      ...safeObject(contract.scoreSummary),
+      confidenceCaps: safeArray(contract.scoreSummary?.confidenceCaps).map(cleanPrimaryAnswerText),
+      scoringTransparencySummary: safeArray(contract.scoreSummary?.scoringTransparencySummary).map(cleanPrimaryAnswerText),
+    },
+    methodologySurface: {
+      ...safeObject(contract.methodologySurface),
+      bullets: safeArray(contract.methodologySurface?.bullets),
+    },
+    auditDetails: safeArray(contract.auditDetails),
+    leakageCheck: safeObject(contract.leakageCheck),
+  };
+}
+
+function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
+  const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
+  if (!cards.length) return questions;
+  const byQuestionId = new Map();
+  const byQuestionText = new Map();
+  cards.forEach((card) => {
+    const cardId = String(card.cardId || "").toLowerCase();
+    const questionText = String(card.question || "").toLowerCase();
+    if (cardId) byQuestionId.set(cardId, card);
+    if (questionText) byQuestionText.set(questionText, card);
+  });
+  return questions.map((question) => {
+    const questionId = String(question?.questionId || "").toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    const questionText = String(question?.questionText || "").toLowerCase();
+    const matched = cards.find((card) => String(card.cardId || "").toLowerCase().includes(questionId))
+      || byQuestionText.get(questionText)
+      || cards.find((card) => String(card.question || "").toLowerCase() === questionText);
+    return matched ? { ...question, institutionalUserAnswerCard: matched } : question;
+  });
+}
+
 export function normalizeInstitutionalQuestionsPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
+  const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(responseLike);
   const rootQuestions = safeArray(root.institutionalQuestions);
   const nestedQuestions = safeArray(nestedAnalysis.institutionalQuestions);
   const normalizeQuestion = (question) => ({
@@ -209,7 +382,7 @@ export function normalizeInstitutionalQuestionsPayload(responseLike) {
   const questions = rootQuestions.length ? rootQuestions : nestedQuestions;
 
   return {
-    institutionalQuestions: questions.map(normalizeQuestion),
+    institutionalQuestions: attachInstitutionalSurfaceCardsToQuestions(questions.map(normalizeQuestion), institutionalAnswerSurfaceContract),
     institutionalQuestionsProvenance:
       root.institutionalQuestionsProvenance ||
       nestedAnalysis.institutionalQuestionsProvenance ||
@@ -1361,8 +1534,17 @@ function scrubProtectedInvestorReportText(text) {
     /\bsourceBoundary\b/gi,
     /\bscoringFieldsUsed\b/gi,
     /\bprovider_metadata_not_reviewed_evidence\b/gi,
+    /\bsource_required\b/gi,
+    /\bdiagnostic[- ]only\b/gi,
+    /\bnot scoring-active\b/gi,
+    /\bnot scoring active\b/gi,
+    /\bbenchmark pack\b/gi,
+    /\bbenchmark answer pack\b/gi,
+    /\bclaimIds?\b/gi,
+    /\bpackId\b/gi,
+    /\bQA gate\b/gi,
   ];
-  return forbiddenPatterns.reduce((current, pattern) => current.replace(pattern, "redacted internal detail"), text);
+  return cleanPrimaryAnswerText(forbiddenPatterns.reduce((current, pattern) => current.replace(pattern, "redacted internal detail"), text));
 }
 
 export function buildProtectedInvestorReportText({
@@ -1399,6 +1581,7 @@ export function buildProtectedInvestorReportText({
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
+  const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1416,17 +1599,27 @@ export function buildProtectedInvestorReportText({
     safeAsset.name || displayIdentity?.assetName,
     safeAsset.symbol ? `(${safeAsset.symbol})` : "",
   ].filter(Boolean).join(" ") || "Selected asset";
-  const selectedQuestions = [...questions, ...tokenomicsQuestions].slice(0, 8);
+  const institutionalSurfaceCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
+  const selectedQuestions = institutionalSurfaceCards.length ? institutionalSurfaceCards.slice(0, 8) : [...questions, ...tokenomicsQuestions].slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
+    if (institutionalSurfaceCards.length) {
+      const missingEvidence = normalizeRenderableList(question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
+      return [
+        `${index + 1}. ${cleanPrimaryAnswerText(question.question || "Institutional question")}`,
+        `   Status: ${cleanPrimaryAnswerText(question.statusLabel || question.sourceStateLabel || "Needs verification")}`,
+        `   Answer: ${cleanPrimaryAnswerText(question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
+        ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.join("; ")}`] : []),
+      ];
+    }
     const answer = question?.synthesizedAnswer || {};
     const shortAnswer = answer.shortAnswer || answer.answerSummary || question?.shortAnswer || question?.answerSummary;
     const status = answer.reviewedEvidenceStatus || answer.answerStatus || question?.answerStatus || question?.status || "source_required";
     const missingEvidence = normalizeRenderableList(answer.missingEvidence || question?.missingEvidence).slice(0, 3);
     return [
       `${index + 1}. ${extractRenderableText(question?.question || question?.label || question?.title, "Institutional question")}`,
-      `   Status: ${titleCase(status)}`,
-      `   Answer: ${extractRenderableText(shortAnswer, "Source review required before a stronger answer is shown.")}`,
-      ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.join("; ")}`] : []),
+      `   Status: ${cleanPrimaryAnswerText(titleCase(status))}`,
+      `   Answer: ${cleanPrimaryAnswerText(extractRenderableText(shortAnswer, "Source review required before a stronger answer is shown."))}`,
+      ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.map(cleanPrimaryAnswerText).join("; ")}`] : []),
     ];
   });
   const missingEvidence = normalizeRenderableList([
@@ -1482,27 +1675,26 @@ export function buildProtectedInvestorReportText({
     ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
     "",
     "4. Tokenomics / Supply Integrity",
-    reportLine("Diagnostic tokenomics score", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore !== undefined ? `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100 (diagnostic only)` : "Not available yet."),
+    reportLine("Tokenomics supply-integrity context", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore !== undefined ? `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100` : "Not available yet."),
     reportLine("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
     reportLine("Max supply status", tokenomicsSupplyIntegrity?.maxSupplyStatus),
     reportLine("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
     reportLine("Primary tokenomics blocker", tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
     "",
     "5. Institutional Scoring Readiness",
-    reportLine("Readiness status", scoringReadinessContract?.overallReadinessStatus ? `${titleCase(scoringReadinessContract.overallReadinessStatus)} (diagnostic only)` : "Not available yet."),
+    reportLine("Readiness status", scoringReadinessContract?.overallReadinessStatus ? titleCase(scoringReadinessContract.overallReadinessStatus) : "Not available yet."),
     reportLine("Asset-family model", scoringReadinessContract?.assetFamilyLabel),
-    reportLine("Legacy score boundary", scoringReadinessContract ? "Existing score and verdict unchanged; readiness is not scoring-active in v1." : "Not available yet."),
+    reportLine("Score boundary", scoringReadinessContract ? "Current score remains the current numerical score; evidence-readiness checks explain what would improve confidence." : "Not available yet."),
     ...formatReportList(
       normalizeRenderableList(scoringReadinessContract?.committeeMemoPreview?.majorEvidenceGaps || scoringReadinessContract?.whatWouldChangeScore).slice(0, 5),
       "No scoring-readiness gap summary was surfaced in the protected report model.",
       5,
     ),
     "",
-    "6. Benchmark Institutional Answer Coverage",
-    reportLine("Benchmark pack attached", benchmarkInstitutionalAnswerPack ? "Yes - non-scoring answer-quality context" : "No"),
-    reportLine("Coverage improved", benchmarkInstitutionalAnswerPack ? `${safeArray(benchmarkInstitutionalAnswerPack.questions).length} benchmark institutional questions available` : "Not available for this asset"),
-    reportLine("Major gaps", normalizeRenderableList(benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).join("; ") || "No benchmark-pack gap summary attached"),
-    reportLine("Score preview boundary", benchmarkInstitutionalAnswerPack ? "Diagnostic only; existing score and verdict unchanged." : "Not available"),
+    "6. Evidence Coverage",
+    reportLine("Answer coverage", benchmarkInstitutionalAnswerPack ? `${safeArray(benchmarkInstitutionalAnswerPack.questions).length} institutional questions available` : "Not available for this asset"),
+    reportLine("Major gaps", normalizeRenderableList(benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "No evidence gap summary attached"),
+    reportLine("Score preview boundary", benchmarkInstitutionalAnswerPack ? "Evidence coverage improves explanation; score integration requires a calibrated release." : "Not available"),
     "",
     "7. Missing Evidence / Source Requirements",
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
@@ -1517,7 +1709,7 @@ export function buildProtectedInvestorReportText({
     "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
     "- Provider-reported values are not treated as reviewed evidence.",
     "- Missing data is not negative proof; it is a source requirement or confidence constraint.",
-    ...(engineLearningFeedbackLoop ? ["- Benchmark learning feedback is available internally as diagnostic QA context; internal finding IDs, detector details, and rule-candidate metadata are omitted from this protected report."] : []),
+    ...(engineLearningFeedbackLoop ? ["- Additional calibration notes are available internally; finding IDs, detector details, and rule-candidate metadata are omitted from this protected report."] : []),
     "- This protected report omits internal QA diagnostics and implementation details by design.",
   ];
   return scrubProtectedInvestorReportText(lines.join("\n"));
@@ -4296,6 +4488,7 @@ export function buildDecisionTerminalModel({
   const categoryReadinessDiagnostics = normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const providerRawDataExpansion = normalizeProviderRawDataExpansionPayload(safeAnalysis);
   const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
+  const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -4497,6 +4690,20 @@ export function buildDecisionTerminalModel({
       currentStatus: gate.status || "source_required",
       canChangeVerdict: false,
     }));
+  const institutionalAnswerSurfaceResearchRequirements = safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.sourceQueueSummary)
+    .slice(0, 8)
+    .map((requirement, index) => ({
+      id: `answer-surface-open-check-${index}`,
+      title: requirement,
+      assetClassLens: institutionalAnswerSurfaceContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "institutional_answer_surface",
+      reason: "Open check from the clean institutional answer surface.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
+      priority: index < 3 ? "high" : "medium",
+      verdictImpact: "Could improve confidence if source-backed evidence resolves the open check.",
+      currentStatus: "needs_verification",
+      canChangeVerdict: true,
+    }));
   const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
     .slice(0, 8)
     .map((requirement, index) => ({
@@ -4512,6 +4719,7 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: false,
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
+    ...institutionalAnswerSurfaceResearchRequirements,
     ...baseDisplayResearchRequirements,
     ...representationFamilyResearchRequirements,
     ...categoryResearchRequirements,
@@ -4625,6 +4833,7 @@ export function buildDecisionTerminalModel({
     representationFamilyDecision,
     representationFamilyRoute,
     representationFamilyEvidenceGates,
+    institutionalAnswerSurfaceContract,
     scoringReadinessContract,
     engineLearningBackbone,
     benchmarkAssetPreset,
@@ -5899,6 +6108,7 @@ export function buildReviewBundleText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
+  const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -5926,6 +6136,11 @@ export function buildReviewBundleText({
   const rawDataCoverageDiagnostics = safeModel.rawDataCoverageDiagnostics || normalizeRawDataCoverageDiagnosticsPayload(safeData) || normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
+  const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
+  const institutionalAnswerForbiddenLeakageCount = Number(institutionalAnswerSurfaceContract?.leakageCheck?.forbiddenPrimaryTermLeakageCount || 0)
+    + Number(institutionalAnswerSurfaceContract?.leakageCheck?.internalEnumLeakageCount || 0)
+    + Number(institutionalAnswerSurfaceContract?.leakageCheck?.methodologyLeakageCount || 0)
+    + Number(institutionalAnswerSurfaceContract?.leakageCheck?.familyNegativeGuardrailLeakageCount || 0);
   const calibrationWarnings = safeModel.calibrationWarnings || normalizeCalibrationWarningsPayload(safeAnalysis);
   const analysisFreshness = safeModel.analysisFreshness || normalizeAnalysisFreshnessPayload(safeData, null);
   const bundleGeneratedAt = new Date().toISOString();
@@ -6930,6 +7145,68 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(representationFamilyDecision?.knownLimitations),
       bundleField("Next resume pointer", representationFamilyDecision?.nextResumePointer),
+    ]),
+    bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
+      bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),
+      bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
+      bundleField("Asset family", institutionalAnswerSurfaceContract?.assetFamily),
+      bundleField("Cards transformed", institutionalAnswerSurfaceContract?.cardsTransformedCount ?? institutionalAnswerCards.length),
+      bundleField("Forbidden primary term leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.forbiddenPrimaryTermLeakageCount ?? "unknown"),
+      bundleField("Internal enum leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.internalEnumLeakageCount ?? "unknown"),
+      bundleField("Methodology leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.methodologyLeakageCount ?? "unknown"),
+      bundleField("Family-negative guardrail leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.familyNegativeGuardrailLeakageCount ?? "unknown"),
+      bundleField("Primary leakage total", institutionalAnswerSurfaceContract ? institutionalAnswerForbiddenLeakageCount : "unknown"),
+      bundleField("Source Queue cleanup result", institutionalAnswerSurfaceContract?.sourceQueueCleanupResult || "unknown"),
+      bundleField("Manual Review cleanup result", institutionalAnswerSurfaceContract?.manualReviewCleanupResult || "unknown"),
+      bundleField("Scoring Transparency cleanup result", institutionalAnswerSurfaceContract?.scoringTransparencyCleanupResult || "unknown"),
+      bundleField("Methodology surface coverage", institutionalAnswerSurfaceContract?.methodologySurface ? "methodology_once_available" : "missing"),
+      bundleField("Audit preservation result", institutionalAnswerSurfaceContract?.guardrails?.auditRawDiagnosticsPreserved ? "raw diagnostics preserved" : "unknown"),
+      bundleField("Internal QA preservation result", institutionalAnswerSurfaceContract?.guardrails?.internalQaDiagnosticsPreserved ? "internal diagnostics preserved" : "unknown"),
+      bundleField("Protected Investor Report redaction", institutionalAnswerSurfaceContract?.protectedInvestorReportRedaction || "unknown"),
+      "User-facing mirror cards:",
+      bundleList(institutionalAnswerCards.map((card) =>
+        `${cleanPrimaryAnswerText(card.question || "Institutional question")} | ${cleanPrimaryAnswerText(card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`
+      )),
+      "Evidence we have:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.evidenceWeHave).map(cleanPrimaryAnswerText)),
+      "Open checks / source queue summary:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.sourceQueueSummary || institutionalAnswerSurfaceContract?.sourceSummary?.openChecks).map(cleanPrimaryAnswerText)),
+      "Score summary in plain language:",
+      bundleList([
+        institutionalAnswerSurfaceContract?.scoreSummary?.scoreLabel,
+        institutionalAnswerSurfaceContract?.scoreSummary?.confidenceLabel,
+        institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary,
+        ...safeArray(institutionalAnswerSurfaceContract?.scoreSummary?.scoringTransparencySummary),
+      ].map(cleanPrimaryAnswerText)),
+      "Methodology surface:",
+      bundleList([
+        institutionalAnswerSurfaceContract?.methodologySurface?.title,
+        institutionalAnswerSurfaceContract?.methodologySurface?.summary,
+        ...safeArray(institutionalAnswerSurfaceContract?.methodologySurface?.bullets),
+      ].map(cleanPrimaryAnswerText)),
+      "Internal QA detail mirror:",
+      bundleList([
+        `Audit detail rows preserved=${safeArray(institutionalAnswerSurfaceContract?.auditDetails).length}`,
+        `Raw status enums preserved in audit=${yesNoUnknown(safeArray(institutionalAnswerSurfaceContract?.auditDetails).some((detail) => detail.rawStatusEnum || detail.internalSourceStatus))}`,
+        `Evidence packet / claim IDs preserved in audit=${yesNoUnknown(safeArray(institutionalAnswerSurfaceContract?.auditDetails).some((detail) => safeArray(detail.evidencePacketIds).length || safeArray(detail.claimIds).length))}`,
+        `Scoring/source-promotion flags preserved in audit=${yesNoUnknown(safeArray(institutionalAnswerSurfaceContract?.auditDetails).some((detail) => safeArray(detail.scoringActiveFlags).length || safeArray(detail.sourcePromotionFlags).length))}`,
+      ]),
+      "Primary visible surfaces checked:",
+      bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.frontendVisibility)).map(([surface, status]) => `${surface}: ${status}`)),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "QA checks:",
+      bundleList([
+        `Copy Bundle 2AM present=yes`,
+        `primary answer cards leak forbidden internal terms=${yesNoUnknown(institutionalAnswerForbiddenLeakageCount > 0)}`,
+        `Source Queue uses actionable verification language=${institutionalAnswerSurfaceContract?.sourceQueueCleanupResult || "unknown"}`,
+        `Manual Review uses business-readable language=${institutionalAnswerSurfaceContract?.manualReviewCleanupResult || "unknown"}`,
+        `Scoring Transparency uses plain language=${institutionalAnswerSurfaceContract?.scoringTransparencyCleanupResult || "unknown"}`,
+        `Protected Investor Report redacts internals=${institutionalAnswerSurfaceContract?.protectedInvestorReportRedaction || "unknown"}`,
+      ]),
+      "Known limitations:",
+      bundleList(institutionalAnswerSurfaceContract?.knownLimitations),
+      bundleField("Next resume pointer", institutionalAnswerSurfaceContract?.nextResumePointer || "Evidence Status Aggregation Contract v1"),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

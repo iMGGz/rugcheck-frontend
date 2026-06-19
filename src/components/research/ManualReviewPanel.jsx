@@ -1,6 +1,7 @@
 import React from "react";
 import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import {
+  cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeRenderableList,
   providerLabel,
@@ -142,7 +143,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
   ].map((entry) => ({
     label: "Institutional scoring readiness",
     description: entry,
-    status: "Diagnostic-only review item",
+    status: "Readiness review item",
     source: "decisionModel.scoringReadinessContract",
     color: "#c7a7ff",
   }));
@@ -186,14 +187,14 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     ...safeArray(benchmarkPack.hardBlockers).map((entry) => ({
       label: "Benchmark answer-pack blocker",
       description: entry,
-      status: "Diagnostic-only hard blocker",
+      status: "Evidence blocker",
       source: "decisionModel.benchmarkInstitutionalAnswerPack.hardBlockers",
       color: "#ffb020",
     })),
     ...safeArray(benchmarkPack.confidenceCaps).map((entry) => ({
       label: "Benchmark answer-pack confidence cap",
       description: entry,
-      status: "Diagnostic-only confidence cap",
+      status: "Confidence cap",
       source: "decisionModel.benchmarkInstitutionalAnswerPack.confidenceCaps",
       color: "#c7a7ff",
     })),
@@ -224,7 +225,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     ...safeArray(engineLearning.calibrationAnomalies).slice(0, 3).map((anomaly) => ({
       label: "Engine-learning calibration anomaly",
       description: anomaly.description || anomaly.calibrationAction || anomaly.anomalyId || "Calibration anomaly",
-      status: "Diagnostic only",
+      status: "Methodology review",
       source: "decisionModel.engineLearningBackbone.calibrationAnomalies",
       color: "#f9d976",
     })),
@@ -234,7 +235,7 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
       .map((finding) => ({
         label: "Engine learning feedback",
         description: `${finding.title || finding.findingType || "Finding"}: ${finding.summary || finding.expectedBehavior || "Manual review required."}`,
-        status: "Diagnostic review item",
+        status: "Review item",
         source: "decisionModel.engineLearningBackbone.engineLearningFeedbackLoop.findingsApplied",
         color: "#c7a7ff",
       })),
@@ -278,7 +279,13 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).slice(0, 10);
+  }).map((entry) => ({
+    ...entry,
+    label: cleanPrimaryAnswerText(entry.label),
+    description: cleanPrimaryAnswerText(entry.description),
+    status: cleanPrimaryAnswerText(entry.status),
+    source: cleanPrimaryAnswerText(entry.source),
+  })).slice(0, 10);
 }
 
 function analystVerificationItems(model) {
@@ -291,8 +298,8 @@ function analystVerificationItems(model) {
   return [
     ...liveItems.map((item) => `Verify live-response issue: ${item}`),
     "Confirm source authenticity, publisher identity, and current freshness.",
-    "Check claim scope and mapped evidence domain before any report-only use.",
-    "Check contradiction risk and whether evidence is scoring-active or report-only.",
+    "Check claim scope and mapped evidence domain before relying on it.",
+    "Check contradiction risk and whether the evidence is only explanatory context.",
   ].slice(0, 6);
 }
 
@@ -301,7 +308,7 @@ function CalibrationWarningsCard({ warnings, styles }) {
   if (!items.length) return null;
 
   return (
-    <Card title="Calibration Warnings" subtitle="Diagnostic guardrails, not final verdicts." styles={styles}>
+    <Card title="Calibration Warnings" subtitle="Review guardrails, not final verdicts." styles={styles}>
       <div style={styles.engineNotice}>
         Calibration warnings flag live-path presentation or routing risks. They do not create evidence and do not change scoring by themselves.
       </div>
@@ -314,7 +321,7 @@ function CalibrationWarningsCard({ warnings, styles }) {
             </div>
             <div style={styles.timelineSummary}>{warning.issue || "Calibration warning requires review."}</div>
             <div style={styles.timelineMeta}>
-              {warning.affectsVerdict ? "Affects verdict" : "Diagnostic warning"} - {warning.affectsScoring ? "Affects scoring" : "Does not affect scoring"} - {warning.sourceBoundary || "source boundary unavailable"}
+              {warning.affectsVerdict ? "Affects verdict" : "Review warning"} - {warning.affectsScoring ? "Affects scoring" : "Does not affect scoring"} - {cleanPrimaryAnswerText(warning.sourceBoundary || "source boundary unavailable")}
             </div>
             <SectionRow
               label="Expected behavior"
@@ -345,7 +352,7 @@ export default function ManualReviewPanel({
   const verifyItems = analystVerificationItems(model);
   const outcomes = [
     ["requires_review", "Needs human review before use."],
-    ["accepted_for_report", "Report-only acceptance. Does not mean production truth or scoring support."],
+    ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
     ["stale", "Requires refresh before use."],
     ["rejected", "Blocked due to provenance, quality, scope, or safety."],
     ["duplicate", "Cannot count as independent support."],
@@ -370,7 +377,7 @@ export default function ManualReviewPanel({
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, "Manual review is a workflow signal, not automatic proof of failure.")}
           {boundaryChip(styles, "Critical gaps may cap confidence until reviewed.")}
-          {boundaryChip(styles, "Manual-source overlays are report-only unless explicitly integrated later.")}
+          {boundaryChip(styles, "Source overlays are explanatory context unless explicitly integrated later.")}
         </div>
         <SectionRow
           label="Live review proxy"
@@ -385,7 +392,7 @@ export default function ManualReviewPanel({
         {model?.reviewedEvidencePacket?.packetLoaded ? (
           <SectionRow
             label="Reviewed evidence packet"
-            value={`${model.reviewedEvidencePacket.packetId || "packet loaded"} - ${model.reviewedEvidencePacket.scoringActive ? "QA warning: scoring-active" : "not scoring-active"}`}
+            value={`${model.reviewedEvidencePacket.packetId || "packet loaded"} - explanation support only`}
             styles={styles}
           />
         ) : null}
@@ -410,7 +417,7 @@ export default function ManualReviewPanel({
         />
         <QuestionPromptCard
           question="Does this affect scoring?"
-          answer="Manual review and report-only source overlays do not affect live scoring unless explicitly integrated by a calibrated backend path."
+          answer="Manual review and source overlays explain uncertainty; they do not automatically change the current score."
           status="Boundary"
           impact="Not automatic scoring"
           sourceState="Policy"
@@ -494,7 +501,7 @@ export default function ManualReviewPanel({
         </Card>
       </div>
 
-      <Card title="What An Analyst Should Verify" subtitle="Manual review checks before any report-only evidence use." styles={styles}>
+      <Card title="What An Analyst Should Verify" subtitle="Manual review checks before relying on explanatory evidence." styles={styles}>
         <ListBlock
           title="Verification checklist"
           items={verifyItems}
@@ -504,7 +511,7 @@ export default function ManualReviewPanel({
         />
         <SectionRow
           label="Scoring boundary"
-          value="Manual-source review and report-only overlays cannot affect live scoring or verdict behavior unless a future integration explicitly approves it."
+          value="Manual-source review and explanatory overlays do not change live scoring or verdict behavior unless a future integration explicitly approves it."
           styles={styles}
         />
       </Card>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
-import { formatCompact, formatPct, formatUsd, getAnalystAnswerCard, safeArray, safeObject, titleCase } from "./researchUtils";
+import { cleanPrimaryAnswerText, formatCompact, formatPct, formatUsd, getAnalystAnswerCard, safeArray, safeObject, titleCase } from "./researchUtils";
 
 function isPresent(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
@@ -421,7 +421,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
     const formulaIds = safeArray(synthesized.formulaOutputsUsed).length ? safeArray(synthesized.formulaOutputsUsed) : safeArray(question.formulaOutputsUsed);
     const synthesizedLinkedFormulas = formulas.filter((formula) => formulaIds.includes(formula.formulaId));
     const formulaRows = (synthesizedLinkedFormulas.length ? synthesizedLinkedFormulas : linkedFormulas).map((formula) => `${formula.label || formula.formulaId}: ${formula.display || "Unavailable - source required"} | ${formula.formula || "Formula unavailable"} | status=${questionStatusLabel(formula.status)} | missing=${safeArray(formula.missingInputs).join(", ") || "none"}`);
-    const reviewedSourceRows = (safeArray(synthesized.reviewedSourcesUsed).length ? safeArray(synthesized.reviewedSourcesUsed) : safeArray(question.reviewedSourcesUsed)).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"} - ${source.url || "URL unavailable"}`);
+    const reviewedSourceRows = (safeArray(synthesized.reviewedSourcesUsed).length ? safeArray(synthesized.reviewedSourcesUsed) : safeArray(question.reviewedSourcesUsed)).map((source) => cleanPrimaryAnswerText(`${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "score-integrated" : "explanation support"} - ${source.url || "URL unavailable"}`));
     const reviewedFactRows = (safeArray(synthesized.reviewedFactsUsed).length ? safeArray(synthesized.reviewedFactsUsed) : safeArray(question.reviewedFactsUsed)).map((fact) => `${fact.claim || fact.factId} (${fact.normalizedClaimType || "claim type unavailable"})`);
     const evidenceMappingWarningRows = [
       ...safeArray(synthesized.warnings),
@@ -468,7 +468,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
               <StatusBadge tone={statusText === "Contradicted" ? "#ffb6b6" : statusText === "Manual review required" ? "#f9d976" : statusText === "Not applicable" ? "#d5dcec" : "#9bd7ff"}>{statusText}</StatusBadge>
               <StatusBadge tone="#a6f3c2">{sourceState}</StatusBadge>
-              {safeArray(analystCard.primaryBadges).includes("Not scoring-active") ? <StatusBadge tone="#d5dcec">Not scoring-active</StatusBadge> : null}
+              {safeArray(analystCard.primaryBadges).includes("Not scoring-active") ? <StatusBadge tone="#d5dcec">Explanation context</StatusBadge> : null}
               <StatusBadge tone="#f9d976">{impactBadge}</StatusBadge>
               <StatusBadge tone="#d5dcec">{isOpen ? "Collapse" : "Expand"}</StatusBadge>
             </div>
@@ -478,7 +478,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
           <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.14)", padding: "1rem", display: "grid", gap: "0.85rem" }}>
             <SectionRow label="A. Direct answer" value={answerText} styles={styles} />
             <SectionRow label="B. Why it matters" value={analystCard.assetClassSpecificKeyIssue || whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
-            <SectionRow label="Synthesis model" value={synthesized.synthesisTemplateId ? `${synthesized.synthesisTemplateId} | ${status(synthesized.evidenceStatus)}` : "No synthesized answer attached."} styles={styles} />
+            <SectionRow label="Answer support" value={synthesized.synthesisTemplateId ? cleanPrimaryAnswerText(status(synthesized.evidenceStatus)) : "No structured answer attached."} styles={styles} />
             <ListBlock title="C. Evidence / data basis" items={safeArray(analystCard.evidenceBasis).length ? analystCard.evidenceBasis : dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
             <ListBlock title="D. Formula / rule used" items={ruleRows} emptyText="No formula or rule linkage attached." color="#9bd7ff" styles={styles} />
             <ListBlock
@@ -491,7 +491,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
                 ...reviewedFactRows.map((entry) => `Reviewed fact: ${entry}`),
                 ...safeArray(analystCard.whatEvidenceDoesNotProve).map((entry) => `Does not prove: ${entry}`),
                 ...safeArray(analystCard.sourceBoundaryPlainEnglish).map((entry) => `Boundary: ${entry}`),
-                question.reviewedEvidenceStatus ? "Boundary: Reviewed demo evidence improves answer quality but is not scoring-active in v1." : null,
+                question.reviewedEvidenceStatus ? "Boundary: Reviewed evidence improves answer quality; score integration requires a calibrated release." : null,
               ].filter(Boolean)}
               emptyText="No evidence status attached."
               color="#a6f3c2"
@@ -500,8 +500,8 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
             <ListBlock title="Evidence mapping cautions" items={evidenceMappingWarningRows} emptyText="No evidence mapping caution attached." color="#f9d976" styles={styles} />
             <ListBlock title="F. Missing evidence" items={safeArray(analystCard.missingEvidence).length ? analystCard.missingEvidence : safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
-            <SectionRow label="G. Decision / confidence impact" value={analystCard.decisionImpact || synthesized.impact || question.impactOnScoreOrConfidence || "Diagnostic/source requirement only; no new verdict impact inferred."} styles={styles} />
-            <SectionRow label="Confidence boundary" value={analystCard.confidenceBoundary || "No scoring or verdict change is inferred from this display card."} styles={styles} />
+            <SectionRow label="G. Decision / confidence impact" value={cleanPrimaryAnswerText(analystCard.decisionImpact || synthesized.impact || question.impactOnScoreOrConfidence || "Review/source requirement only; no new verdict impact inferred.")} styles={styles} />
+            <SectionRow label="Confidence boundary" value={cleanPrimaryAnswerText(analystCard.confidenceBoundary || "This display explains confidence; numerical score integration requires a calibrated release.")} styles={styles} />
             <ListBlock title="H. What would change" items={safeArray(analystCard.whatWouldChange).length ? analystCard.whatWouldChange : safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
           </div>
         ) : null}

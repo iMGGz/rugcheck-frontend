@@ -2,6 +2,7 @@ import React from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
 import {
   extractRenderableText,
+  cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
   normalizePrimaryAnalysisRoutePayload,
@@ -77,7 +78,7 @@ function verdictImpactTone(impact) {
     case "requires_manual_review":
       return { label: labelize(impact), color: "#ffb020" };
     default:
-      return { label: impact ? labelize(impact) : "Diagnostic only", color: "#aab7cc" };
+      return { label: impact ? labelize(impact) : "Review context", color: "#aab7cc" };
   }
 }
 
@@ -168,8 +169,8 @@ function answerFallback(question) {
 function simplifiedBoundary(boundaries) {
   const text = normalizeRenderableList(boundaries).join(" ").toLowerCase();
   if (!text) return "Source boundary not attached.";
-  if (text.includes("provider")) return "Provider metadata is context, not reviewed evidence.";
-  if (text.includes("diagnostic")) return "Diagnostic context only; not a standalone evidence claim.";
+  if (text.includes("provider")) return "Provider context helps identify what still needs source review.";
+  if (text.includes("diagnostic")) return "Methodology context only; not a standalone evidence claim.";
   if (text.includes("source_candidate")) return "Source candidate; review required before evidence use.";
   if (text.includes("scoring")) return "Scoring boundary attached; inspect technical details for exact field use.";
   return "Source boundary attached; inspect details before treating this as evidence.";
@@ -237,7 +238,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           </div>
           <div style={styles.checklistStatusStack}>
             {statusChip(styles, analystCard.headlineStatus || status.label, synthesizedTone?.color || status.color)}
-            {statusChip(styles, analystCard.primaryBadges?.includes("Not scoring-active") ? "Not scoring-active" : impact.label, impact.color)}
+            {statusChip(styles, analystCard.primaryBadges?.includes("Not scoring-active") ? "Explanation context" : impact.label, impact.color)}
             {synthesizedTone ? statusChip(styles, synthesizedTone.label, synthesizedTone.color) : null}
             {reviewedTone ? statusChip(styles, reviewedTone.label, reviewedTone.color) : null}
             {statusChip(styles, supportItems.length ? "Signals attached" : "Source required", supportItems.length ? "#7dd3fc" : "#ffb020")}
@@ -251,7 +252,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
           <SectionRow label="Direct answer" value={shortAnswer} styles={styles} />
           <SectionRow label="Why it matters" value={analystCard.assetClassSpecificKeyIssue || "This question tests whether the asset-class thesis has enough source-backed support to improve confidence without overclaiming evidence."} styles={styles} />
         {synthesized.directAnswer ? (
-          <SectionRow label="Synthesized answer model" value={`${synthesized.synthesisTemplateId || "institutional_answer_synthesis_v1"} | ${labelize(synthesized.evidenceStatus || "source_required")}`} styles={styles} />
+          <SectionRow label="Answer support" value={cleanPrimaryAnswerText(labelize(synthesized.evidenceStatus || "source_required"))} styles={styles} />
         ) : null}
         <InlineList
           title="Supporting evidence, summarized"
@@ -262,7 +263,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
         />
         <InlineList
           title="Reviewed sources used"
-          items={(synthesizedSources.length ? synthesizedSources : reviewedSources).map((source) => `${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "scoring eligible" : "not scoring-active"}`)}
+          items={(synthesizedSources.length ? synthesizedSources : reviewedSources).map((source) => cleanPrimaryAnswerText(`${source.title || "Reviewed source"} (${source.publisher || "publisher unavailable"}) - ${source.freshnessStatus || "freshness unknown"} - ${source.scoringEligible ? "score-integrated" : "explanation support"}`))}
           emptyText="No reviewed evidence packet source mapped to this question."
           styles={styles}
           color="#a6f3c2"
@@ -314,7 +315,7 @@ function InstitutionalQuestionAnswerCard({ question, styles }) {
         <SectionRow label="Manual review implication" value={analystCard.manualReviewImplication || "No separate manual-review implication beyond the current source boundary."} styles={styles} />
         <SectionRow label="Reviewed evidence status" value={reviewedTone?.label || "No reviewed packet mapped."} styles={styles} />
         <SectionRow label="Evidence scope" value={labelize(question.questionEvidenceScope || "not attached")} styles={styles} />
-        <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed demo evidence improves answer quality but is not scoring-active in v1." : "No reviewed evidence boundary attached."} styles={styles} />
+        <SectionRow label="Reviewed evidence boundary" value={question.reviewedEvidenceStatus ? "Reviewed evidence improves answer quality; score integration requires a calibrated release." : "No reviewed evidence boundary attached."} styles={styles} />
         <SectionRow label="Source boundary" value={simplifiedBoundary(synthesizedBoundaries.length ? synthesizedBoundaries : boundaries)} styles={styles} />
       </div>
 
@@ -349,7 +350,7 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
       styles={styles}
     >
       <div style={styles.engineNotice}>
-        Answers use current live scoring/provider fields. Provider metadata is context, not reviewed evidence.
+        Answers use current live fields. Provider context helps identify what still needs source review.
       </div>
       {isReconstructed ? (
         <div style={styles.institutionalQuestionsProvenanceNote}>
@@ -358,12 +359,12 @@ function InstitutionalQuestionAnswersSection({ questions, provenance, calibratio
       ) : null}
       {hasLensMismatchWarning ? (
         <div style={styles.calibrationWarningNote}>
-          Calibration note: provider-grounded lens routing and question group should be reviewed before relying on this checklist. This warning is diagnostic, not a scoring signal.
+          Calibration note: provider-grounded lens routing and question group should be reviewed before relying on this checklist. This is a review note, not a score input.
         </div>
       ) : null}
       {hasLstWarning ? (
         <div style={styles.calibrationWarningNote}>
-          Calibration note: LST scanner-like risk is treated as technical verification until confirmed by stronger evidence. This is diagnostic, not a scoring signal.
+          Calibration note: LST scanner-like risk is treated as technical verification until confirmed by stronger evidence. This is a review note, not a score input.
         </div>
       ) : null}
       <div style={styles.institutionalQuestionAnswerGrid}>
@@ -949,13 +950,13 @@ function ScoringReadinessChecklistImpact({ readiness, styles }) {
   return (
     <Card
       title="Scoring Readiness Impact"
-      subtitle="Diagnostic mapping from institutional answers to future evidence-to-scoring readiness."
+      subtitle="Plain-language mapping from institutional answers to future evidence-to-scoring readiness."
       styles={styles}
     >
       <div style={styles.evidenceMapBoundaryStrip}>
-        {boundaryChip(styles, "Diagnostic only")}
-        {boundaryChip(styles, "Legacy score/verdict unchanged")}
-        {boundaryChip(styles, "Reviewed evidence not scoring-active")}
+        {boundaryChip(styles, "Explanation context")}
+        {boundaryChip(styles, "Current score/verdict unchanged")}
+        {boundaryChip(styles, "Score integration requires calibration")}
       </div>
       <div style={styles.checklistBridgeGrid}>
         <div style={styles.checklistBridgeNode}>Family: {contract.assetFamilyLabel || "Unavailable"}</div>

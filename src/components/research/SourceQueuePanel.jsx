@@ -3,6 +3,7 @@ import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, QuestionPromp
 import {
   extractRenderableText,
   buildLensSpecificResearchDomains,
+  cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeRenderableList,
   providerLabel,
@@ -253,7 +254,13 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     ...alerts,
     ...providerGapLeads(providerDiagnostics),
     ...sourceStatusLeads(sourceStatus),
-  ]).slice(0, 8);
+  ]).map((lead) => ({
+    ...lead,
+    label: cleanPrimaryAnswerText(lead.label),
+    description: cleanPrimaryAnswerText(lead.description),
+    status: cleanPrimaryAnswerText(lead.status),
+    source: cleanPrimaryAnswerText(lead.source),
+  })).slice(0, 8);
 }
 
 function suggestedResearchDomains(model, displayIdentity = null) {
@@ -328,35 +335,35 @@ export default function SourceQueuePanel({
       <ExecutiveSummaryCard
         eyebrow="Source Queue"
         title="What source is needed next?"
-        answer={reviewLeads[0]?.description || "No live review leads were surfaced. Source candidates remain unavailable until attached by the backend/source workflow."}
+        answer={reviewLeads[0]?.description || "No live review leads were surfaced. Add reviewed sources before relying on stronger conclusions."}
         tone="#9bd7ff"
         badges={[
           { label: `${reviewLeads.length} review leads`, tone: reviewLeads.length ? "#f9d976" : "#d5dcec" },
           { label: `${researchRequirements.length} research requirements`, tone: researchRequirements.length ? "#7dd3fc" : "#d5dcec" },
-          { label: "Candidate, not evidence", tone: "#d5dcec" },
+          { label: "Needs review", tone: "#d5dcec" },
           { label: model?.analysisFreshness?.freshQaEligible ? "Current QA eligible" : "Run fresh analysis for QA", tone: model?.analysisFreshness?.freshQaEligible ? "#a6f3c2" : "#f9d976" },
         ]}
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, "Source candidates are not evidence.")}
-          {boundaryChip(styles, "Candidates require review before they can become report evidence.")}
-          {boundaryChip(styles, "Candidate-only items cannot affect scoring.")}
+          {boundaryChip(styles, "Open checks require source review.")}
+          {boundaryChip(styles, "Missing data is not negative proof.")}
+          {boundaryChip(styles, "See Methodology for evidence workflow.")}
           {boundaryChip(styles, model?.analysisFreshness?.qaEligibilityWarning || "Freshness metadata should be checked before QA.")}
         </div>
         <SectionRow
           label="Current attachment"
-          value="Source discovery candidates are not attached to this live response yet."
+          value="No accepted source discovery item is attached to this live response yet."
           styles={styles}
         />
       </ExecutiveSummaryCard>
 
       {reviewedEvidence.packetLoaded ? (
-        <Card title="Reviewed Evidence Coverage" subtitle="Mapped demo evidence reduces duplicate generic source asks, but is not scoring-active in v1." styles={styles}>
+        <Card title="Reviewed Evidence Coverage" subtitle="Mapped evidence can reduce duplicate source asks; remaining gaps stay visible." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `Packet: ${reviewedEvidence.packetId || "loaded"}`)}
             {boundaryChip(styles, reviewedEvidence.reviewStatus || "reviewed demo seed")}
-            {boundaryChip(styles, "Not scoring-active")}
+            {boundaryChip(styles, "Explanation support")}
           </div>
           <ListBlock
             title="Already mapped to questions"
@@ -381,7 +388,7 @@ export default function SourceQueuePanel({
           answer={reviewLeads[0]?.description || safeArray(model?.tokenomicsSupplyIntegrity?.sourceRequirements)[0] || "No priority source requirement was attached."}
           status={reviewLeads[0]?.status || "Source required"}
           impact="Next source"
-          sourceState={reviewLeads[0]?.source || "Live gaps"}
+          sourceState={reviewLeads[0]?.source || "Open checks"}
           styles={styles}
         />
         <QuestionPromptCard
@@ -397,7 +404,7 @@ export default function SourceQueuePanel({
           answer={researchRequirements[0]?.verdictImpact || "Potentially only if reviewed, source-backed evidence resolves a live decision requirement."}
           status={researchRequirements[0]?.canChangeVerdict ? "Potentially" : "Requires review"}
           impact="Verdict boundary"
-          sourceState="Not evidence yet"
+          sourceState="Needs review"
           styles={styles}
         />
       </div>

@@ -167,7 +167,7 @@ function TokenomicsRailSection({ model, styles }) {
   if (tokenomics.tokenomicsIntegrityScore === undefined) return null;
 
   return (
-    <RailSection title="Tokenomics Integrity" badge="Diagnostic v1" styles={styles}>
+    <RailSection title="Tokenomics Integrity" badge="Explanation context" styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Supply integrity score</div>
         <div style={styles.railMiniValue}>{tokenomics.tokenomicsIntegrityScore}/100</div>
@@ -189,7 +189,7 @@ function ScoringReadinessRailSection({ model, styles }) {
   if (!readiness.artifactVersion) return null;
 
   return (
-    <RailSection title="Scoring Readiness" badge="Diagnostic v1" styles={styles}>
+    <RailSection title="Scoring Readiness" badge="Explanation context" styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Future scoring status</div>
         <div style={styles.railMiniValue}>{readiness.overallReadinessStatus || "Status unavailable"}</div>
@@ -201,7 +201,7 @@ function ScoringReadinessRailSection({ model, styles }) {
         <div style={styles.railBoundaryPill}>Legacy score unchanged</div>
       </div>
       <div style={styles.railBoundaryText}>
-        Evidence-to-scoring architecture only. Reviewed evidence and source candidates are not scoring-active in v1.
+        Evidence-readiness checks explain what would improve confidence; numerical score integration requires a calibrated release.
       </div>
     </RailSection>
   );
