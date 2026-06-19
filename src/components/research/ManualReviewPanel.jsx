@@ -252,9 +252,27 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     source: "decisionModel.rawDataCoverageDiagnostics",
     color: "#f9d976",
   }));
+  const evidenceAggregation = model?.evidenceStatusAggregationContract || {};
+  const evidenceAggregationSignals = [
+    ...safeArray(evidenceAggregation.manualReviewItems).map((item) => ({
+      label: "Evidence readiness review",
+      description: cleanPrimaryAnswerText(item || "Manual review required."),
+      status: "Review before stronger conclusions",
+      source: "decisionModel.evidenceStatusAggregationContract.manualReviewItems",
+      color: "#f9d976",
+    })),
+    ...safeArray(evidenceAggregation.conflicts).map((conflict) => ({
+      label: "Evidence aggregation conflict",
+      description: cleanPrimaryAnswerText(conflict.summary || conflict.conflictId || "Evidence contradiction requires review."),
+      status: titleCase(conflict.severity || "Review required"),
+      source: "decisionModel.evidenceStatusAggregationContract.conflicts",
+      color: conflict.severity === "critical" ? "#ff6b6b" : "#ffb020",
+    })),
+  ];
 
   const combined = [
     ...manual,
+    ...evidenceAggregationSignals,
     ...rawDataSignals,
     ...engineLearningSignals,
     ...benchmarkPackSignals,

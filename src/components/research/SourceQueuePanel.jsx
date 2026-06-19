@@ -237,8 +237,19 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     source: "decisionModel.providerRawDataExpansion.categoryDataSourceRequirements",
     color: "#f9d976",
   }));
+  const evidenceAggregation = model?.evidenceStatusAggregationContract || {};
+  const evidenceAggregationLeads = safeArray(evidenceAggregation.sourceQueueItems)
+    .slice(0, 8)
+    .map((item) => ({
+      label: "Evidence aggregation source requirement",
+      description: item || "Reviewed evidence or live data required.",
+      status: "Needs verification",
+      source: "decisionModel.evidenceStatusAggregationContract.sourceQueueItems",
+      color: "#f9d976",
+    }));
 
   return dedupeByText([
+    ...evidenceAggregationLeads,
     ...rawDataLeads,
     ...engineLearningLeads,
     ...benchmarkPackLeads,

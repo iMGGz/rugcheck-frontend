@@ -88,6 +88,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
   const scoringReadinessContract = safeObject(safeModel.scoringReadinessContract);
+  const evidenceStatusAggregationContract = safeObject(safeModel.evidenceStatusAggregationContract);
   const benchmarkPack = safeObject(safeModel.benchmarkInstitutionalAnswerPack);
   const engineLearningFeedbackLoop = safeObject(safeModel.engineLearningBackbone?.engineLearningFeedbackLoop);
   const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics || safeModel.providerRawDataExpansion?.rawDataCoverageDiagnostics);
@@ -158,6 +159,16 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
       caveat: "Existing overall score and verdict remain unchanged.",
       attached: hasAttachedValue(scoringReadinessContract),
+    },
+    {
+      title: "Evidence Status Readiness",
+      value: readableValue(evidenceStatusAggregationContract.assetAggregation?.primaryEvidenceStatus),
+      source: hasAttachedValue(evidenceStatusAggregationContract) ? "evidenceStatusAggregationContract.assetAggregation" : "Not attached",
+      rule: evidenceStatusAggregationContract.assetAggregation?.scoringReadinessImpact?.plainLanguageSummary || "Aggregates claim-level evidence into question status and readiness context without changing the current score.",
+      live: "Shown as explanatory context",
+      reportOnly: "No, surfaced in live response but not integrated into current overall score",
+      caveat: "Does not change the existing overall score or verdict.",
+      attached: hasAttachedValue(evidenceStatusAggregationContract),
     },
     {
       title: "Institutional Answer Coverage",

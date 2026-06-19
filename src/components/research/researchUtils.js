@@ -336,6 +336,63 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
   };
 }
 
+export function normalizeEvidenceStatusAggregationPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.evidenceStatusAggregationContract);
+  const nestedContract = safeObject(nestedAnalysis.evidenceStatusAggregationContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  const normalizeClaim = (claim) => ({
+    ...safeObject(claim),
+    claimText: cleanPrimaryAnswerText(claim?.claimText),
+    limitations: safeArray(claim?.limitations).map(cleanPrimaryAnswerText),
+  });
+  return {
+    ...contract,
+    claims: safeArray(contract.claims).map(normalizeClaim),
+    questionAggregations: safeArray(contract.questionAggregations).map((question) => ({
+      ...safeObject(question),
+      plainLanguageStatus: cleanPrimaryAnswerText(question?.plainLanguageStatus),
+      plainLanguageSummary: cleanPrimaryAnswerText(question?.plainLanguageSummary),
+      supportedClaims: safeArray(question?.supportedClaims).map(normalizeClaim),
+      missingClaims: safeArray(question?.missingClaims).map(normalizeClaim),
+      liveDataRequiredClaims: safeArray(question?.liveDataRequiredClaims || question?.liveDataClaims).map(normalizeClaim),
+      contradictedClaims: safeArray(question?.contradictedClaims).map(normalizeClaim),
+      notApplicableClaims: safeArray(question?.notApplicableClaims).map(normalizeClaim),
+      openChecks: safeArray(question?.openChecks).map(cleanPrimaryAnswerText),
+      confidenceCapReason: cleanPrimaryAnswerText(question?.confidenceCapReason),
+      sourceQueueItems: safeArray(question?.sourceQueueItems),
+      manualReviewItems: safeArray(question?.manualReviewItems),
+      rawClaimIds: safeArray(question?.rawClaimIds),
+    })),
+    dimensionAggregations: safeArray(contract.dimensionAggregations),
+    assetAggregation: {
+      ...safeObject(contract.assetAggregation),
+      primaryEvidenceStatus: cleanPrimaryAnswerText(contract.assetAggregation?.primaryEvidenceStatus),
+      plainLanguageSummary: cleanPrimaryAnswerText(contract.assetAggregation?.plainLanguageSummary),
+      openChecks: safeArray(contract.assetAggregation?.openChecks).map(cleanPrimaryAnswerText),
+      scoringReadinessImpact: {
+        ...safeObject(contract.assetAggregation?.scoringReadinessImpact),
+        plainLanguageSummary: cleanPrimaryAnswerText(contract.assetAggregation?.scoringReadinessImpact?.plainLanguageSummary),
+        evidenceReadinessGaps: safeArray(contract.assetAggregation?.scoringReadinessImpact?.evidenceReadinessGaps).map(cleanPrimaryAnswerText),
+        confidenceCaps: safeArray(contract.assetAggregation?.scoringReadinessImpact?.confidenceCaps).map(cleanPrimaryAnswerText),
+        scoreEligibilityNotes: safeArray(contract.assetAggregation?.scoringReadinessImpact?.scoreEligibilityNotes).map(cleanPrimaryAnswerText),
+      },
+    },
+    sourceQueueItems: safeArray(contract.sourceQueueItems).map(cleanPrimaryAnswerText),
+    manualReviewItems: safeArray(contract.manualReviewItems).map(cleanPrimaryAnswerText),
+    readinessImpact: safeObject(contract.readinessImpact),
+    policiesApplied: safeArray(contract.policiesApplied),
+    conflicts: safeArray(contract.conflicts),
+    guardrails: safeObject(contract.guardrails),
+  };
+}
+
 function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
   const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
   if (!cards.length) return questions;
@@ -1582,6 +1639,7 @@ export function buildProtectedInvestorReportText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1626,6 +1684,8 @@ export function buildProtectedInvestorReportText({
     safeModel.primaryBlocker?.label,
     safeModel.primaryBlocker?.explanation,
     safeModel.evidenceNeeded,
+    evidenceStatusAggregationContract?.assetAggregation?.openChecks,
+    safeArray(evidenceStatusAggregationContract?.sourceQueueItems),
     safeModel.blockers,
     sourceStatusObject.missing,
     tokenomicsSupplyIntegrity?.sourceRequirements,
@@ -1692,9 +1752,10 @@ export function buildProtectedInvestorReportText({
     ),
     "",
     "6. Evidence Coverage",
-    reportLine("Answer coverage", benchmarkInstitutionalAnswerPack ? `${safeArray(benchmarkInstitutionalAnswerPack.questions).length} institutional questions available` : "Not available for this asset"),
-    reportLine("Major gaps", normalizeRenderableList(benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "No evidence gap summary attached"),
-    reportLine("Score preview boundary", benchmarkInstitutionalAnswerPack ? "Evidence coverage improves explanation; score integration requires a calibrated release." : "Not available"),
+    reportLine("Evidence readiness", evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || "Evidence readiness summary was not attached."),
+    reportLine("Questions aggregated", evidenceStatusAggregationContract?.questionAggregations?.length ? `${evidenceStatusAggregationContract.questionAggregations.length} question-level evidence statuses` : "Not available yet."),
+    reportLine("Major gaps", normalizeRenderableList(evidenceStatusAggregationContract?.assetAggregation?.openChecks || benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "No evidence gap summary attached"),
+    reportLine("Score preview boundary", evidenceStatusAggregationContract ? "Evidence readiness improves explanation; score integration requires a calibrated release." : "Not available"),
     "",
     "7. Missing Evidence / Source Requirements",
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
@@ -4488,6 +4549,7 @@ export function buildDecisionTerminalModel({
   const categoryReadinessDiagnostics = normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const providerRawDataExpansion = normalizeProviderRawDataExpansionPayload(safeAnalysis);
   const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
+  const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -4704,6 +4766,20 @@ export function buildDecisionTerminalModel({
       currentStatus: "needs_verification",
       canChangeVerdict: true,
     }));
+  const evidenceAggregationResearchRequirements = safeArray(evidenceStatusAggregationContract?.sourceQueueItems)
+    .slice(0, 10)
+    .map((item, index) => ({
+      id: `evidence-aggregation-${index}`,
+      title: item || "Evidence source review required.",
+      assetClassLens: evidenceStatusAggregationContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "evidence_status_aggregation",
+      reason: "Open check from the evidence status aggregation contract.",
+      evidenceNeeded: [item || "Reviewed evidence or current live data is required."],
+      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data"],
+      priority: index < 4 ? "high" : "medium",
+      verdictImpact: "Could improve answer readiness and confidence explanation if resolved.",
+      currentStatus: "needs_verification",
+      canChangeVerdict: true,
+    }));
   const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
     .slice(0, 8)
     .map((requirement, index) => ({
@@ -4719,6 +4795,7 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: false,
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
+    ...evidenceAggregationResearchRequirements,
     ...institutionalAnswerSurfaceResearchRequirements,
     ...baseDisplayResearchRequirements,
     ...representationFamilyResearchRequirements,
@@ -4834,6 +4911,7 @@ export function buildDecisionTerminalModel({
     representationFamilyRoute,
     representationFamilyEvidenceGates,
     institutionalAnswerSurfaceContract,
+    evidenceStatusAggregationContract,
     scoringReadinessContract,
     engineLearningBackbone,
     benchmarkAssetPreset,
@@ -6109,6 +6187,7 @@ export function buildReviewBundleText({
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -7207,6 +7286,58 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(institutionalAnswerSurfaceContract?.knownLimitations),
       bundleField("Next resume pointer", institutionalAnswerSurfaceContract?.nextResumePointer || "Evidence Status Aggregation Contract v1"),
+    ]),
+    bundleSection("2AN. Evidence Status Aggregation Contract v1", [
+      bundleField("Contract attached", evidenceStatusAggregationContract ? "yes" : "missing"),
+      bundleField("Artifact version", evidenceStatusAggregationContract?.artifactVersion),
+      bundleField("Asset family", evidenceStatusAggregationContract?.assetFamily),
+      bundleField("Claims collected", safeArray(evidenceStatusAggregationContract?.claims).length),
+      bundleField("Questions aggregated", safeArray(evidenceStatusAggregationContract?.questionAggregations).length),
+      bundleField("Dimensions aggregated", safeArray(evidenceStatusAggregationContract?.dimensionAggregations).length),
+      bundleField("Asset evidence status", evidenceStatusAggregationContract?.assetAggregation?.primaryEvidenceStatus),
+      bundleField("Plain-language asset summary", evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary),
+      bundleField("Scoring readiness impact", evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.plainLanguageSummary),
+      bundleField("Readiness gaps count", safeArray(evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.evidenceReadinessGaps).length),
+      bundleField("Confidence caps count", safeArray(evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.confidenceCaps).length),
+      "Question aggregation examples:",
+      bundleList(safeArray(evidenceStatusAggregationContract?.questionAggregations).slice(0, 12).map((question) =>
+        `${question.questionId || "question"} | ${question.primaryStatus || "status_unknown"} | ${cleanPrimaryAnswerText(question.plainLanguageStatus || "Needs verification")} | supported=${safeArray(question.supportedClaims).length} missing=${safeArray(question.missingClaims).length} live=${safeArray(question.liveDataRequiredClaims || question.liveDataClaims).length} contradictions=${safeArray(question.contradictedClaims).length} notApplicable=${safeArray(question.notApplicableClaims).length} | ${cleanPrimaryAnswerText(question.plainLanguageSummary || "")}`
+      ), "No question aggregations attached.", 12),
+      "Source Queue items from aggregation:",
+      bundleList(safeArray(evidenceStatusAggregationContract?.sourceQueueItems).slice(0, 12).map((item) =>
+        cleanPrimaryAnswerText(item || "Source review required")
+      ), "No aggregation source queue items.", 12),
+      "Manual Review items from aggregation:",
+      bundleList(safeArray(evidenceStatusAggregationContract?.manualReviewItems).slice(0, 12).map((item) =>
+        cleanPrimaryAnswerText(item || "Manual review required")
+      ), "No aggregation manual-review items.", 12),
+      "Policies applied:",
+      bundleList(safeArray(evidenceStatusAggregationContract?.policiesApplied).map((policy) =>
+        `${policy.policyId || "policy"} | family=${policy.assetFamily || "unknown"} | required=${safeArray(policy.requiredClaimTypes).join(", ") || "none"} | current=${safeArray(policy.currentDataClaimTypes).join(", ") || "none"}`
+      ), "No aggregation policies attached.", 10),
+      "Conflicts:",
+      bundleList(safeArray(evidenceStatusAggregationContract?.conflicts).map((conflict) =>
+        `${conflict.conflictId || "conflict"} | severity=${conflict.severity || "unknown"} | ${conflict.summary || "Conflict summary unavailable"}`
+      ), "No evidence aggregation conflicts detected.", 10),
+      "Frontend visibility:",
+      bundleList(Object.entries(safeObject(evidenceStatusAggregationContract?.frontendVisibility)).map(([surface, status]) => `${surface}: ${status}`)),
+      "QA checks:",
+      bundleList([
+        `Copy Bundle 2AN present=yes`,
+        `Evidence Map receives aggregation=${yesNoUnknown(Boolean(evidenceStatusAggregationContract?.frontendVisibility?.evidenceMap))}`,
+        `Source Queue receives aggregation=${yesNoUnknown(safeArray(evidenceStatusAggregationContract?.sourceQueueItems).length > 0 || Boolean(evidenceStatusAggregationContract?.frontendVisibility?.sourceQueue))}`,
+        `Manual Review receives aggregation=${yesNoUnknown(Boolean(evidenceStatusAggregationContract?.frontendVisibility?.manualReview))}`,
+        `Answer Surface integration=${evidenceStatusAggregationContract?.frontendVisibility?.answerSurface || "unknown"}`,
+        `Protected Investor Report redaction=${evidenceStatusAggregationContract?.frontendVisibility?.protectedInvestorReport || "unknown"}`,
+        `Raw claim IDs preserved only in audit/bundle detail=${yesNoUnknown(safeArray(evidenceStatusAggregationContract?.questionAggregations).some((question) => safeArray(question.rawClaimIds).length))}`,
+        `Reviewed evidence scoring-active=${yesNoUnknown(evidenceStatusAggregationContract?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `Source candidates promoted=${yesNoUnknown(evidenceStatusAggregationContract?.guardrails?.sourceCandidatesPromoted)}`,
+      ]),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(evidenceStatusAggregationContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Known limitations:",
+      bundleList(evidenceStatusAggregationContract?.knownLimitations),
+      bundleField("Next resume pointer", evidenceStatusAggregationContract?.nextResumePointer || "Coverage Tier + Score Eligibility Gate v1"),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

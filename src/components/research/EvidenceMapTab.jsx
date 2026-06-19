@@ -262,6 +262,27 @@ function buildScoringReadinessEvidenceRows(model) {
   ];
 }
 
+function buildEvidenceStatusAggregationRows(model) {
+  const contract = model?.evidenceStatusAggregationContract || {};
+  if (!contract.artifactVersion) return [];
+  return [
+    {
+      key: "evidence-status-aggregation-summary",
+      label: "Evidence Status Aggregation Contract v1",
+      value: contract.assetAggregation?.plainLanguageSummary || "Question-level evidence aggregation is attached.",
+      sourceType: "Claim-to-question evidence aggregation",
+      boundary: "Aggregates reviewed evidence, provider context, live data requirements, not-applicable redirects, and missing evidence without changing score or verdict.",
+    },
+    ...safeArray(contract.questionAggregations).slice(0, 8).map((question) => ({
+      key: `evidence-status-question-${question.questionId || question.question}`,
+      label: cleanPrimaryAnswerText(question.question || question.questionId || "Institutional question"),
+      value: `${cleanPrimaryAnswerText(question.plainLanguageStatus || "Needs verification")}: ${cleanPrimaryAnswerText(question.plainLanguageSummary || "Evidence status unavailable.")}`,
+      sourceType: "Question evidence status",
+      boundary: `Supported claims: ${safeArray(question.supportedClaims).length}; missing: ${safeArray(question.missingClaims).length}; live data: ${safeArray(question.liveDataClaims).length}; not applicable: ${safeArray(question.notApplicableClaims).length}.`,
+    })),
+  ];
+}
+
 function buildReviewedEvidenceRows(model) {
   const packet = model?.reviewedEvidencePacket || {};
   const synthesizedRows = [
@@ -457,12 +478,14 @@ export default function EvidenceMapTab({
   const calibrationWarningRows = buildCalibrationWarningRows(model);
   const assetIdentityRows = buildAssetIdentityRows(model);
   const tokenomicsEvidenceRows = buildTokenomicsEvidenceRows(model);
+  const evidenceStatusAggregationRows = buildEvidenceStatusAggregationRows(model);
   const scoringReadinessEvidenceRows = buildScoringReadinessEvidenceRows(model);
   const reviewedEvidenceRows = buildReviewedEvidenceRows(model);
   const benchmarkPackEvidenceRows = buildBenchmarkInstitutionalAnswerPackRows(model);
   const engineLearningEvidenceRows = buildEngineLearningEvidenceRows(model);
   const rawDataCoverageRows = buildRawDataCoverageRows(model);
   const lensBoundaryDisplayRows = [
+    ...evidenceStatusAggregationRows,
     ...rawDataCoverageRows,
     ...engineLearningEvidenceRows,
     ...benchmarkPackEvidenceRows,
@@ -478,6 +501,7 @@ export default function EvidenceMapTab({
   const providerNotes = normalizeRenderableList(meta?.providerNotes).slice(0, 4);
   const coverageSignals = safeArray(evidenceStatusProxy?.items);
   const firstCoverageSignal = coverageSignals[0] ? normalizeEvidenceProxyDisplayLabel(coverageSignals[0]) : null;
+  const aggregationSummary = model?.evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || null;
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -518,10 +542,10 @@ export default function EvidenceMapTab({
       <div style={styles.advancedGrid}>
         <QuestionPromptCard
           question="Which claims are source-backed?"
-          answer={firstCoverageSignal?.meaning || "No live evidence-status proxy signals were attached."}
-          status={firstCoverageSignal?.statusLabel || "Unknown"}
+          answer={aggregationSummary || firstCoverageSignal?.meaning || "No live evidence-status proxy signals were attached."}
+          status={model?.evidenceStatusAggregationContract?.assetAggregation?.primaryEvidenceStatus ? titleCase(model.evidenceStatusAggregationContract.assetAggregation.primaryEvidenceStatus) : firstCoverageSignal?.statusLabel || "Unknown"}
           impact="Evidence support"
-          sourceState="Live response"
+          sourceState={model?.evidenceStatusAggregationContract ? "Evidence aggregation" : "Live response"}
           styles={styles}
         />
         <QuestionPromptCard
