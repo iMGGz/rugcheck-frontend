@@ -368,6 +368,7 @@ export default function ManualReviewPanel({
 }) {
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
   const verifyItems = analystVerificationItems(model);
+  const coverageGate = model?.coverageScoreEligibilityContract || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -415,6 +416,35 @@ export default function ManualReviewPanel({
           />
         ) : null}
       </ExecutiveSummaryCard>
+
+      {coverageGate.artifactVersion ? (
+        <Card title="Coverage / Score Eligibility Review" subtitle="Critical blockers before fundamental score interpretation." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
+            {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
+            {boundaryChip(styles, coverageGate.scoreDisplayMode || "Score display mode")}
+          </div>
+          <SectionRow
+            label="Coverage message"
+            value={coverageGate.primaryUserMessage || coverageGate.scoreEligibilityReason || "Coverage gate attached."}
+            styles={styles}
+          />
+          <ListBlock
+            title="Critical blockers"
+            items={safeArray(coverageGate.criticalBlockers).map((blocker) => blocker.label)}
+            emptyText="No critical coverage blockers were attached."
+            color="#ffb020"
+            styles={styles}
+          />
+          <ListBlock
+            title="Manual review triggers"
+            items={coverageGate.manualReviewTriggers}
+            emptyText="No coverage-specific manual review trigger was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       <div style={styles.advancedGrid}>
         <QuestionPromptCard

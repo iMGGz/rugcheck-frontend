@@ -207,6 +207,40 @@ function ScoringReadinessRailSection({ model, styles }) {
   );
 }
 
+function CoverageScoreEligibilityRailSection({ model, styles }) {
+  const coverage = model?.coverageScoreEligibilityContract || {};
+  if (!coverage.artifactVersion) return null;
+  const blockers = safeArray(coverage.criticalBlockers).length
+    ? safeArray(coverage.criticalBlockers)
+    : safeArray(coverage.coverageBlockers);
+
+  return (
+    <RailSection title="Coverage / Score Eligibility" badge={coverage.scoreEligibility || "Coverage gate"} styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Analysis depth</div>
+        <div style={styles.railMiniValue}>{coverage.analysisDepthLabel || coverage.coverageTierLabel || "Coverage tier unavailable"}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Tier: {coverage.coverageTierLabel || coverage.coverageTier || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Score: {coverage.scoreDisplayMode || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Route: {coverage.familyRouteSafety || "unknown"}</div>
+      </div>
+      {blockers.slice(0, 3).map((blocker, index) => (
+        <div key={`${blocker.label || "blocker"}-${index}`} style={styles.railSignalRow}>
+          <span style={{ ...styles.railSignalDot, borderColor: "#ffb02088" }} />
+          <div style={styles.railSignalText}>
+            <div style={styles.railSignalLabel}>{blocker.label || "Coverage blocker requires review."}</div>
+            <div style={styles.railSignalMeta}>{blocker.severity || "coverage"} - {blocker.scoreEligibilityImpact || "score eligibility"}</div>
+          </div>
+        </div>
+      ))}
+      <div style={styles.railBoundaryText}>
+        {coverage.primaryUserMessage || "Coverage gate controls score display eligibility only; current score and verdict formulas are unchanged."}
+      </div>
+    </RailSection>
+  );
+}
+
 function ReviewedEvidenceRailSection({ model, styles }) {
   const packet = model?.reviewedEvidencePacket || {};
   if (!packet.packetLoaded) return null;
@@ -417,6 +451,8 @@ export default function AnalysisRightRail({
           <TokenomicsRailSection model={model} styles={styles} />
 
           <ScoringReadinessRailSection model={model} styles={styles} />
+
+          <CoverageScoreEligibilityRailSection model={model} styles={styles} />
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 

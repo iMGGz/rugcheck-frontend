@@ -444,6 +444,7 @@ export default function ScoringTransparencyTab({
   const capsModule = modules.find((module) => module.title === "Policy Caps / Gates");
   const tokenomicsModule = modules.find((module) => module.title === "Tokenomics Supply Integrity");
   const scoringReadinessModule = modules.find((module) => module.title === "Institutional Scoring Readiness");
+  const coverageGate = model?.coverageScoreEligibilityContract || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
   return (
@@ -499,9 +500,35 @@ export default function ScoringTransparencyTab({
           sourceState={scoringReadinessModule?.source || tokenomicsModule?.source || "Not attached"}
           styles={styles}
         />
+        <QuestionPromptCard
+          question="Is the score institutionally eligible?"
+          answer={coverageGate.primaryUserMessage || "Coverage score-eligibility gate was not attached."}
+          status={coverageGate.scoreEligibility || "Unavailable"}
+          impact={coverageGate.scoreDisplayMode || "Score display mode unavailable"}
+          sourceState={coverageGate.coverageTierLabel || "Coverage tier unavailable"}
+          styles={styles}
+        />
       </div>
 
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
+
+      {coverageGate.artifactVersion ? (
+        <Card
+          title="Coverage Tier + Score Eligibility"
+          subtitle="Display/readiness gate only. Current score and verdict formulas are unchanged."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
+            {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
+            {boundaryChip(styles, coverageGate.scoreDisplayMode || "Score display mode")}
+            {boundaryChip(styles, "Legacy score preserved for audit")}
+          </div>
+          <SectionRow label="Primary message" value={coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} styles={styles} />
+          <ListBlock title="Critical blockers" items={safeArray(coverageGate.criticalBlockers).map((blocker) => blocker.label).slice(0, 6)} emptyText="No critical coverage blockers attached." color="#ffb020" styles={styles} />
+          <ListBlock title="What would make score eligible" items={safeArray(coverageGate.whatWouldMakeScoreEligible).slice(0, 6)} emptyText="No score-eligibility requirements attached." color="#7dd3fc" styles={styles} />
+        </Card>
+      ) : null}
 
       <ScoringReadinessTransparency readiness={model?.scoringReadinessContract} styles={styles} />
 

@@ -111,6 +111,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const freshness = model?.analysisFreshness || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
+  const coverageGate = model?.coverageScoreEligibilityContract || {};
   const representationFamilyRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
   const representationFamilyGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
   const warnings = safeArray(model?.calibrationWarnings);
@@ -212,6 +213,15 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             detail={`${scoringReadiness.assetFamilyLabel || "Asset-family schema"}; status: ${scoringReadiness.overallReadinessStatus || "unknown"}; source-required dimensions: ${scoringReadiness.sourceRequiredDimensionCount ?? "unknown"}.`}
             badge="Diagnostic-only v1"
             tone="#c7a7ff"
+            styles={styles}
+          />
+        ) : null}
+        {coverageGate.artifactVersion ? (
+          <LayerLegendItem
+            title={`Coverage tier: ${coverageGate.coverageTierLabel || coverageGate.coverageTier || "Unavailable"}`}
+            detail={`${coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${coverageGate.scoreDisplayMode || "unavailable"}.`}
+            badge={coverageGate.scoreEligibility ? `Score eligibility: ${coverageGate.scoreEligibility}` : "Score eligibility"}
+            tone={coverageGate.scoreEligibility === "eligible" || coverageGate.scoreEligibility === "partially_eligible" ? "#2fd67b" : "#ffb020"}
             styles={styles}
           />
         ) : null}

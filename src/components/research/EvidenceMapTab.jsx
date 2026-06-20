@@ -502,6 +502,7 @@ export default function EvidenceMapTab({
   const coverageSignals = safeArray(evidenceStatusProxy?.items);
   const firstCoverageSignal = coverageSignals[0] ? normalizeEvidenceProxyDisplayLabel(coverageSignals[0]) : null;
   const aggregationSummary = model?.evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || null;
+  const coverageGate = model?.coverageScoreEligibilityContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -570,6 +571,14 @@ export default function EvidenceMapTab({
           status={freshness.isFreshLive ? "Fresh/live" : "Verify freshness"}
           impact="Freshness"
           sourceState="Section status"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="What coverage level is allowed?"
+          answer={coverageGate.primaryUserMessage || "Coverage Tier + Score Eligibility Gate was not attached."}
+          status={coverageGate.coverageTierLabel || "Coverage unavailable"}
+          impact={coverageGate.scoreEligibility || "Score eligibility unavailable"}
+          sourceState={coverageGate.analysisDepthLabel || "Analysis depth unavailable"}
           styles={styles}
         />
       </div>

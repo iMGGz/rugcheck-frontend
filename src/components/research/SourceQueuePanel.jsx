@@ -340,6 +340,7 @@ export default function SourceQueuePanel({
   const researchRequirements = safeArray(model?.researchRequirements);
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
+  const coverageGate = model?.coverageScoreEligibilityContract || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -387,6 +388,30 @@ export default function SourceQueuePanel({
             title="Still needed"
             items={reviewedEvidence.remainingSourceRequirements}
             emptyText="No remaining reviewed-evidence gaps were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {coverageGate.artifactVersion ? (
+        <Card title="Coverage Upgrade Priorities" subtitle="Sources that would improve analysis depth or score display eligibility." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
+            {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
+            {boundaryChip(styles, "Does not change current score formula")}
+          </div>
+          <ListBlock
+            title="What would upgrade tier"
+            items={coverageGate.whatWouldUpgradeTier}
+            emptyText="No coverage-tier upgrade requirements were attached."
+            color="#7dd3fc"
+            styles={styles}
+          />
+          <ListBlock
+            title="What would make score eligible"
+            items={coverageGate.whatWouldMakeScoreEligible}
+            emptyText="No score-eligibility requirements were attached."
             color="#f9d976"
             styles={styles}
           />

@@ -393,6 +393,54 @@ export function normalizeEvidenceStatusAggregationPayload(responseLike) {
   };
 }
 
+export function normalizeCoverageScoreEligibilityPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.coverageScoreEligibilityContract);
+  const nestedContract = safeObject(nestedAnalysis.coverageScoreEligibilityContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  const cleanBlocker = (blocker) => ({
+    ...safeObject(blocker),
+    label: cleanPrimaryAnswerText(blocker?.label),
+    sourceRequirement: cleanPrimaryAnswerText(blocker?.sourceRequirement),
+  });
+  return {
+    ...contract,
+    coverageTierLabel: cleanPrimaryAnswerText(contract.coverageTierLabel),
+    coverageTierReason: cleanPrimaryAnswerText(contract.coverageTierReason),
+    scoreEligibilityReason: cleanPrimaryAnswerText(contract.scoreEligibilityReason),
+    analysisDepthLabel: cleanPrimaryAnswerText(contract.analysisDepthLabel),
+    evidenceCoverageSummary: cleanPrimaryAnswerText(contract.evidenceCoverageSummary),
+    primaryUserMessage: cleanPrimaryAnswerText(contract.primaryUserMessage),
+    confidenceCap: cleanPrimaryAnswerText(contract.confidenceCap),
+    criticalBlockers: safeArray(contract.criticalBlockers).map(cleanBlocker),
+    coverageBlockers: safeArray(contract.coverageBlockers).map(cleanBlocker),
+    liveMetricGaps: safeArray(contract.liveMetricGaps).map(cleanPrimaryAnswerText),
+    legalRightsGaps: safeArray(contract.legalRightsGaps).map(cleanPrimaryAnswerText),
+    economicRightsGaps: safeArray(contract.economicRightsGaps).map(cleanPrimaryAnswerText),
+    reserveRedemptionGaps: safeArray(contract.reserveRedemptionGaps).map(cleanPrimaryAnswerText),
+    securityGaps: safeArray(contract.securityGaps).map(cleanPrimaryAnswerText),
+    liquidityMarketAccessGaps: safeArray(contract.liquidityMarketAccessGaps).map(cleanPrimaryAnswerText),
+    manualReviewTriggers: safeArray(contract.manualReviewTriggers).map(cleanPrimaryAnswerText),
+    notApplicableRedirects: safeArray(contract.notApplicableRedirects).map(cleanPrimaryAnswerText),
+    whatWouldUpgradeTier: safeArray(contract.whatWouldUpgradeTier).map(cleanPrimaryAnswerText),
+    whatWouldMakeScoreEligible: safeArray(contract.whatWouldMakeScoreEligible).map(cleanPrimaryAnswerText),
+    readinessDimensions: safeArray(contract.readinessDimensions).map((dimension) => ({
+      ...safeObject(dimension),
+      label: cleanPrimaryAnswerText(dimension?.label),
+      summary: cleanPrimaryAnswerText(dimension?.summary),
+      blockers: safeArray(dimension?.blockers).map(cleanPrimaryAnswerText),
+    })),
+    auditDetails: safeObject(contract.auditDetails),
+    guardrails: safeObject(contract.guardrails),
+  };
+}
+
 function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
   const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
   if (!cards.length) return questions;
@@ -1640,6 +1688,7 @@ export function buildProtectedInvestorReportText({
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
+  const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1751,22 +1800,34 @@ export function buildProtectedInvestorReportText({
       5,
     ),
     "",
-    "6. Evidence Coverage",
+    "6. Coverage Tier / Score Eligibility",
+    reportLine("Coverage tier", coverageScoreEligibilityContract?.coverageTierLabel || "Not available yet."),
+    reportLine("Analysis depth", coverageScoreEligibilityContract?.analysisDepthLabel || "Not available yet."),
+    reportLine("Score eligibility", coverageScoreEligibilityContract?.scoreEligibility || "Not available yet."),
+    reportLine("Score display", coverageScoreEligibilityContract?.scoreDisplayMode || "Not available yet."),
+    reportLine("Coverage meaning", coverageScoreEligibilityContract?.primaryUserMessage || "Coverage gate was not attached."),
+    ...formatReportList(
+      normalizeRenderableList(coverageScoreEligibilityContract?.criticalBlockers?.map((blocker) => blocker.label)).slice(0, 5),
+      "No critical coverage blocker was surfaced in the protected report model.",
+      5,
+    ),
+    "",
+    "7. Evidence Coverage",
     reportLine("Evidence readiness", evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || "Evidence readiness summary was not attached."),
     reportLine("Questions aggregated", evidenceStatusAggregationContract?.questionAggregations?.length ? `${evidenceStatusAggregationContract.questionAggregations.length} question-level evidence statuses` : "Not available yet."),
     reportLine("Major gaps", normalizeRenderableList(evidenceStatusAggregationContract?.assetAggregation?.openChecks || benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "No evidence gap summary attached"),
     reportLine("Score preview boundary", evidenceStatusAggregationContract ? "Evidence readiness improves explanation; score integration requires a calibrated release." : "Not available"),
     "",
-    "7. Missing Evidence / Source Requirements",
+    "8. Missing Evidence / Source Requirements",
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
     "",
-    "8. What Would Change",
+    "9. What Would Change",
     ...formatReportList(whatWouldChange, "Reviewed sources and updated live provider data would be required before stronger language is shown.", 8),
     "",
-    "9. Provider Context",
+    "10. Provider Context",
     ...providerSummary.map((item) => `- ${item}`),
     "",
-    "10. Methodology / Limitations",
+    "11. Methodology / Limitations",
     "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
     "- Provider-reported values are not treated as reviewed evidence.",
     "- Missing data is not negative proof; it is a source requirement or confidence constraint.",
@@ -4550,6 +4611,7 @@ export function buildDecisionTerminalModel({
   const providerRawDataExpansion = normalizeProviderRawDataExpansionPayload(safeAnalysis);
   const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
+  const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -4780,6 +4842,23 @@ export function buildDecisionTerminalModel({
       currentStatus: "needs_verification",
       canChangeVerdict: true,
     }));
+  const coverageEligibilityResearchRequirements = safeArray([
+    ...safeArray(coverageScoreEligibilityContract?.whatWouldUpgradeTier),
+    ...safeArray(coverageScoreEligibilityContract?.whatWouldMakeScoreEligible),
+  ])
+    .slice(0, 10)
+    .map((item, index) => ({
+      id: `coverage-score-eligibility-${index}`,
+      title: item || "Coverage gate requires source review.",
+      assetClassLens: coverageScoreEligibilityContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "coverage_score_eligibility",
+      reason: coverageScoreEligibilityContract?.primaryUserMessage || "Coverage Tier + Score Eligibility Gate source requirement.",
+      evidenceNeeded: [item || "Resolve coverage blocker."],
+      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
+      priority: index < 4 ? "high" : "medium",
+      verdictImpact: "Controls analysis depth and score display eligibility; does not change current score or verdict formula.",
+      currentStatus: coverageScoreEligibilityContract?.scoreEligibility || "needs_verification",
+      canChangeVerdict: false,
+    }));
   const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
     .slice(0, 8)
     .map((requirement, index) => ({
@@ -4795,6 +4874,7 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: false,
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
+    ...coverageEligibilityResearchRequirements,
     ...evidenceAggregationResearchRequirements,
     ...institutionalAnswerSurfaceResearchRequirements,
     ...baseDisplayResearchRequirements,
@@ -4912,6 +4992,13 @@ export function buildDecisionTerminalModel({
     representationFamilyEvidenceGates,
     institutionalAnswerSurfaceContract,
     evidenceStatusAggregationContract,
+    coverageScoreEligibilityContract,
+    coverageTier: coverageScoreEligibilityContract?.coverageTier || null,
+    coverageTierLabel: coverageScoreEligibilityContract?.coverageTierLabel || null,
+    scoreEligibility: coverageScoreEligibilityContract?.scoreEligibility || null,
+    scoreDisplayMode: coverageScoreEligibilityContract?.scoreDisplayMode || null,
+    analysisDepthAllowed: coverageScoreEligibilityContract?.analysisDepthAllowed || null,
+    analysisDepthLabel: coverageScoreEligibilityContract?.analysisDepthLabel || null,
     scoringReadinessContract,
     engineLearningBackbone,
     benchmarkAssetPreset,
@@ -6188,6 +6275,7 @@ export function buildReviewBundleText({
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
+  const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -7338,6 +7426,84 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(evidenceStatusAggregationContract?.knownLimitations),
       bundleField("Next resume pointer", evidenceStatusAggregationContract?.nextResumePointer || "Coverage Tier + Score Eligibility Gate v1"),
+    ]),
+    bundleSection("2AO. Coverage Tier + Score Eligibility Gate v1", [
+      bundleField("Contract attached", coverageScoreEligibilityContract ? "yes" : "missing"),
+      bundleField("Artifact version", coverageScoreEligibilityContract?.artifactVersion),
+      bundleField("Coverage tier", coverageScoreEligibilityContract?.coverageTier),
+      bundleField("Coverage tier label", coverageScoreEligibilityContract?.coverageTierLabel),
+      bundleField("Coverage tier reason", coverageScoreEligibilityContract?.coverageTierReason),
+      bundleField("Score eligibility", coverageScoreEligibilityContract?.scoreEligibility),
+      bundleField("Score display mode", coverageScoreEligibilityContract?.scoreDisplayMode),
+      bundleField("Score eligibility reason", coverageScoreEligibilityContract?.scoreEligibilityReason),
+      bundleField("Analysis depth allowed", coverageScoreEligibilityContract?.analysisDepthAllowed),
+      bundleField("Analysis depth label", coverageScoreEligibilityContract?.analysisDepthLabel),
+      bundleField("Primary user message", coverageScoreEligibilityContract?.primaryUserMessage),
+      bundleField("Identity confidence", coverageScoreEligibilityContract?.identityConfidence),
+      bundleField("Family route safety", coverageScoreEligibilityContract?.familyRouteSafety),
+      bundleField("Evidence coverage summary", coverageScoreEligibilityContract?.evidenceCoverageSummary),
+      bundleField("Confidence cap", coverageScoreEligibilityContract?.confidenceCap),
+      bundleField("Legacy score preserved for audit", yesNoUnknown(coverageScoreEligibilityContract?.legacyScorePreservedForAudit)),
+      bundleField("Existing score read-only", yesNoUnknown(coverageScoreEligibilityContract?.existingScoreReadOnly)),
+      bundleField("Existing verdict read-only", yesNoUnknown(coverageScoreEligibilityContract?.existingVerdictReadOnly)),
+      bundleField("Protected report redaction", coverageScoreEligibilityContract?.protectedInvestorReportRedaction),
+      "Critical blockers:",
+      bundleList(safeArray(coverageScoreEligibilityContract?.criticalBlockers).map((blocker) =>
+        `${blocker.blockerId || "blocker"} | ${blocker.severity || "severity"} | ${blocker.scoreEligibilityImpact || "impact"} | ${cleanPrimaryAnswerText(blocker.label || "Coverage blocker")}`
+      ), "No critical coverage blockers attached.", 12),
+      "Coverage blockers:",
+      bundleList(safeArray(coverageScoreEligibilityContract?.coverageBlockers).slice(0, 16).map((blocker) =>
+        `${blocker.source || "source"} | ${blocker.severity || "severity"} | ${blocker.scoreEligibilityImpact || "impact"} | ${cleanPrimaryAnswerText(blocker.label || "Coverage blocker")}`
+      ), "No coverage blockers attached.", 16),
+      "Family policy applied:",
+      bundleList([
+        `policyId=${coverageScoreEligibilityContract?.familyPolicyApplied?.policyId || "unavailable"}`,
+        `family=${coverageScoreEligibilityContract?.familyPolicyApplied?.family || "unavailable"}`,
+        `minimumTierWithIdentityOnly=${coverageScoreEligibilityContract?.familyPolicyApplied?.minimumTierWithIdentityOnly || "unavailable"}`,
+        `scoreEligibilityRequirements=${safeArray(coverageScoreEligibilityContract?.familyPolicyApplied?.scoreEligibilityRequirements).join("; ") || "unavailable"}`,
+      ]),
+      "Gap buckets:",
+      bundleList([
+        `liveMetricGaps=${safeArray(coverageScoreEligibilityContract?.liveMetricGaps).length}`,
+        `legalRightsGaps=${safeArray(coverageScoreEligibilityContract?.legalRightsGaps).length}`,
+        `economicRightsGaps=${safeArray(coverageScoreEligibilityContract?.economicRightsGaps).length}`,
+        `reserveRedemptionGaps=${safeArray(coverageScoreEligibilityContract?.reserveRedemptionGaps).length}`,
+        `securityGaps=${safeArray(coverageScoreEligibilityContract?.securityGaps).length}`,
+        `liquidityMarketAccessGaps=${safeArray(coverageScoreEligibilityContract?.liquidityMarketAccessGaps).length}`,
+      ]),
+      "What would upgrade tier:",
+      bundleList(coverageScoreEligibilityContract?.whatWouldUpgradeTier, "No tier-upgrade requirements attached.", 12),
+      "What would make score eligible:",
+      bundleList(coverageScoreEligibilityContract?.whatWouldMakeScoreEligible, "No score-eligibility requirements attached.", 12),
+      "Readiness dimensions:",
+      bundleList(safeArray(coverageScoreEligibilityContract?.readinessDimensions).map((dimension) =>
+        `${dimension.dimensionId || "dimension"} | ${dimension.status || "unknown"} | ${cleanPrimaryAnswerText(dimension.summary || "Summary unavailable")}`
+      ), "No coverage readiness dimensions attached.", 8),
+      "Frontend visibility:",
+      bundleList(Object.entries(safeObject(coverageScoreEligibilityContract?.frontendVisibility)).map(([surface, status]) => `${surface}: ${status}`)),
+      "Protected report / frontend QA checks:",
+      bundleList([
+        `Decision Header receives coverage gate=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.decisionHeader))}`,
+        `Right Rail receives coverage gate=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.rightRail))}`,
+        `Scoring Transparency separates eligibility=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.scoringTransparency))}`,
+        `Source Queue receives tier blockers=${yesNoUnknown(safeArray(coverageScoreEligibilityContract?.whatWouldUpgradeTier).length > 0)}`,
+        `Manual Review receives critical blockers=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.manualReview))}`,
+        `Protected Investor Report redaction=${coverageScoreEligibilityContract?.protectedInvestorReportRedaction || "unknown"}`,
+        `Copy Bundle 2AO present=yes`,
+      ]),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(coverageScoreEligibilityContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Audit details:",
+      bundleList([
+        `readOnlyScore=${coverageScoreEligibilityContract?.auditDetails?.readOnlyScore ?? "unavailable"}`,
+        `readOnlyVerdict=${coverageScoreEligibilityContract?.auditDetails?.readOnlyVerdict ?? "unavailable"}`,
+        `tierInputs=${safeArray(coverageScoreEligibilityContract?.auditDetails?.tierInputs).join("; ") || "unavailable"}`,
+        `scoreEligibilityInputs=${safeArray(coverageScoreEligibilityContract?.auditDetails?.scoreEligibilityInputs).join("; ") || "unavailable"}`,
+        `sourceBoundary=${coverageScoreEligibilityContract?.auditDetails?.sourceBoundary || "Coverage gate is display/readiness only."}`,
+      ]),
+      "Known limitations:",
+      bundleList(coverageScoreEligibilityContract?.knownLimitations),
+      bundleField("Next resume pointer", coverageScoreEligibilityContract?.nextResumePointer || "Family Data Requirement Matrix v2 or Batch 1 Live QA Retry"),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
