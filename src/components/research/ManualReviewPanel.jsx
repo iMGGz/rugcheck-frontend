@@ -369,6 +369,7 @@ export default function ManualReviewPanel({
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
   const verifyItems = analystVerificationItems(model);
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -440,6 +441,23 @@ export default function ManualReviewPanel({
             title="Manual review triggers"
             items={coverageGate.manualReviewTriggers}
             emptyText="No coverage-specific manual review trigger was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {canonicalRoute.artifactVersion ? (
+        <Card title="Canonical Family Review" subtitle="Family-scoped manual checks; raw fallback groups stay audit-only." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, canonicalRoute.effectiveFamily || "Family unavailable")}
+            {boundaryChip(styles, canonicalRoute.canonicalManualReviewNamespace || "Manual-review namespace unavailable")}
+            {boundaryChip(styles, `${canonicalRoute.wrongFamilyBlockerLeakageCount ?? 0} wrong-family leaks`)}
+          </div>
+          <ListBlock
+            title="Manual review checks"
+            items={canonicalRoute.familyScopedManualReviewItems}
+            emptyText="No canonical family manual-review checks were attached."
             color="#f9d976"
             styles={styles}
           />

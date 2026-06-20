@@ -441,6 +441,44 @@ export function normalizeCoverageScoreEligibilityPayload(responseLike) {
   };
 }
 
+export function normalizeFamilyCanonicalRoutingPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.familyCanonicalRoutingContract);
+  const nestedContract = safeObject(nestedAnalysis.familyCanonicalRoutingContract);
+  const contract = rootContract.artifactVersion || rootContract.canonicalRoute
+    ? rootContract
+    : nestedContract.artifactVersion || nestedContract.canonicalRoute
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    canonicalRoute: {
+      ...safeObject(contract.canonicalRoute),
+      canonicalSourceMatrixEntries: safeArray(contract.canonicalRoute?.canonicalSourceMatrixEntries || contract.canonicalSourceMatrixEntries),
+      allowedRawQuestionGroups: safeArray(contract.canonicalRoute?.allowedRawQuestionGroups),
+      forbiddenPrimaryQuestionGroups: safeArray(contract.canonicalRoute?.forbiddenPrimaryQuestionGroups),
+      auditOnlyFallbackGroups: safeArray(contract.canonicalRoute?.auditOnlyFallbackGroups),
+      requiredBlockerThemes: safeArray(contract.canonicalRoute?.requiredBlockerThemes).map(cleanPrimaryAnswerText),
+      forbiddenPrimaryBlockerThemes: safeArray(contract.canonicalRoute?.forbiddenPrimaryBlockerThemes).map(cleanPrimaryAnswerText),
+    },
+    canonicalSourceMatrixEntries: safeArray(contract.canonicalSourceMatrixEntries),
+    primaryAnalysisRouteSourceMatrixBeforeCanonicalization: safeArray(contract.primaryAnalysisRouteSourceMatrixBeforeCanonicalization),
+    mismatches: safeArray(contract.mismatches),
+    blockedFallbacks: safeArray(contract.blockedFallbacks),
+    familyScopedBlockers: safeArray(contract.familyScopedBlockers).map(cleanPrimaryAnswerText),
+    familyScopedEvidenceRequirements: safeArray(contract.familyScopedEvidenceRequirements).map(cleanPrimaryAnswerText),
+    familyScopedSourceQueueRequirements: safeArray(contract.familyScopedSourceQueueRequirements).map(cleanPrimaryAnswerText),
+    familyScopedManualReviewItems: safeArray(contract.familyScopedManualReviewItems).map(cleanPrimaryAnswerText),
+    auditOnlyFields: safeObject(contract.auditOnlyFields),
+    frontendParity: safeObject(contract.frontendParity),
+    bundleParity: safeObject(contract.bundleParity),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
+  };
+}
+
 function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
   const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
   if (!cards.length) return questions;
@@ -1689,6 +1727,7 @@ export function buildProtectedInvestorReportText({
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
+  const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1765,7 +1804,9 @@ export function buildProtectedInvestorReportText({
     ].filter(Boolean).join("; ")),
     reportLine("Primary route", primaryAnalysisRoute?.visibleLabel || lens?.visibleLabelOverride || lens?.displayLabel || lens?.label || lens?.lensId),
     reportLine("Asset framing", primaryAnalysisRoute?.assetFramingLabel || displayIdentity?.displayFraming || safeModel.assetFramingLabel),
-    reportLine("Question group", primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
+    reportLine("Analysis question family", familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
+    reportLine("Source requirement family", familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile),
+    reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
     reportLine("Representation family", representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily),
     reportLine("Representation confidence", representationFamilyDecision?.identityConfidence),
     reportLine("Major evidence gates", representationFamilyEvidenceGates.length ? `${representationFamilyEvidenceGates.length} source/manual-review gates` : "No representation-family gates attached"),
@@ -4612,6 +4653,7 @@ export function buildDecisionTerminalModel({
   const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
+  const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -4842,6 +4884,20 @@ export function buildDecisionTerminalModel({
       currentStatus: "needs_verification",
       canChangeVerdict: true,
     }));
+  const familyCanonicalResearchRequirements = safeArray(familyCanonicalRoutingContract?.familyScopedSourceQueueRequirements)
+    .slice(0, 10)
+    .map((item, index) => ({
+      id: `family-canonical-routing-${index}`,
+      title: item || "Canonical family route requires source review.",
+      assetClassLens: familyCanonicalRoutingContract?.effectiveFamily || primaryAnalysisRoute?.assetFamily || "family_canonical_routing",
+      reason: `Canonical family route: ${familyCanonicalRoutingContract?.canonicalQuestionGroup || "question group unavailable"} / ${familyCanonicalRoutingContract?.canonicalSourceProfile || "source profile unavailable"}. Raw fallback groups are audit-only.`,
+      evidenceNeeded: [item || "Verify canonical family source requirement."],
+      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
+      priority: index < 4 ? "high" : "medium",
+      verdictImpact: "Controls question/source routing only; does not change current score or verdict formula.",
+      currentStatus: "source_required",
+      canChangeVerdict: false,
+    }));
   const coverageEligibilityResearchRequirements = safeArray([
     ...safeArray(coverageScoreEligibilityContract?.whatWouldUpgradeTier),
     ...safeArray(coverageScoreEligibilityContract?.whatWouldMakeScoreEligible),
@@ -4874,6 +4930,7 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: false,
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
+    ...familyCanonicalResearchRequirements,
     ...coverageEligibilityResearchRequirements,
     ...evidenceAggregationResearchRequirements,
     ...institutionalAnswerSurfaceResearchRequirements,
@@ -4993,6 +5050,11 @@ export function buildDecisionTerminalModel({
     institutionalAnswerSurfaceContract,
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
+    familyCanonicalRoutingContract,
+    canonicalQuestionGroup: familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || null,
+    canonicalSourceProfile: familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile || null,
+    canonicalSourceMatrixEntries: safeArray(familyCanonicalRoutingContract?.canonicalSourceMatrixEntries || primaryAnalysisRoute?.sourceMatrixEntries),
+    canonicalCoverageBlockerNamespace: familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace || null,
     coverageTier: coverageScoreEligibilityContract?.coverageTier || null,
     coverageTierLabel: coverageScoreEligibilityContract?.coverageTierLabel || null,
     scoreEligibility: coverageScoreEligibilityContract?.scoreEligibility || null,
@@ -6276,6 +6338,7 @@ export function buildReviewBundleText({
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
+  const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -7504,6 +7567,57 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(coverageScoreEligibilityContract?.knownLimitations),
       bundleField("Next resume pointer", coverageScoreEligibilityContract?.nextResumePointer || "Family Data Requirement Matrix v2 or Batch 1 Live QA Retry"),
+    ]),
+    bundleSection("2AP. Primary Question Group + Source Matrix Canonicalization v1", [
+      bundleField("Contract attached", familyCanonicalRoutingContract ? "yes" : "missing"),
+      bundleField("Artifact version", familyCanonicalRoutingContract?.artifactVersion),
+      bundleField("Effective family", familyCanonicalRoutingContract?.effectiveFamily),
+      bundleField("Canonical question group", familyCanonicalRoutingContract?.canonicalQuestionGroup),
+      bundleField("Canonical source profile", familyCanonicalRoutingContract?.canonicalSourceProfile),
+      bundleField("Canonical source matrix entries", safeArray(familyCanonicalRoutingContract?.canonicalSourceMatrixEntries).join(", ") || "unavailable"),
+      bundleField("Previous/raw question group", familyCanonicalRoutingContract?.primaryAnalysisRouteQuestionGroupBeforeCanonicalization || familyCanonicalRoutingContract?.rawResolvedQuestionGroup),
+      bundleField("Previous/raw source profile", familyCanonicalRoutingContract?.primaryAnalysisRouteSourceProfileBeforeCanonicalization),
+      bundleField("Previous/raw source matrix", safeArray(familyCanonicalRoutingContract?.primaryAnalysisRouteSourceMatrixBeforeCanonicalization).join(", ") || "none"),
+      bundleField("Family-scoped blocker namespace", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
+      bundleField("Family-scoped source queue namespace", familyCanonicalRoutingContract?.canonicalSourceQueueNamespace),
+      bundleField("Family-scoped manual review namespace", familyCanonicalRoutingContract?.canonicalManualReviewNamespace),
+      bundleField("Wrong-family blocker leakage count", familyCanonicalRoutingContract?.wrongFamilyBlockerLeakageCount),
+      bundleField("Protected report redaction", familyCanonicalRoutingContract?.frontendParity?.protectedReportExposure),
+      "Blocked fallback groups / matrices:",
+      bundleList(familyCanonicalRoutingContract?.blockedFallbacks, "No wrong-family fallback groups blocked.", 16),
+      "Mismatches corrected or preserved as audit-only:",
+      bundleList(safeArray(familyCanonicalRoutingContract?.mismatches).map((mismatch) =>
+        `${mismatch.field || "field"} | ${mismatch.severity || "severity"} | raw=${mismatch.rawValue || "none"} | canonical=${mismatch.canonicalValue || "none"} | primaryAffected=${yesNoUnknown(mismatch.primarySurfaceAffected)}`
+      ), "No canonical route mismatches detected.", 16),
+      "Family-scoped blocker themes:",
+      bundleList(familyCanonicalRoutingContract?.familyScopedBlockers, "No family-scoped blocker themes attached.", 16),
+      "Family-scoped evidence requirements:",
+      bundleList(familyCanonicalRoutingContract?.familyScopedEvidenceRequirements, "No family-scoped evidence requirements attached.", 16),
+      "Source Queue canonical requirements:",
+      bundleList(familyCanonicalRoutingContract?.familyScopedSourceQueueRequirements, "No canonical Source Queue requirements attached.", 12),
+      "Manual Review canonical requirements:",
+      bundleList(familyCanonicalRoutingContract?.familyScopedManualReviewItems, "No canonical Manual Review requirements attached.", 12),
+      "Frontend parity:",
+      bundleList([
+        `normalizedField=${familyCanonicalRoutingContract?.frontendParity?.normalizedField || "unavailable"}`,
+        `visibleSurfaces=${safeArray(familyCanonicalRoutingContract?.frontendParity?.visibleSurfaces).join(", ") || "unavailable"}`,
+        `Copy Bundle 2AP present=yes`,
+      ]),
+      "Audit-only raw route fields preserved:",
+      bundleList(Object.entries(safeObject(familyCanonicalRoutingContract?.auditOnlyFields)).map(([key, value]) => `${key}: ${bundleValue(value)}`), "No audit-only fields attached.", 12),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(familyCanonicalRoutingContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "QA checks:",
+      bundleList([
+        `BTC native_benchmark/base_layer primary blocked=${yesNoUnknown(familyCanonicalRoutingContract?.effectiveFamily === "native_btc_pow_monetary" ? familyCanonicalRoutingContract?.canonicalQuestionGroup === "native_btc_pow_monetary_questions" : null)}`,
+        `ETH base_layer primary blocked=${yesNoUnknown(familyCanonicalRoutingContract?.effectiveFamily === "native_eth_pos_gas_l2_fee_market" ? familyCanonicalRoutingContract?.canonicalQuestionGroup === "native_eth_pos_gas_l2_fee_market_questions" : null)}`,
+        `LST generic wrapped primary blocked=${yesNoUnknown(familyCanonicalRoutingContract?.effectiveFamily === "liquid_staking_derivative" ? familyCanonicalRoutingContract?.canonicalQuestionGroup === "liquid_staking_derivative_questions" : null)}`,
+        `Payments general base-layer matrix blocked=${yesNoUnknown(familyCanonicalRoutingContract?.effectiveFamily === "payments_settlement_network" ? safeArray(familyCanonicalRoutingContract?.canonicalSourceMatrixEntries).includes("matrix_payments_settlement_network") : null)}`,
+        `Protected report raw internals redacted=${yesNoUnknown(familyCanonicalRoutingContract?.frontendParity?.protectedReportExposure === "high_level_route_summary_only")}`,
+      ]),
+      "Known limitations:",
+      bundleList(familyCanonicalRoutingContract?.knownLimitations),
+      bundleField("Next resume pointer", familyCanonicalRoutingContract?.nextResumePointer || "Batch 1 Live QA Retry after deploy/browser check; if clean, proceed to Family Data Requirement Matrix v2."),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

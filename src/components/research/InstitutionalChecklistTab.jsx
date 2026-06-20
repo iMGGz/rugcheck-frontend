@@ -5,6 +5,7 @@ import {
   cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
+  normalizeFamilyCanonicalRoutingPayload,
   normalizePrimaryAnalysisRoutePayload,
   normalizeRepresentationFamilyDecisionPayload,
   normalizeRepresentationFamilyEvidenceGatesPayload,
@@ -998,6 +999,9 @@ export default function InstitutionalChecklistTab({
     || normalizeResolvedInstitutionalLensPayload(model);
   const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(analysis)
     || normalizePrimaryAnalysisRoutePayload(model);
+  const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(analysis)
+    || normalizeFamilyCanonicalRoutingPayload(model)
+    || model?.familyCanonicalRoutingContract;
   const representationFamilyDecision = normalizeRepresentationFamilyDecisionPayload(analysis)
     || normalizeRepresentationFamilyDecisionPayload(model);
   const representationFamilyRoute = normalizeRepresentationFamilyRoutePayload(analysis, representationFamilyDecision)
@@ -1056,6 +1060,7 @@ export default function InstitutionalChecklistTab({
           {boundaryChip(styles, hasInstitutionalAnswers ? "Live deterministic question answers are attached." : "Live per-question evidence mapping is only shown when attached to the response.")}
           {boundaryChip(styles, "This checklist is methodology/report-layer guidance, not a fake evidence map.")}
           {boundaryChip(styles, "Missing evidence is a verification gap, not automatic proof of failure.")}
+          {familyCanonicalRoutingContract?.canonicalQuestionGroup ? boundaryChip(styles, `Canonical group: ${familyCanonicalRoutingContract.canonicalQuestionGroup}; source profile: ${familyCanonicalRoutingContract.canonicalSourceProfile || "unavailable"}.`) : null}
           {representationFamilyRoute?.selectedFamily ? boundaryChip(styles, `Family route: ${representationFamilyRoute.visibleLabel || representationFamilyRoute.selectedFamily}; ${representationFamilyRoute.routeSafety || "route safety unknown"}.`) : null}
           {boundaryChip(styles, "Report-only source evidence does not affect live scoring unless future calibrated integration occurs.")}
         </div>

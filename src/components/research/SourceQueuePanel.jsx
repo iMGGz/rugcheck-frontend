@@ -341,6 +341,7 @@ export default function SourceQueuePanel({
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -389,6 +390,23 @@ export default function SourceQueuePanel({
             items={reviewedEvidence.remainingSourceRequirements}
             emptyText="No remaining reviewed-evidence gaps were attached."
             color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {canonicalRoute.artifactVersion ? (
+        <Card title="Canonical Source Family" subtitle="Effective family controls the primary question group and source matrix." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, canonicalRoute.effectiveFamily || "Family unavailable")}
+            {boundaryChip(styles, canonicalRoute.canonicalQuestionGroup || "Question group unavailable")}
+            {boundaryChip(styles, canonicalRoute.canonicalSourceProfile || "Source profile unavailable")}
+          </div>
+          <ListBlock
+            title="Family-scoped source requirements"
+            items={canonicalRoute.familyScopedSourceQueueRequirements}
+            emptyText="No canonical family source requirements were attached."
+            color="#7dd3fc"
             styles={styles}
           />
         </Card>

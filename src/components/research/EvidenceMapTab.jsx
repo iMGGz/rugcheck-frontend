@@ -503,6 +503,7 @@ export default function EvidenceMapTab({
   const firstCoverageSignal = coverageSignals[0] ? normalizeEvidenceProxyDisplayLabel(coverageSignals[0]) : null;
   const aggregationSummary = model?.evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || null;
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -541,6 +542,16 @@ export default function EvidenceMapTab({
       </ExecutiveSummaryCard>
 
       <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="Which source matrix applies?"
+          answer={canonicalRoute.canonicalSourceProfile
+            ? `${canonicalRoute.canonicalSourceProfile}; matrix: ${safeArray(canonicalRoute.canonicalSourceMatrixEntries).join(", ") || "unavailable"}.`
+            : "Canonical family source matrix was not attached."}
+          status={canonicalRoute.canonicalQuestionGroup || "Route unavailable"}
+          impact="Source routing"
+          sourceState="Family canonical route"
+          styles={styles}
+        />
         <QuestionPromptCard
           question="Which claims are source-backed?"
           answer={aggregationSummary || firstCoverageSignal?.meaning || "No live evidence-status proxy signals were attached."}

@@ -445,6 +445,7 @@ export default function ScoringTransparencyTab({
   const tokenomicsModule = modules.find((module) => module.title === "Tokenomics Supply Integrity");
   const scoringReadinessModule = modules.find((module) => module.title === "Institutional Scoring Readiness");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
   return (
@@ -506,6 +507,16 @@ export default function ScoringTransparencyTab({
           status={coverageGate.scoreEligibility || "Unavailable"}
           impact={coverageGate.scoreDisplayMode || "Score display mode unavailable"}
           sourceState={coverageGate.coverageTierLabel || "Coverage tier unavailable"}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which family blockers are in scope?"
+          answer={canonicalRoute.canonicalCoverageBlockerNamespace
+            ? `${canonicalRoute.canonicalCoverageBlockerNamespace}; ${safeArray(canonicalRoute.familyScopedBlockers).slice(0, 3).join("; ") || "blocker themes unavailable"}.`
+            : "Canonical blocker namespace was not attached."}
+          status={canonicalRoute.canonicalQuestionGroup || "Route unavailable"}
+          impact="Wrong-family leakage guard"
+          sourceState="Family canonical route"
           styles={styles}
         />
       </div>

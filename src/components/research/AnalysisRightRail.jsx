@@ -80,6 +80,9 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
   const lens = model?.resolvedInstitutionalLens || {};
   const visibleLensLabel = primaryRoute.visibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label;
   const visibleQuestionGroup = primaryRoute.questionGroup || lens.primaryRouteQuestionGroup || lens.questionGroupId;
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const canonicalQuestionGroup = canonicalRoute.canonicalQuestionGroup || model?.canonicalQuestionGroup || visibleQuestionGroup;
+  const canonicalSourceProfile = canonicalRoute.canonicalSourceProfile || model?.canonicalSourceProfile || primaryRoute.sourceProfile;
   const identity = model?.assetIdentityResolution || {};
   const representationRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
   const representationGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
@@ -94,8 +97,12 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
         <div style={styles.railMiniValue}>{visibleLensLabel || displayIdentity?.displayFraming || "Resolved lens unavailable"}</div>
       </div>
       <div style={styles.railMiniCard}>
-        <div style={styles.railMiniLabel}>Question group</div>
-        <div style={styles.railMiniValue}>{visibleQuestionGroup || "Question group unavailable"}</div>
+        <div style={styles.railMiniLabel}>Canonical question group</div>
+        <div style={styles.railMiniValue}>{canonicalQuestionGroup || "Question group unavailable"}</div>
+      </div>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Source profile</div>
+        <div style={styles.railMiniValue}>{canonicalSourceProfile || "Source profile unavailable"}</div>
       </div>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Analyzed representation</div>

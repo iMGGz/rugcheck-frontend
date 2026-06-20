@@ -107,6 +107,9 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const visibleLensLabel = primaryRoute.visibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label;
   const visibleQuestionGroup = primaryRoute.questionGroup || lens.primaryRouteQuestionGroup || lens.questionGroupId;
   const visibleAssetFamily = primaryRoute.assetFamily || lens.primaryRouteAssetFamily || lens.lensId;
+  const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const canonicalQuestionGroup = canonicalRoute.canonicalQuestionGroup || model?.canonicalQuestionGroup || visibleQuestionGroup;
+  const canonicalSourceProfile = canonicalRoute.canonicalSourceProfile || model?.canonicalSourceProfile || primaryRoute.sourceProfile;
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
@@ -138,7 +141,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
       <div style={styles.decisionLayerLegendGrid}>
         <LayerLegendItem
           title={visibleLensLabel || "Resolved lens unavailable"}
-          detail={`Primary family: ${visibleAssetFamily || "unavailable"}; question group: ${visibleQuestionGroup || "unavailable"}. Raw resolver remains audit-only when it diverges.`}
+          detail={`Primary family: ${visibleAssetFamily || "unavailable"}; canonical question group: ${canonicalQuestionGroup || "unavailable"}; source profile: ${canonicalSourceProfile || "unavailable"}. Raw resolver remains audit-only when it diverges.`}
           badge={primaryRoute.primaryRouteConfidence ? `${primaryRoute.primaryRouteConfidence} route` : lens.confidence ? `${lens.confidence} confidence` : "Lens pending"}
           tone="#7dd3fc"
           styles={styles}
