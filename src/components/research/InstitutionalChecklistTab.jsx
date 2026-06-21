@@ -5,6 +5,7 @@ import {
   cleanPrimaryAnswerText,
   getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
+  normalizeEvidenceProvenanceSemanticsPayload,
   normalizeFamilyCanonicalRoutingPayload,
   normalizePrimaryAnalysisRoutePayload,
   normalizeRepresentationFamilyDecisionPayload,
@@ -1002,6 +1003,11 @@ export default function InstitutionalChecklistTab({
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(analysis)
     || normalizeFamilyCanonicalRoutingPayload(model)
     || model?.familyCanonicalRoutingContract;
+  const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(analysis)
+    || normalizeEvidenceProvenanceSemanticsPayload(model)
+    || model?.evidenceProvenanceSemanticsContract
+    || {};
+  const provenanceCounters = evidenceProvenanceSemanticsContract.readinessCounters || {};
   const representationFamilyDecision = normalizeRepresentationFamilyDecisionPayload(analysis)
     || normalizeRepresentationFamilyDecisionPayload(model);
   const representationFamilyRoute = normalizeRepresentationFamilyRoutePayload(analysis, representationFamilyDecision)
@@ -1062,6 +1068,7 @@ export default function InstitutionalChecklistTab({
           {boundaryChip(styles, "Missing evidence is a verification gap, not automatic proof of failure.")}
           {familyCanonicalRoutingContract?.canonicalQuestionGroup ? boundaryChip(styles, `Canonical group: ${familyCanonicalRoutingContract.canonicalQuestionGroup}; source profile: ${familyCanonicalRoutingContract.canonicalSourceProfile || "unavailable"}.`) : null}
           {representationFamilyRoute?.selectedFamily ? boundaryChip(styles, `Family route: ${representationFamilyRoute.visibleLabel || representationFamilyRoute.selectedFamily}; ${representationFamilyRoute.routeSafety || "route safety unknown"}.`) : null}
+          {evidenceProvenanceSemanticsContract?.contractAttached ? boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.summaryLabel || "Evidence provenance separated.") : null}
           {boundaryChip(styles, "Report-only source evidence does not affect live scoring unless future calibrated integration occurs.")}
         </div>
         {!hasInstitutionalAnswers ? (
@@ -1086,6 +1093,27 @@ export default function InstitutionalChecklistTab({
         <>
           {model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
             <CategoryDrivenQuestionProfile model={model} styles={styles} />
+          ) : null}
+
+          {evidenceProvenanceSemanticsContract?.contractAttached ? (
+            <Card title="Question Evidence Provenance" subtitle="Question answers distinguish reviewed mechanism support from current-data and score-integration gaps." styles={styles}>
+              <div style={styles.sourceBoundaryStrip}>
+                {boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable")}
+                {boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.liveDataReadiness || "Current data status unavailable")}
+                {boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.scoreEvidenceBasis || "Score basis unavailable")}
+              </div>
+              <SectionRow
+                label="Readiness meaning"
+                value={evidenceProvenanceSemanticsContract.assetSummary?.institutionalReadinessBasis || "Question answers may be mechanism-supported while current verification gaps remain open."}
+                styles={styles}
+              />
+              <div style={styles.sourceBoundaryStrip}>
+                {boundaryChip(styles, `${provenanceCounters.manualReviewedEvidenceClaims || 0} reviewed claims`)}
+                {boundaryChip(styles, `${provenanceCounters.liveMetricGaps || 0} live metric gaps`)}
+                {boundaryChip(styles, `${provenanceCounters.sourceRequiredGaps || 0} source-required gaps`)}
+                {boundaryChip(styles, `${provenanceCounters.scoringActivationGaps || 0} score-integration gaps`)}
+              </div>
+            </Card>
           ) : null}
 
           <InstitutionalQuestionAnswersSection

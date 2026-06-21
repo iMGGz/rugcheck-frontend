@@ -479,6 +479,73 @@ export function normalizeFamilyCanonicalRoutingPayload(responseLike) {
   };
 }
 
+export function normalizeEvidenceProvenanceSemanticsPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.evidenceProvenanceSemanticsContract);
+  const nestedContract = safeObject(nestedAnalysis.evidenceProvenanceSemanticsContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    canonicalSourceMatrixEntries: safeArray(contract.canonicalSourceMatrixEntries),
+    provenanceSummary: safeObject(contract.provenanceSummary),
+    readinessCounters: safeObject(contract.readinessCounters),
+    questionSummaries: safeArray(contract.questionSummaries).map((question) => ({
+      ...safeObject(question),
+      displayLabel: cleanPrimaryAnswerText(question?.displayLabel),
+      readinessLabel: cleanPrimaryAnswerText(question?.readinessLabel),
+      gaps: safeArray(question?.gaps).map((gap) => ({
+        ...safeObject(gap),
+        label: cleanPrimaryAnswerText(gap?.label),
+        displayLabel: cleanPrimaryAnswerText(gap?.displayLabel),
+      })),
+    })),
+    claimSummaries: safeArray(contract.claimSummaries).map((claim) => ({
+      ...safeObject(claim),
+      claimText: cleanPrimaryAnswerText(claim?.claimText),
+      useBoundaries: safeArray(claim?.useBoundaries),
+      displayLabel: cleanPrimaryAnswerText(claim?.displayLabel),
+      readinessLabel: cleanPrimaryAnswerText(claim?.readinessLabel),
+    })),
+    assetSummary: {
+      ...safeObject(contract.assetSummary),
+      summaryLabel: cleanPrimaryAnswerText(contract.assetSummary?.summaryLabel),
+      manualEvidenceReadiness: cleanPrimaryAnswerText(contract.assetSummary?.manualEvidenceReadiness),
+      liveDataReadiness: cleanPrimaryAnswerText(contract.assetSummary?.liveDataReadiness),
+      scoringActivationReadiness: cleanPrimaryAnswerText(contract.assetSummary?.scoringActivationReadiness),
+      institutionalReadinessBasis: cleanPrimaryAnswerText(contract.assetSummary?.institutionalReadinessBasis),
+      scoreEvidenceBasis: cleanPrimaryAnswerText(contract.assetSummary?.scoreEvidenceBasis),
+      coverageEvidenceBasis: cleanPrimaryAnswerText(contract.assetSummary?.coverageEvidenceBasis),
+      keyGaps: safeArray(contract.assetSummary?.keyGaps).map((gap) => ({
+        ...safeObject(gap),
+        label: cleanPrimaryAnswerText(gap?.label),
+        displayLabel: cleanPrimaryAnswerText(gap?.displayLabel),
+      })),
+    },
+    primaryLabels: safeArray(contract.primaryLabels).map(cleanPrimaryAnswerText),
+    readinessGaps: safeArray(contract.readinessGaps).map((gap) => ({
+      ...safeObject(gap),
+      label: cleanPrimaryAnswerText(gap?.label),
+      displayLabel: cleanPrimaryAnswerText(gap?.displayLabel),
+    })),
+    confidenceCapDrivers: safeArray(contract.confidenceCapDrivers).map(cleanPrimaryAnswerText),
+    scoringActivationGaps: safeArray(contract.scoringActivationGaps).map(cleanPrimaryAnswerText),
+    answerSurfaceLeakageClassification: safeObject(contract.answerSurfaceLeakageClassification),
+    evidenceAggregationReadinessSemantics: safeObject(contract.evidenceAggregationReadinessSemantics),
+    coverageScoreEligibilitySemantics: safeObject(contract.coverageScoreEligibilitySemantics),
+    canonicalRoutePropagationSanity: safeObject(contract.canonicalRoutePropagationSanity),
+    displayPolicy: safeObject(contract.displayPolicy),
+    auditDetails: safeObject(contract.auditDetails),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
+  };
+}
+
 function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
   const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
   if (!cards.length) return questions;
@@ -1728,6 +1795,7 @@ export function buildProtectedInvestorReportText({
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
+  const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -1810,6 +1878,10 @@ export function buildProtectedInvestorReportText({
     reportLine("Representation family", representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily),
     reportLine("Representation confidence", representationFamilyDecision?.identityConfidence),
     reportLine("Major evidence gates", representationFamilyEvidenceGates.length ? `${representationFamilyEvidenceGates.length} source/manual-review gates` : "No representation-family gates attached"),
+    reportLine("Evidence provenance", evidenceProvenanceSemanticsContract?.assetSummary?.summaryLabel),
+    reportLine("Manual evidence readiness", evidenceProvenanceSemanticsContract?.assetSummary?.manualEvidenceReadiness),
+    reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
+    reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
     reportLine("Analyzed network", assetIdentityResolution?.analyzedNetwork || assetIdentityResolution?.selectedNetwork),
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
@@ -1820,6 +1892,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Score", safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore),
     reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
     reportLine("Interpretation", safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
+    reportLine("Score caveat", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness || "Existing score remains subject to evidence-readiness caveats."),
     "",
     "3. Key Institutional Questions",
     ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
@@ -4654,6 +4727,7 @@ export function buildDecisionTerminalModel({
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
+  const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -5051,6 +5125,13 @@ export function buildDecisionTerminalModel({
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
     familyCanonicalRoutingContract,
+    evidenceProvenanceSemanticsContract,
+    readinessSemanticCounters: safeObject(evidenceProvenanceSemanticsContract?.readinessCounters),
+    provenanceSummary: safeObject(evidenceProvenanceSemanticsContract?.provenanceSummary),
+    liveMetricGaps: safeArray(evidenceProvenanceSemanticsContract?.readinessGaps).filter((gap) => gap.gapType === "live_metric"),
+    institutionalVerificationGaps: safeArray(evidenceProvenanceSemanticsContract?.readinessGaps).filter((gap) => !["scoring_activation", "confidence_cap"].includes(gap.gapType)),
+    scoringActivationGaps: safeArray(evidenceProvenanceSemanticsContract?.scoringActivationGaps),
+    confidenceCapDrivers: safeArray(evidenceProvenanceSemanticsContract?.confidenceCapDrivers),
     canonicalQuestionGroup: familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || null,
     canonicalSourceProfile: familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile || null,
     canonicalSourceMatrixEntries: safeArray(familyCanonicalRoutingContract?.canonicalSourceMatrixEntries || primaryAnalysisRoute?.sourceMatrixEntries),
@@ -7382,6 +7463,12 @@ export function buildReviewBundleText({
       bundleField("Asset family", institutionalAnswerSurfaceContract?.assetFamily),
       bundleField("Cards transformed", institutionalAnswerSurfaceContract?.cardsTransformedCount ?? institutionalAnswerCards.length),
       bundleField("Forbidden primary term leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.forbiddenPrimaryTermLeakageCount ?? "unknown"),
+      bundleField("2AM real primary leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage ?? "unknown"),
+      bundleField("2AM scanner false-positive count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.scannerFalsePositive ?? "unknown"),
+      bundleField("2AM audit/internal allowed count", evidenceProvenanceSemanticsContract
+        ? (Number(evidenceProvenanceSemanticsContract.answerSurfaceLeakageClassification?.auditOnlyAllowedTerms || 0)
+          + Number(evidenceProvenanceSemanticsContract.answerSurfaceLeakageClassification?.internalDeveloperQaAllowedTerms || 0))
+        : "unknown"),
       bundleField("Internal enum leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.internalEnumLeakageCount ?? "unknown"),
       bundleField("Methodology leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.methodologyLeakageCount ?? "unknown"),
       bundleField("Family-negative guardrail leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.familyNegativeGuardrailLeakageCount ?? "unknown"),
@@ -7428,7 +7515,8 @@ export function buildReviewBundleText({
       "QA checks:",
       bundleList([
         `Copy Bundle 2AM present=yes`,
-        `primary answer cards leak forbidden internal terms=${yesNoUnknown(institutionalAnswerForbiddenLeakageCount > 0)}`,
+        `primary answer cards leak forbidden internal terms=${yesNoUnknown((evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage ?? institutionalAnswerForbiddenLeakageCount) > 0)}`,
+        `2AM leakage classification attached=${yesNoUnknown(Boolean(evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification))}`,
         `Source Queue uses actionable verification language=${institutionalAnswerSurfaceContract?.sourceQueueCleanupResult || "unknown"}`,
         `Manual Review uses business-readable language=${institutionalAnswerSurfaceContract?.manualReviewCleanupResult || "unknown"}`,
         `Scoring Transparency uses plain language=${institutionalAnswerSurfaceContract?.scoringTransparencyCleanupResult || "unknown"}`,
@@ -7450,6 +7538,15 @@ export function buildReviewBundleText({
       bundleField("Scoring readiness impact", evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.plainLanguageSummary),
       bundleField("Readiness gaps count", safeArray(evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.evidenceReadinessGaps).length),
       bundleField("Confidence caps count", safeArray(evidenceStatusAggregationContract?.assetAggregation?.scoringReadinessImpact?.confidenceCaps).length),
+      bundleField("Manual reviewed evidence claims", evidenceProvenanceSemanticsContract?.readinessCounters?.manualReviewedEvidenceClaims),
+      bundleField("Live provider data claims", evidenceProvenanceSemanticsContract?.readinessCounters?.liveProviderDataClaims),
+      bundleField("Source candidate only claims", evidenceProvenanceSemanticsContract?.readinessCounters?.sourceCandidateOnlyClaims),
+      bundleField("Display-only non-scoring claims", evidenceProvenanceSemanticsContract?.readinessCounters?.displayOnlyNonScoringClaims),
+      bundleField("Scoring-active legacy claims", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActiveLegacyClaims),
+      bundleField("Institutional verification gaps", evidenceProvenanceSemanticsContract?.readinessCounters?.institutionalVerificationGaps),
+      bundleField("Live metric gaps", evidenceProvenanceSemanticsContract?.readinessCounters?.liveMetricGaps),
+      bundleField("Source-required gaps", evidenceProvenanceSemanticsContract?.readinessCounters?.sourceRequiredGaps),
+      bundleField("Scoring activation gaps", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActivationGaps),
       "Question aggregation examples:",
       bundleList(safeArray(evidenceStatusAggregationContract?.questionAggregations).slice(0, 12).map((question) =>
         `${question.questionId || "question"} | ${question.primaryStatus || "status_unknown"} | ${cleanPrimaryAnswerText(question.plainLanguageStatus || "Needs verification")} | supported=${safeArray(question.supportedClaims).length} missing=${safeArray(question.missingClaims).length} live=${safeArray(question.liveDataRequiredClaims || question.liveDataClaims).length} contradictions=${safeArray(question.contradictedClaims).length} notApplicable=${safeArray(question.notApplicableClaims).length} | ${cleanPrimaryAnswerText(question.plainLanguageSummary || "")}`
@@ -7483,6 +7580,7 @@ export function buildReviewBundleText({
         `Raw claim IDs preserved only in audit/bundle detail=${yesNoUnknown(safeArray(evidenceStatusAggregationContract?.questionAggregations).some((question) => safeArray(question.rawClaimIds).length))}`,
         `Reviewed evidence scoring-active=${yesNoUnknown(evidenceStatusAggregationContract?.guardrails?.reviewedEvidenceScoringActive)}`,
         `Source candidates promoted=${yesNoUnknown(evidenceStatusAggregationContract?.guardrails?.sourceCandidatesPromoted)}`,
+        `2AN provenance-aware readiness counters attached=${yesNoUnknown(Boolean(evidenceProvenanceSemanticsContract?.evidenceAggregationReadinessSemantics))}`,
       ]),
       "Guardrails:",
       bundleList(Object.entries(safeObject(evidenceStatusAggregationContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
@@ -7505,6 +7603,12 @@ export function buildReviewBundleText({
       bundleField("Identity confidence", coverageScoreEligibilityContract?.identityConfidence),
       bundleField("Family route safety", coverageScoreEligibilityContract?.familyRouteSafety),
       bundleField("Evidence coverage summary", coverageScoreEligibilityContract?.evidenceCoverageSummary),
+      bundleField("Coverage evidence basis", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.coverageEvidenceBasis),
+      bundleField("Score evidence basis", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoreEvidenceBasis),
+      bundleField("Institutional readiness basis", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.institutionalReadinessBasis),
+      bundleField("Live data readiness", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.liveDataReadiness),
+      bundleField("Manual evidence readiness", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.manualEvidenceReadiness),
+      bundleField("Scoring activation readiness", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness),
       bundleField("Confidence cap", coverageScoreEligibilityContract?.confidenceCap),
       bundleField("Legacy score preserved for audit", yesNoUnknown(coverageScoreEligibilityContract?.legacyScorePreservedForAudit)),
       bundleField("Existing score read-only", yesNoUnknown(coverageScoreEligibilityContract?.existingScoreReadOnly)),
@@ -7553,6 +7657,7 @@ export function buildReviewBundleText({
         `Manual Review receives critical blockers=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.manualReview))}`,
         `Protected Investor Report redaction=${coverageScoreEligibilityContract?.protectedInvestorReportRedaction || "unknown"}`,
         `Copy Bundle 2AO present=yes`,
+        `2AO semantic label correction attached=${yesNoUnknown(Boolean(evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics))}`,
       ]),
       "Guardrails:",
       bundleList(Object.entries(safeObject(coverageScoreEligibilityContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
@@ -7618,6 +7723,50 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(familyCanonicalRoutingContract?.knownLimitations),
       bundleField("Next resume pointer", familyCanonicalRoutingContract?.nextResumePointer || "Batch 1 Live QA Retry after deploy/browser check; if clean, proceed to Family Data Requirement Matrix v2."),
+    ]),
+    bundleSection("2AQ. Evidence Provenance + Readiness Semantics Cleanup v1", [
+      bundleField("Contract attached", evidenceProvenanceSemanticsContract ? "yes" : "missing"),
+      bundleField("Artifact version", evidenceProvenanceSemanticsContract?.artifactVersion),
+      bundleField("Asset family", evidenceProvenanceSemanticsContract?.assetFamily),
+      bundleField("Canonical question group", evidenceProvenanceSemanticsContract?.canonicalQuestionGroup),
+      bundleField("Canonical source matrix entries", safeArray(evidenceProvenanceSemanticsContract?.canonicalSourceMatrixEntries).join(", ") || "unavailable"),
+      bundleField("Manual reviewed evidence claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.manualReviewedEvidenceClaims),
+      bundleField("Manual benchmark evidence claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.manualBenchmarkEvidenceClaims),
+      bundleField("Live provider data claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.liveProviderDataClaims),
+      bundleField("Provider metadata classification claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.providerMetadataClassificationClaims),
+      bundleField("Source candidate only claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.sourceCandidateOnlyClaims),
+      bundleField("Display-only non-scoring claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.displayOnlyNonScoringClaims),
+      bundleField("Scoring-active legacy claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActiveLegacyClaims),
+      bundleField("Scoring-active calibrated claims count", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActiveCalibratedClaims),
+      bundleField("Institutional verification gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.institutionalVerificationGaps),
+      bundleField("Live metric gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.liveMetricGaps),
+      bundleField("Source-required gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.sourceRequiredGaps),
+      bundleField("Scoring activation gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActivationGaps),
+      bundleField("Confidence cap drivers count", evidenceProvenanceSemanticsContract?.readinessCounters?.confidenceCapDrivers),
+      bundleField("2AM real primary leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage),
+      bundleField("2AM false positive count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.scannerFalsePositive),
+      bundleField("2AN readiness counter correction", evidenceProvenanceSemanticsContract?.evidenceAggregationReadinessSemantics ? "attached" : "missing"),
+      bundleField("2AO semantic label correction", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics ? "attached" : "missing"),
+      bundleField("2AP downstream propagation sanity", evidenceProvenanceSemanticsContract?.canonicalRoutePropagationSanity?.status),
+      bundleField("Protected report redaction", evidenceProvenanceSemanticsContract?.protectedInvestorReportRedaction),
+      bundleField("Audit/Internal QA preservation", evidenceProvenanceSemanticsContract?.guardrails?.auditRawDiagnosticsPreserved && evidenceProvenanceSemanticsContract?.guardrails?.internalQaDiagnosticsPreserved ? "preserved" : "unknown"),
+      "Primary labels:",
+      bundleList(evidenceProvenanceSemanticsContract?.primaryLabels, "No provenance labels attached.", 12),
+      "Readiness gaps:",
+      bundleList(safeArray(evidenceProvenanceSemanticsContract?.readinessGaps).slice(0, 16).map((gap) =>
+        `${gap.gapType || "gap"} | ${cleanPrimaryAnswerText(gap.displayLabel || gap.label || "Verification gap")}`
+      ), "No readiness gaps attached.", 16),
+      "Question summaries:",
+      bundleList(safeArray(evidenceProvenanceSemanticsContract?.questionSummaries).slice(0, 12).map((question) =>
+        `${question.questionId || "question"} | ${cleanPrimaryAnswerText(question.displayLabel || "Readiness status unavailable")} | mechanism=${question.mechanismReviewedClaims ?? 0} live=${question.liveDataRequiredClaims ?? 0} source=${question.sourceRequiredClaims ?? 0} scoring=${question.scoringActiveClaims ?? 0}`
+      ), "No provenance question summaries attached.", 12),
+      "Provenance class distribution:",
+      bundleList(Object.entries(safeObject(evidenceProvenanceSemanticsContract?.provenanceSummary)).map(([key, value]) => `${key}=${value}`), "No provenance summary attached.", 16),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(evidenceProvenanceSemanticsContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Known limitations:",
+      bundleList(evidenceProvenanceSemanticsContract?.knownLimitations),
+      bundleField("Next resume pointer", evidenceProvenanceSemanticsContract?.nextResumePointer || "Batch 1 Live QA Retry after deploy/browser check; if clean, proceed to Family Data Requirement Matrix v2."),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

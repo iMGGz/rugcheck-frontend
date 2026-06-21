@@ -370,6 +370,8 @@ export default function ManualReviewPanel({
   const verifyItems = analystVerificationItems(model);
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const provenanceCounters = provenance.readinessCounters || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -441,6 +443,37 @@ export default function ManualReviewPanel({
             title="Manual review triggers"
             items={coverageGate.manualReviewTriggers}
             emptyText="No coverage-specific manual review trigger was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {provenance.contractAttached ? (
+        <Card title="Evidence Provenance Review" subtitle="Manual review distinguishes missing current data from explanation support." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, provenance.assetSummary?.summaryLabel || "Evidence provenance separated")}
+            {boundaryChip(styles, provenance.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.liveDataReadiness || "Current data status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.scoreEvidenceBasis || "Score basis unavailable")}
+          </div>
+          <SectionRow
+            label="Review interpretation"
+            value={provenance.assetSummary?.institutionalReadinessBasis || "Reviewed evidence can improve explanations, while unresolved current-data and verification gaps remain review items."}
+            styles={styles}
+          />
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${provenanceCounters.institutionalVerificationGaps || 0} verification gaps`)}
+            {boundaryChip(styles, `${provenanceCounters.manualReviewRequired || 0} manual-review items`)}
+            {boundaryChip(styles, `${provenanceCounters.confidenceCapDrivers || 0} confidence caps`)}
+          </div>
+          <ListBlock
+            title="Review drivers"
+            items={[
+              ...safeArray(provenance.confidenceCapDrivers),
+              ...safeArray(provenance.readinessGaps).map((gap) => gap.label),
+            ].slice(0, 6)}
+            emptyText="No provenance-specific manual-review drivers were attached."
             color="#f9d976"
             styles={styles}
           />

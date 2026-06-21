@@ -342,6 +342,8 @@ export default function SourceQueuePanel({
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const provenanceCounters = provenance.readinessCounters || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -430,6 +432,35 @@ export default function SourceQueuePanel({
             title="What would make score eligible"
             items={coverageGate.whatWouldMakeScoreEligible}
             emptyText="No score-eligibility requirements were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {provenance.contractAttached ? (
+        <Card title="Evidence Provenance Readiness" subtitle="Separates reviewed evidence, live data, source candidates, and score integration." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, provenance.assetSummary?.summaryLabel || "Evidence provenance separated")}
+            {boundaryChip(styles, provenance.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.liveDataReadiness || "Current data status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.scoreEvidenceBasis || "Score basis unavailable")}
+          </div>
+          <SectionRow
+            label="Source queue meaning"
+            value={provenance.displayPolicy?.sourceQueueLabel || "Source candidates and requirements are review prompts, not supported evidence."}
+            styles={styles}
+          />
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${provenanceCounters.manualReviewedEvidenceClaims || 0} reviewed evidence claims`)}
+            {boundaryChip(styles, `${provenanceCounters.liveMetricGaps || 0} live metric gaps`)}
+            {boundaryChip(styles, `${provenanceCounters.sourceRequiredGaps || 0} source-required gaps`)}
+            {boundaryChip(styles, `${provenanceCounters.scoringActivationGaps || 0} score-integration gaps`)}
+          </div>
+          <ListBlock
+            title="Current verification gaps"
+            items={safeArray(provenance.readinessGaps).map((gap) => gap.label).slice(0, 6)}
+            emptyText="No provenance-specific readiness gaps were attached."
             color="#f9d976"
             styles={styles}
           />

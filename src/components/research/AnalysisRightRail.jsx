@@ -83,6 +83,7 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const canonicalQuestionGroup = canonicalRoute.canonicalQuestionGroup || model?.canonicalQuestionGroup || visibleQuestionGroup;
   const canonicalSourceProfile = canonicalRoute.canonicalSourceProfile || model?.canonicalSourceProfile || primaryRoute.sourceProfile;
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const identity = model?.assetIdentityResolution || {};
   const representationRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
   const representationGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
@@ -104,6 +105,12 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
         <div style={styles.railMiniLabel}>Source profile</div>
         <div style={styles.railMiniValue}>{canonicalSourceProfile || "Source profile unavailable"}</div>
       </div>
+      {provenance.contractAttached ? (
+        <div style={styles.railMiniCard}>
+          <div style={styles.railMiniLabel}>Evidence readiness</div>
+          <div style={styles.railMiniValue}>{provenance.assetSummary?.liveDataReadiness || "Current data readiness unavailable"}</div>
+        </div>
+      ) : null}
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Analyzed representation</div>
         <div style={styles.railMiniValue}>
@@ -122,6 +129,7 @@ function LensIdentityRailSection({ model, displayIdentity, styles }) {
         ) : null}
         <div style={styles.railBoundaryPill}>Provider metadata only</div>
         <div style={styles.railBoundaryPill}>Source requirement, not evidence</div>
+        {provenance.contractAttached ? <div style={styles.railBoundaryPill}>{safeArray(provenance.primaryLabels)[0] || "Evidence provenance separated"}</div> : null}
         <div style={styles.railBoundaryPill}>Identity warnings require manual review</div>
         <div style={styles.railBoundaryPill}>Wrong-asset risk: {identity.wrongAssetRisk || "unknown"}</div>
       </div>

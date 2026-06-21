@@ -504,6 +504,7 @@ export default function EvidenceMapTab({
   const aggregationSummary = model?.evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || null;
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -542,6 +543,14 @@ export default function EvidenceMapTab({
       </ExecutiveSummaryCard>
 
       <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="How should evidence provenance be read?"
+          answer={provenance.assetSummary?.summaryLabel || "Evidence provenance semantics were not attached."}
+          status={safeArray(provenance.primaryLabels)[0] || "Provenance unavailable"}
+          impact={provenance.assetSummary?.scoringActivationReadiness || "Scoring boundary unavailable"}
+          sourceState="Provenance semantics"
+          styles={styles}
+        />
         <QuestionPromptCard
           question="Which source matrix applies?"
           answer={canonicalRoute.canonicalSourceProfile

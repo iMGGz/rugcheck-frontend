@@ -446,6 +446,8 @@ export default function ScoringTransparencyTab({
   const scoringReadinessModule = modules.find((module) => module.title === "Institutional Scoring Readiness");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const provenanceCounters = provenance.readinessCounters || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
   return (
@@ -510,6 +512,14 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
         <QuestionPromptCard
+          question="Is reviewed evidence part of the score?"
+          answer={provenance.coverageScoreEligibilitySemantics?.scoringActivationReadiness || provenance.assetSummary?.scoreEvidenceBasis || "Evidence provenance semantics were not attached."}
+          status={provenance.assetSummary?.scoreEvidenceBasis || "Score basis unavailable"}
+          impact="Score integration boundary"
+          sourceState={provenance.contractAttached ? "Evidence provenance contract" : "Not attached"}
+          styles={styles}
+        />
+        <QuestionPromptCard
           question="Which family blockers are in scope?"
           answer={canonicalRoute.canonicalCoverageBlockerNamespace
             ? `${canonicalRoute.canonicalCoverageBlockerNamespace}; ${safeArray(canonicalRoute.familyScopedBlockers).slice(0, 3).join("; ") || "blocker themes unavailable"}.`
@@ -538,6 +548,66 @@ export default function ScoringTransparencyTab({
           <SectionRow label="Primary message" value={coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} styles={styles} />
           <ListBlock title="Critical blockers" items={safeArray(coverageGate.criticalBlockers).map((blocker) => blocker.label).slice(0, 6)} emptyText="No critical coverage blockers attached." color="#ffb020" styles={styles} />
           <ListBlock title="What would make score eligible" items={safeArray(coverageGate.whatWouldMakeScoreEligible).slice(0, 6)} emptyText="No score-eligibility requirements attached." color="#7dd3fc" styles={styles} />
+        </Card>
+      ) : null}
+
+      {provenance.contractAttached ? (
+        <Card
+          title="Evidence Provenance + Readiness"
+          subtitle="Why explanation support, live readiness, and score integration can differ."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, provenance.assetSummary?.summaryLabel || "Evidence provenance separated")}
+            {boundaryChip(styles, provenance.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.liveDataReadiness || "Current data status unavailable")}
+            {boundaryChip(styles, provenance.assetSummary?.scoreEvidenceBasis || "Score basis unavailable")}
+          </div>
+          <SectionRow
+            label="Coverage basis"
+            value={provenance.coverageScoreEligibilitySemantics?.coverageEvidenceBasis || "Coverage evidence basis was not attached."}
+            styles={styles}
+          />
+          <SectionRow
+            label="Score basis"
+            value={provenance.coverageScoreEligibilitySemantics?.scoreEvidenceBasis || "Reviewed/display evidence is not automatically part of the numerical score."}
+            styles={styles}
+          />
+          <div style={styles.scoringModuleGrid}>
+            <ModuleCard
+              module={{
+                title: "Manual reviewed evidence",
+                value: `${provenanceCounters.manualReviewedEvidenceClaims || 0} claim${provenanceCounters.manualReviewedEvidenceClaims === 1 ? "" : "s"}`,
+                source: "evidenceProvenanceSemanticsContract.readinessCounters",
+                rule: "Can support mechanism and explanation when mapped, but does not become scoring-active in this release.",
+                live: "Display support",
+                reportOnly: "No, visible as evidence-readiness context",
+                caveat: provenance.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+            <ModuleCard
+              module={{
+                title: "Live metric gaps",
+                value: `${provenanceCounters.liveMetricGaps || 0} gap${provenanceCounters.liveMetricGaps === 1 ? "" : "s"}`,
+                source: "evidenceProvenanceSemanticsContract.readinessGaps",
+                rule: "Current provider/API data needs are tracked separately from reviewed mechanism evidence.",
+                live: "Current-data readiness",
+                reportOnly: "No, visible as source/readiness context",
+                caveat: provenance.assetSummary?.liveDataReadiness || "Current-data status unavailable.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+          </div>
+          <ListBlock
+            title="Score integration gaps"
+            items={provenance.scoringActivationGaps}
+            emptyText="No score-integration gap was attached."
+            color="#f9d976"
+            styles={styles}
+          />
         </Card>
       ) : null}
 

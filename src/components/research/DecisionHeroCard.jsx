@@ -115,6 +115,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const representationFamilyRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
   const representationFamilyGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
   const warnings = safeArray(model?.calibrationWarnings);
@@ -166,6 +167,15 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             detail={`Route safety: ${representationFamilyRoute.routeSafety || "unknown"}; evidence gates: ${representationFamilyGates.length}. Missing evidence is handled as source/manual-review gates, not wrong-family routing.`}
             badge={representationFamilyRoute.routeBlocked ? "Route blocked" : representationFamilyRoute.routeDegraded ? "Route degraded" : representationFamilyRoute.routeSafeWithManualReview ? "Valid route, review gates" : "Valid route"}
             tone={representationFamilyRoute.routeBlocked || representationFamilyRoute.routeDegraded ? "#ffb020" : "#2fd67b"}
+            styles={styles}
+          />
+        ) : null}
+        {provenance.contractAttached ? (
+          <LayerLegendItem
+            title={provenance.assetSummary?.summaryLabel || "Evidence provenance separated"}
+            detail={`${provenance.assetSummary?.manualEvidenceReadiness || "Manual reviewed evidence status unavailable."} ${provenance.assetSummary?.liveDataReadiness || "Current-data readiness unavailable."} ${provenance.assetSummary?.scoreEvidenceBasis || "Score evidence basis unavailable."}`}
+            badge={safeArray(provenance.primaryLabels)[0] || "Provenance semantics"}
+            tone="#a6f3c2"
             styles={styles}
           />
         ) : null}
