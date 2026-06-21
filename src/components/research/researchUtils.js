@@ -6420,6 +6420,7 @@ export function buildReviewBundleText({
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
+  const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -7725,7 +7726,9 @@ export function buildReviewBundleText({
       bundleField("Next resume pointer", familyCanonicalRoutingContract?.nextResumePointer || "Batch 1 Live QA Retry after deploy/browser check; if clean, proceed to Family Data Requirement Matrix v2."),
     ]),
     bundleSection("2AQ. Evidence Provenance + Readiness Semantics Cleanup v1", [
-      bundleField("Contract attached", evidenceProvenanceSemanticsContract ? "yes" : "missing"),
+      bundleField("2AQ contract attached", evidenceProvenanceSemanticsContract ? "yes" : "no"),
+      bundleField("2AQ warning", evidenceProvenanceSemanticsContract ? "none" : "Evidence Provenance Semantics contract missing from current analysis object."),
+      bundleField("Contract attached", evidenceProvenanceSemanticsContract ? "yes" : "no"),
       bundleField("Artifact version", evidenceProvenanceSemanticsContract?.artifactVersion),
       bundleField("Asset family", evidenceProvenanceSemanticsContract?.assetFamily),
       bundleField("Canonical question group", evidenceProvenanceSemanticsContract?.canonicalQuestionGroup),
@@ -8318,7 +8321,7 @@ export function buildReviewBundleText({
       bundleField("Weakest Link", safeModel.weakestLink?.label),
       bundleField("False-Positive Risk / Refusal to infer", safeModel.tokenDemandTruth),
       "Manual-review triggers:",
-      bundleList(filterPrimaryBundleItems([safeModel.manualReviewStatus?.detail, ...safeModel.auditAlerts])),
+      bundleList(filterPrimaryBundleItems([safeModel.manualReviewStatus?.detail, ...safeArray(safeModel.auditAlerts)])),
       bundleField("Token Demand Truth", safeModel.tokenDemandTruth),
       bundleField("Failure Modes", safeModel.failureMode?.primary),
       "Conviction Drivers:",
@@ -8534,7 +8537,7 @@ export function buildReviewBundleText({
       "Score drivers - negatives:",
       bundleList(safeModel.topNegativeDrivers),
       "Caveats / warnings:",
-      bundleList([...safeModel.auditAlerts, ...warnings]),
+      bundleList([...safeArray(safeModel.auditAlerts), ...warnings]),
       "Institutional scoring readiness:",
       bundleList([
         scoringReadinessContract
@@ -8556,8 +8559,8 @@ export function buildReviewBundleText({
       bundleList(safeArray(safeModel.researchRequirements).flatMap((requirement) => requirement?.preferredSourceTypes || [])),
       "Live response gaps that need sources:",
       bundleList([
-        ...safeModel.requiredConditions,
-        ...safeModel.missingCritical,
+        ...safeArray(safeModel.requiredConditions),
+        ...safeArray(safeModel.missingCritical),
         ...(safeModel.whatWouldChangeDecision?.items || []),
         ...safeArray(scoringReadinessContract?.whatWouldChangeScore).slice(0, 6),
         ...safeArray(benchmarkInstitutionalAnswerPack?.sourceRequirements).slice(0, 8),
@@ -8571,9 +8574,9 @@ export function buildReviewBundleText({
       bundleField("Reason", safeModel.manualReviewStatus?.detail),
       "Live review signals:",
       bundleList([
-        ...safeModel.missingCritical,
-        ...safeModel.requiredConditions,
-        ...safeModel.auditAlerts,
+        ...safeArray(safeModel.missingCritical),
+        ...safeArray(safeModel.requiredConditions),
+        ...safeArray(safeModel.auditAlerts),
       ]),
       "Provider gaps:",
       bundleProviderDiagnostics(notableDiagnostics || providerDiagnosticsList),
@@ -8586,7 +8589,7 @@ export function buildReviewBundleText({
         "Confirm source authenticity, freshness, scope, and contradictions.",
         "Do not treat provider metadata as reviewed evidence.",
         "Do not promote source candidates or report-only overlays into live scoring.",
-        ...safeModel.requiredConditions,
+        ...safeArray(safeModel.requiredConditions),
         ...safeArray(benchmarkInstitutionalAnswerPack?.hardBlockers).slice(0, 6),
         ...safeArray(benchmarkInstitutionalAnswerPack?.confidenceCaps).slice(0, 6),
       ]), 
@@ -8600,7 +8603,7 @@ export function buildReviewBundleText({
       "Green flags:",
       bundleList(safeModel.topPositiveDrivers),
       "Red flags:",
-      bundleList([...safeModel.topNegativeDrivers, ...safeModel.auditAlerts]),
+      bundleList([...safeArray(safeModel.topNegativeDrivers), ...safeArray(safeModel.auditAlerts)]),
     ]),
     bundleSection("11. Audit / Raw Key Fields", [
       "Provider diagnostics summary:",
