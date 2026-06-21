@@ -196,6 +196,39 @@ export function cleanPrimaryAnswerText(value) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const PRIMARY_RENDERED_AUDIT_ONLY_PATTERNS = [
+  /\bauditDetails\b/i,
+  /\b(?:claimIds?|packId|ruleId|benchmarkPackId)\b\s*[:=]?\s*[\w:./-]*/i,
+  /\bscoring\s*=\s*non_scoring_requirement\b/i,
+  /\breviewedScoring\s*=\s*no\b/i,
+  /\bpromoted\s*=\s*no\b/i,
+  /\bsourcePromotionActive\s*=\s*false\b/i,
+  /\b(?:scoringChanged|verdictChanged|providerBehaviorChanged|reviewedEvidencePromoted|sourceCandidatesPromoted)\s*=\s*(?:yes|no)\b/i,
+];
+
+export function sanitizePrimaryRenderedCopy(value) {
+  const raw = extractRenderableText(value, "").trim();
+  if (!raw) return "";
+  if (PRIMARY_RENDERED_AUDIT_ONLY_PATTERNS.some((pattern) => pattern.test(raw))) {
+    return "";
+  }
+  let text = cleanPrimaryAnswerText(raw);
+  text = text
+    .replace(/\b(?:Reviewed claim references|Evidence packet reference|Methodology rule reference|Benchmark reference|Audit detail)\b\s*[:=]?\s*[\w:./-]*/gi, "")
+    .replace(/\b(?:score impact|source review flags)\s*:\s*[^;|]+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleanPrimaryAnswerText(text);
+}
+
+function sanitizeRenderedSurfaceValues(values) {
+  return dedupeCaseInsensitive(
+    normalizeRenderableList(values)
+      .map((value) => sanitizePrimaryRenderedCopy(value))
+      .filter(Boolean),
+  );
+}
+
 export const TWO_AM_RENDERED_PRIMARY_SCANNER_VERSION = "rendered-primary-corpus-v1";
 
 const TWO_AM_PRIMARY_CATEGORIES = new Set([
@@ -5854,7 +5887,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     ]),
   );
 
-  const surfaces = {
+  const rawSurfaces = {
     decisionHeader,
     decisionTab,
     thesisFalsification,
@@ -5898,6 +5931,12 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       safeModel.engineLearningBackbone?.knownLimitations,
     ),
   };
+  const surfaces = Object.fromEntries(
+    Object.entries(rawSurfaces).map(([surface, values]) => [
+      surface,
+      surface === "auditRaw" ? values : sanitizeRenderedSurfaceValues(values),
+    ]),
+  );
   const requiredLiveTabs = [
     "decisionHeader",
     "decisionTab",
