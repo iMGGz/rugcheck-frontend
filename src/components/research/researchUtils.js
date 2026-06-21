@@ -84,6 +84,8 @@ export function safeObject(value) {
 export const PRIMARY_ANSWER_FORBIDDEN_TERMS = [
   "source_required",
   "live_data_required",
+  "manual_reviewed_evidence",
+  "source_candidate_only",
   "non_scoring",
   "not scoring-active",
   "not scoring active",
@@ -109,9 +111,13 @@ export const PRIMARY_ANSWER_FORBIDDEN_TERMS = [
   "scoringActive=no",
   "sourcePromotionActive=false",
   "scoring_active_existing_field",
+  "scoring_active_legacy_field",
+  "scoring_active_calibrated_evidence",
   "provider_metadata_not_reviewed_evidence",
   "reviewed_demo_evidence_not_scoring_active",
   "no_scoring_impact_report_only",
+  "auditDetails",
+  "sourcePromotionFlags",
 ];
 
 export function cleanPrimaryAnswerText(value) {
@@ -153,6 +159,275 @@ export function cleanPrimaryAnswerText(value) {
     text = text.replace(pattern, replacement);
   });
   return text.replace(/\s+/g, " ").trim();
+}
+
+export const TWO_AM_RENDERED_PRIMARY_SCANNER_VERSION = "rendered-primary-corpus-v1";
+
+const TWO_AM_PRIMARY_CATEGORIES = new Set([
+  "primary_rendered_text",
+  "primary_card_display_text",
+  "bundle_user_mirror_text",
+]);
+
+const TWO_AM_ALLOWED_PRIMARY_PHRASES = [
+  "Manual reviewed evidence available",
+  "Mechanism reviewed",
+  "Current data needed",
+  "Source review needed",
+  "Display-supported, not scoring-active",
+  "Legacy score caveat",
+  "No calibrated score yet",
+  "Provider metadata used for classification only",
+  "Still needed",
+  "Requires source review",
+  "Not financial advice",
+  "Research support only",
+];
+
+function twoAmTextContainsAllowedPhrase(text) {
+  const normalized = String(text || "").toLowerCase();
+  return TWO_AM_ALLOWED_PRIMARY_PHRASES.some((phrase) => normalized.includes(phrase.toLowerCase()));
+}
+
+function twoAmForbiddenTermsForText(text) {
+  const raw = String(text || "");
+  if (!raw.trim()) return [];
+  return PRIMARY_ANSWER_FORBIDDEN_TERMS.filter((term) => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = /[A-Z]/.test(term)
+      ? new RegExp(escaped, "g")
+      : new RegExp(`\\b${escaped}\\b`, "gi");
+    if (!pattern.test(raw)) return false;
+    if (twoAmTextContainsAllowedPhrase(raw) && ["not scoring-active", "not scoring active"].includes(term)) return false;
+    return true;
+  });
+}
+
+function twoAmCorpusRow({
+  assetSymbol,
+  section,
+  fieldPath,
+  surface,
+  corpusCategory,
+  text,
+  sourceValueKind = "display_text",
+  renderedVisible = false,
+  classificationRationale = "",
+}) {
+  const allowedInPrimary = TWO_AM_PRIMARY_CATEGORIES.has(corpusCategory);
+  return {
+    assetSymbol: assetSymbol || "UNKNOWN",
+    section,
+    fieldPath,
+    surface,
+    corpusCategory,
+    text: String(text || "").trim(),
+    sourceValueKind,
+    renderedVisible,
+    allowedInPrimary,
+    allowedInAudit: ["audit_internal_text", "raw_model_metadata", "scanner_debug_only"].includes(corpusCategory),
+    allowedInMethodology: corpusCategory === "methodology_allowed_text",
+    allowedInProtectedReport: corpusCategory === "protected_report_text",
+    classificationRationale,
+  };
+}
+
+function pushTwoAmRows(rows, base, values, sourceValueKind = "display_text") {
+  normalizeRenderableList(values).forEach((value, index) => {
+    rows.push(twoAmCorpusRow({
+      ...base,
+      fieldPath: `${base.fieldPath || "field"}[${index}]`,
+      text: value,
+      sourceValueKind,
+    }));
+  });
+}
+
+export function buildAnswerSurfaceLeakageCorpus({
+  assetSymbol,
+  model,
+  institutionalAnswerSurfaceContract,
+  evidenceProvenanceSemanticsContract,
+  renderedPrimaryVisibleText = [],
+  bundleUserMirrorText = [],
+  protectedReportText = [],
+} = {}) {
+  const safeModel = safeObject(model);
+  const contract = safeObject(institutionalAnswerSurfaceContract || safeModel.institutionalAnswerSurfaceContract);
+  const provenance = safeObject(evidenceProvenanceSemanticsContract || safeModel.evidenceProvenanceSemanticsContract);
+  const symbol = assetSymbol || safeModel.assetSymbol || safeModel.assetName || "UNKNOWN";
+  const rows = [];
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Rendered primary product surfaces",
+    fieldPath: "renderedSurfaceParityViewModel.primaryVisibleText",
+    surface: "primary product UI",
+    corpusCategory: "primary_rendered_text",
+    renderedVisible: true,
+    classificationRationale: "Same rendered-intended primary visible text used by product-surface parity checks.",
+  }, renderedPrimaryVisibleText);
+
+  safeArray(contract.userAnswerCards).forEach((card, cardIndex) => {
+    [
+      ["question", card?.question],
+      ["statusLabel", card?.statusLabel || card?.sourceStateLabel],
+      ["shortAnswer", card?.shortAnswer],
+      ["fundamentalAnalysis", card?.fundamentalAnalysis],
+      ["riskImpact", card?.riskImpact],
+      ["scoreImpactPlainEnglish", card?.scoreImpactPlainEnglish],
+      ["evidenceWeHave", safeArray(card?.evidenceWeHave)],
+      ["openChecks", safeArray(card?.openChecks)],
+      ["whatWouldImproveConfidence", safeArray(card?.whatWouldImproveConfidence)],
+      ["whatWouldWeakenConfidence", safeArray(card?.whatWouldWeakenConfidence)],
+      ["notApplicableNotes", safeArray(card?.notApplicableNotes)],
+    ].forEach(([field, value]) => pushTwoAmRows(rows, {
+      assetSymbol: symbol,
+      section: "Institutional answer card display text",
+      fieldPath: `userAnswerCards[${cardIndex}].${field}`,
+      surface: "primary answer cards",
+      corpusCategory: "primary_card_display_text",
+      renderedVisible: true,
+      classificationRationale: "Clean answer-card display text can be primary-visible and must be scanned.",
+    }, value));
+  });
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Copy Review Bundle user-facing mirror",
+    fieldPath: "copyReviewBundle.userFacingMirror",
+    surface: "Copy Review Bundle user mirror",
+    corpusCategory: "bundle_user_mirror_text",
+    renderedVisible: true,
+    classificationRationale: "Bundle user mirror is rendered/exported text and must share primary leakage checks.",
+  }, bundleUserMirrorText);
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Protected Investor Report",
+    fieldPath: "protectedInvestorReport",
+    surface: "Protected Investor Report",
+    corpusCategory: "protected_report_text",
+    renderedVisible: true,
+    classificationRationale: "Protected report has its own leakage bucket and is not counted as primary UI leakage.",
+  }, protectedReportText);
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Methodology",
+    fieldPath: "institutionalAnswerSurfaceContract.methodologySurface",
+    surface: "Methodology",
+    corpusCategory: "methodology_allowed_text",
+    renderedVisible: false,
+    classificationRationale: "Methodology can discuss evidence interpretation outside primary answers.",
+  }, [
+    contract.methodologySurface?.title,
+    contract.methodologySurface?.summary,
+    ...safeArray(contract.methodologySurface?.bullets),
+  ]);
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Audit / Raw and Internal Developer QA",
+    fieldPath: "institutionalAnswerSurfaceContract.auditDetails",
+    surface: "Audit / Raw or Internal Developer QA",
+    corpusCategory: "audit_internal_text",
+    sourceValueKind: "raw_audit_json",
+    renderedVisible: false,
+    classificationRationale: "Raw diagnostics are intentionally preserved but excluded from primary leakage.",
+  }, safeArray(contract.auditDetails).map((detail) => JSON.stringify(detail)), "raw_audit_json");
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Raw model metadata",
+    fieldPath: "institutionalAnswerSurfaceContract.leakageCheck",
+    surface: "raw model metadata",
+    corpusCategory: "raw_model_metadata",
+    sourceValueKind: "raw_status_or_metadata",
+    renderedVisible: false,
+    classificationRationale: "Raw scanner/status fields are not rendered primary text.",
+  }, [
+    ...safeArray(contract.leakageCheck?.forbiddenPrimaryTerms),
+    ...safeArray(contract.leakageCheck?.checkedFields),
+    ...safeArray(contract.leakageCheck?.leakingCards),
+  ], "raw_status_or_metadata");
+
+  pushTwoAmRows(rows, {
+    assetSymbol: symbol,
+    section: "Scanner debug only",
+    fieldPath: "evidenceProvenanceSemanticsContract.answerSurfaceLeakageClassification",
+    surface: "scanner/debug corpus",
+    corpusCategory: "scanner_debug_only",
+    sourceValueKind: "scanner_debug",
+    renderedVisible: false,
+    classificationRationale: "Previous scanner output is diagnostic inventory, not primary text.",
+  }, [
+    ...safeArray(provenance.answerSurfaceLeakageClassification?.blockedTerms),
+    ...safeArray(provenance.answerSurfaceLeakageClassification?.exactFields),
+  ], "scanner_debug");
+
+  return rows.filter((row) => row.text);
+}
+
+export function scanAnswerSurfaceLeakageCorpus(rows = []) {
+  const detectedItems = [];
+  const excludedItems = [];
+  for (const row of safeArray(rows)) {
+    const terms = twoAmForbiddenTermsForText(row.text);
+    for (const term of terms) {
+      const primaryCategory = TWO_AM_PRIMARY_CATEGORIES.has(row.corpusCategory);
+      const classification = primaryCategory
+        ? "real_primary_visible_leakage"
+        : row.corpusCategory === "protected_report_text"
+          ? "protected_report_leakage"
+          : row.corpusCategory === "methodology_allowed_text"
+            ? "methodology_allowed_language"
+            : row.corpusCategory === "raw_model_metadata"
+              ? "raw_metadata_excluded"
+              : row.corpusCategory === "scanner_debug_only"
+                ? "scanner_debug_excluded"
+                : "audit_internal_allowed";
+      const item = {
+        term,
+        exactTextExcerpt: row.text.slice(0, 240),
+        fieldPath: row.fieldPath,
+        section: row.section,
+        surface: row.surface,
+        corpusCategory: row.corpusCategory,
+        classification,
+        rationale: primaryCategory
+          ? "Forbidden raw/internal term appears in rendered primary or bundle mirror text."
+          : row.classificationRationale || "Finding is outside rendered primary text.",
+        renderedVisible: row.renderedVisible ? "yes" : "no",
+        countedAsPrimary: primaryCategory ? "yes" : "no",
+      };
+      if (primaryCategory || row.corpusCategory === "protected_report_text" || row.corpusCategory === "methodology_allowed_text") {
+        detectedItems.push(item);
+      } else {
+        excludedItems.push(item);
+      }
+    }
+  }
+  const count = (category) => detectedItems.filter((item) => item.classification === category).length;
+  const excludedCount = (category) => excludedItems.filter((item) => item.classification === category).length;
+  const categories = Array.from(new Set(safeArray(rows).map((row) => row.corpusCategory))).filter(Boolean);
+  return {
+    scannerVersion: TWO_AM_RENDERED_PRIMARY_SCANNER_VERSION,
+    corpusSource: "rendered_primary_text_only",
+    rawMetadataExcluded: true,
+    realPrimaryVisibleLeakageCount: count("real_primary_visible_leakage"),
+    primaryLeakagePass: count("real_primary_visible_leakage") === 0,
+    bundleUserMirrorLeakageCount: detectedItems.filter((item) => item.classification === "real_primary_visible_leakage" && item.corpusCategory === "bundle_user_mirror_text").length,
+    protectedReportLeakageCount: count("protected_report_leakage"),
+    methodologyAllowedCount: count("methodology_allowed_language"),
+    auditInternalAllowedCount: excludedCount("audit_internal_allowed"),
+    rawMetadataExcludedCount: excludedCount("raw_metadata_excluded"),
+    scannerFalsePositiveCount: excludedCount("scanner_debug_excluded"),
+    detectedItems,
+    excludedItems,
+    corpusCategoriesScanned: categories.filter((category) => TWO_AM_PRIMARY_CATEGORIES.has(category)),
+    corpusCategoriesExcluded: categories.filter((category) => !TWO_AM_PRIMARY_CATEGORIES.has(category)),
+  };
 }
 
 export const BENCHMARK_SEARCH_PRESETS = [
@@ -6522,6 +6797,28 @@ export function buildReviewBundleText({
     displayIdentity,
   });
   const renderedPrimaryVisibleText = renderedSurfaceParityViewModel.primaryVisibleText.join("\n");
+  const twoAmBundleUserMirrorText = [
+    ...institutionalAnswerCards.flatMap((card) => [
+      card.question,
+      card.statusLabel || card.sourceStateLabel,
+      card.shortAnswer || card.fundamentalAnalysis,
+    ]),
+    ...safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.evidenceWeHave),
+    ...safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.sourceQueueSummary || institutionalAnswerSurfaceContract?.sourceSummary?.openChecks),
+    institutionalAnswerSurfaceContract?.scoreSummary?.scoreLabel,
+    institutionalAnswerSurfaceContract?.scoreSummary?.confidenceLabel,
+    institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary,
+    ...safeArray(institutionalAnswerSurfaceContract?.scoreSummary?.scoringTransparencySummary),
+  ].map(cleanPrimaryAnswerText).filter(Boolean);
+  const twoAmLeakageCorpus = buildAnswerSurfaceLeakageCorpus({
+    assetSymbol: safeAsset.symbol || safeModel.assetName,
+    model: safeModel,
+    institutionalAnswerSurfaceContract,
+    evidenceProvenanceSemanticsContract,
+    renderedPrimaryVisibleText: renderedSurfaceParityViewModel.primaryVisibleText,
+    bundleUserMirrorText: twoAmBundleUserMirrorText,
+  });
+  const twoAmRenderedPrimaryScan = scanAnswerSurfaceLeakageCorpus(twoAmLeakageCorpus);
   const rawDecisionText = [
     ...(decisionFrame.whatMustBeTrue || []).map((item) => extractRenderableText(item, null)),
     ...(decisionFrame.nextCheckpoints || []).map((item) => extractRenderableText(item, null)),
@@ -7463,17 +7760,18 @@ export function buildReviewBundleText({
       bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
       bundleField("Asset family", institutionalAnswerSurfaceContract?.assetFamily),
       bundleField("Cards transformed", institutionalAnswerSurfaceContract?.cardsTransformedCount ?? institutionalAnswerCards.length),
+      bundleField("2AM scanner version", twoAmRenderedPrimaryScan.scannerVersion),
+      bundleField("2AM corpus source", twoAmRenderedPrimaryScan.corpusSource),
+      bundleField("2AM raw metadata excluded", twoAmRenderedPrimaryScan.rawMetadataExcluded ? "yes" : "no"),
       bundleField("Deprecated raw scanner finding count", institutionalAnswerSurfaceContract?.leakageCheck?.forbiddenPrimaryTermLeakageCount ?? "unknown"),
-      bundleField("2AM real primary leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage ?? "unknown"),
-      bundleField("2AM bundle user mirror leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.copyBundleUserMirrorLeakage ?? "unknown"),
-      bundleField("2AM scanner false-positive count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.scannerFalsePositive ?? "unknown"),
-      bundleField("2AM methodology allowed count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.methodologyAllowedTerms ?? "unknown"),
-      bundleField("2AM audit/internal allowed count", evidenceProvenanceSemanticsContract
-        ? (Number(evidenceProvenanceSemanticsContract.answerSurfaceLeakageClassification?.auditOnlyAllowedTerms || 0)
-          + Number(evidenceProvenanceSemanticsContract.answerSurfaceLeakageClassification?.internalDeveloperQaAllowedTerms || 0))
-        : "unknown"),
-      bundleField("2AM protected report leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.protectedReportLeakage ?? evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.redactedProtectedReportLeakage ?? "unknown"),
-      bundleField("2AM primary leakage pass", (evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.primaryLeakagePass ?? ((evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage ?? institutionalAnswerForbiddenLeakageCount) === 0)) ? "yes" : "no"),
+      bundleField("2AM real primary leakage count", twoAmRenderedPrimaryScan.realPrimaryVisibleLeakageCount),
+      bundleField("2AM primary leakage pass", twoAmRenderedPrimaryScan.primaryLeakagePass ? "yes" : "no"),
+      bundleField("2AM bundle user mirror leakage count", twoAmRenderedPrimaryScan.bundleUserMirrorLeakageCount),
+      bundleField("2AM protected report leakage count", twoAmRenderedPrimaryScan.protectedReportLeakageCount),
+      bundleField("2AM methodology allowed count", twoAmRenderedPrimaryScan.methodologyAllowedCount),
+      bundleField("2AM audit/internal allowed count", twoAmRenderedPrimaryScan.auditInternalAllowedCount),
+      bundleField("2AM raw metadata excluded count", twoAmRenderedPrimaryScan.rawMetadataExcludedCount),
+      bundleField("2AM scanner false-positive count", twoAmRenderedPrimaryScan.scannerFalsePositiveCount),
       bundleField("Deprecated internal enum scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.internalEnumLeakageCount ?? "unknown"),
       bundleField("Deprecated methodology scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.methodologyLeakageCount ?? "unknown"),
       bundleField("Deprecated family-negative guardrail scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.familyNegativeGuardrailLeakageCount ?? "unknown"),
@@ -7515,18 +7813,27 @@ export function buildReviewBundleText({
       ]),
       "Primary visible surfaces checked:",
       bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.frontendVisibility)).map(([surface, status]) => `${surface}: ${status}`)),
+      "2AM corpus categories scanned:",
+      bundleList(twoAmRenderedPrimaryScan.corpusCategoriesScanned, "No primary corpus categories scanned."),
+      "2AM corpus categories excluded:",
+      bundleList(twoAmRenderedPrimaryScan.corpusCategoriesExcluded, "No excluded corpus categories detected."),
       "2AM detected item classifications:",
-      bundleList(safeArray(evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.detectedItems).map((item) =>
-        `${item.classification || "unclassified"} | term=${item.term || "term unavailable"} | field=${item.fieldPath || "field unavailable"} | surface=${item.surface || "surface unavailable"} | ${item.rationale || "No rationale attached."}`
+      bundleList(safeArray(twoAmRenderedPrimaryScan.detectedItems).map((item) =>
+        `${item.classification || "unclassified"} | term=${item.term || "term unavailable"} | field=${item.fieldPath || "field unavailable"} | surface=${item.surface || "surface unavailable"} | category=${item.corpusCategory || "unknown"} | rendered=${item.renderedVisible || "unknown"} | countedAsPrimary=${item.countedAsPrimary || "unknown"} | ${item.rationale || "No rationale attached."}`
       ), "No 2AM leakage findings detected.", 40),
+      "2AM excluded item classifications:",
+      bundleList(safeArray(twoAmRenderedPrimaryScan.excludedItems).slice(0, 40).map((item) =>
+        `${item.classification || "excluded"} | term=${item.term || "term unavailable"} | field=${item.fieldPath || "field unavailable"} | surface=${item.surface || "surface unavailable"} | category=${item.corpusCategory || "unknown"} | rendered=${item.renderedVisible || "no"} | countedAsPrimary=${item.countedAsPrimary || "no"} | ${item.rationale || "Excluded from rendered primary corpus."}`
+      ), "No raw/audit metadata exclusions detected.", 40),
       "Guardrails:",
       bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
       "QA checks:",
       bundleList([
         `Copy Bundle 2AM present=yes`,
-        `primary answer cards leak forbidden internal terms=${yesNoUnknown((evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage ?? institutionalAnswerForbiddenLeakageCount) > 0)}`,
-        `protected report leaks forbidden internal terms=${yesNoUnknown((evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.protectedReportLeakage ?? evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.redactedProtectedReportLeakage ?? 0) > 0)}`,
-        `2AM leakage classification attached=${yesNoUnknown(Boolean(evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification))}`,
+        `primary answer cards leak forbidden internal terms=${yesNoUnknown(twoAmRenderedPrimaryScan.realPrimaryVisibleLeakageCount > 0)}`,
+        `protected report leaks forbidden internal terms=${yesNoUnknown(twoAmRenderedPrimaryScan.protectedReportLeakageCount > 0)}`,
+        `2AM rendered-primary corpus scanner attached=${yesNoUnknown(twoAmRenderedPrimaryScan.scannerVersion === TWO_AM_RENDERED_PRIMARY_SCANNER_VERSION)}`,
+        `2AM raw metadata excluded from primary scan=${yesNoUnknown(twoAmRenderedPrimaryScan.rawMetadataExcluded)}`,
         `Source Queue uses actionable verification language=${institutionalAnswerSurfaceContract?.sourceQueueCleanupResult || "unknown"}`,
         `Manual Review uses business-readable language=${institutionalAnswerSurfaceContract?.manualReviewCleanupResult || "unknown"}`,
         `Scoring Transparency uses plain language=${institutionalAnswerSurfaceContract?.scoringTransparencyCleanupResult || "unknown"}`,
@@ -7757,8 +8064,10 @@ export function buildReviewBundleText({
       bundleField("Source-required gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.sourceRequiredGaps),
       bundleField("Scoring activation gaps count", evidenceProvenanceSemanticsContract?.readinessCounters?.scoringActivationGaps),
       bundleField("Confidence cap drivers count", evidenceProvenanceSemanticsContract?.readinessCounters?.confidenceCapDrivers),
-      bundleField("2AM real primary leakage count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.realPrimaryVisibleLeakage),
-      bundleField("2AM false positive count", evidenceProvenanceSemanticsContract?.answerSurfaceLeakageClassification?.scannerFalsePositive),
+      bundleField("2AM real primary leakage count", twoAmRenderedPrimaryScan.realPrimaryVisibleLeakageCount),
+      bundleField("2AM scanner version", twoAmRenderedPrimaryScan.scannerVersion),
+      bundleField("2AM raw metadata excluded", twoAmRenderedPrimaryScan.rawMetadataExcluded ? "yes" : "no"),
+      bundleField("2AM false positive count", twoAmRenderedPrimaryScan.scannerFalsePositiveCount),
       bundleField("2AN readiness counter correction", evidenceProvenanceSemanticsContract?.evidenceAggregationReadinessSemantics ? "attached" : "missing"),
       bundleField("2AO semantic label correction", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics ? "attached" : "missing"),
       bundleField("2AP downstream propagation sanity", evidenceProvenanceSemanticsContract?.canonicalRoutePropagationSanity?.status),
