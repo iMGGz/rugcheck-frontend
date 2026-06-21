@@ -447,6 +447,7 @@ export default function ScoringTransparencyTab({
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
@@ -527,6 +528,14 @@ export default function ScoringTransparencyTab({
           status={canonicalRoute.canonicalQuestionGroup || "Route unavailable"}
           impact="Wrong-family leakage guard"
           sourceState="Family canonical route"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Which data requirements cap confidence?"
+          answer={safeArray(familyMatrix.confidenceCapRules)[0]?.label || "Family Data Requirement Matrix v2 was not attached."}
+          status={familyMatrix.primarySourceMatrixId || "Matrix unavailable"}
+          impact={familyMatrix.artifactVersion ? "Requirement/readiness context" : "Unavailable"}
+          sourceState="No score formula change"
           styles={styles}
         />
       </div>
@@ -612,6 +621,35 @@ export default function ScoringTransparencyTab({
       ) : null}
 
       <ScoringReadinessTransparency readiness={model?.scoringReadinessContract} styles={styles} />
+
+      {familyMatrix.artifactVersion ? (
+        <Card
+          title="Family Data Requirement Matrix"
+          subtitle="Requirement/readiness context only. It does not change the current score formula."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, familyMatrix.primaryFamily || "Family unavailable")}
+            {boundaryChip(styles, familyMatrix.primarySourceMatrixId || "Source matrix unavailable")}
+            {boundaryChip(styles, "No score formula change")}
+            {boundaryChip(styles, "Source candidates not promoted")}
+          </div>
+          <ListBlock
+            title="Scoring transparency rows"
+            items={familyMatrix.scoringTransparencyRows}
+            emptyText="No family matrix scoring-transparency rows were attached."
+            color="#7dd3fc"
+            styles={styles}
+          />
+          <ListBlock
+            title="Score eligibility blockers"
+            items={safeArray(familyMatrix.scoreEligibilityBlockers).map((item) => item.label)}
+            emptyText="No family matrix score-eligibility blockers were attached."
+            color="#ffb020"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {benchmarkPack.packId ? (
         <Card

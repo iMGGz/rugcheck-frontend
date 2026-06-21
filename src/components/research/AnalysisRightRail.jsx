@@ -256,6 +256,28 @@ function CoverageScoreEligibilityRailSection({ model, styles }) {
   );
 }
 
+function FamilyDataRequirementRailSection({ model, styles }) {
+  const matrix = model?.familyDataRequirementMatrixContract || {};
+  if (!matrix.artifactVersion) return null;
+
+  return (
+    <RailSection title="Family Data Matrix" badge="Requirement backbone" styles={styles}>
+      <div style={styles.railMiniCard}>
+        <div style={styles.railMiniLabel}>Source matrix</div>
+        <div style={styles.railMiniValue}>{matrix.primarySourceMatrixId || matrix.primaryFamily || "Source matrix unavailable"}</div>
+      </div>
+      <div style={styles.railBoundaryGrid}>
+        <div style={styles.railBoundaryPill}>Live/API: {safeArray(matrix.liveDataRequirements).length}</div>
+        <div style={styles.railBoundaryPill}>Reviewed evidence: {safeArray(matrix.reviewedEvidenceRequirements).length}</div>
+        <div style={styles.railBoundaryPill}>Manual review: {safeArray(matrix.manualReviewTriggers).length}</div>
+      </div>
+      <div style={styles.railBoundaryText}>
+        {safeArray(matrix.sourceQueueItems)[0] || "Family-specific requirements are attached as readiness context only; scores and verdicts are unchanged."}
+      </div>
+    </RailSection>
+  );
+}
+
 function ReviewedEvidenceRailSection({ model, styles }) {
   const packet = model?.reviewedEvidencePacket || {};
   if (!packet.packetLoaded) return null;
@@ -470,6 +492,8 @@ export default function AnalysisRightRail({
           <ScoringReadinessRailSection model={model} styles={styles} />
 
           <CoverageScoreEligibilityRailSection model={model} styles={styles} />
+
+          <FamilyDataRequirementRailSection model={model} styles={styles} />
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 

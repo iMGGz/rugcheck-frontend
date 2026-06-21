@@ -887,6 +887,63 @@ export function normalizeEvidenceProvenanceSemanticsPayload(responseLike) {
   };
 }
 
+export function normalizeFamilyDataRequirementMatrixPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.familyDataRequirementMatrixContract);
+  const nestedContract = safeObject(nestedAnalysis.familyDataRequirementMatrixContract);
+  const contract = rootContract.contractStatus || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractStatus || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  const cleanRequirement = (requirement) => ({
+    ...safeObject(requirement),
+    label: cleanPrimaryAnswerText(requirement?.label),
+    evidenceBoundary: cleanPrimaryAnswerText(requirement?.evidenceBoundary),
+    whatItCanProve: cleanPrimaryAnswerText(requirement?.whatItCanProve),
+    whatItCannotProve: cleanPrimaryAnswerText(requirement?.whatItCannotProve),
+    recommendedSources: safeArray(requirement?.recommendedSources).map(cleanPrimaryAnswerText),
+    sourceQueueText: cleanPrimaryAnswerText(requirement?.sourceQueueText),
+    manualReviewText: cleanPrimaryAnswerText(requirement?.manualReviewText),
+    primaryDisplayText: cleanPrimaryAnswerText(requirement?.primaryDisplayText),
+    auditText: requirement?.auditText || null,
+    relatedQuestions: safeArray(requirement?.relatedQuestions),
+    relatedEvidenceNamespaces: safeArray(requirement?.relatedEvidenceNamespaces),
+    contradictionChecks: safeArray(requirement?.contradictionChecks).map(cleanPrimaryAnswerText),
+    dataFreshnessWarning: cleanPrimaryAnswerText(requirement?.dataFreshnessWarning),
+  });
+  return {
+    ...contract,
+    familyRequirements: safeArray(contract.familyRequirements).map(cleanRequirement),
+    liveDataRequirements: safeArray(contract.liveDataRequirements).map(cleanRequirement),
+    reviewedEvidenceRequirements: safeArray(contract.reviewedEvidenceRequirements).map(cleanRequirement),
+    sourceCandidateRequirements: safeArray(contract.sourceCandidateRequirements).map(cleanRequirement),
+    manualReviewTriggers: safeArray(contract.manualReviewTriggers).map(cleanRequirement),
+    confidenceCapRules: safeArray(contract.confidenceCapRules).map(cleanRequirement),
+    scoreEligibilityBlockers: safeArray(contract.scoreEligibilityBlockers).map(cleanRequirement),
+    notApplicableEvidence: safeArray(contract.notApplicableEvidence).map(cleanRequirement),
+    coverageTierImpacts: safeArray(contract.coverageTierImpacts).map(cleanPrimaryAnswerText),
+    evidenceDoesNotProve: safeArray(contract.evidenceDoesNotProve).map(cleanPrimaryAnswerText),
+    providerMetadataBoundaries: safeArray(contract.providerMetadataBoundaries).map(cleanPrimaryAnswerText),
+    freshnessRequirements: safeArray(contract.freshnessRequirements).map(cleanPrimaryAnswerText),
+    reliabilityRequirements: safeArray(contract.reliabilityRequirements).map(cleanPrimaryAnswerText),
+    contradictionChecks: safeArray(contract.contradictionChecks).map(cleanPrimaryAnswerText),
+    recommendedSourceTypes: safeArray(contract.recommendedSourceTypes).map(cleanPrimaryAnswerText),
+    sourceQueueItems: safeArray(contract.sourceQueueItems).map(cleanPrimaryAnswerText),
+    manualReviewItems: safeArray(contract.manualReviewItems).map(cleanPrimaryAnswerText),
+    evidenceMapRows: safeArray(contract.evidenceMapRows).map(cleanPrimaryAnswerText),
+    scoringTransparencyRows: safeArray(contract.scoringTransparencyRows).map(cleanPrimaryAnswerText),
+    copyBundleRows: safeArray(contract.copyBundleRows),
+    protectedReportSummary: safeArray(contract.protectedReportSummary).map(cleanPrimaryAnswerText),
+    auditDiagnostics: safeObject(contract.auditDiagnostics),
+    frontendVisibility: safeObject(contract.frontendVisibility),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
+  };
+}
+
 function attachInstitutionalSurfaceCardsToQuestions(questions, institutionalAnswerSurfaceContract) {
   const cards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
   if (!cards.length) return questions;
@@ -2137,6 +2194,7 @@ export function buildProtectedInvestorReportText({
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
+  const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -2215,6 +2273,8 @@ export function buildProtectedInvestorReportText({
     reportLine("Asset framing", primaryAnalysisRoute?.assetFramingLabel || displayIdentity?.displayFraming || safeModel.assetFramingLabel),
     reportLine("Analysis question family", familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
     reportLine("Source requirement family", familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile),
+    reportLine("Family data matrix", familyDataRequirementMatrixContract?.primarySourceMatrixId || familyCanonicalRoutingContract?.canonicalSourceMatrixEntries?.[0]),
+    reportLine("Critical family requirements", familyDataRequirementMatrixContract ? `${safeArray(familyDataRequirementMatrixContract.manualReviewTriggers).length} review gates; ${safeArray(familyDataRequirementMatrixContract.confidenceCapRules).length} confidence caps` : "Not available yet."),
     reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
     reportLine("Representation family", representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily),
     reportLine("Representation confidence", representationFamilyDecision?.identityConfidence),
@@ -2274,6 +2334,10 @@ export function buildProtectedInvestorReportText({
     reportLine("Score preview boundary", evidenceStatusAggregationContract ? "Evidence readiness improves explanation; score integration requires a calibrated release." : "Not available"),
     "",
     "8. Missing Evidence / Source Requirements",
+    ...(familyDataRequirementMatrixContract?.protectedReportSummary?.length ? [
+      "Family data requirement matrix:",
+      ...formatReportList(familyDataRequirementMatrixContract.protectedReportSummary, "No family matrix summary attached.", 5),
+    ] : []),
     ...formatReportList(missingEvidence, "No missing-evidence list was surfaced in the protected report model.", 8),
     "",
     "9. What Would Change",
@@ -5069,6 +5133,7 @@ export function buildDecisionTerminalModel({
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
+  const familyDataRequirementMatrixContract = normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -5330,6 +5395,22 @@ export function buildDecisionTerminalModel({
       currentStatus: coverageScoreEligibilityContract?.scoreEligibility || "needs_verification",
       canChangeVerdict: false,
     }));
+  const familyMatrixResearchRequirements = safeArray(familyDataRequirementMatrixContract?.sourceQueueItems)
+    .slice(0, 12)
+    .map((item, index) => ({
+      id: `family-data-requirement-matrix-${index}`,
+      title: item || "Family data requirement needs verification.",
+      assetClassLens: familyDataRequirementMatrixContract?.primaryFamily || primaryAnalysisRoute?.assetFamily || "family_data_requirement_matrix",
+      reason: `Family Data Requirement Matrix v2: ${familyDataRequirementMatrixContract?.primarySourceMatrixId || "source matrix unavailable"}. Provider metadata is classification context only.`,
+      evidenceNeeded: [item || "Verify family-specific source/data requirement."],
+      preferredSourceTypes: familyDataRequirementMatrixContract?.recommendedSourceTypes?.length
+        ? familyDataRequirementMatrixContract.recommendedSourceTypes.slice(0, 5)
+        : ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
+      priority: index < 5 ? "high" : "medium",
+      verdictImpact: "Defines family-specific readiness requirements only; does not change the current score or verdict formula.",
+      currentStatus: "needs_verification",
+      canChangeVerdict: false,
+    }));
   const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
     .slice(0, 8)
     .map((requirement, index) => ({
@@ -5345,6 +5426,7 @@ export function buildDecisionTerminalModel({
       canChangeVerdict: false,
     }));
   const displayResearchRequirements = dedupeObjectsByTitle([
+    ...familyMatrixResearchRequirements,
     ...familyCanonicalResearchRequirements,
     ...coverageEligibilityResearchRequirements,
     ...evidenceAggregationResearchRequirements,
@@ -5467,6 +5549,7 @@ export function buildDecisionTerminalModel({
     coverageScoreEligibilityContract,
     familyCanonicalRoutingContract,
     evidenceProvenanceSemanticsContract,
+    familyDataRequirementMatrixContract,
     readinessSemanticCounters: safeObject(evidenceProvenanceSemanticsContract?.readinessCounters),
     provenanceSummary: safeObject(evidenceProvenanceSemanticsContract?.provenanceSummary),
     liveMetricGaps: safeArray(evidenceProvenanceSemanticsContract?.readinessGaps).filter((gap) => gap.gapType === "live_metric"),
@@ -5669,6 +5752,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const providerCategorySignals = safeObject(safeModel.providerCategorySignals);
   const providerRawDataExpansion = safeObject(safeModel.providerRawDataExpansion);
   const rawDataCoverageDiagnostics = safeObject(safeModel.rawDataCoverageDiagnostics);
+  const familyDataRequirementMatrixContract = safeObject(safeModel.familyDataRequirementMatrixContract);
   const sourceMatrixSummary = safeObject(safeModel.engineLearningBackbone?.sourceDataRequirementMatrix);
   const verdictSemantics = safeObject(safeModel.verdictSemantics);
   const allocationCase = safeObject(safeModel.allocationCase);
@@ -5705,6 +5789,8 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     whatWouldChange?.[0],
     safeModel.analysisFreshness?.qaEligibilityLabel,
     safeModel.analysisFreshness?.qaEligibilityWarning,
+    familyDataRequirementMatrixContract.primaryFamily ? `Family requirements: ${familyDataRequirementMatrixContract.primaryFamily}` : null,
+    familyDataRequirementMatrixContract.primarySourceMatrixId ? `Source matrix: ${familyDataRequirementMatrixContract.primarySourceMatrixId}` : null,
     assetClassLabel,
     assetFramingLabel,
     visibleLensLabel,
@@ -5787,6 +5873,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       requirement?.evidenceNeeded,
       requirement?.verdictImpact,
     ]),
+    familyDataRequirementMatrixContract.sourceQueueItems,
   );
 
   const manualReview = renderedSurfaceList(
@@ -5803,6 +5890,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     safeModel.weakestLink?.explanation,
     safeModel.auditAlerts,
     safeModel.warnings,
+    familyDataRequirementMatrixContract.manualReviewItems,
     "Manual review boundary: missing evidence is not negative evidence; reviewed evidence remains separate from provider metadata and scoring-active fields.",
   );
 
@@ -5821,6 +5909,9 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     rawDataCoverageDiagnostics.sourceBoundary,
     rawDataCoverageDiagnostics.sourceCriticalMissingFields,
     providerRawDataExpansion.categoryDataSourceRequirements,
+    familyDataRequirementMatrixContract.evidenceMapRows,
+    familyDataRequirementMatrixContract.providerMetadataBoundaries,
+    familyDataRequirementMatrixContract.evidenceDoesNotProve,
     providerRawDataExpansion.providerCategoryEndpointDiagnostics?.map((entry) => [
       `${entry?.provider || "provider"} ${entry?.endpoint || "endpoint"} ${entry?.status || "status unavailable"}`,
       entry?.sourceBoundary,
@@ -5852,6 +5943,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       `verdictChanged=${safeModel.engineLearningBackbone.guardrails.verdictChanged ? "yes" : "no"}`,
       `providerBehaviorChanged=${safeModel.engineLearningBackbone.guardrails.providerBehaviorChanged ? "yes" : "no"}`,
     ] : null,
+    familyDataRequirementMatrixContract.scoringTransparencyRows,
   );
 
   const institutionalChecklist = renderedSurfaceList(
@@ -5885,6 +5977,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       question?.missingEvidence,
       question?.whatWouldChange,
     ]),
+    familyDataRequirementMatrixContract.protectedReportSummary,
   );
 
   const rawSurfaces = {
@@ -5927,6 +6020,8 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       rawLens.lensId ? `Raw resolved lens: ${rawLens.lensId}` : null,
       rawLens.questionGroupId ? `Raw resolved question group: ${rawLens.questionGroupId}` : null,
       safeModel.assetIdentityResolution?.sourceBoundary,
+      familyDataRequirementMatrixContract.copyBundleRows,
+      familyDataRequirementMatrixContract.auditDiagnostics,
       safeModel.analysisFreshness?.bundleMode,
       safeModel.engineLearningBackbone?.knownLimitations,
     ),
@@ -6768,6 +6863,7 @@ export function buildReviewBundleText({
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
+  const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
   const assetInterpretationContract = safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis);
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
@@ -8162,6 +8258,94 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(evidenceProvenanceSemanticsContract?.knownLimitations),
       bundleField("Next resume pointer", evidenceProvenanceSemanticsContract?.nextResumePointer || "Batch 1 Live QA Retry after deploy/browser check; if clean, proceed to Family Data Requirement Matrix v2."),
+    ]),
+    bundleSection("2AR. Family Data Requirement Matrix v2", [
+      bundleField("Contract attached", familyDataRequirementMatrixContract ? "yes" : "missing"),
+      bundleField("Artifact version", familyDataRequirementMatrixContract?.artifactVersion),
+      bundleField("Contract status", familyDataRequirementMatrixContract?.contractStatus),
+      bundleField("Matrix version", familyDataRequirementMatrixContract?.matrixVersion),
+      bundleField("Primary family", familyDataRequirementMatrixContract?.primaryFamily),
+      bundleField("Primary question group", familyDataRequirementMatrixContract?.primaryQuestionGroup),
+      bundleField("Primary source profile", familyDataRequirementMatrixContract?.primarySourceProfile),
+      bundleField("Primary source matrix ID", familyDataRequirementMatrixContract?.primarySourceMatrixId),
+      bundleField("Matrix route source", familyDataRequirementMatrixContract?.matrixRouteSource),
+      bundleField("Family requirement count", safeArray(familyDataRequirementMatrixContract?.familyRequirements).length),
+      bundleField("Live/API requirement count", safeArray(familyDataRequirementMatrixContract?.liveDataRequirements).length),
+      bundleField("Reviewed-evidence requirement count", safeArray(familyDataRequirementMatrixContract?.reviewedEvidenceRequirements).length),
+      bundleField("Source-candidate requirement count", safeArray(familyDataRequirementMatrixContract?.sourceCandidateRequirements).length),
+      bundleField("Manual-review trigger count", safeArray(familyDataRequirementMatrixContract?.manualReviewTriggers).length),
+      bundleField("Confidence-cap rule count", safeArray(familyDataRequirementMatrixContract?.confidenceCapRules).length),
+      bundleField("Score-eligibility blocker count", safeArray(familyDataRequirementMatrixContract?.scoreEligibilityBlockers).length),
+      "Critical live/API data requirements:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.liveDataRequirements).filter((req) => ["critical", "high"].includes(req.priority)).map((req) =>
+        `${req.label || "Requirement"} | status=${req.status || "unknown"} | freshness=${req.freshnessNeeded || "unknown"} | proves=${req.whatItCanProve || "scope unavailable"} | cannot=${req.whatItCannotProve || "boundary unavailable"}`
+      ), "No critical live/API family requirements attached.", 16),
+      "Critical reviewed evidence requirements:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.reviewedEvidenceRequirements).filter((req) => ["critical", "high"].includes(req.priority)).map((req) =>
+        `${req.label || "Requirement"} | status=${req.status || "unknown"} | review=${req.reviewStatus || "unknown"} | proves=${req.whatItCanProve || "scope unavailable"} | cannot=${req.whatItCannotProve || "boundary unavailable"}`
+      ), "No critical reviewed-evidence family requirements attached.", 16),
+      "Missing requirements:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.familyRequirements).filter((req) => req.status === "missing").slice(0, 20).map((req) =>
+        `${req.label || "Requirement"} | ${req.requirementType || "type"} | ${req.scoreEligibilityImpact || "impact"} | ${req.sourceQueueText || "Verification required."}`
+      ), "No missing family requirements attached.", 20),
+      "Source candidates only:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.sourceCandidateRequirements).map((req) =>
+        `${req.label || "Candidate"} | status=${req.status || "unknown"} | review=${req.reviewStatus || "candidate_only"} | ${req.whatItCannotProve || "Candidate-only input cannot prove institutional claims."}`
+      ), "No source-candidate-only family requirements attached.", 12),
+      "Source Queue outputs:",
+      bundleList(familyDataRequirementMatrixContract?.sourceQueueItems, "No family matrix Source Queue outputs attached.", 12),
+      "Manual Review outputs:",
+      bundleList(familyDataRequirementMatrixContract?.manualReviewItems, "No family matrix Manual Review outputs attached.", 12),
+      "Confidence caps:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.confidenceCapRules).slice(0, 12).map((req) =>
+        `${req.label || "Requirement"} | ${req.confidenceCap || "Confidence remains capped until verified."}`
+      ), "No family matrix confidence caps attached.", 12),
+      "Score eligibility blockers:",
+      bundleList(safeArray(familyDataRequirementMatrixContract?.scoreEligibilityBlockers).slice(0, 12).map((req) =>
+        `${req.label || "Requirement"} | ${req.scoreEligibilityImpact || "blocks/caps eligibility"}`
+      ), "No family matrix score-eligibility blockers attached.", 12),
+      "Provider metadata boundaries:",
+      bundleList(familyDataRequirementMatrixContract?.providerMetadataBoundaries, "No provider metadata boundaries attached.", 8),
+      "What this evidence proves / does not prove:",
+      bundleList([
+        ...safeArray(familyDataRequirementMatrixContract?.evidenceDoesNotProve).map((item) => `Does not prove: ${item}`),
+        ...safeArray(familyDataRequirementMatrixContract?.familyRequirements).slice(0, 8).map((req) => `${req.label || "Requirement"} proves: ${req.whatItCanProve || "scope unavailable"}; does not prove: ${req.whatItCannotProve || "boundary unavailable"}`),
+      ], "No proof/boundary rows attached.", 16),
+      "Evidence Map rows:",
+      bundleList(familyDataRequirementMatrixContract?.evidenceMapRows, "No family matrix Evidence Map rows attached.", 12),
+      "Scoring Transparency rows:",
+      bundleList(familyDataRequirementMatrixContract?.scoringTransparencyRows, "No family matrix Scoring Transparency rows attached.", 10),
+      "Protected report summary:",
+      bundleList(familyDataRequirementMatrixContract?.protectedReportSummary, "No protected-report family summary attached.", 6),
+      "Frontend visibility:",
+      bundleList([
+        `normalizedField=${familyDataRequirementMatrixContract?.frontendVisibility?.normalizedField || "model.familyDataRequirementMatrixContract"}`,
+        `visibleSurfaces=${safeArray(familyDataRequirementMatrixContract?.frontendVisibility?.visibleSurfaces).join(", ") || "unavailable"}`,
+        `copyBundleSection=${familyDataRequirementMatrixContract?.frontendVisibility?.copyBundleSection || "2AR. Family Data Requirement Matrix v2"}`,
+        `protectedReportExposure=${familyDataRequirementMatrixContract?.frontendVisibility?.protectedReportExposure || "high_level_family_requirements_only"}`,
+      ]),
+      "Audit diagnostics:",
+      bundleList(Object.entries(safeObject(familyDataRequirementMatrixContract?.auditDiagnostics)).map(([key, value]) => `${key}: ${bundleValue(value)}`), "No family matrix audit diagnostics attached.", 12),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(familyDataRequirementMatrixContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "QA checks:",
+      bundleList([
+        `Copy Bundle 2AR present=yes`,
+        `2AM real primary leakage remains zero=${yesNoUnknown(twoAmRenderedPrimaryScan.realPrimaryVisibleLeakageCount === 0)}`,
+        `2AP downstream propagation sanity=${evidenceProvenanceSemanticsContract?.canonicalRoutePropagationSanity?.status || "unknown"}`,
+        `2AQ attached=${yesNoUnknown(Boolean(evidenceProvenanceSemanticsContract))}`,
+        `provider metadata satisfies legal/reserve/redemption/economic requirements=${yesNoUnknown(false)}`,
+        `source candidates promoted=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.sourceCandidatesPromoted)}`,
+        `reviewed evidence scoring-active=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `score formula changed=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.scoringChanged)}`,
+        `verdict formula changed=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.verdictChanged)}`,
+        `provider behavior changed=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.providerBehaviorChanged)}`,
+        `snapshots reintroduced=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.snapshotsReintroduced)}`,
+        `partial refresh reintroduced=${yesNoUnknown(familyDataRequirementMatrixContract?.guardrails?.partialRefreshReintroduced)}`,
+      ]),
+      "Known limitations:",
+      bundleList(familyDataRequirementMatrixContract?.knownLimitations),
+      bundleField("Next resume pointer", familyDataRequirementMatrixContract?.nextStep || "Batch 2 benchmark coverage or Evidence-to-Score Calibration prep depending QA results."),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

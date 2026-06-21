@@ -371,6 +371,7 @@ export default function ManualReviewPanel({
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
@@ -492,6 +493,30 @@ export default function ManualReviewPanel({
             items={canonicalRoute.familyScopedManualReviewItems}
             emptyText="No canonical family manual-review checks were attached."
             color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {familyMatrix.artifactVersion ? (
+        <Card title="Family Matrix Manual Review" subtitle="Family-specific missing data creates review gates, not fake conclusions." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, familyMatrix.primaryFamily || "Family unavailable")}
+            {boundaryChip(styles, familyMatrix.primarySourceMatrixId || "Source matrix unavailable")}
+            {boundaryChip(styles, `${safeArray(familyMatrix.manualReviewTriggers).length} review gates`)}
+          </div>
+          <ListBlock
+            title="Manual review items"
+            items={familyMatrix.manualReviewItems}
+            emptyText="No family matrix manual-review items were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+          <ListBlock
+            title="Score eligibility blockers"
+            items={safeArray(familyMatrix.scoreEligibilityBlockers).map((item) => item.label)}
+            emptyText="No family matrix score-eligibility blockers were attached."
+            color="#ffb020"
             styles={styles}
           />
         </Card>

@@ -505,6 +505,7 @@ export default function EvidenceMapTab({
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -601,9 +602,34 @@ export default function EvidenceMapTab({
           sourceState={coverageGate.analysisDepthLabel || "Analysis depth unavailable"}
           styles={styles}
         />
+        <QuestionPromptCard
+          question="Which family requirements are still open?"
+          answer={safeArray(familyMatrix.sourceQueueItems)[0] || "Family Data Requirement Matrix v2 was not attached."}
+          status={familyMatrix.primarySourceMatrixId || "Matrix unavailable"}
+          impact={familyMatrix.artifactVersion ? `${safeArray(familyMatrix.confidenceCapRules).length} confidence caps` : "Requirement coverage unavailable"}
+          sourceState={familyMatrix.primaryFamily || "Family unavailable"}
+          styles={styles}
+        />
       </div>
 
       <div style={styles.advancedGrid}>
+        {familyMatrix.artifactVersion ? (
+          <Card title="Family Requirement Evidence Matrix" subtitle="What data/source classes are needed for this asset family." styles={styles}>
+            <div style={styles.evidenceMapBoundaryStrip}>
+              {boundaryChip(styles, familyMatrix.primaryFamily || "Family unavailable")}
+              {boundaryChip(styles, familyMatrix.primarySourceMatrixId || "Source matrix unavailable")}
+              {boundaryChip(styles, "Provider metadata is not proof")}
+            </div>
+            <ListBlock
+              title="Evidence map rows"
+              items={familyMatrix.evidenceMapRows}
+              emptyText="No family matrix evidence rows were attached."
+              color="#7dd3fc"
+              styles={styles}
+            />
+          </Card>
+        ) : null}
+
         <Card title="Provider Classification Evidence" subtitle="Lens routing metadata. Not reviewed proof." styles={styles}>
           {lensBoundaryDisplayRows.length ? lensBoundaryDisplayRows.map((row) => (
             <div key={row.key} style={styles.evidenceProvenanceRow}>

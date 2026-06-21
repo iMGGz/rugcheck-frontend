@@ -6,6 +6,7 @@ import {
   getAnalystAnswerCard,
   normalizeInstitutionalQuestionsPayload,
   normalizeEvidenceProvenanceSemanticsPayload,
+  normalizeFamilyDataRequirementMatrixPayload,
   normalizeFamilyCanonicalRoutingPayload,
   normalizePrimaryAnalysisRoutePayload,
   normalizeRepresentationFamilyDecisionPayload,
@@ -1007,6 +1008,10 @@ export default function InstitutionalChecklistTab({
     || normalizeEvidenceProvenanceSemanticsPayload(model)
     || model?.evidenceProvenanceSemanticsContract
     || {};
+  const familyDataRequirementMatrixContract = normalizeFamilyDataRequirementMatrixPayload(analysis)
+    || normalizeFamilyDataRequirementMatrixPayload(model)
+    || model?.familyDataRequirementMatrixContract
+    || {};
   const provenanceCounters = evidenceProvenanceSemanticsContract.readinessCounters || {};
   const representationFamilyDecision = normalizeRepresentationFamilyDecisionPayload(analysis)
     || normalizeRepresentationFamilyDecisionPayload(model);
@@ -1113,6 +1118,23 @@ export default function InstitutionalChecklistTab({
                 {boundaryChip(styles, `${provenanceCounters.sourceRequiredGaps || 0} source-required gaps`)}
                 {boundaryChip(styles, `${provenanceCounters.scoringActivationGaps || 0} score-integration gaps`)}
               </div>
+            </Card>
+          ) : null}
+
+          {familyDataRequirementMatrixContract?.artifactVersion ? (
+            <Card title="Family Question Requirements" subtitle="Family-specific data/source checks behind the institutional questions." styles={styles}>
+              <div style={styles.sourceBoundaryStrip}>
+                {boundaryChip(styles, familyDataRequirementMatrixContract.primaryFamily || "Family unavailable")}
+                {boundaryChip(styles, familyDataRequirementMatrixContract.primarySourceMatrixId || "Source matrix unavailable")}
+                {boundaryChip(styles, "Provider metadata is context only")}
+              </div>
+              <ListBlock
+                title="Top source checks"
+                items={familyDataRequirementMatrixContract.sourceQueueItems}
+                emptyText="No family matrix question requirements were attached."
+                color="#7dd3fc"
+                styles={styles}
+              />
             </Card>
           ) : null}
 

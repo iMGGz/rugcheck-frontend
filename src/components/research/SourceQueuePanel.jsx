@@ -343,6 +343,7 @@ export default function SourceQueuePanel({
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
 
   return (
@@ -432,6 +433,30 @@ export default function SourceQueuePanel({
             title="What would make score eligible"
             items={coverageGate.whatWouldMakeScoreEligible}
             emptyText="No score-eligibility requirements were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {familyMatrix.artifactVersion ? (
+        <Card title="Family Data Requirements" subtitle="Asset-family-specific data and reviewed-source requirements." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, familyMatrix.primaryFamily || "Family unavailable")}
+            {boundaryChip(styles, familyMatrix.primarySourceMatrixId || "Source matrix unavailable")}
+            {boundaryChip(styles, "Provider metadata is context only")}
+          </div>
+          <ListBlock
+            title="Next family-specific source checks"
+            items={familyMatrix.sourceQueueItems}
+            emptyText="No family matrix Source Queue items were attached."
+            color="#7dd3fc"
+            styles={styles}
+          />
+          <ListBlock
+            title="What provider metadata cannot prove"
+            items={familyMatrix.providerMetadataBoundaries}
+            emptyText="No provider metadata boundaries were attached."
             color="#f9d976"
             styles={styles}
           />

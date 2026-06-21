@@ -116,6 +116,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
+  const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const representationFamilyRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
   const representationFamilyGates = safeArray(model?.representationFamilyEvidenceGates || model?.representationFamilyDecision?.evidenceGates);
   const warnings = safeArray(model?.calibrationWarnings);
@@ -235,6 +236,15 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             detail={`${coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${coverageGate.scoreDisplayMode || "unavailable"}.`}
             badge={coverageGate.scoreEligibility ? `Score eligibility: ${coverageGate.scoreEligibility}` : "Score eligibility"}
             tone={coverageGate.scoreEligibility === "eligible" || coverageGate.scoreEligibility === "partially_eligible" ? "#2fd67b" : "#ffb020"}
+            styles={styles}
+          />
+        ) : null}
+        {familyMatrix.artifactVersion ? (
+          <LayerLegendItem
+            title={`Family data matrix: ${familyMatrix.primarySourceMatrixId || familyMatrix.primaryFamily || "attached"}`}
+            detail={`${safeArray(familyMatrix.sourceQueueItems).length} source checks; ${safeArray(familyMatrix.manualReviewItems).length} manual-review items; provider metadata cannot satisfy reserve, legal, redemption, or value-capture requirements by itself.`}
+            badge="Requirement backbone"
+            tone="#9bd7ff"
             styles={styles}
           />
         ) : null}
