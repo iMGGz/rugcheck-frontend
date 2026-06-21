@@ -90,7 +90,7 @@ export default function HowTheEngineWorksPage({ styles }) {
     ["Live Provider Evidence", "Use connected provider data and diagnostics where available. Provider gaps are surfaced, not hidden."],
     ["Evidence Directness / TDQ / Risk Signals", "Separate direct evidence from adjacent context, and separate protocol quality from tokenholder value capture."],
     ["Missing Evidence + Provider Gaps", "Expose what the engine cannot verify from available data."],
-    ["Red Flags + Confidence Caps", "Where live cap/gate signals are attached, surface them. Legal, custody, redemption, reserve, and security gaps remain methodology-level cap candidates until source-backed evidence makes them scoring-active."],
+    ["Red Flags + Confidence Caps", "Where live cap/gate signals are attached, surface them. Legal, custody, redemption, reserve, and security gaps remain methodology-level cap candidates until calibrated scoring explicitly includes them."],
     ["Decision Layer", "Translate score, evidence support, caps, and blockers into a decision posture."],
     ["Thesis Falsification Report", "Explain what must be true, what could break, the weakest link, and what would change the decision."],
     ["Source Queue / Manual Review", "Route missing or ambiguous claims into source-backed research workflows without making them scoring inputs."],

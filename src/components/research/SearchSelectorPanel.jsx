@@ -75,7 +75,7 @@ function candidateIdentityChips(candidate) {
     summary.networkLabel ? `Network: ${summary.networkLabel}` : null,
     summary.representationType ? `Representation: ${titleCase(summary.representationType)}` : null,
     summary.wrongAssetRisk ? `Wrong-asset risk: ${summary.wrongAssetRisk}` : null,
-    candidate?.benchmarkPresetId ? "Benchmark preset: non-scoring QA/search context" : null,
+    candidate?.benchmarkPresetId ? "Benchmark reference: search and QA context" : null,
     summary.confidence ? `Identity confidence: ${summary.confidence}` : null,
   ].filter(Boolean).slice(0, 5);
 }

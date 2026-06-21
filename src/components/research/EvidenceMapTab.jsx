@@ -303,7 +303,7 @@ function buildReviewedEvidenceRows(model) {
     {
       key: "reviewed-evidence-packet-summary",
       label: "Reviewed Evidence Packet v1",
-      value: `${packet.packetId || "packet"} loaded as ${packet.reviewStatus || "review status unavailable"}. Reviewed evidence improves answer quality before score integration.`,
+      value: `${packet.packetId || "packet"} loaded as ${cleanPrimaryAnswerText(packet.reviewStatus || "review status unavailable")}. Reviewed evidence improves answer quality before score integration.`,
       sourceType: "Reviewed evidence",
       boundary: "Question-level source-backed context. Separate from provider metadata and final scoring.",
     },
@@ -311,13 +311,13 @@ function buildReviewedEvidenceRows(model) {
       key: `reviewed-source-${source.sourceId || index}`,
       label: source.title || "Reviewed source",
       value: `${source.publisher || "publisher unavailable"} | ${source.freshnessStatus || "freshness unknown"} | ${source.reliabilityTier || "reliability unknown"} | ${source.url || "URL unavailable"}`,
-      sourceType: source.scoringEligible ? "Reviewed evidence - scoring eligible flag" : "Reviewed demo source",
-      boundary: source.scoringEligible ? "QA warning: v1 should not treat reviewed demo packets as scoring-active." : "Reviewed demo evidence improves answer quality only.",
+      sourceType: source.scoringEligible ? "Reviewed evidence - score-eligible flag" : "Reviewed source",
+      boundary: source.scoringEligible ? "QA warning: reviewed packets should not be included in the numerical score in v1." : "Reviewed evidence improves answer quality only.",
     })),
     ...safeArray(packet.questionMappings).filter((mapping) => mapping.answerUpgradeAvailable).slice(0, 5).map((mapping) => ({
       key: `reviewed-mapping-${mapping.questionId}`,
       label: `Mapped question: ${mapping.questionId}`,
-      value: `${mapping.reviewedEvidenceStatus}; scope: ${mapping.questionEvidenceScope || "unknown"}; remaining gaps: ${safeArray(mapping.remainingMissingEvidence).join("; ") || "none listed"}; cautions: ${safeArray(mapping.evidenceMappingWarnings).join("; ") || "none"}`,
+      value: `${cleanPrimaryAnswerText(mapping.reviewedEvidenceStatus || "Needs verification")}; scope: ${cleanPrimaryAnswerText(mapping.questionEvidenceScope || "unknown")}; remaining gaps: ${safeArray(mapping.remainingMissingEvidence).map(cleanPrimaryAnswerText).join("; ") || "none listed"}; cautions: ${safeArray(mapping.evidenceMappingWarnings).map(cleanPrimaryAnswerText).join("; ") || "none"}`,
       sourceType: "Question-level reviewed evidence",
       boundary: "Answer upgrade context only; no overall scoring or verdict change.",
     })),
@@ -339,9 +339,9 @@ function buildBenchmarkInstitutionalAnswerPackRows(model) {
     safeArray(question.claims).map((claim) => ({
       key: `benchmark-pack-claim-${claim.claimId || question.questionId}`,
       label: `Benchmark answer claim: ${question.questionId || "question"}`,
-      value: `${claim.claim || question.directAnswer || "Claim unavailable"} | status=${claim.evidenceStatus || question.answerStatus || "unknown"} | scoring-active=${claim.scoringActive ? "yes" : "no"}`,
+      value: `${cleanPrimaryAnswerText(claim.claim || question.directAnswer || "Claim unavailable")} | status=${cleanPrimaryAnswerText(claim.evidenceStatus || question.answerStatus || "unknown")} | score inclusion=${claim.scoringActive ? "included" : "not included"}`,
       sourceType: "Institutional answer context",
-      boundary: `${safeArray(claim.doesNotProve).slice(0, 2).join("; ") || "Does not change legacy score or final verdict."}`,
+      boundary: `${safeArray(claim.doesNotProve).slice(0, 2).map(cleanPrimaryAnswerText).join("; ") || "Does not change the existing score or final verdict."}`,
     }))
   );
   return [
@@ -371,7 +371,7 @@ function buildEngineLearningEvidenceRows(model) {
     ...safeArray(backbone.sourceCandidates).slice(0, 4).map((candidate, index) => ({
       key: `engine-learning-source-candidate-${candidate.candidateId || index}`,
       label: "Source candidate",
-      value: `${candidate.sourceCandidateTitle || candidate.candidateId || "Candidate"} | promoted to reviewed evidence: ${candidate.promotedToReviewedEvidence ? "yes" : "no"} | scoring-active: ${candidate.scoringActive ? "yes" : "no"}`,
+      value: `${cleanPrimaryAnswerText(candidate.sourceCandidateTitle || candidate.candidateId || "Candidate")} | review status: ${candidate.promotedToReviewedEvidence ? "accepted as reviewed evidence" : "awaiting review"} | score inclusion: ${candidate.scoringActive ? "included" : "not included"}`,
       sourceType: "Source candidate queue",
       boundary: "Candidate only; requires manual review before evidence use.",
     })),

@@ -213,7 +213,7 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     ...safeArray(engineLearning.sourceCandidates).slice(0, 3).map((entry) => ({
       label: "Source candidate, not reviewed evidence",
       description: `${entry.sourceCandidateTitle || entry.candidateId || "Source candidate"}${entry.publisher ? ` (${entry.publisher})` : ""}`,
-      status: entry.scoringActive ? "QA warning: scoring-active" : "Candidate only",
+      status: entry.scoringActive ? "QA warning: unexpectedly included in score" : "Candidate only",
       source: "decisionModel.engineLearningBackbone.sourceCandidates",
       color: "#9bd7ff",
     })),
@@ -377,7 +377,7 @@ export default function SourceQueuePanel({
         <Card title="Reviewed Evidence Coverage" subtitle="Mapped evidence can reduce duplicate source asks; remaining gaps stay visible." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `Packet: ${reviewedEvidence.packetId || "loaded"}`)}
-            {boundaryChip(styles, reviewedEvidence.reviewStatus || "reviewed demo seed")}
+            {boundaryChip(styles, cleanPrimaryAnswerText(reviewedEvidence.reviewStatus || "reviewed support"))}
             {boundaryChip(styles, "Explanation support")}
           </div>
           <ListBlock

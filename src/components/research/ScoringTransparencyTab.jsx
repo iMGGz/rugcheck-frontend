@@ -175,7 +175,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       value: benchmarkPack.packId
         ? `${safeArray(benchmarkPack.questions).length} answer-quality checks`
         : "Not attached",
-      source: benchmarkPack.packId ? "benchmarkInstitutionalAnswerPack.scoreRationale" : "Not attached",
+      source: benchmarkPack.packId ? "Institutional answer coverage" : "Not attached",
       rule: benchmarkPack.scoreRationale?.readinessSummary || "Benchmark answer packs explain future score rationale candidates, caps, and blockers without changing current score.",
       live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
@@ -187,7 +187,7 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
       value: hasAttachedValue(engineLearningFeedbackLoop)
         ? `${safeArray(engineLearningFeedbackLoop.findingsApplied).length} QA finding${safeArray(engineLearningFeedbackLoop.findingsApplied).length === 1 ? "" : "s"}`
         : "Not attached",
-      source: hasAttachedValue(engineLearningFeedbackLoop) ? "engineLearningBackbone.engineLearningFeedbackLoop" : "Not attached",
+      source: hasAttachedValue(engineLearningFeedbackLoop) ? "Engine learning feedback" : "Not attached",
       rule: "Captures manual QA and deterministic runtime findings as review context.",
       live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
@@ -576,10 +576,10 @@ export default function ScoringTransparencyTab({
           <div style={styles.scoringModuleGrid}>
             <ModuleCard
               module={{
-                title: "Manual reviewed evidence",
+                title: "Reviewed evidence",
                 value: `${provenanceCounters.manualReviewedEvidenceClaims || 0} claim${provenanceCounters.manualReviewedEvidenceClaims === 1 ? "" : "s"}`,
                 source: "evidenceProvenanceSemanticsContract.readinessCounters",
-                rule: "Can support mechanism and explanation when mapped, but does not become scoring-active in this release.",
+                rule: "Can support mechanism and explanation when mapped, but is not included in the numerical score in this release.",
                 live: "Display support",
                 reportOnly: "No, visible as evidence-readiness context",
                 caveat: provenance.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable.",

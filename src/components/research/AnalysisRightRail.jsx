@@ -1,5 +1,5 @@
 import React from "react";
-import { formatDateTime, normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
+import { cleanPrimaryAnswerText, formatDateTime, normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
 
 function RailBadge({ children, tone = "#7dd3fc", styles }) {
   return (
@@ -260,8 +260,10 @@ function ReviewedEvidenceRailSection({ model, styles }) {
   const packet = model?.reviewedEvidencePacket || {};
   if (!packet.packetLoaded) return null;
 
+  const reviewStatusLabel = cleanPrimaryAnswerText(packet.reviewStatus || "reviewed support");
+
   return (
-    <RailSection title="Reviewed Evidence" badge={packet.reviewStatus || "Demo seed"} styles={styles}>
+    <RailSection title="Reviewed Evidence" badge={reviewStatusLabel || "Reviewed support"} styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Packet</div>
         <div style={styles.railMiniValue}>{packet.packetId || "Reviewed evidence packet loaded"}</div>
@@ -269,10 +271,10 @@ function ReviewedEvidenceRailSection({ model, styles }) {
       <div style={styles.railBoundaryGrid}>
         <div style={styles.railBoundaryPill}>{safeArray(packet.sources).length} sources</div>
         <div style={styles.railBoundaryPill}>{safeArray(packet.questionMappings).filter((mapping) => mapping.answerUpgradeAvailable).length} mapped answers</div>
-        <div style={styles.railBoundaryPill}>{packet.scoringActive ? "QA warning: scoring-active" : "Not scoring-active"}</div>
+        <div style={styles.railBoundaryPill}>{packet.scoringActive ? "QA warning: unexpectedly included in calibrated scoring" : "Not included in the numerical score yet"}</div>
       </div>
       <div style={styles.railBoundaryText}>
-        Reviewed demo evidence can improve answer wording and source status; it does not change the live score or verdict in v1.
+        Reviewed evidence can improve answer wording and source status; it is not included in the numerical score yet.
       </div>
     </RailSection>
   );

@@ -361,7 +361,7 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         <ScoreTile
           label="Scoring Readiness"
           value={model?.scoringReadinessContract?.overallReadinessStatus ? sanitizeSemanticLabel(model.scoringReadinessContract.overallReadinessStatus, "Unavailable") : "Unavailable"}
-          detail={model?.scoringReadinessContract ? "Future score architecture; legacy score/verdict unchanged" : null}
+          detail={model?.scoringReadinessContract ? "Future score architecture; existing score and verdict unchanged" : null}
           styles={styles}
         />
         <ScoreTile label="Manual Review" value={manualReviewStatus.label || "No explicit review flag"} detail={manualReviewStatus.detail} styles={styles} />
