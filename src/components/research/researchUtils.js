@@ -1472,6 +1472,55 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
   };
 }
 
+export function buildFamilyProductRouteTruth({
+  primaryAnalysisRoute = null,
+  representationFamilyRoute = null,
+  familyCanonicalRoutingContract = null,
+  familyDataRequirementMatrixContract = null,
+  assetInterpretationContract = null,
+} = {}) {
+  const primary = safeObject(primaryAnalysisRoute);
+  const representation = safeObject(representationFamilyRoute);
+  const canonical = safeObject(familyCanonicalRoutingContract);
+  const matrix = safeObject(familyDataRequirementMatrixContract);
+  const visible = safeObject(assetInterpretationContract?.visibleDisplayContract);
+  const selectedFamily = canonical.effectiveFamily
+    || matrix.primaryFamily
+    || representation.selectedFamily
+    || primary.assetFamily
+    || null;
+  const visibleLabel = representation.visibleLabel
+    || visible.primaryVisibleLabel
+    || primary.visibleLabel
+    || selectedFamily
+    || null;
+  const assetFramingLabel = representation.assetFramingLabel
+    || visible.assetFramingLabel
+    || primary.assetFramingLabel
+    || null;
+  const sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries).length
+    ? safeArray(canonical.canonicalSourceMatrixEntries)
+    : matrix.primarySourceMatrixId
+      ? [matrix.primarySourceMatrixId]
+      : safeArray(representation.sourceMatrixEntries).length
+        ? safeArray(representation.sourceMatrixEntries)
+        : safeArray(primary.sourceMatrixEntries);
+  if (!selectedFamily && !visibleLabel && !sourceMatrixEntries.length) return primary.assetFamily || primary.visibleLabel ? primary : null;
+  return {
+    ...primary,
+    assetFamily: selectedFamily,
+    visibleLabel,
+    assetFramingLabel,
+    questionGroup: canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || null,
+    sourceProfile: canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || null,
+    sourceMatrixEntries,
+    productRouteTruthSource: selectedFamily
+      ? "representation_family_authority_canonical_product_path"
+      : primary.authoritySource || "primary_analysis_route",
+    rawPrimaryAnalysisRouteAuditOnly: primary,
+  };
+}
+
 export function normalizeDataFirstNarrativeContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2178,7 +2227,7 @@ export function buildProtectedInvestorReportText({
   const safeMeta = safeObject(meta || safeData.meta);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
-  const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
+  const rawPrimaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const representationFamilyDecision = safeModel.representationFamilyDecision || normalizeRepresentationFamilyDecisionPayload(safeData) || normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
   const representationFamilyRoute = safeModel.representationFamilyRoute || normalizeRepresentationFamilyRoutePayload(safeData, representationFamilyDecision) || normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
   const representationFamilyEvidenceGates = safeArray(safeModel.representationFamilyEvidenceGates).length
@@ -2195,6 +2244,13 @@ export function buildProtectedInvestorReportText({
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
+  const primaryAnalysisRoute = buildFamilyProductRouteTruth({
+    primaryAnalysisRoute: rawPrimaryAnalysisRoute,
+    representationFamilyRoute,
+    familyCanonicalRoutingContract,
+    familyDataRequirementMatrixContract,
+    assetInterpretationContract: safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis),
+  }) || rawPrimaryAnalysisRoute;
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const engineLearningFeedbackLoop = engineLearningBackbone?.engineLearningFeedbackLoop;
@@ -5117,7 +5173,7 @@ export function buildDecisionTerminalModel({
   const representationFamilyDecision = normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
   const representationFamilyRoute = normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
   const representationFamilyEvidenceGates = normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
-  const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
+  const rawPrimaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const scoringReadinessContract = normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = normalizeEngineLearningBackbonePayload(safeAnalysis);
   const benchmarkAssetPreset = findBenchmarkSearchPresetForAsset(asset, safeAnalysis, engineLearningBackbone);
@@ -5134,6 +5190,13 @@ export function buildDecisionTerminalModel({
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
+  const primaryAnalysisRoute = buildFamilyProductRouteTruth({
+    primaryAnalysisRoute: rawPrimaryAnalysisRoute,
+    representationFamilyRoute,
+    familyCanonicalRoutingContract,
+    familyDataRequirementMatrixContract,
+    assetInterpretationContract,
+  }) || rawPrimaryAnalysisRoute;
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
