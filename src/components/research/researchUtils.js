@@ -1478,43 +1478,50 @@ export function buildFamilyProductRouteTruth({
   familyCanonicalRoutingContract = null,
   familyDataRequirementMatrixContract = null,
   assetInterpretationContract = null,
+  institutionalProductTruthObject = null,
 } = {}) {
   const primary = safeObject(primaryAnalysisRoute);
   const representation = safeObject(representationFamilyRoute);
   const canonical = safeObject(familyCanonicalRoutingContract);
   const matrix = safeObject(familyDataRequirementMatrixContract);
   const visible = safeObject(assetInterpretationContract?.visibleDisplayContract);
-  const selectedFamily = canonical.effectiveFamily
+  const productTruth = safeObject(institutionalProductTruthObject);
+  const productTruthFamily = safeObject(productTruth.finalFamilyDecision);
+  const selectedFamily = productTruthFamily.familyId
+    || canonical.effectiveFamily
     || matrix.primaryFamily
     || representation.selectedFamily
     || primary.assetFamily
     || null;
-  const visibleLabel = representation.visibleLabel
+  const visibleLabel = productTruthFamily.visibleLabel
+    || representation.visibleLabel
     || visible.primaryVisibleLabel
     || primary.visibleLabel
     || selectedFamily
     || null;
-  const assetFramingLabel = representation.assetFramingLabel
+  const assetFramingLabel = productTruthFamily.assetFraming
+    || representation.assetFramingLabel
     || visible.assetFramingLabel
     || primary.assetFramingLabel
     || null;
-  const sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries).length
-    ? safeArray(canonical.canonicalSourceMatrixEntries)
-    : matrix.primarySourceMatrixId
-      ? [matrix.primarySourceMatrixId]
-      : safeArray(representation.sourceMatrixEntries).length
-        ? safeArray(representation.sourceMatrixEntries)
-        : safeArray(primary.sourceMatrixEntries);
+  let sourceMatrixEntries = safeArray(productTruth.finalSourceMatrix);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruthFamily.sourceMatrixIds);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries);
+  if (!sourceMatrixEntries.length && matrix.primarySourceMatrixId) sourceMatrixEntries = [matrix.primarySourceMatrixId];
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(representation.sourceMatrixEntries);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(primary.sourceMatrixEntries);
   if (!selectedFamily && !visibleLabel && !sourceMatrixEntries.length) return primary.assetFamily || primary.visibleLabel ? primary : null;
   return {
     ...primary,
     assetFamily: selectedFamily,
     visibleLabel,
     assetFramingLabel,
-    questionGroup: canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || null,
-    sourceProfile: canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || null,
+    questionGroup: productTruth.finalQuestionGroup || canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || null,
+    sourceProfile: productTruthFamily.sourceProfile || canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || null,
     sourceMatrixEntries,
-    productRouteTruthSource: selectedFamily
+    productRouteTruthSource: productTruth.contractVersion
+      ? "api_first_product_truth_object"
+      : selectedFamily
       ? "representation_family_authority_canonical_product_path"
       : primary.authoritySource || "primary_analysis_route",
     rawPrimaryAnalysisRouteAuditOnly: primary,
@@ -1756,6 +1763,75 @@ export function normalizeRawDataCoverageDiagnosticsPayload(responseLike) {
     providerUnavailableFields: safeArray(contract.providerUnavailableFields),
     manualReviewRequiredFields: safeArray(contract.manualReviewRequiredFields),
     dataCoverageImpact: safeArray(contract.dataCoverageImpact),
+  };
+}
+
+export function normalizeApiFirstInstitutionalIntelligencePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rawProviderDataRegistryContract = safeObject(root.rawProviderDataRegistryContract || nestedAnalysis.rawProviderDataRegistryContract);
+  const typedObservationLayerContract = safeObject(root.typedObservationLayerContract || nestedAnalysis.typedObservationLayerContract);
+  const institutionalProductTruthObject = safeObject(root.institutionalProductTruthObject || nestedAnalysis.institutionalProductTruthObject);
+  const institutionalQuestionAnswerEngineContract = safeObject(root.institutionalQuestionAnswerEngineContract || nestedAnalysis.institutionalQuestionAnswerEngineContract);
+  const manualApiResearchGapQueue = safeObject(root.manualApiResearchGapQueue || nestedAnalysis.manualApiResearchGapQueue);
+  const calibrationBacktestReadiness = safeObject(root.calibrationBacktestReadiness || nestedAnalysis.calibrationBacktestReadiness);
+  const hasAny = rawProviderDataRegistryContract.contractVersion
+    || typedObservationLayerContract.contractVersion
+    || institutionalProductTruthObject.contractVersion
+    || institutionalQuestionAnswerEngineContract.contractVersion
+    || manualApiResearchGapQueue.contractVersion
+    || calibrationBacktestReadiness.contractVersion;
+  if (!hasAny) return null;
+  return {
+    rawProviderDataRegistryContract: rawProviderDataRegistryContract.contractVersion ? {
+      ...rawProviderDataRegistryContract,
+      providers: safeArray(rawProviderDataRegistryContract.providers),
+      providerObservations: safeArray(rawProviderDataRegistryContract.providerObservations),
+      unavailableProviders: safeArray(rawProviderDataRegistryContract.unavailableProviders),
+      providerErrors: safeArray(rawProviderDataRegistryContract.providerErrors),
+      routingUsedRawFields: safeArray(rawProviderDataRegistryContract.routingUsedRawFields),
+      answerUsedRawFields: safeArray(rawProviderDataRegistryContract.answerUsedRawFields),
+      scoringUsedRawFields: safeArray(rawProviderDataRegistryContract.scoringUsedRawFields),
+      auditOnlyRawFields: safeArray(rawProviderDataRegistryContract.auditOnlyRawFields),
+      warnings: safeArray(rawProviderDataRegistryContract.warnings),
+    } : null,
+    typedObservationLayerContract: typedObservationLayerContract.contractVersion ? {
+      ...typedObservationLayerContract,
+      eligibleRoutingObservations: safeArray(typedObservationLayerContract.eligibleRoutingObservations),
+      eligibleAnswerObservations: safeArray(typedObservationLayerContract.eligibleAnswerObservations),
+      eligibleExistingScoringObservations: safeArray(typedObservationLayerContract.eligibleExistingScoringObservations),
+      futureCalibrationCandidateObservations: safeArray(typedObservationLayerContract.futureCalibrationCandidateObservations),
+      ineligibleObservations: safeArray(typedObservationLayerContract.ineligibleObservations),
+      unavailableDataMarkers: safeArray(typedObservationLayerContract.unavailableDataMarkers),
+      contradictionCandidates: safeArray(typedObservationLayerContract.contradictionCandidates),
+      warningFlags: safeArray(typedObservationLayerContract.warningFlags),
+    } : null,
+    institutionalProductTruthObject: institutionalProductTruthObject.contractVersion ? {
+      ...institutionalProductTruthObject,
+      institutionalQuestionSet: safeArray(institutionalProductTruthObject.institutionalQuestionSet),
+      institutionalQuestionAnswers: safeArray(institutionalProductTruthObject.institutionalQuestionAnswers),
+      sourceQueueItems: safeArray(institutionalProductTruthObject.sourceQueueItems),
+      manualReviewItems: safeArray(institutionalProductTruthObject.manualReviewItems),
+      scoringTransparency: safeArray(institutionalProductTruthObject.scoringTransparency),
+      protectedReportSummary: safeArray(institutionalProductTruthObject.protectedReportSummary),
+      auditOnlyLegacyRouteSummary: safeArray(institutionalProductTruthObject.auditOnlyLegacyRouteSummary),
+      warnings: safeArray(institutionalProductTruthObject.warnings),
+    } : null,
+    institutionalQuestionAnswerEngineContract: institutionalQuestionAnswerEngineContract.contractVersion ? {
+      ...institutionalQuestionAnswerEngineContract,
+      answers: safeArray(institutionalQuestionAnswerEngineContract.answers),
+      warnings: safeArray(institutionalQuestionAnswerEngineContract.warnings),
+    } : null,
+    manualApiResearchGapQueue: manualApiResearchGapQueue.contractVersion ? {
+      ...manualApiResearchGapQueue,
+      gaps: safeArray(manualApiResearchGapQueue.gaps),
+    } : null,
+    calibrationBacktestReadiness: calibrationBacktestReadiness.contractVersion ? {
+      ...calibrationBacktestReadiness,
+      requiredDatasets: safeArray(calibrationBacktestReadiness.requiredDatasets),
+      noLookaheadRules: safeArray(calibrationBacktestReadiness.noLookaheadRules),
+      blockers: safeArray(calibrationBacktestReadiness.blockers),
+    } : null,
   };
 }
 
@@ -2244,12 +2320,17 @@ export function buildProtectedInvestorReportText({
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
+  const apiFirstInstitutionalIntelligence = normalizeApiFirstInstitutionalIntelligencePayload(safeModel) || normalizeApiFirstInstitutionalIntelligencePayload(safeData) || normalizeApiFirstInstitutionalIntelligencePayload(safeAnalysis);
+  const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
+  const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
+  const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
   const primaryAnalysisRoute = buildFamilyProductRouteTruth({
     primaryAnalysisRoute: rawPrimaryAnalysisRoute,
     representationFamilyRoute,
     familyCanonicalRoutingContract,
     familyDataRequirementMatrixContract,
     assetInterpretationContract: safeModel.assetInterpretationContract || normalizeAssetInterpretationContractPayload(safeData) || normalizeAssetInterpretationContractPayload(safeAnalysis),
+    institutionalProductTruthObject,
   }) || rawPrimaryAnalysisRoute;
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
@@ -2330,6 +2411,9 @@ export function buildProtectedInvestorReportText({
     reportLine("Analysis question family", familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
     reportLine("Source requirement family", familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile),
     reportLine("Family data matrix", familyDataRequirementMatrixContract?.primarySourceMatrixId || familyCanonicalRoutingContract?.canonicalSourceMatrixEntries?.[0]),
+    reportLine("Product truth object", institutionalProductTruthObject ? "Attached" : "Not available yet."),
+    reportLine("Typed observations", typedObservationLayerContract ? `${safeArray(typedObservationLayerContract.eligibleRoutingObservations).length} routing; ${safeArray(typedObservationLayerContract.eligibleAnswerObservations).length} answer observations` : "Not available yet."),
+    reportLine("Research gap queue", manualApiResearchGapQueue ? `${safeArray(manualApiResearchGapQueue.gaps).length} open gaps; AI/deep research disabled` : "Not available yet."),
     reportLine("Critical family requirements", familyDataRequirementMatrixContract ? `${safeArray(familyDataRequirementMatrixContract.manualReviewTriggers).length} review gates; ${safeArray(familyDataRequirementMatrixContract.confidenceCapRules).length} confidence caps` : "Not available yet."),
     reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
     reportLine("Representation family", representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily),
@@ -2340,6 +2424,10 @@ export function buildProtectedInvestorReportText({
     reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
     reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
+    ...(institutionalProductTruthObject?.protectedReportSummary?.length ? [
+      "Product truth summary:",
+      ...formatReportList(institutionalProductTruthObject.protectedReportSummary, "No product truth summary attached.", 4),
+    ] : []),
     reportLine("Analyzed network", assetIdentityResolution?.analyzedNetwork || assetIdentityResolution?.selectedNetwork),
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
     "",
@@ -5185,6 +5273,13 @@ export function buildDecisionTerminalModel({
   const categoryReadinessDiagnostics = normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const providerRawDataExpansion = normalizeProviderRawDataExpansionPayload(safeAnalysis);
   const rawDataCoverageDiagnostics = normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics || null;
+  const apiFirstInstitutionalIntelligence = normalizeApiFirstInstitutionalIntelligencePayload(safeAnalysis);
+  const rawProviderDataRegistryContract = apiFirstInstitutionalIntelligence?.rawProviderDataRegistryContract || null;
+  const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || null;
+  const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || null;
+  const institutionalQuestionAnswerEngineContract = apiFirstInstitutionalIntelligence?.institutionalQuestionAnswerEngineContract || null;
+  const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || null;
+  const calibrationBacktestReadiness = apiFirstInstitutionalIntelligence?.calibrationBacktestReadiness || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -5196,6 +5291,7 @@ export function buildDecisionTerminalModel({
     familyCanonicalRoutingContract,
     familyDataRequirementMatrixContract,
     assetInterpretationContract,
+    institutionalProductTruthObject,
   }) || rawPrimaryAnalysisRoute;
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
@@ -5640,6 +5736,12 @@ export function buildDecisionTerminalModel({
     categoryReadinessDiagnostics,
     providerRawDataExpansion,
     rawDataCoverageDiagnostics,
+    rawProviderDataRegistryContract,
+    typedObservationLayerContract,
+    institutionalProductTruthObject,
+    institutionalQuestionAnswerEngineContract,
+    manualApiResearchGapQueue,
+    calibrationBacktestReadiness,
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
@@ -6952,6 +7054,13 @@ export function buildReviewBundleText({
   const categoryReadinessDiagnostics = safeModel.categoryReadinessDiagnostics || normalizeCategoryReadinessDiagnosticsPayload(safeData) || normalizeCategoryReadinessDiagnosticsPayload(safeAnalysis);
   const providerRawDataExpansion = safeModel.providerRawDataExpansion || normalizeProviderRawDataExpansionPayload(safeData) || normalizeProviderRawDataExpansionPayload(safeAnalysis);
   const rawDataCoverageDiagnostics = safeModel.rawDataCoverageDiagnostics || normalizeRawDataCoverageDiagnosticsPayload(safeData) || normalizeRawDataCoverageDiagnosticsPayload(safeAnalysis) || providerRawDataExpansion?.rawDataCoverageDiagnostics;
+  const apiFirstInstitutionalIntelligence = normalizeApiFirstInstitutionalIntelligencePayload(safeModel) || normalizeApiFirstInstitutionalIntelligencePayload(safeData) || normalizeApiFirstInstitutionalIntelligencePayload(safeAnalysis);
+  const rawProviderDataRegistryContract = apiFirstInstitutionalIntelligence?.rawProviderDataRegistryContract || safeModel.rawProviderDataRegistryContract || null;
+  const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
+  const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
+  const institutionalQuestionAnswerEngineContract = apiFirstInstitutionalIntelligence?.institutionalQuestionAnswerEngineContract || safeModel.institutionalQuestionAnswerEngineContract || null;
+  const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
+  const calibrationBacktestReadiness = apiFirstInstitutionalIntelligence?.calibrationBacktestReadiness || safeModel.calibrationBacktestReadiness || null;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -8409,6 +8518,75 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(familyDataRequirementMatrixContract?.knownLimitations),
       bundleField("Next resume pointer", familyDataRequirementMatrixContract?.nextStep || "Batch 2 benchmark coverage or Evidence-to-Score Calibration prep depending QA results."),
+    ]),
+    bundleSection("2AS. API-First Institutional Intelligence Backbone v1", [
+      bundleField("Raw provider registry attached", rawProviderDataRegistryContract ? "yes" : "missing"),
+      bundleField("Typed observation layer attached", typedObservationLayerContract ? "yes" : "missing"),
+      bundleField("Product Truth Object attached", institutionalProductTruthObject ? "yes" : "missing"),
+      bundleField("Institutional Question Answer Engine attached", institutionalQuestionAnswerEngineContract ? "yes" : "missing"),
+      bundleField("Manual/API research gap queue attached", manualApiResearchGapQueue ? "yes" : "missing"),
+      bundleField("Calibration/backtest readiness attached", calibrationBacktestReadiness ? "yes" : "missing"),
+      bundleField("Provider observations", safeArray(rawProviderDataRegistryContract?.providerObservations).length),
+      bundleField("Providers inventoried", safeArray(rawProviderDataRegistryContract?.providers).length),
+      bundleField("Routing-eligible observations", safeArray(typedObservationLayerContract?.eligibleRoutingObservations).length),
+      bundleField("Answer-eligible observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).length),
+      bundleField("Scoring-now observations", safeArray(typedObservationLayerContract?.eligibleExistingScoringObservations).length),
+      bundleField("Future calibration candidates", safeArray(typedObservationLayerContract?.futureCalibrationCandidateObservations).length),
+      bundleField("Unavailable data markers", safeArray(typedObservationLayerContract?.unavailableDataMarkers).length),
+      bundleField("Final family", institutionalProductTruthObject?.finalFamilyDecision?.familyId),
+      bundleField("Final visible label", institutionalProductTruthObject?.finalFamilyDecision?.visibleLabel),
+      bundleField("Final question group", institutionalProductTruthObject?.finalQuestionGroup),
+      bundleField("Final source matrix", safeArray(institutionalProductTruthObject?.finalSourceMatrix).join(", ")),
+      bundleField("Coverage tier", institutionalProductTruthObject?.coverageAndScoreEligibility?.coverageTier),
+      bundleField("Score eligibility", institutionalProductTruthObject?.coverageAndScoreEligibility?.scoreEligibility),
+      bundleField("Score display mode", institutionalProductTruthObject?.coverageAndScoreEligibility?.scoreDisplayMode),
+      bundleField("Research gaps", safeArray(manualApiResearchGapQueue?.gaps).length),
+      bundleField("AI/Deep Research status", manualApiResearchGapQueue?.aiDeepResearchBoundary || "disabled_not_implemented"),
+      bundleField("Calibration readiness", calibrationBacktestReadiness?.readinessStatus),
+      bundleField("Scoring calibration status", calibrationBacktestReadiness?.scoringCalibrationStatus),
+      "Provider inventory:",
+      bundleList(safeArray(rawProviderDataRegistryContract?.providers).slice(0, 16).map((provider) =>
+        `${provider.provider || "provider"} | identity=${yesNoUnknown(provider.shouldBeIdentityEligible)} family=${yesNoUnknown(provider.shouldBeFamilyRoutingEligible)} answer=${yesNoUnknown(provider.shouldBeQuestionAnswerEligible)} scoringNow=${yesNoUnknown(provider.shouldBeScoringEligibleNow)}`
+      ), "No provider inventory attached.", 16),
+      "Routing observations:",
+      bundleList(safeArray(typedObservationLayerContract?.eligibleRoutingObservations).slice(0, 16).map((obs) =>
+        `${obs.id || "observation"} | ${obs.observationType || "type"} | ${obs.sourceProvider || "provider"} | ${obs.sourcePath || "path"} | boundary=${obs.evidenceBoundary || "boundary unavailable"}`
+      ), "No routing observations attached.", 16),
+      "Excluded / ineligible inputs:",
+      bundleList(safeArray(institutionalProductTruthObject?.finalFamilyDecision?.excludedInputs).concat(
+        safeArray(typedObservationLayerContract?.ineligibleObservations).slice(0, 8).map((obs) => `${obs.sourceCategory || "category"}:${obs.sourcePath || "path"}`)
+      ), "No excluded inputs attached.", 18),
+      "Question answers:",
+      bundleList(safeArray(institutionalQuestionAnswerEngineContract?.answers).slice(0, 12).map((answer) =>
+        `${answer.questionId || "question"} | ${answer.answerStatus || "status"} | ${answer.shortAnswer || "answer unavailable"} | observations=${safeArray(answer.observationsUsed).length} missing=${safeArray(answer.missingObservations).length}`
+      ), "No API-first question answers attached.", 12),
+      "Research gaps:",
+      bundleList(safeArray(manualApiResearchGapQueue?.gaps).slice(0, 14).map((gap) =>
+        `${gap.gapId || "gap"} | ${gap.priority || "priority"} | ${gap.gapType || "type"} | ${gap.missingData || "missing data unavailable"} | ai=${gap.aiDeepResearchStatus || "disabled_not_implemented"}`
+      ), "No research gaps attached.", 14),
+      "Calibration/backtest blockers:",
+      bundleList(calibrationBacktestReadiness?.blockers, "No calibration blockers attached.", 10),
+      "Product Truth protected summary:",
+      bundleList(institutionalProductTruthObject?.protectedReportSummary, "No protected product truth summary attached.", 6),
+      "Audit-only legacy route summary:",
+      bundleList(institutionalProductTruthObject?.auditOnlyLegacyRouteSummary, "No audit-only legacy route summary attached.", 8),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(institutionalProductTruthObject?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`), "No API-first guardrails attached.", 12),
+      "QA checks:",
+      bundleList([
+        `2AS present=yes`,
+        `source requirement text routing eligible=${yesNoUnknown(safeArray(typedObservationLayerContract?.eligibleRoutingObservations).some((obs) => obs.sourceCategory === "source_requirement_text"))}`,
+        `manual review text routing eligible=${yesNoUnknown(safeArray(typedObservationLayerContract?.eligibleRoutingObservations).some((obs) => obs.sourceCategory === "manual_review_requirement"))}`,
+        `score formula changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.scoreFormulaChanged)}`,
+        `verdict formula changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.verdictFormulaChanged)}`,
+        `provider fetch behavior changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.providerFetchBehaviorChanged)}`,
+        `AI/deep research implemented=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.aiDeepResearchImplemented)}`,
+        `source candidates promoted=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.sourceCandidatesPromoted)}`,
+        `reviewed evidence scoring-active=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `snapshots reintroduced=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.snapshotsReintroduced)}`,
+        `partial refresh reintroduced=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.partialRefreshReintroduced)}`,
+      ]),
+      bundleField("Next resume pointer", "Fresh live QA on benchmark/control assets, then Provider Raw Data Normalization v2 or Evidence-to-Score Calibration Prep v1."),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
