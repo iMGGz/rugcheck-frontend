@@ -1487,28 +1487,28 @@ export function buildFamilyProductRouteTruth({
   const visible = safeObject(assetInterpretationContract?.visibleDisplayContract);
   const productTruth = safeObject(institutionalProductTruthObject);
   const productTruthFamily = safeObject(productTruth.finalFamilyDecision);
-  const selectedFamily = canonical.effectiveFamily
+  const selectedFamily = productTruthFamily.familyId
+    || canonical.effectiveFamily
     || matrix.primaryFamily
     || representation.selectedFamily
-    || productTruthFamily.familyId
     || primary.assetFamily
     || null;
-  const visibleLabel = representation.visibleLabel
+  const visibleLabel = productTruthFamily.visibleLabel
+    || representation.visibleLabel
     || visible.primaryVisibleLabel
-    || productTruthFamily.visibleLabel
     || primary.visibleLabel
     || selectedFamily
     || null;
-  const assetFramingLabel = representation.assetFramingLabel
+  const assetFramingLabel = productTruthFamily.assetFraming
+    || representation.assetFramingLabel
     || visible.assetFramingLabel
-    || productTruthFamily.assetFraming
     || primary.assetFramingLabel
     || null;
-  let sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries);
+  let sourceMatrixEntries = safeArray(productTruth.finalSourceMatrix);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruthFamily.sourceMatrixIds);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries);
   if (!sourceMatrixEntries.length && matrix.primarySourceMatrixId) sourceMatrixEntries = [matrix.primarySourceMatrixId];
   if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(representation.sourceMatrixEntries);
-  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruth.finalSourceMatrix);
-  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruthFamily.sourceMatrixIds);
   if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(primary.sourceMatrixEntries);
   if (!selectedFamily && !visibleLabel && !sourceMatrixEntries.length) return primary.assetFamily || primary.visibleLabel ? primary : null;
   return {
@@ -1516,12 +1516,10 @@ export function buildFamilyProductRouteTruth({
     assetFamily: selectedFamily,
     visibleLabel,
     assetFramingLabel,
-    questionGroup: canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || productTruth.finalQuestionGroup || primary.questionGroup || null,
-    sourceProfile: canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || productTruthFamily.sourceProfile || primary.sourceProfile || null,
+    questionGroup: productTruth.finalQuestionGroup || canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || null,
+    sourceProfile: productTruthFamily.sourceProfile || canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || null,
     sourceMatrixEntries,
-    productRouteTruthSource: canonical.contractStatus || canonical.artifactVersion || matrix.contractStatus || matrix.artifactVersion || representation.selectedFamily
-      ? "representation_family_authority_canonical_product_path"
-      : productTruth.contractVersion
+    productRouteTruthSource: productTruth.contractVersion
       ? "api_first_product_truth_object"
       : selectedFamily
       ? "representation_family_authority_canonical_product_path"
@@ -5837,11 +5835,11 @@ export function buildDecisionTerminalModel({
   return baseDisplayModel;
 }
 
-function bundleValue(value, fallback = "Not available in current QA bundle view") {
+function bundleValue(value, fallback = "Unavailable in current frontend model") {
   return extractRenderableText(value, fallback) || fallback;
 }
 
-function bundleList(items, fallback = "Not available in current QA bundle view", limit = null) {
+function bundleList(items, fallback = "Unavailable in current frontend model", limit = null) {
   const normalized = normalizeRenderableList(items);
   const limited = limit ? normalized.slice(0, limit) : normalized;
   return limited.length ? limited.map((item) => `- ${item}`).join("\n") : `- ${fallback}`;
@@ -5859,7 +5857,7 @@ function bundleSection(title, lines = []) {
   ].join("\n");
 }
 
-function bundleObjectRows(objectValue, fallback = "Not available in current QA bundle view", limit = null) {
+function bundleObjectRows(objectValue, fallback = "Unavailable in current frontend model", limit = null) {
   const entries = Object.entries(safeObject(objectValue))
     .filter(([, value]) => value !== null && value !== undefined && value !== "")
     .map(([key, value]) => `${key}: ${extractRenderableText(value, JSON.stringify(value))}`);
@@ -5874,7 +5872,7 @@ function bundleProviderDiagnostics(providerDiagnostics, limit = 12) {
     const reason = entry?.reason || entry?.safeReason || entry?.message || "No reason attached.";
     return `- ${provider}: ${status} | ${reason}`;
   });
-  return rows.length ? rows.join("\n") : "- Not available in current QA bundle view";
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
 }
 
 function bundleProviderHealth(providerHealth, limit = 12) {
@@ -5885,7 +5883,7 @@ function bundleProviderHealth(providerHealth, limit = 12) {
     const reason = entry?.reason || entry?.message || "No reason attached.";
     return `- ${provider}: ${status} | ${reason}`;
   });
-  return rows.length ? rows.join("\n") : "- Not available in current QA bundle view";
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
 }
 
 function bundleProviderEvidence(evidence = []) {
@@ -5896,7 +5894,7 @@ function bundleProviderEvidence(evidence = []) {
     const weight = entry?.weight !== undefined ? ` | weight ${entry.weight}` : "";
     return `- ${provider}.${field}: ${value}${weight}`;
   });
-  return rows.length ? rows.join("\n") : "- Not available in current QA bundle view";
+  return rows.length ? rows.join("\n") : "- Unavailable in current frontend model";
 }
 
 function renderedSurfaceList(...groups) {
@@ -6265,39 +6263,39 @@ function bundleSynthesizedAnswer(question) {
   const answer = safeObject(question?.synthesizedAnswer);
   const card = getAnalystAnswerCard(question);
   if (!answer.directAnswer && !answer.evidenceStatus) return [
-    "  synthesized.directAnswer: Not available in current QA bundle view",
-    "  synthesized.evidenceStatus: Not available in current QA bundle view",
+    "  synthesized.directAnswer: Unavailable in current frontend model",
+    "  synthesized.evidenceStatus: Unavailable in current frontend model",
   ].join("\n");
   return [
     `  synthesized.directAnswer: ${bundleValue(answer.directAnswer)}`,
     `  synthesized.evidenceStatus: ${bundleValue(answer.evidenceStatus)}`,
     `  analyst.directAnswer: ${bundleValue(card.directAnswer)}`,
     `  analyst.headlineStatus: ${bundleValue(card.headlineStatus)}`,
-    `  analyst.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || "Not available in current QA bundle view"}`,
-    `  analyst.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve).join("; ") || "Not available in current QA bundle view"}`,
-    `  analyst.missingEvidence: ${normalizeRenderableList(card.missingEvidence).join("; ") || "Not available in current QA bundle view"}`,
+    `  analyst.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.missingEvidence: ${normalizeRenderableList(card.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
     `  analyst.decisionImpact: ${bundleValue(card.decisionImpact)}`,
-    `  analyst.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange).join("; ") || "Not available in current QA bundle view"}`,
-    `  analyst.sourceBoundaryPlainEnglish: ${normalizeRenderableList(card.sourceBoundaryPlainEnglish).join("; ") || "Not available in current QA bundle view"}`,
+    `  analyst.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.sourceBoundaryPlainEnglish: ${normalizeRenderableList(card.sourceBoundaryPlainEnglish).join("; ") || "Unavailable in current frontend model"}`,
     `  analyst.confidenceBoundary: ${bundleValue(card.confidenceBoundary)}`,
     `  analyst.manualReviewImplication: ${bundleValue(card.manualReviewImplication)}`,
     `  analyst.assetClassSpecificKeyIssue: ${bundleValue(card.assetClassSpecificKeyIssue)}`,
-    `  analyst.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Not available in current QA bundle view"}`,
-    `  analyst.auditFields: ${normalizeRenderableList(card.auditFields).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.evidenceUsed: ${normalizeRenderableList(answer.evidenceUsed).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.reviewedSourcesUsed: ${safeArray(answer.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.reviewedFactsUsed: ${safeArray(answer.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.whatEvidenceDoesNotProve: ${normalizeRenderableList(answer.whatEvidenceDoesNotProve).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.missingEvidence: ${normalizeRenderableList(answer.missingEvidence).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.sourceBoundary: ${normalizeRenderableList(answer.sourceBoundary).join("; ") || "Not available in current QA bundle view"}`,
+    `  analyst.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Unavailable in current frontend model"}`,
+    `  analyst.auditFields: ${normalizeRenderableList(card.auditFields).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.evidenceUsed: ${normalizeRenderableList(answer.evidenceUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.reviewedSourcesUsed: ${safeArray(answer.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.reviewedFactsUsed: ${safeArray(answer.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.whatEvidenceDoesNotProve: ${normalizeRenderableList(answer.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.missingEvidence: ${normalizeRenderableList(answer.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.sourceBoundary: ${normalizeRenderableList(answer.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
     `  synthesized.impact: ${bundleValue(answer.impact)}`,
-    `  synthesized.whatWouldChange: ${normalizeRenderableList(answer.whatWouldChange).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.warnings: ${normalizeRenderableList(answer.warnings).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.identityWarnings: ${normalizeRenderableList(answer.identityWarnings).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.formulaOutputsUsed: ${normalizeRenderableList(answer.formulaOutputsUsed).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.liveDataUsed: ${normalizeRenderableList(answer.liveDataUsed).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.providerDataUsed: ${normalizeRenderableList(answer.providerDataUsed).join("; ") || "Not available in current QA bundle view"}`,
-    `  synthesized.answerQualityFlags: ${normalizeRenderableList(answer.answerQualityFlags).join("; ") || "Not available in current QA bundle view"}`,
+    `  synthesized.whatWouldChange: ${normalizeRenderableList(answer.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.warnings: ${normalizeRenderableList(answer.warnings).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.identityWarnings: ${normalizeRenderableList(answer.identityWarnings).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.formulaOutputsUsed: ${normalizeRenderableList(answer.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.liveDataUsed: ${normalizeRenderableList(answer.liveDataUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.providerDataUsed: ${normalizeRenderableList(answer.providerDataUsed).join("; ") || "Unavailable in current frontend model"}`,
+    `  synthesized.answerQualityFlags: ${normalizeRenderableList(answer.answerQualityFlags).join("; ") || "Unavailable in current frontend model"}`,
     `  synthesized.template: ${bundleValue(answer.synthesisTemplateId)}`,
   ].join("\n");
 }
@@ -6314,9 +6312,9 @@ function bundleQuestions(questions = []) {
       `  liveUi.tab: Institutional Checklist`,
       `  liveUi.primaryAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
       `  liveUi.primaryStatus: ${bundleValue(card.headlineStatus || synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
-      `  liveUi.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Not available in current QA bundle view"}`,
+      `  liveUi.primaryBadges: ${normalizeRenderableList(card.primaryBadges).join("; ") || "Unavailable in current frontend model"}`,
       `  liveUi.primaryMissingEvidence: ${normalizeRenderableList(card.missingEvidence).slice(0, 2).join("; ") || "none visible in primary row"}`,
-      `  liveUi.primaryWhatWouldChange: ${normalizeRenderableList(card.whatWouldChange).slice(0, 2).join("; ") || "Not available in current QA bundle view"}`,
+      `  liveUi.primaryWhatWouldChange: ${normalizeRenderableList(card.whatWouldChange).slice(0, 2).join("; ") || "Unavailable in current frontend model"}`,
       `  liveUi.primaryImpact: ${bundleValue(card.decisionImpact || synthesized.impact || question?.impactOnScoreOrConfidence)}`,
       `  primaryAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
       `  primaryEvidenceStatus: ${bundleValue(card.headlineStatus || synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus)}`,
@@ -6328,18 +6326,18 @@ function bundleQuestions(questions = []) {
       bundleSynthesizedAnswer(question),
       `  audit.legacyShortAnswer: ${bundleValue(question?.shortAnswer)}`,
       `  audit.legacyAnswerSummary: ${bundleValue(question?.answerSummary)}`,
-      `  audit.supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Not available in current QA bundle view"}`,
-      `  audit.dataFieldsUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Not available in current QA bundle view"}`,
-      `  audit.formulaOutputsUsed: ${normalizeRenderableList(question?.formulaOutputsUsed).join("; ") || "Not available in current QA bundle view"}`,
-      `  missingEvidence: ${normalizeRenderableList(synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Not available in current QA bundle view"}`,
-      `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Not available in current QA bundle view"}`,
+      `  audit.supportingSignals: ${normalizeRenderableList(question?.supportingSignals).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.dataFieldsUsed: ${normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.formulaOutputsUsed: ${normalizeRenderableList(question?.formulaOutputsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  missingEvidence: ${normalizeRenderableList(synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
+      `  contradictionSignals: ${normalizeRenderableList(question?.contradictionSignals).join("; ") || "Unavailable in current frontend model"}`,
       `  impactOnScoreOrConfidence: ${bundleValue(synthesized.impact || question?.impactOnScoreOrConfidence)}`,
-      `  whatWouldChange: ${normalizeRenderableList(synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Not available in current QA bundle view"}`,
-      `  audit.scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Not available in current QA bundle view"}`,
-      `  audit.sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Not available in current QA bundle view"}`,
+      `  whatWouldChange: ${normalizeRenderableList(synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.scoringFieldsUsed: ${normalizeRenderableList(question?.scoringFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
+      `  audit.sourceBoundary: ${normalizeRenderableList(question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
     ].join("\n");
   });
-  return rows.length ? rows.join("\n\n") : "Not available in current QA bundle view";
+  return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
 }
 
 function tokenomicsQuestionGroup(question) {
@@ -6402,20 +6400,20 @@ function bundleTokenomicsQuestionFirstMirror(tokenomics) {
       `  sourceState: ${card.headlineStatus || tokenomicsQuestionSourceState(question, formulas)}`,
       `  expanded.directAnswer: ${bundleValue(card.directAnswer || synthesized.directAnswer || question?.shortAnswer || question?.answerSummary)}`,
       `  expanded.whyItMatters: ${bundleValue(card.assetClassSpecificKeyIssue || tokenomicsQuestionWhyItMatters(question))}`,
-      `  expanded.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Not available in current QA bundle view"}`,
+      `  expanded.evidenceBasis: ${normalizeRenderableList(card.evidenceBasis).join("; ") || normalizeRenderableList(question?.dataFieldsUsed).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.formulaOrRuleUsed: ${formulaOrRule}`,
-      `  expanded.evidenceStatus: synthesized=${bundleValue(synthesized.evidenceStatus)}; provider/review fields=${normalizeRenderableList(card.evidenceBasis || synthesized.evidenceUsed || question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(card.sourceBoundaryPlainEnglish || synthesized.sourceBoundary || question?.sourceBoundary).join("; ") || "Not available in current QA bundle view"}`,
-      `  expanded.reviewedSourcesUsed: ${safeArray(synthesized.reviewedSourcesUsed || question?.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Not available in current QA bundle view"}`,
-      `  expanded.reviewedFactsUsed: ${safeArray(synthesized.reviewedFactsUsed || question?.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Not available in current QA bundle view"}`,
-      `  expanded.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve || synthesized.whatEvidenceDoesNotProve).join("; ") || "Not available in current QA bundle view"}`,
-      `  expanded.missingEvidence: ${normalizeRenderableList(card.missingEvidence || synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Not available in current QA bundle view"}`,
+      `  expanded.evidenceStatus: synthesized=${bundleValue(synthesized.evidenceStatus)}; provider/review fields=${normalizeRenderableList(card.evidenceBasis || synthesized.evidenceUsed || question?.evidenceUsed).join("; ") || "none"}; boundary=${normalizeRenderableList(card.sourceBoundaryPlainEnglish || synthesized.sourceBoundary || question?.sourceBoundary).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.reviewedSourcesUsed: ${safeArray(synthesized.reviewedSourcesUsed || question?.reviewedSourcesUsed).map((source) => `${source.sourceId || source.title || "source"} (${source.scoringEligible ? "scoring eligible" : "not scoring-active"})`).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.reviewedFactsUsed: ${safeArray(synthesized.reviewedFactsUsed || question?.reviewedFactsUsed).map((fact) => `${fact.factId || "fact"}: ${fact.claim || "claim unavailable"}`).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.whatEvidenceDoesNotProve: ${normalizeRenderableList(card.whatEvidenceDoesNotProve || synthesized.whatEvidenceDoesNotProve).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.missingEvidence: ${normalizeRenderableList(card.missingEvidence || synthesized.missingEvidence || question?.missingEvidence).join("; ") || "Unavailable in current frontend model"}`,
       `  expanded.impact: ${bundleValue(card.decisionImpact || synthesized.impact || question?.impactOnScoreOrConfidence)}`,
       `  expanded.confidenceBoundary: ${bundleValue(card.confidenceBoundary)}`,
-      `  expanded.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange || synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Not available in current QA bundle view"}`,
-      `  expanded.answerQualityFlags: ${normalizeRenderableList(synthesized.answerQualityFlags).join("; ") || "Not available in current QA bundle view"}`,
+      `  expanded.whatWouldChange: ${normalizeRenderableList(card.whatWouldChange || synthesized.whatWouldChange || question?.whatWouldChange).join("; ") || "Unavailable in current frontend model"}`,
+      `  expanded.answerQualityFlags: ${normalizeRenderableList(synthesized.answerQualityFlags).join("; ") || "Unavailable in current frontend model"}`,
     ].join("\n");
   });
-  return rows.length ? rows.join("\n\n") : "Not available in current QA bundle view";
+  return rows.length ? rows.join("\n\n") : "Unavailable in current frontend model";
 }
 
 function questionGroupMatchesLens(questions, lens) {
@@ -6460,19 +6458,6 @@ function yesNoUnknown(value) {
   if (value === true) return "yes";
   if (value === false) return "no";
   return "unknown";
-}
-
-function classifyIdentityLensLeakageBundleLine(line) {
-  const text = String(line || "");
-  if (!text.trim()) return "audit_or_scanner";
-  if (
-    /forbidden|string check|forbiddenPattern|allowedWhen|must not|expected surface|qa check|output qa|scanner|guardrail|false-negative prevention|benchmark learning|engine learning/i.test(text) ||
-    /audit|raw|internal developer|diagnostic|artifact|report|methodology|known limitations|next resume pointer|review bundle role/i.test(text) ||
-    /sourceBoundary|ruleId|claimId|packId|contract attached|forbidden primary term leakage count/i.test(text)
-  ) {
-    return "audit_or_scanner";
-  }
-  return "primary_or_user_mirror";
 }
 
 function buildIdentityLensLeakageForbiddenStringChecks({
@@ -6533,28 +6518,11 @@ function buildIdentityLensLeakageForbiddenStringChecks({
   ].filter((definition) => definition.applies);
 
   return definitions.map((definition) => {
-    const lineMatches = String(bundleText || "")
-      .split(/\r?\n/)
-      .map((line, index) => {
-        const matches = line.match(definition.pattern) || [];
-        if (!matches.length) return null;
-        return {
-          lineNumber: index + 1,
-          line: line.trim().slice(0, 240),
-          matches: Array.from(new Set(matches)).slice(0, 5),
-          classification: classifyIdentityLensLeakageBundleLine(line),
-        };
-      })
-      .filter(Boolean);
-    const blockingMatches = lineMatches.filter((entry) => entry.classification === "primary_or_user_mirror");
+    const matches = String(bundleText || "").match(definition.pattern) || [];
     return {
       ...definition,
-      passed: blockingMatches.length === 0,
-      matches: Array.from(new Set(blockingMatches.flatMap((entry) => entry.matches))).slice(0, 5),
-      auditOnlyMentions: lineMatches
-        .filter((entry) => entry.classification === "audit_or_scanner")
-        .map((entry) => ({ lineNumber: entry.lineNumber, matches: entry.matches, line: entry.line }))
-        .slice(0, 5),
+      passed: matches.length === 0,
+      matches: Array.from(new Set(matches)).slice(0, 5),
       checkedFields: [
         "assetIdentityResolution.identityWarnings",
         "assetIdentityResolution.chainWarnings",
@@ -7360,7 +7328,7 @@ export function buildReviewBundleText({
   const analystCardMissing = allSynthesizedQuestions.some((question) => !safeObject(question?.synthesizedAnswer?.analystAnswerCard).directAnswer);
   const analystPrimaryMissingAnswer = analystCards.some(({ card }) => !String(card?.directAnswer || "").trim());
   const analystPrimaryTemplateLeakage = analystCards.some(({ card }) =>
-    /synthesisTemplateId|institutional_answer_synthesis_v1|sourceBoundary|scoringFieldsUsed|tokenDemandQuality|Not available in current QA bundle view/i.test(`${card?.directAnswer || ""} ${card?.headlineStatus || ""} ${safeArray(card?.primaryBadges).join(" ")}`),
+    /synthesisTemplateId|institutional_answer_synthesis_v1|sourceBoundary|scoringFieldsUsed|tokenDemandQuality|Unavailable in current frontend model/i.test(`${card?.directAnswer || ""} ${card?.headlineStatus || ""} ${safeArray(card?.primaryBadges).join(" ")}`),
   );
   const analystPrimaryRawEnumLeakage = analystCards.some(({ card }) =>
     /provider_metadata_not_reviewed_evidence|reviewed_demo_evidence_not_scoring_active|scoring_active_existing_field|diagnostic_only_not_scoring_active/i.test(`${card?.directAnswer || ""} ${card?.headlineStatus || ""}`),
@@ -9849,7 +9817,7 @@ export function buildReviewBundleText({
       bundleField("Expandable rows keyboard/touch accessible", "yes - shared expanders use button semantics with aria-expanded; checklist rows use native summary plus visible state copy"),
       bundleField("Mobile overflow risk from long IDs/contracts", "reduced - primary text rows, cards, rail values, and timelines use break-word/anywhere wrapping"),
       bundleField("Right rail competes on small screens", "no - responsive layout stacks rail and uses compact mobile rail summary"),
-      bundleField("Primary UI contains 'Not available in current QA bundle view'", "no - that placeholder is reserved for Review Bundle/audit fallback text"),
+      bundleField("Primary UI contains 'Unavailable in current frontend model'", "no - that placeholder is reserved for Review Bundle/audit fallback text"),
       bundleField("Primary UI exposes raw sourceBoundary field names", checklistRawSourceBoundaryPrimaryRisk ? "no - raw boundary ids are collapsed technical/audit detail, not primary row copy" : "no"),
       bundleField("Primary UI exposes scoringFieldsUsed", "no - checklist scoring/audit fields are collapsed technical details"),
       bundleField("Checklist supported status but no short answer", yesNoUnknown(checklistSupportedWithoutAnswer)),
