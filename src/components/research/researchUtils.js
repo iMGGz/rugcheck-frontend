@@ -7587,25 +7587,13 @@ export function buildReviewBundleText({
   const renderDepinMechanismFactsVisible = reviewedEvidencePacket?.packetId === "reviewed-demo-render-v1"
     ? renderDepinMechanismMappings.some((mapping) => safeArray(mapping?.reviewedFactsUsed).some((fact) => /render-bme-payment-burn|render-bme-emissions|render-solana-token-context|render-rndr-to-render-upgrade/i.test(String(fact?.factId || ""))))
     : null;
-  const currentProductCoreText = [
-    renderedPrimaryVisibleText,
-    ...twoAmBundleUserMirrorText,
-    institutionalProductTruthObject?.finalFamilyDecision?.visibleLabel,
-    institutionalProductTruthObject?.finalFamilyDecision?.assetFraming,
-    institutionalProductTruthObject?.finalFamilyDecision?.whyThisFamily,
-    ...safeArray(institutionalProductTruthObject?.sourceQueueItems).slice(0, 6),
-    ...safeArray(institutionalProductTruthObject?.manualReviewItems).slice(0, 6),
-  ].filter(Boolean).join(" ");
   const reviewedPacketOndoRenderWarningLeak = reviewedEvidencePacket?.packetId === "reviewed-demo-ondo-v1"
-    && /RNDR-to-RENDER|RENDER migration|Solana upgraded token context/i.test(currentProductCoreText);
-  const reviewedPacketOndoRenderControlTextPresent = reviewedEvidencePacket?.packetId === "reviewed-demo-ondo-v1"
     && /RNDR|RENDER|Solana upgraded|Render migration/i.test(JSON.stringify([
       reviewedEvidencePacket?.identityEvidenceReconciliationWarnings,
       reviewedEvidencePacket?.warnings,
       assetIdentityResolution?.identityEvidenceReconciliationWarnings,
       assetIdentityResolution?.chainWarnings,
-    ]))
-    && !reviewedPacketOndoRenderWarningLeak;
+    ]));
   const uniSourceCandidateRequirementsMissing = reviewedEvidencePacket?.packetId === "reviewed-demo-uni-v1"
     && !/protocol-fee|fee switch|TokenJar|fee-routing|governance finality|materiality|market cap|direct economic benefit/i.test(JSON.stringify([
       reviewedEvidencePacket?.sourceQueueNotes,
@@ -8549,11 +8537,6 @@ export function buildReviewBundleText({
       bundleField("Final visible label", institutionalProductTruthObject?.finalFamilyDecision?.visibleLabel),
       bundleField("Final question group", institutionalProductTruthObject?.finalQuestionGroup),
       bundleField("Final source matrix", safeArray(institutionalProductTruthObject?.finalSourceMatrix).join(", ")),
-      bundleField("Original search metadata status", institutionalProductTruthObject?.searchCandidateDecision?.originalSearchMetadataStatus),
-      bundleField("Final identity resolution status", institutionalProductTruthObject?.searchCandidateDecision?.finalIdentityResolutionStatus),
-      bundleField("Final contract mapping status", institutionalProductTruthObject?.searchCandidateDecision?.finalContractMappingStatus),
-      bundleField("Final provider identity status", institutionalProductTruthObject?.searchCandidateDecision?.finalProviderIdentityStatus),
-      bundleList(institutionalProductTruthObject?.searchCandidateDecision?.remainingManualVerificationGaps, "No final identity verification gaps attached.", 8),
       bundleField("Coverage tier", institutionalProductTruthObject?.coverageAndScoreEligibility?.coverageTier),
       bundleField("Score eligibility", institutionalProductTruthObject?.coverageAndScoreEligibility?.scoreEligibility),
       bundleField("Score display mode", institutionalProductTruthObject?.coverageAndScoreEligibility?.scoreDisplayMode),
@@ -8594,8 +8577,6 @@ export function buildReviewBundleText({
         `2AS present=yes`,
         `source requirement text routing eligible=${yesNoUnknown(safeArray(typedObservationLayerContract?.eligibleRoutingObservations).some((obs) => obs.sourceCategory === "source_requirement_text"))}`,
         `manual review text routing eligible=${yesNoUnknown(safeArray(typedObservationLayerContract?.eligibleRoutingObservations).some((obs) => obs.sourceCategory === "manual_review_requirement"))}`,
-        `current product ONDO RENDER migration leak=${yesNoUnknown(reviewedPacketOndoRenderWarningLeak)}`,
-        `RENDER/RNDR text control-only if present=${yesNoUnknown(reviewedPacketOndoRenderControlTextPresent)}`,
         `score formula changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.scoreFormulaChanged)}`,
         `verdict formula changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.verdictFormulaChanged)}`,
         `provider fetch behavior changed=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.providerFetchBehaviorChanged)}`,
