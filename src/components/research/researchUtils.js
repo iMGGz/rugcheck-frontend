@@ -1793,6 +1793,7 @@ export function normalizeApiFirstInstitutionalIntelligencePayload(responseLike) 
       answerUsedRawFields: safeArray(rawProviderDataRegistryContract.answerUsedRawFields),
       scoringUsedRawFields: safeArray(rawProviderDataRegistryContract.scoringUsedRawFields),
       auditOnlyRawFields: safeArray(rawProviderDataRegistryContract.auditOnlyRawFields),
+      rawProviderRegistryEntries: safeArray(rawProviderDataRegistryContract.rawProviderRegistryEntries),
       warnings: safeArray(rawProviderDataRegistryContract.warnings),
     } : null,
     typedObservationLayerContract: typedObservationLayerContract.contractVersion ? {
@@ -1832,6 +1833,48 @@ export function normalizeApiFirstInstitutionalIntelligencePayload(responseLike) 
       noLookaheadRules: safeArray(calibrationBacktestReadiness.noLookaheadRules),
       blockers: safeArray(calibrationBacktestReadiness.blockers),
     } : null,
+  };
+}
+
+export function normalizeProviderCapabilityRegistryPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.providerCapabilityRegistryContract || nestedAnalysis.providerCapabilityRegistryContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    providers: safeArray(contract.providers),
+    routeAuthorityDoctrine: safeArray(contract.routeAuthorityDoctrine),
+    scoringAuthorityDoctrine: safeArray(contract.scoringAuthorityDoctrine),
+    guardrails: safeObject(contract.guardrails),
+  };
+}
+
+export function normalizeProviderDataBoundaryPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.providerDataBoundaryContract || nestedAnalysis.providerDataBoundaryContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    observations: safeArray(contract.observations),
+    boundaryViolations: safeArray(contract.boundaryViolations),
+    routeEligibleObservationSummary: safeObject(contract.routeEligibleObservationSummary),
+    scoringEligibleObservationSummary: safeObject(contract.scoringEligibleObservationSummary),
+    generatedTextIneligibilitySummary: safeObject(contract.generatedTextIneligibilitySummary),
+    healthProbeIneligibilitySummary: safeObject(contract.healthProbeIneligibilitySummary),
+    providerCapabilitySummary: normalizeProviderCapabilityRegistryPayload(contract.providerCapabilitySummary) || safeObject(contract.providerCapabilitySummary),
+    familyRouteInputWhitelist: safeArray(contract.familyRouteInputWhitelist),
+    familyRouteInputBlacklist: safeArray(contract.familyRouteInputBlacklist),
+    scoringInputWhitelist: safeArray(contract.scoringInputWhitelist),
+    scoringInputBlacklist: safeArray(contract.scoringInputBlacklist),
+    rawProviderRegistryHardening: {
+      ...safeObject(contract.rawProviderRegistryHardening),
+      entries: safeArray(contract.rawProviderRegistryHardening?.entries),
+    },
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+    nextActions: safeArray(contract.nextActions),
   };
 }
 
@@ -2321,6 +2364,8 @@ export function buildProtectedInvestorReportText({
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
   const apiFirstInstitutionalIntelligence = normalizeApiFirstInstitutionalIntelligencePayload(safeModel) || normalizeApiFirstInstitutionalIntelligencePayload(safeData) || normalizeApiFirstInstitutionalIntelligencePayload(safeAnalysis);
+  const providerDataBoundaryContract = safeModel.providerDataBoundaryContract || normalizeProviderDataBoundaryPayload(safeModel) || normalizeProviderDataBoundaryPayload(safeData) || normalizeProviderDataBoundaryPayload(safeAnalysis);
+  const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2413,6 +2458,8 @@ export function buildProtectedInvestorReportText({
     reportLine("Family data matrix", familyDataRequirementMatrixContract?.primarySourceMatrixId || familyCanonicalRoutingContract?.canonicalSourceMatrixEntries?.[0]),
     reportLine("Product truth object", institutionalProductTruthObject ? "Attached" : "Not available yet."),
     reportLine("Typed observations", typedObservationLayerContract ? `${safeArray(typedObservationLayerContract.eligibleRoutingObservations).length} routing; ${safeArray(typedObservationLayerContract.eligibleAnswerObservations).length} answer observations` : "Not available yet."),
+    reportLine("Provider data boundary", providerDataBoundaryContract ? `${safeArray(providerDataBoundaryContract.observations).length} typed boundary observations; ${safeArray(providerDataBoundaryContract.boundaryViolations).length} boundary warnings` : "Not available yet."),
+    reportLine("Provider capability registry", providerCapabilityRegistryContract ? `${safeArray(providerCapabilityRegistryContract.providers).length} provider capability profiles` : "Not available yet."),
     reportLine("Research gap queue", manualApiResearchGapQueue ? `${safeArray(manualApiResearchGapQueue.gaps).length} open gaps; AI/deep research disabled` : "Not available yet."),
     reportLine("Critical family requirements", familyDataRequirementMatrixContract ? `${safeArray(familyDataRequirementMatrixContract.manualReviewTriggers).length} review gates; ${safeArray(familyDataRequirementMatrixContract.confidenceCapRules).length} confidence caps` : "Not available yet."),
     reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
@@ -2489,6 +2536,11 @@ export function buildProtectedInvestorReportText({
     "",
     "10. Provider Context",
     ...providerSummary.map((item) => `- ${item}`),
+    ...(providerDataBoundaryContract ? [
+      reportLine("Health probe isolation", providerDataBoundaryContract.healthProbeIneligibilitySummary?.healthProbeSamplesIsolated || "Not available yet."),
+      reportLine("Generated text route authority", `${providerDataBoundaryContract.generatedTextIneligibilitySummary?.generatedTextRouteEligibleCount ?? "unknown"} route-eligible generated observations`),
+      reportLine("Generated text score authority", `${providerDataBoundaryContract.generatedTextIneligibilitySummary?.generatedTextScoringEligibleCount ?? "unknown"} scoring-eligible generated observations`),
+    ] : []),
     "",
     "11. Methodology / Limitations",
     "- ThesisCore combines live provider data, reviewed evidence where available, deterministic rules, and source-boundary labels.",
@@ -5280,6 +5332,8 @@ export function buildDecisionTerminalModel({
   const institutionalQuestionAnswerEngineContract = apiFirstInstitutionalIntelligence?.institutionalQuestionAnswerEngineContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || null;
   const calibrationBacktestReadiness = apiFirstInstitutionalIntelligence?.calibrationBacktestReadiness || null;
+  const providerDataBoundaryContract = normalizeProviderDataBoundaryPayload(safeAnalysis);
+  const providerCapabilityRegistryContract = normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -5738,6 +5792,8 @@ export function buildDecisionTerminalModel({
     rawDataCoverageDiagnostics,
     rawProviderDataRegistryContract,
     typedObservationLayerContract,
+    providerDataBoundaryContract,
+    providerCapabilityRegistryContract,
     institutionalProductTruthObject,
     institutionalQuestionAnswerEngineContract,
     manualApiResearchGapQueue,
@@ -7061,6 +7117,8 @@ export function buildReviewBundleText({
   const institutionalQuestionAnswerEngineContract = apiFirstInstitutionalIntelligence?.institutionalQuestionAnswerEngineContract || safeModel.institutionalQuestionAnswerEngineContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
   const calibrationBacktestReadiness = apiFirstInstitutionalIntelligence?.calibrationBacktestReadiness || safeModel.calibrationBacktestReadiness || null;
+  const providerDataBoundaryContract = safeModel.providerDataBoundaryContract || normalizeProviderDataBoundaryPayload(safeModel) || normalizeProviderDataBoundaryPayload(safeData) || normalizeProviderDataBoundaryPayload(safeAnalysis);
+  const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -8587,6 +8645,64 @@ export function buildReviewBundleText({
         `partial refresh reintroduced=${yesNoUnknown(institutionalProductTruthObject?.guardrails?.partialRefreshReintroduced)}`,
       ]),
       bundleField("Next resume pointer", "Fresh live QA on benchmark/control assets, then Provider Raw Data Normalization v2 or Evidence-to-Score Calibration Prep v1."),
+    ]),
+    bundleSection("2AT. Provider Data Boundary Contract + Raw Provider Registry Hardening v1", [
+      bundleField("Contract attached", providerDataBoundaryContract ? "yes" : "missing"),
+      bundleField("Capability registry attached", providerCapabilityRegistryContract ? "yes" : "missing"),
+      bundleField("Provider capability profiles", safeArray(providerCapabilityRegistryContract?.providers).length),
+      bundleField("Boundary observations", safeArray(providerDataBoundaryContract?.observations).length),
+      bundleField("Boundary violations", safeArray(providerDataBoundaryContract?.boundaryViolations).length),
+      bundleField("Generated observations", providerDataBoundaryContract?.generatedTextIneligibilitySummary?.generatedTextObservationCount),
+      bundleField("Generated text route eligible count", providerDataBoundaryContract?.generatedTextIneligibilitySummary?.generatedTextRouteEligibleCount),
+      bundleField("Generated text scoring eligible count", providerDataBoundaryContract?.generatedTextIneligibilitySummary?.generatedTextScoringEligibleCount),
+      bundleField("Health probe observations", providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeObservationCount),
+      bundleField("Health probe route eligible count", providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeRouteEligibleCount),
+      bundleField("Health probe scoring eligible count", providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeScoringEligibleCount),
+      bundleField("Health probe samples isolated", providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeSamplesIsolated),
+      bundleField("Raw registry hardening status", providerDataBoundaryContract?.rawProviderRegistryHardening?.hardeningStatus),
+      bundleField("Raw registry hardening entries", safeArray(providerDataBoundaryContract?.rawProviderRegistryHardening?.entries).length),
+      "Route input whitelist:",
+      bundleList(providerDataBoundaryContract?.familyRouteInputWhitelist, "No route whitelist attached.", 14),
+      "Route input blacklist:",
+      bundleList(providerDataBoundaryContract?.familyRouteInputBlacklist, "No route blacklist attached.", 14),
+      "Scoring input whitelist:",
+      bundleList(providerDataBoundaryContract?.scoringInputWhitelist, "No scoring whitelist attached.", 12),
+      "Scoring input blacklist:",
+      bundleList(providerDataBoundaryContract?.scoringInputBlacklist, "No scoring blacklist attached.", 14),
+      "Provider capability summary:",
+      bundleList(safeArray(providerCapabilityRegistryContract?.providers).slice(0, 18).map((provider) =>
+        `${provider.providerName || provider.providerId || "provider"} | status=${provider.status || "unknown"} | route=${provider.defaultRouteEligibility || "unknown"} | scoring=${provider.defaultScoringEligibility || "unknown"} | evidence=${provider.defaultEvidenceStatus || "unknown"}`
+      ), "No provider capability rows attached.", 18),
+      "Boundary violations:",
+      bundleList(safeArray(providerDataBoundaryContract?.boundaryViolations).map((violation) =>
+        `${violation.violationId || "violation"} | ${violation.severity || "severity"} | ${violation.violationType || "type"} | ${violation.observedValue || "observed"}`
+      ), "No provider boundary violations detected.", 18),
+      "Raw registry hardening entries:",
+      bundleList(safeArray(providerDataBoundaryContract?.rawProviderRegistryHardening?.entries).slice(0, 18).map((entry) =>
+        `${entry.entryId || "entry"} | ${entry.provider || "provider"} | ${entry.fieldPath || "field"} | route=${entry.routeEligible || "unknown"} score=${entry.scoringEligible || "unknown"} | source=${entry.sourceKind || "source"}`
+      ), "No hardened raw registry entries attached.", 18),
+      "QA checks:",
+      bundleList([
+        `Copy Bundle 2AT present=yes`,
+        `Generated text route eligible count zero=${yesNoUnknown(providerDataBoundaryContract?.generatedTextIneligibilitySummary?.generatedTextRouteEligibleCount === 0)}`,
+        `Generated text scoring eligible count zero=${yesNoUnknown(providerDataBoundaryContract?.generatedTextIneligibilitySummary?.generatedTextScoringEligibleCount === 0)}`,
+        `Health probe route eligible count zero=${yesNoUnknown(providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeRouteEligibleCount === 0)}`,
+        `Health probe scoring eligible count zero=${yesNoUnknown(providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeScoringEligibleCount === 0)}`,
+        `Health probe samples isolated=${yesNoUnknown(providerDataBoundaryContract?.healthProbeIneligibilitySummary?.healthProbeSamplesIsolated === "yes")}`,
+        `Score formula changed=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.scoreFormulaChanged)}`,
+        `Verdict formula changed=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.verdictFormulaChanged)}`,
+        `Provider fetch behavior changed=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.providerFetchBehaviorChanged)}`,
+        `New providers added=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.newProvidersAdded)}`,
+        `Runtime AI authority added=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.runtimeAiDecisionAuthorityAdded)}`,
+        `Anthropic route authority=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.anthropicRouteAuthority)}`,
+        `Source candidates promoted=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.sourceCandidatesPromoted)}`,
+        `Reviewed evidence scoring-active=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `Snapshots reintroduced=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.snapshotsReintroduced)}`,
+        `Partial refresh reintroduced=${yesNoUnknown(providerDataBoundaryContract?.guardrails?.partialRefreshReintroduced)}`,
+      ]),
+      "Known limitations:",
+      bundleList(providerDataBoundaryContract?.knownLimitations, "No provider boundary limitations attached.", 8),
+      bundleField("Next resume pointer", providerDataBoundaryContract?.nextResumePointer || "Typed Observation Family Authority Refactor v1."),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),
