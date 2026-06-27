@@ -638,6 +638,12 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
     ...contract,
     userAnswerCards: safeArray(contract.userAnswerCards).map((card) => ({
       ...safeObject(card),
+      questionId: card?.questionId || card?.cardId || null,
+      questionFamily: card?.questionFamily || card?.primaryFamily || contract.assetFamily || null,
+      questionGroup: card?.questionGroup || null,
+      answerTemplateFamily: card?.answerTemplateFamily || card?.primaryFamily || contract.assetFamily || null,
+      primaryFamily: card?.primaryFamily || contract.assetFamily || null,
+      sourceMatrixEntry: card?.sourceMatrixEntry || null,
       evidenceWeHave: safeArray(card?.evidenceWeHave).map(cleanPrimaryAnswerText),
       openChecks: safeArray(card?.openChecks).map(cleanPrimaryAnswerText),
       whatWouldImproveConfidence: safeArray(card?.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
@@ -673,7 +679,10 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       bullets: safeArray(contract.methodologySurface?.bullets),
     },
     auditDetails: safeArray(contract.auditDetails),
-    leakageCheck: safeObject(contract.leakageCheck),
+    leakageCheck: {
+      ...safeObject(contract.leakageCheck),
+      wrongFamilyQuestionFindings: safeArray(contract.leakageCheck?.wrongFamilyQuestionFindings),
+    },
   };
 }
 
@@ -1446,10 +1455,16 @@ export function normalizeRepresentationFamilyEvidenceGatesPayload(responseLike, 
 export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHierarchyContract = null) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
+  const rootCanonicalRoute = safeObject(root.canonicalProductRoute);
+  const nestedCanonicalRoute = safeObject(nestedAnalysis.canonicalProductRoute);
   const rootRoute = safeObject(root.primaryAnalysisRoute);
   const nestedRoute = safeObject(nestedAnalysis.primaryAnalysisRoute);
   const contractRoute = safeObject(authorityHierarchyContract?.primaryAnalysisRoute);
-  const route = rootRoute.assetFamily || rootRoute.visibleLabel
+  const route = rootCanonicalRoute.primaryFamily || rootCanonicalRoute.assetFamily
+    ? rootCanonicalRoute
+    : nestedCanonicalRoute.primaryFamily || nestedCanonicalRoute.assetFamily
+      ? nestedCanonicalRoute
+      : rootRoute.assetFamily || rootRoute.visibleLabel
     ? rootRoute
     : nestedRoute.assetFamily || nestedRoute.visibleLabel
       ? nestedRoute
@@ -1472,7 +1487,57 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
   };
 }
 
+export function normalizeCanonicalProductRoutePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.canonicalProductRoute || nestedAnalysis.canonicalProductRoute);
+  if (!contract.primaryFamily && !contract.assetFamily) return null;
+  return {
+    ...contract,
+    primaryFamily: contract.primaryFamily || contract.assetFamily,
+    assetFamily: contract.primaryFamily || contract.assetFamily,
+    primaryVisibleLabel: contract.primaryVisibleLabel || contract.visibleLabel,
+    visibleLabel: contract.primaryVisibleLabel || contract.visibleLabel,
+    primaryAssetFraming: contract.primaryAssetFraming || contract.assetFramingLabel,
+    assetFramingLabel: contract.primaryAssetFraming || contract.assetFramingLabel,
+    primaryQuestionGroup: contract.primaryQuestionGroup || contract.questionGroup,
+    questionGroup: contract.primaryQuestionGroup || contract.questionGroup,
+    primarySourceProfile: contract.primarySourceProfile || contract.sourceProfile,
+    sourceProfile: contract.primarySourceProfile || contract.sourceProfile,
+    primarySourceMatrixEntries: safeArray(contract.primarySourceMatrixEntries || contract.sourceMatrixEntries),
+    sourceMatrixEntries: safeArray(contract.primarySourceMatrixEntries || contract.sourceMatrixEntries),
+    parityFailures: safeArray(contract.parityFailures),
+    mismatchDiagnostics: safeArray(contract.mismatchDiagnostics),
+    rawLensAuditOnly: safeObject(contract.rawLensAuditOnly),
+    providerCategoryAuditOnly: safeObject(contract.providerCategoryAuditOnly),
+    benchmarkExpectedFamilyAuditOnly: safeObject(contract.benchmarkExpectedFamilyAuditOnly || contract.benchmarkExpectationAuditOnly),
+  };
+}
+
+export function normalizeRouteSurfaceParityPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.routeSurfaceParityContract || nestedAnalysis.routeSurfaceParityContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    canonicalProductRoute: normalizeCanonicalProductRoutePayload({ canonicalProductRoute: contract.canonicalProductRoute }),
+    surfaceFamilyMap: safeObject(contract.surfaceFamilyMap),
+    surfaceQuestionGroupMap: safeObject(contract.surfaceQuestionGroupMap),
+    surfaceSourceMatrixMap: safeObject(contract.surfaceSourceMatrixMap),
+    wrongFamilyQuestionFindings: safeArray(contract.wrongFamilyQuestionFindings),
+    failedContracts: safeArray(contract.failedContracts),
+    blockingFindings: safeArray(contract.blockingFindings),
+    auditOnlyFindings: safeArray(contract.auditOnlyFindings),
+    frontendContract: safeObject(contract.frontendContract),
+    protectedReport: safeObject(contract.protectedReport),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function buildFamilyProductRouteTruth({
+  canonicalProductRoute = null,
   primaryAnalysisRoute = null,
   representationFamilyRoute = null,
   familyCanonicalRoutingContract = null,
@@ -1480,6 +1545,10 @@ export function buildFamilyProductRouteTruth({
   assetInterpretationContract = null,
   institutionalProductTruthObject = null,
 } = {}) {
+  const backendCanonical = safeObject(canonicalProductRoute);
+  if (backendCanonical.primaryFamily || backendCanonical.assetFamily) {
+    return normalizeCanonicalProductRoutePayload({ canonicalProductRoute: backendCanonical });
+  }
   const primary = safeObject(primaryAnalysisRoute);
   const representation = safeObject(representationFamilyRoute);
   const canonical = safeObject(familyCanonicalRoutingContract);
@@ -1487,41 +1556,39 @@ export function buildFamilyProductRouteTruth({
   const visible = safeObject(assetInterpretationContract?.visibleDisplayContract);
   const productTruth = safeObject(institutionalProductTruthObject);
   const productTruthFamily = safeObject(productTruth.finalFamilyDecision);
-  const selectedFamily = productTruthFamily.familyId
+  const selectedFamily = representation.selectedFamily
     || canonical.effectiveFamily
     || matrix.primaryFamily
-    || representation.selectedFamily
     || primary.assetFamily
+    || productTruthFamily.familyId
     || null;
-  const visibleLabel = productTruthFamily.visibleLabel
-    || representation.visibleLabel
+  const visibleLabel = representation.visibleLabel
     || visible.primaryVisibleLabel
     || primary.visibleLabel
+    || productTruthFamily.visibleLabel
     || selectedFamily
     || null;
-  const assetFramingLabel = productTruthFamily.assetFraming
-    || representation.assetFramingLabel
+  const assetFramingLabel = representation.assetFramingLabel
     || visible.assetFramingLabel
     || primary.assetFramingLabel
+    || productTruthFamily.assetFraming
     || null;
-  let sourceMatrixEntries = safeArray(productTruth.finalSourceMatrix);
-  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruthFamily.sourceMatrixIds);
-  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries);
+  let sourceMatrixEntries = safeArray(canonical.canonicalSourceMatrixEntries);
   if (!sourceMatrixEntries.length && matrix.primarySourceMatrixId) sourceMatrixEntries = [matrix.primarySourceMatrixId];
   if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(representation.sourceMatrixEntries);
   if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(primary.sourceMatrixEntries);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruth.finalSourceMatrix);
+  if (!sourceMatrixEntries.length) sourceMatrixEntries = safeArray(productTruthFamily.sourceMatrixIds);
   if (!selectedFamily && !visibleLabel && !sourceMatrixEntries.length) return primary.assetFamily || primary.visibleLabel ? primary : null;
   return {
     ...primary,
     assetFamily: selectedFamily,
     visibleLabel,
     assetFramingLabel,
-    questionGroup: productTruth.finalQuestionGroup || canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || null,
-    sourceProfile: productTruthFamily.sourceProfile || canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || null,
+    questionGroup: canonical.canonicalQuestionGroup || matrix.primaryQuestionGroup || representation.questionGroup || primary.questionGroup || productTruth.finalQuestionGroup || null,
+    sourceProfile: canonical.canonicalSourceProfile || matrix.primarySourceProfile || representation.sourceProfile || primary.sourceProfile || productTruthFamily.sourceProfile || null,
     sourceMatrixEntries,
-    productRouteTruthSource: productTruth.contractVersion
-      ? "api_first_product_truth_object"
-      : selectedFamily
+    productRouteTruthSource: selectedFamily
       ? "representation_family_authority_canonical_product_path"
       : primary.authoritySource || "primary_analysis_route",
     rawPrimaryAnalysisRouteAuditOnly: primary,
@@ -2427,6 +2494,8 @@ export function buildProtectedInvestorReportText({
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = safeModel.evidenceProvenanceSemanticsContract || normalizeEvidenceProvenanceSemanticsPayload(safeData) || normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = safeModel.familyDataRequirementMatrixContract || normalizeFamilyDataRequirementMatrixPayload(safeData) || normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
+  const canonicalProductRoute = safeModel.canonicalProductRoute || normalizeCanonicalProductRoutePayload(safeData) || normalizeCanonicalProductRoutePayload(safeAnalysis);
+  const routeSurfaceParityContract = safeModel.routeSurfaceParityContract || normalizeRouteSurfaceParityPayload(safeData) || normalizeRouteSurfaceParityPayload(safeAnalysis);
   const apiFirstInstitutionalIntelligence = normalizeApiFirstInstitutionalIntelligencePayload(safeModel) || normalizeApiFirstInstitutionalIntelligencePayload(safeData) || normalizeApiFirstInstitutionalIntelligencePayload(safeAnalysis);
   const providerDataBoundaryContract = safeModel.providerDataBoundaryContract || normalizeProviderDataBoundaryPayload(safeModel) || normalizeProviderDataBoundaryPayload(safeData) || normalizeProviderDataBoundaryPayload(safeAnalysis);
   const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
@@ -2436,6 +2505,7 @@ export function buildProtectedInvestorReportText({
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
   const primaryAnalysisRoute = buildFamilyProductRouteTruth({
+    canonicalProductRoute,
     primaryAnalysisRoute: rawPrimaryAnalysisRoute,
     representationFamilyRoute,
     familyCanonicalRoutingContract,
@@ -2521,6 +2591,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Asset framing", primaryAnalysisRoute?.assetFramingLabel || displayIdentity?.displayFraming || safeModel.assetFramingLabel),
     reportLine("Analysis question family", familyCanonicalRoutingContract?.canonicalQuestionGroup || primaryAnalysisRoute?.questionGroup || lens?.questionGroupId),
     reportLine("Source requirement family", familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile),
+    reportLine("Route parity", routeSurfaceParityContract?.globalParityStatus === "PASS" ? "Canonical route aligned across primary surfaces" : "Route parity requires review"),
     reportLine("Family data matrix", familyDataRequirementMatrixContract?.primarySourceMatrixId || familyCanonicalRoutingContract?.canonicalSourceMatrixEntries?.[0]),
     reportLine("Product truth object", institutionalProductTruthObject ? "Attached" : "Not available yet."),
     reportLine("Typed observations", typedObservationLayerContract ? `${safeArray(typedObservationLayerContract.eligibleRoutingObservations).length} routing; ${safeArray(typedObservationLayerContract.eligibleAnswerObservations).length} answer observations` : "Not available yet."),
@@ -5410,7 +5481,10 @@ export function buildDecisionTerminalModel({
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
   const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(safeAnalysis);
   const familyDataRequirementMatrixContract = normalizeFamilyDataRequirementMatrixPayload(safeAnalysis);
+  const canonicalProductRoute = normalizeCanonicalProductRoutePayload(safeAnalysis);
+  const routeSurfaceParityContract = normalizeRouteSurfaceParityPayload(safeAnalysis);
   const primaryAnalysisRoute = buildFamilyProductRouteTruth({
+    canonicalProductRoute,
     primaryAnalysisRoute: rawPrimaryAnalysisRoute,
     representationFamilyRoute,
     familyCanonicalRoutingContract,
@@ -5709,7 +5783,8 @@ export function buildDecisionTerminalModel({
       currentStatus: "source_required",
       canChangeVerdict: false,
     }));
-  const displayResearchRequirements = dedupeObjectsByTitle([
+  const canonicalRequirementFamily = String(primaryAnalysisRoute?.assetFamily || "").trim().toLowerCase();
+  const canonicalResearchRequirements = [
     ...familyMatrixResearchRequirements,
     ...familyCanonicalResearchRequirements,
     ...coverageEligibilityResearchRequirements,
@@ -5719,7 +5794,19 @@ export function buildDecisionTerminalModel({
     ...representationFamilyResearchRequirements,
     ...categoryResearchRequirements,
     ...rawDataResearchRequirements,
-  ]);
+  ].filter((requirement) => {
+    const declaredFamily = String(requirement?.assetClassLens || "").trim().toLowerCase();
+    if (!canonicalRequirementFamily || !declaredFamily) return true;
+    return declaredFamily === canonicalRequirementFamily
+      || declaredFamily === "raw_data_coverage"
+      || declaredFamily === "representation_family_authority"
+      || declaredFamily === "institutional_answer_surface"
+      || declaredFamily === "evidence_status_aggregation"
+      || declaredFamily === "family_canonical_routing"
+      || declaredFamily === "coverage_score_eligibility"
+      || declaredFamily === "family_data_requirement_matrix";
+  });
+  const displayResearchRequirements = dedupeObjectsByTitle(canonicalResearchRequirements);
   const displayVerdictSemantics = lensAwareExplanations ? {
     ...verdictSemantics,
     missingEvidence: displayEvidenceNeeded,
@@ -5808,6 +5895,9 @@ export function buildDecisionTerminalModel({
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
     resolvedInstitutionalLens: primaryAnalysisRoute?.visibleLabel || primaryAnalysisRoute?.questionGroup ? {
       ...(resolvedInstitutionalLens || {}),
+      lensId: primaryAnalysisRoute.assetFamily || resolvedInstitutionalLens?.lensId,
+      assetClassGroup: primaryAnalysisRoute.assetFamily || resolvedInstitutionalLens?.assetClassGroup,
+      questionGroupId: primaryAnalysisRoute.questionGroup || resolvedInstitutionalLens?.questionGroupId,
       displayLabel: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.displayLabel || resolvedInstitutionalLens?.label,
       visibleLabelOverride: primaryAnalysisRoute.visibleLabel || resolvedInstitutionalLens?.visibleLabelOverride || resolvedInstitutionalLens?.label,
       displayFraming: primaryAnalysisRoute.assetFramingLabel || resolvedInstitutionalLens?.displayFraming,
@@ -5815,6 +5905,7 @@ export function buildDecisionTerminalModel({
       primaryRouteAssetFamily: primaryAnalysisRoute.assetFamily || resolvedInstitutionalLens?.assetClassGroup,
       visibleLabelSource: "primaryAnalysisRoute",
     } : resolvedInstitutionalLens,
+    rawResolvedInstitutionalLensAuditOnly: resolvedInstitutionalLens,
     effectiveInstitutionalLens,
     lensAwareExplanations,
     assetIdentityResolution,
@@ -5825,6 +5916,8 @@ export function buildDecisionTerminalModel({
     dataFirstNarrativeContract,
     authorityHierarchyContract,
     primaryAnalysisRoute,
+    canonicalProductRoute: primaryAnalysisRoute,
+    routeSurfaceParityContract,
     representationFamilyDecision,
     representationFamilyRoute,
     representationFamilyEvidenceGates,
@@ -6037,6 +6130,11 @@ function renderedSurfaceList(...groups) {
 
 export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } = {}) {
   const safeModel = safeObject(model);
+  const canonicalProductRoute = safeObject(
+    safeModel.canonicalProductRoute
+      || safeModel.routeSurfaceParityContract?.canonicalProductRoute
+      || safeModel.primaryAnalysisRoute
+  );
   const assetInterpretationContract = safeObject(safeModel.assetInterpretationContract);
   const visibleDisplayContract = safeObject(assetInterpretationContract.visibleDisplayContract);
   const rawLens = safeModel.resolvedInstitutionalLens || {};
@@ -6057,12 +6155,20 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const whatWouldChange = safeModel.whatWouldChangeDecision?.items?.length
     ? safeModel.whatWouldChangeDecision.items
     : ["Additional verified evidence required."];
-  const assetClassLabel = displayIdentity?.displayAssetClass || safeModel.assetClassLabel || sanitizeSemanticLabel(safeModel.assetClass, "Asset class unavailable");
-  const assetFramingLabel = displayIdentity?.displayFraming || safeModel.assetFramingLabel || "Digital Asset Allocation Thesis";
+  const assetClassLabel = canonicalProductRoute.primaryVisibleLabel
+    || canonicalProductRoute.visibleLabel
+    || displayIdentity?.displayAssetClass
+    || safeModel.assetClassLabel
+    || sanitizeSemanticLabel(safeModel.assetClass, "Asset class unavailable");
+  const assetFramingLabel = canonicalProductRoute.primaryAssetFraming
+    || canonicalProductRoute.assetFramingLabel
+    || displayIdentity?.displayFraming
+    || safeModel.assetFramingLabel
+    || "Digital Asset Allocation Thesis";
   const identityChip = displayIdentity?.primaryChip || assetClassLabel;
-  const visibleLensLabel = visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
-  const effectiveVisibleLabel = lens.label || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || visibleLensLabel;
-  const lensIdentityRailLabel = visibleDisplayContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
+  const visibleLensLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
+  const effectiveVisibleLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || lens.label || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || visibleLensLabel;
+  const lensIdentityRailLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || visibleDisplayContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
   const rawEffectiveDivergenceWarning = lens.rawEffectiveLensDivergenceWarning || contractEffectiveLens.rawEffectiveLensDivergenceWarning || null;
 
   const decisionHeader = renderedSurfaceList(
@@ -7162,7 +7268,9 @@ export function buildReviewBundleText({
   const effectiveInstitutionalLens = safeModel.effectiveInstitutionalLens || normalizeEffectiveInstitutionalLensPayload(safeData, assetInterpretationContract) || normalizeEffectiveInstitutionalLensPayload(safeAnalysis, assetInterpretationContract);
   const dataFirstNarrativeContract = safeModel.dataFirstNarrativeContract || normalizeDataFirstNarrativeContractPayload(safeData) || normalizeDataFirstNarrativeContractPayload(safeAnalysis);
   const authorityHierarchyContract = safeModel.authorityHierarchyContract || normalizeAuthorityHierarchyContractPayload(safeData) || normalizeAuthorityHierarchyContractPayload(safeAnalysis);
-  const primaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
+  const canonicalProductRoute = safeModel.canonicalProductRoute || normalizeCanonicalProductRoutePayload(safeData) || normalizeCanonicalProductRoutePayload(safeAnalysis);
+  const routeSurfaceParityContract = safeModel.routeSurfaceParityContract || normalizeRouteSurfaceParityPayload(safeData) || normalizeRouteSurfaceParityPayload(safeAnalysis);
+  const rawPrimaryAnalysisRoute = safeModel.primaryAnalysisRoute || normalizePrimaryAnalysisRoutePayload(safeData, authorityHierarchyContract) || normalizePrimaryAnalysisRoutePayload(safeAnalysis, authorityHierarchyContract);
   const representationFamilyDecision = safeModel.representationFamilyDecision || normalizeRepresentationFamilyDecisionPayload(safeData) || normalizeRepresentationFamilyDecisionPayload(safeAnalysis);
   const representationFamilyRoute = safeModel.representationFamilyRoute || normalizeRepresentationFamilyRoutePayload(safeData, representationFamilyDecision) || normalizeRepresentationFamilyRoutePayload(safeAnalysis, representationFamilyDecision);
   const representationFamilyEvidenceGates = safeArray(safeModel.representationFamilyEvidenceGates).length
@@ -7170,6 +7278,15 @@ export function buildReviewBundleText({
     : normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision).length
       ? normalizeRepresentationFamilyEvidenceGatesPayload(safeData, representationFamilyDecision)
       : normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
+  const primaryAnalysisRoute = buildFamilyProductRouteTruth({
+    canonicalProductRoute,
+    primaryAnalysisRoute: rawPrimaryAnalysisRoute,
+    representationFamilyRoute,
+    familyCanonicalRoutingContract,
+    familyDataRequirementMatrixContract,
+    assetInterpretationContract,
+    institutionalProductTruthObject: safeModel.institutionalProductTruthObject,
+  }) || rawPrimaryAnalysisRoute;
   const scoringReadinessContract = safeModel.scoringReadinessContract || normalizeScoringReadinessContractPayload(safeData) || normalizeScoringReadinessContractPayload(safeAnalysis);
   const engineLearningBackbone = safeModel.engineLearningBackbone || normalizeEngineLearningBackbonePayload(safeData) || normalizeEngineLearningBackbonePayload(safeAnalysis);
   const benchmarkAssetPresetRegistry = engineLearningBackbone?.benchmarkAssetPresetRegistry || null;
@@ -8190,6 +8307,7 @@ export function buildReviewBundleText({
       bundleList(safeArray(representationFamilyDecision?.conflicts).map((conflict) =>
         `${conflict.conflictId || "conflict"} | type=${conflict.conflictType || "unknown"} | severity=${conflict.severity || "unknown"} | conflicting=${conflict.conflictingValue || "n/a"} | corrected=${conflict.correctedValue || "n/a"} | primaryAffected=${conflict.primaryRouteAffected ? "yes" : "no"}`
       )),
+      bundleField("Global primary route affected", yesNoUnknown(representationFamilyDecision?.primaryAffected)),
       "Override diagnostics:",
       bundleList([
         `provider category tried to override representation=${yesNoUnknown(representationFamilyDecision?.providerCategoryTriedToOverrideRepresentation)}`,
@@ -8248,6 +8366,11 @@ export function buildReviewBundleText({
       bundleField("Deprecated internal enum scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.internalEnumLeakageCount ?? "unknown"),
       bundleField("Deprecated methodology scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.methodologyLeakageCount ?? "unknown"),
       bundleField("Deprecated family-negative guardrail scanner count", institutionalAnswerSurfaceContract?.leakageCheck?.familyNegativeGuardrailLeakageCount ?? "unknown"),
+      bundleField("Wrong-family question leakage count", institutionalAnswerSurfaceContract?.leakageCheck?.wrongFamilyQuestionLeakageCount ?? "unknown"),
+      "Wrong-family question findings:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.leakageCheck?.wrongFamilyQuestionFindings).map((finding) =>
+        `${finding.questionId || "question"} | expected=${finding.expectedFamily || "unknown"} | detected=${safeArray(finding.detectedFamilies).join(", ") || "unknown"} | concepts=${safeArray(finding.matchedConcepts).join(", ") || "none"}`
+      ), "No wrong-family question leakage detected."),
       bundleField("Deprecated primary leakage total", institutionalAnswerSurfaceContract ? institutionalAnswerForbiddenLeakageCount : "unknown"),
       bundleField("Source Queue cleanup result", institutionalAnswerSurfaceContract?.sourceQueueCleanupResult || "unknown"),
       bundleField("Manual Review cleanup result", institutionalAnswerSurfaceContract?.manualReviewCleanupResult || "unknown"),
@@ -8995,6 +9118,58 @@ export function buildReviewBundleText({
       bundleList(dataFirstNarrativeContract?.scoringAnomalyFindings, "No scoring explanation anomalies detected."),
       "Known limitations:",
       bundleList(dataFirstNarrativeContract?.knownLimitations),
+    ]),
+    bundleSection("2AX. Market-Wide Primary Route Authority & Surface Parity Repair v1", [
+      bundleField("Contract attached", routeSurfaceParityContract ? "yes" : "missing"),
+      bundleField("Artifact version", routeSurfaceParityContract?.artifactVersion),
+      bundleField("Global parity status", routeSurfaceParityContract?.globalParityStatus || "FAIL"),
+      bundleField("Canonical primary family", primaryAnalysisRoute?.primaryFamily || primaryAnalysisRoute?.assetFamily),
+      bundleField("Canonical visible label", primaryAnalysisRoute?.primaryVisibleLabel || primaryAnalysisRoute?.visibleLabel),
+      bundleField("Canonical asset framing", primaryAnalysisRoute?.primaryAssetFraming || primaryAnalysisRoute?.assetFramingLabel),
+      bundleField("Canonical question group", primaryAnalysisRoute?.primaryQuestionGroup || primaryAnalysisRoute?.questionGroup),
+      bundleField("Canonical source profile", primaryAnalysisRoute?.primarySourceProfile || primaryAnalysisRoute?.sourceProfile),
+      bundleField("Canonical answer template family", primaryAnalysisRoute?.primaryAnswerTemplateFamily),
+      bundleField("Authority source", primaryAnalysisRoute?.authoritySource),
+      bundleField("Route confidence", primaryAnalysisRoute?.routeConfidence),
+      bundleField("Route safety", primaryAnalysisRoute?.routeSafety),
+      bundleField("Parity failure count", routeSurfaceParityContract?.parityFailureCount ?? primaryAnalysisRoute?.parityFailures?.length ?? "unknown"),
+      bundleField("Wrong-family question leakage count", routeSurfaceParityContract?.wrongFamilyQuestionLeakageCount ?? "unknown"),
+      bundleField("Primary affected", yesNoUnknown(routeSurfaceParityContract?.primaryAffected)),
+      bundleField("2AB escalates global failure", yesNoUnknown(routeSurfaceParityContract?.dataFirstNarrativeGateEscalated)),
+      "Canonical source matrix:",
+      bundleList(primaryAnalysisRoute?.primarySourceMatrixEntries || primaryAnalysisRoute?.sourceMatrixEntries),
+      "Surface family map:",
+      bundleList(Object.entries(safeObject(routeSurfaceParityContract?.surfaceFamilyMap)).map(([surface, family]) => `${surface}=${family || "missing"}`)),
+      "Surface question-group map:",
+      bundleList(Object.entries(safeObject(routeSurfaceParityContract?.surfaceQuestionGroupMap)).map(([surface, group]) => `${surface}=${group || "missing"}`)),
+      "Surface source-matrix map:",
+      bundleList(Object.entries(safeObject(routeSurfaceParityContract?.surfaceSourceMatrixMap)).map(([surface, entries]) => `${surface}=${safeArray(entries).join(", ") || "missing"}`)),
+      "Failed contracts:",
+      bundleList(routeSurfaceParityContract?.failedContracts, "No failed route contracts."),
+      "Blocking findings:",
+      bundleList(routeSurfaceParityContract?.blockingFindings, "No blocking route-parity findings."),
+      "Wrong-family question findings:",
+      bundleList(safeArray(routeSurfaceParityContract?.wrongFamilyQuestionFindings).map((finding) =>
+        `${finding.questionId || "question"} | expected=${finding.expectedFamily || "unknown"} | detected=${safeArray(finding.detectedFamilies).join(", ") || "unknown"} | concepts=${safeArray(finding.matchedConcepts).join(", ") || "none"}`
+      ), "No wrong-family question leakage detected."),
+      "Audit-only divergence:",
+      bundleList(routeSurfaceParityContract?.auditOnlyFindings, "No audit-only route divergence."),
+      "Frontend parity:",
+      bundleList([
+        `canonical route normalized=${yesNoUnknown(routeSurfaceParityContract?.frontendContract?.canonicalRouteNormalized)}`,
+        `stale fallback can override=${yesNoUnknown(routeSurfaceParityContract?.frontendContract?.staleFallbackCanOverride)}`,
+        `primary labels use canonical route=${yesNoUnknown(routeSurfaceParityContract?.frontendContract?.primaryLabelsUseCanonicalRoute)}`,
+      ]),
+      "Protected report parity:",
+      bundleList([
+        `canonical family only=${yesNoUnknown(routeSurfaceParityContract?.protectedReport?.canonicalFamilyOnly)}`,
+        `raw route internals redacted=${yesNoUnknown(routeSurfaceParityContract?.protectedReport?.rawRouteInternalsRedacted)}`,
+      ]),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(routeSurfaceParityContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(routeSurfaceParityContract?.knownLimitations),
+      bundleField("Next resume pointer", routeSurfaceParityContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),

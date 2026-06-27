@@ -893,6 +893,24 @@ function isNativeBtcDisplayContext(asset = {}, analysis = {}, decisionModel = {}
 }
 
 export function buildInstitutionalAssetIdentity(asset = {}, analysis = {}, decisionModel = {}) {
+  const canonicalRoute = decisionModel?.canonicalProductRoute || decisionModel?.primaryAnalysisRoute || analysis?.canonicalProductRoute || analysis?.primaryAnalysisRoute;
+  if (canonicalRoute?.assetFamily && canonicalRoute?.visibleLabel) {
+    return {
+      displayAssetClass: canonicalRoute.visibleLabel,
+      displayFraming: canonicalRoute.assetFramingLabel || canonicalRoute.visibleLabel,
+      primaryChip: canonicalRoute.visibleLabel,
+      secondaryChip: canonicalRoute.questionGroup || "Institutional route",
+      lensId: canonicalRoute.assetFamily,
+      lensDisplayName: canonicalRoute.visibleLabel,
+      confidence: canonicalRoute.routeConfidence || canonicalRoute.primaryRouteConfidence || "route",
+      reason: "Using the backend canonical product route for all primary display identity fields.",
+      matchedSignals: [],
+      boundaryCopy: "Raw resolver, provider category, representation metadata, and benchmark expectations remain audit-only when they diverge from the canonical product route.",
+      originalAssetClassLabel: decisionModel?.assetClassLabel || null,
+      originalAssetFramingLabel: decisionModel?.assetFramingLabel || null,
+      originalAssetBadges: decisionModel?.assetBadges || [],
+    };
+  }
   const backendLens = decisionModel?.resolvedInstitutionalLens || analysis?.resolvedInstitutionalLens;
   if (isNativeBtcDisplayContext(asset, analysis, decisionModel)) {
     const display = BACKEND_IDENTITY_DISPLAY_BY_LENS.NATIVE_MONETARY_BENCHMARK;
