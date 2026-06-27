@@ -5,6 +5,7 @@ import {
   buildLensSpecificResearchDomains,
   cleanPrimaryAnswerText,
   getAnalystAnswerCard,
+  isPrimaryFamilyCompatibleText,
   normalizeRenderableList,
   providerLabel,
   safeArray,
@@ -67,6 +68,9 @@ function sourceStatusLeads(sourceStatus) {
 }
 
 function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
+  const canonicalPrimaryFamily = model?.canonicalProductRoute?.primaryFamily
+    || model?.primaryAnalysisRoute?.assetFamily
+    || null;
   const required = normalizeRenderableList(model?.requiredConditions).map((entry) => ({
     label: "Required condition",
     description: entry,
@@ -265,7 +269,10 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
     ...alerts,
     ...providerGapLeads(providerDiagnostics),
     ...sourceStatusLeads(sourceStatus),
-  ]).map((lead) => ({
+  ]).filter((lead) => isPrimaryFamilyCompatibleText(
+    `${lead.label || ""} ${lead.description || ""}`,
+    canonicalPrimaryFamily,
+  )).map((lead) => ({
     ...lead,
     label: cleanPrimaryAnswerText(lead.label),
     description: cleanPrimaryAnswerText(lead.description),

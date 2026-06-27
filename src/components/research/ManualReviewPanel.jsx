@@ -3,6 +3,7 @@ import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow }
 import {
   cleanPrimaryAnswerText,
   getAnalystAnswerCard,
+  isPrimaryFamilyCompatibleText,
   normalizeRenderableList,
   providerLabel,
   safeArray,
@@ -56,6 +57,9 @@ function sourceStatusReviewSignals(sourceStatus) {
 }
 
 function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy }) {
+  const canonicalPrimaryFamily = model?.canonicalProductRoute?.primaryFamily
+    || model?.primaryAnalysisRoute?.assetFamily
+    || null;
   const manual = model?.manualReviewStatus?.label && !String(model.manualReviewStatus.label).toLowerCase().includes("no explicit")
     ? [{
       label: model.manualReviewStatus.label,
@@ -292,7 +296,10 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
   ];
   const seen = new Set();
 
-  return combined.filter((entry) => {
+  return combined.filter((entry) => isPrimaryFamilyCompatibleText(
+    `${entry.label || ""} ${entry.description || ""}`,
+    canonicalPrimaryFamily,
+  )).filter((entry) => {
     const key = `${entry.label}-${entry.description}`.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);

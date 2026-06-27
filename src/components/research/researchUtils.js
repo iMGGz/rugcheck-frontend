@@ -662,6 +662,7 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       openChecks: safeArray(contract.sourceSummary?.openChecks).map(cleanPrimaryAnswerText),
       sourceQueueSummary: safeArray(contract.sourceSummary?.sourceQueueSummary).map(cleanPrimaryAnswerText),
       reviewedEvidenceSummary: safeArray(contract.sourceSummary?.reviewedEvidenceSummary).map(cleanPrimaryAnswerText),
+      rejectedIncompatibleOpenChecksAuditOnly: safeArray(contract.sourceSummary?.rejectedIncompatibleOpenChecksAuditOnly),
     },
     riskSummary: {
       ...safeObject(contract.riskSummary),
@@ -1487,6 +1488,50 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
   };
 }
 
+const PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS = {
+  defi_governance_value_capture: [
+    /\breserve (?:attestation|composition|backing|audit)s?\b/i,
+    /\bredemption (?:terms?|path|eligibility|docs?|rights?)\b/i,
+    /\bpeg (?:stress|stability|liquidity|resilience)\b/i,
+    /\b(?:mint\/?redeem|supported mint|issuer mint|freeze\/?blacklist|stablecoin admin)\b/i,
+    /\b(?:eip-?1559|eth gas demand|validator\/client diversity|staking participation|l2\/blob|blob fee|mev\/pbs\/relay)\b/i,
+  ],
+  native_eth_pos_gas_l2_fee_market: [
+    /\breserve (?:attestation|composition|backing)\b/i,
+    /\bstablecoin redemption\b|\bwrapped redemption\b/i,
+    /\bproof[- ]of[- ]reserves?\b|\bproduct aum\b|\bbankruptcy remoteness\b/i,
+  ],
+  non_eth_l1_smart_contract_platform: [
+    /\b(?:eip-?1559|eth fee-market|eth gas demand|l2\/blob|blob fee|mev\/pbs\/relay|relay centralization)\b/i,
+    /\breserve attestation\b|\bstablecoin redemption\b/i,
+  ],
+  stablecoin_fiat_backed: [
+    /\b(?:eip-?1559|eth gas demand|validator\/client diversity|l2\/blob|blob fee)\b/i,
+    /\b(?:fee switch|tokenholder accrual|treasury routing)\b/i,
+  ],
+  wrapped_bridged_asset: [
+    /\b(?:eip-?1559|eth gas demand|validator\/client diversity|l2\/blob|blob fee)\b/i,
+    /\b(?:hashrate|mining[- ]pool|miner economics|halving)\b/i,
+  ],
+  liquid_staking_derivative: [
+    /\b(?:eip-?1559|eth gas demand|l2\/blob|blob fee)\b/i,
+    /\b(?:proof[- ]of[- ]reserves?|bridge custody|wrapped redemption)\b/i,
+  ],
+  manual_low_coverage: [
+    /\b(?:product aum|bankruptcy remoteness|nav methodology|rwa legal claim)\b/i,
+  ],
+};
+
+export function isPrimaryFamilyCompatibleText(value, primaryFamily) {
+  const text = extractRenderableText(value, "");
+  const patterns = PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS[String(primaryFamily || "").toLowerCase()] || [];
+  return !patterns.some((pattern) => pattern.test(text));
+}
+
+export function filterPrimaryFamilyCompatibleItems(items, primaryFamily) {
+  return safeArray(items).filter((item) => isPrimaryFamilyCompatibleText(item, primaryFamily));
+}
+
 export function normalizeCanonicalProductRoutePayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -1526,6 +1571,8 @@ export function normalizeRouteSurfaceParityPayload(responseLike) {
     surfaceQuestionGroupMap: safeObject(contract.surfaceQuestionGroupMap),
     surfaceSourceMatrixMap: safeObject(contract.surfaceSourceMatrixMap),
     wrongFamilyQuestionFindings: safeArray(contract.wrongFamilyQuestionFindings),
+    acceptedFamilyAliases: safeArray(contract.acceptedFamilyAliases),
+    rejectedAliasMismatches: safeArray(contract.rejectedAliasMismatches),
     failedContracts: safeArray(contract.failedContracts),
     blockingFindings: safeArray(contract.blockingFindings),
     auditOnlyFindings: safeArray(contract.auditOnlyFindings),
@@ -1613,6 +1660,7 @@ export function normalizeDataFirstNarrativeContractPayload(responseLike) {
     narrativeScope: safeObject(contract.narrativeScope),
     availableEvidenceFacts: safeArray(contract.availableEvidenceFacts),
     missingEvidenceGaps: safeArray(contract.missingEvidenceGaps),
+    auditRejectedSourceGaps: safeArray(contract.auditRejectedSourceGaps),
     notApplicableBoundaries: safeArray(contract.notApplicableBoundaries),
     allowedNarrativeConcepts: safeArray(contract.allowedNarrativeConcepts),
     forbiddenNarrativeConcepts: safeArray(contract.forbiddenNarrativeConcepts),
@@ -5631,15 +5679,18 @@ export function buildDecisionTerminalModel({
   });
   const verdictSemantics = buildLensAwareVerdictSemantics(rawVerdictSemantics, resolvedInstitutionalLens, lensAwareExplanations);
   const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(safeAnalysis);
-  const displayEvidenceNeeded = lensAwareExplanations?.evidenceNeeded?.length
+  const canonicalPrimaryFamily = primaryAnalysisRoute?.primaryFamily || primaryAnalysisRoute?.assetFamily || null;
+  const rawDisplayEvidenceNeeded = lensAwareExplanations?.evidenceNeeded?.length
     ? lensAwareExplanations.evidenceNeeded
     : missingCritical;
-  const displayRequiredConditions = lensAwareExplanations?.requiredConditions?.length
+  const displayEvidenceNeeded = filterPrimaryFamilyCompatibleItems(rawDisplayEvidenceNeeded, canonicalPrimaryFamily);
+  const rawDisplayRequiredConditions = lensAwareExplanations?.requiredConditions?.length
     ? lensAwareExplanations.requiredConditions
     : requiredConditions;
+  const displayRequiredConditions = filterPrimaryFamilyCompatibleItems(rawDisplayRequiredConditions, canonicalPrimaryFamily);
   const displayWhatWouldChangeDecision = lensAwareExplanations?.whatWouldChange?.length
     ? {
-      items: lensAwareExplanations.whatWouldChange,
+      items: filterPrimaryFamilyCompatibleItems(lensAwareExplanations.whatWouldChange, canonicalPrimaryFamily),
       badge: "Lens-aware requirements",
       explanation: "Display wording from resolvedInstitutionalLens; scoring and verdicts are unchanged.",
     }
@@ -5783,7 +5834,7 @@ export function buildDecisionTerminalModel({
       currentStatus: "source_required",
       canChangeVerdict: false,
     }));
-  const canonicalRequirementFamily = String(primaryAnalysisRoute?.assetFamily || "").trim().toLowerCase();
+  const canonicalRequirementFamily = String(canonicalPrimaryFamily || "").trim().toLowerCase();
   const canonicalResearchRequirements = [
     ...familyMatrixResearchRequirements,
     ...familyCanonicalResearchRequirements,
@@ -5806,7 +5857,23 @@ export function buildDecisionTerminalModel({
       || declaredFamily === "coverage_score_eligibility"
       || declaredFamily === "family_data_requirement_matrix";
   });
-  const displayResearchRequirements = dedupeObjectsByTitle(canonicalResearchRequirements);
+  const displayResearchRequirements = dedupeObjectsByTitle(canonicalResearchRequirements)
+    .filter((requirement) => isPrimaryFamilyCompatibleText([
+      requirement?.title,
+      requirement?.reason,
+      ...(requirement?.evidenceNeeded || []),
+    ].join(" "), canonicalPrimaryFamily));
+  const displayAssetIdentityResolution = assetIdentityResolution ? {
+    ...assetIdentityResolution,
+    rawIdentityWarningsAuditOnly: safeArray(assetIdentityResolution.identityWarnings),
+    rawChainWarningsAuditOnly: safeArray(assetIdentityResolution.chainWarnings),
+    rawContractWarningsAuditOnly: safeArray(assetIdentityResolution.contractWarnings),
+    rawSourceRequirementsAuditOnly: safeArray(assetIdentityResolution.sourceRequirements),
+    identityWarnings: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.identityWarnings, canonicalPrimaryFamily),
+    chainWarnings: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.chainWarnings, canonicalPrimaryFamily),
+    contractWarnings: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.contractWarnings, canonicalPrimaryFamily),
+    sourceRequirements: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.sourceRequirements, canonicalPrimaryFamily),
+  } : assetIdentityResolution;
   const displayVerdictSemantics = lensAwareExplanations ? {
     ...verdictSemantics,
     missingEvidence: displayEvidenceNeeded,
@@ -5908,7 +5975,7 @@ export function buildDecisionTerminalModel({
     rawResolvedInstitutionalLensAuditOnly: resolvedInstitutionalLens,
     effectiveInstitutionalLens,
     lensAwareExplanations,
-    assetIdentityResolution,
+    assetIdentityResolution: displayAssetIdentityResolution,
     tokenomicsSupplyIntegrity,
     reviewedEvidencePacket,
     benchmarkInstitutionalAnswerPack,
@@ -8215,6 +8282,10 @@ export function buildReviewBundleText({
       bundleField("Contract attached", authorityHierarchyContract ? "yes" : "missing"),
       bundleField("Artifact version", authorityHierarchyContract?.artifactVersion),
       bundleField("Contract status", authorityHierarchyContract?.contractStatus),
+      bundleField("Local route status", authorityHierarchyContract?.localRouteStatus || authorityHierarchyContract?.contractStatus),
+      bundleField("Global route/surface parity status", authorityHierarchyContract?.globalParityStatus || routeSurfaceParityContract?.globalParityStatus),
+      "Global failed contracts:",
+      bundleList(authorityHierarchyContract?.globalFailedContracts || routeSurfaceParityContract?.failedContracts, "No global failed contracts."),
       bundleField("Primary rule", authorityHierarchyContract?.primaryRule || "asset_interpretation_contract_effective_family_is_primary"),
       bundleField("Primary route field", authorityHierarchyContract?.frontendContract?.primaryRouteField || "primaryAnalysisRoute"),
       bundleField("Frontend normalization field", authorityHierarchyContract?.frontendContract?.frontendNormalizationField || "model.authorityHierarchyContract"),
@@ -8351,6 +8422,7 @@ export function buildReviewBundleText({
       bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
       bundleField("Asset family", institutionalAnswerSurfaceContract?.assetFamily),
       bundleField("Cards transformed", institutionalAnswerSurfaceContract?.cardsTransformedCount ?? institutionalAnswerCards.length),
+      bundleField("Rejected incompatible raw answers (audit-only)", institutionalAnswerSurfaceContract?.rejectedIncompatibleAnswerCount ?? 0),
       bundleField("2AM scanner version", twoAmRenderedPrimaryScan.scannerVersion),
       bundleField("2AM corpus source", twoAmRenderedPrimaryScan.corpusSource),
       bundleField("2AM raw metadata excluded", twoAmRenderedPrimaryScan.rawMetadataExcluded ? "yes" : "no"),
@@ -8387,6 +8459,10 @@ export function buildReviewBundleText({
       bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.evidenceWeHave).map(cleanPrimaryAnswerText)),
       "Open checks / source queue summary:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.sourceQueueSummary || institutionalAnswerSurfaceContract?.sourceSummary?.openChecks).map(cleanPrimaryAnswerText)),
+      "Rejected incompatible open checks (audit-only):",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.rejectedIncompatibleOpenChecksAuditOnly).map((entry) =>
+        `${entry.text || "Requirement"} | incompatible=${safeArray(entry.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(entry.matchedConcepts).join(", ") || "unknown"}`
+      ), "No incompatible open checks were rejected."),
       "Score summary in plain language:",
       bundleList([
         institutionalAnswerSurfaceContract?.scoreSummary?.scoreLabel,
@@ -9104,6 +9180,11 @@ export function buildReviewBundleText({
       bundleList(safeArray(dataFirstNarrativeContract?.missingEvidenceGaps).map((gap) =>
         `${gap.gapId || "gap"} | ${gap.severity || "severity"} | ${gap.sourceRequirement || "requirement unavailable"} | notNegativeEvidence=${gap.notNegativeEvidence ? "yes" : "unknown"}`
       ), "No narrative gaps attached.", 30),
+      bundleField("Source-gap compatibility status", dataFirstNarrativeContract?.sourceGapCompatibilityStatus),
+      "Rejected incompatible source gaps (audit-only):",
+      bundleList(safeArray(dataFirstNarrativeContract?.auditRejectedSourceGaps).map((gap) =>
+        `${gap.sourceRequirement || "requirement"} | canonical=${gap.canonicalFamily || "unknown"} | incompatible=${safeArray(gap.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(gap.matchedConcepts).join(", ") || "unknown"}`
+      ), "No incompatible DataFirst source gaps were rejected.", 30),
       "Allowed narrative concepts:",
       bundleList(dataFirstNarrativeContract?.allowedNarrativeConcepts),
       "Forbidden narrative concepts:",
@@ -9123,6 +9204,10 @@ export function buildReviewBundleText({
       bundleField("Contract attached", routeSurfaceParityContract ? "yes" : "missing"),
       bundleField("Artifact version", routeSurfaceParityContract?.artifactVersion),
       bundleField("Global parity status", routeSurfaceParityContract?.globalParityStatus || "FAIL"),
+      bundleField("2AK local route status", routeSurfaceParityContract?.localRouteStatus || authorityHierarchyContract?.localRouteStatus || authorityHierarchyContract?.contractStatus),
+      bundleField("DataFirst / 2AB compatibility", routeSurfaceParityContract?.dataFirstCompatibilityStatus || "unknown"),
+      bundleField("2AM scanner status", routeSurfaceParityContract?.answerSurfaceScannerStatus || "unknown"),
+      bundleField("Source Queue compatibility", routeSurfaceParityContract?.sourceQueueCompatibilityStatus || "unknown"),
       bundleField("Canonical primary family", primaryAnalysisRoute?.primaryFamily || primaryAnalysisRoute?.assetFamily),
       bundleField("Canonical visible label", primaryAnalysisRoute?.primaryVisibleLabel || primaryAnalysisRoute?.visibleLabel),
       bundleField("Canonical asset framing", primaryAnalysisRoute?.primaryAssetFraming || primaryAnalysisRoute?.assetFramingLabel),
@@ -9134,10 +9219,16 @@ export function buildReviewBundleText({
       bundleField("Route safety", primaryAnalysisRoute?.routeSafety),
       bundleField("Parity failure count", routeSurfaceParityContract?.parityFailureCount ?? primaryAnalysisRoute?.parityFailures?.length ?? "unknown"),
       bundleField("Wrong-family question leakage count", routeSurfaceParityContract?.wrongFamilyQuestionLeakageCount ?? "unknown"),
+      bundleField("Wrong-family source gap count", routeSurfaceParityContract?.wrongFamilySourceGapCount ?? "unknown"),
+      bundleField("Rejected wrong-family source gaps (audit-only)", routeSurfaceParityContract?.rejectedWrongFamilySourceGapCount ?? "unknown"),
       bundleField("Primary affected", yesNoUnknown(routeSurfaceParityContract?.primaryAffected)),
       bundleField("2AB escalates global failure", yesNoUnknown(routeSurfaceParityContract?.dataFirstNarrativeGateEscalated)),
       "Canonical source matrix:",
       bundleList(primaryAnalysisRoute?.primarySourceMatrixEntries || primaryAnalysisRoute?.sourceMatrixEntries),
+      "Accepted family aliases:",
+      bundleList(routeSurfaceParityContract?.acceptedFamilyAliases),
+      "Rejected alias mismatches:",
+      bundleList(routeSurfaceParityContract?.rejectedAliasMismatches, "No incompatible aliases detected."),
       "Surface family map:",
       bundleList(Object.entries(safeObject(routeSurfaceParityContract?.surfaceFamilyMap)).map(([surface, family]) => `${surface}=${family || "missing"}`)),
       "Surface question-group map:",
