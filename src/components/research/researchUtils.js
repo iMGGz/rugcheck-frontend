@@ -1915,6 +1915,33 @@ export function normalizeTypedObservationFamilyAuthorityPayload(responseLike) {
   };
 }
 
+export function normalizeInstitutionalMethodologyContractPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.institutionalMethodologyContract || nestedAnalysis.institutionalMethodologyContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    doctrineConstraints: safeArray(contract.doctrineConstraints),
+    familyDefinitions: safeArray(contract.familyDefinitions),
+    questionRegistry: safeArray(contract.questionRegistry),
+    sourceClassRegistry: safeArray(contract.sourceClassRegistry),
+    observationClassRegistry: safeArray(contract.observationClassRegistry),
+    answerStateRegistry: safeArray(contract.answerStateRegistry),
+    scoreEligibilityStateRegistry: safeArray(contract.scoreEligibilityStateRegistry),
+    contaminationGuardRegistry: safeArray(contract.contaminationGuardRegistry),
+    registrySummary: safeObject(contract.registrySummary),
+    validation: {
+      ...safeObject(contract.validation),
+      errors: safeArray(contract.validation?.errors),
+      warnings: safeArray(contract.validation?.warnings),
+      checks: safeObject(contract.validation?.checks),
+    },
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2404,6 +2431,7 @@ export function buildProtectedInvestorReportText({
   const providerDataBoundaryContract = safeModel.providerDataBoundaryContract || normalizeProviderDataBoundaryPayload(safeModel) || normalizeProviderDataBoundaryPayload(safeData) || normalizeProviderDataBoundaryPayload(safeAnalysis);
   const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = safeModel.typedObservationFamilyAuthorityContract || normalizeTypedObservationFamilyAuthorityPayload(safeModel) || normalizeTypedObservationFamilyAuthorityPayload(safeData) || normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
+  const institutionalMethodologyContract = safeModel.institutionalMethodologyContract || normalizeInstitutionalMethodologyContractPayload(safeModel) || normalizeInstitutionalMethodologyContractPayload(safeData) || normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2500,6 +2528,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Typed family authority", typedObservationFamilyAuthorityContract ? `${typedObservationFamilyAuthorityContract.visibleLabel || typedObservationFamilyAuthorityContract.selectedFamily}; source ${typedObservationFamilyAuthorityContract.selectedFamilySource || "typed route"}; confidence ${typedObservationFamilyAuthorityContract.confidence || "unknown"}` : "Not available yet."),
     reportLine("Typed family question/source profile", typedObservationFamilyAuthorityContract ? `${typedObservationFamilyAuthorityContract.selectedQuestionGroup || typedObservationFamilyAuthorityContract.questionGroupId || "question group unavailable"} / ${typedObservationFamilyAuthorityContract.selectedSourceMatrix || typedObservationFamilyAuthorityContract.sourceMatrixId || "source matrix unavailable"}` : "Not available yet."),
     reportLine("Provider capability registry", providerCapabilityRegistryContract ? `${safeArray(providerCapabilityRegistryContract.providers).length} provider capability profiles` : "Not available yet."),
+    reportLine("Institutional methodology coverage", institutionalMethodologyContract?.protectedReportSummary || "Methodology contract was not attached to this analysis."),
     reportLine("Research gap queue", manualApiResearchGapQueue ? `${safeArray(manualApiResearchGapQueue.gaps).length} open gaps; AI/deep research disabled` : "Not available yet."),
     reportLine("Critical family requirements", familyDataRequirementMatrixContract ? `${safeArray(familyDataRequirementMatrixContract.manualReviewTriggers).length} review gates; ${safeArray(familyDataRequirementMatrixContract.confidenceCapRules).length} confidence caps` : "Not available yet."),
     reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
@@ -5375,6 +5404,7 @@ export function buildDecisionTerminalModel({
   const providerDataBoundaryContract = normalizeProviderDataBoundaryPayload(safeAnalysis);
   const providerCapabilityRegistryContract = normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
+  const institutionalMethodologyContract = normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -5834,6 +5864,7 @@ export function buildDecisionTerminalModel({
     rawProviderDataRegistryContract,
     typedObservationLayerContract,
     typedObservationFamilyAuthorityContract,
+    institutionalMethodologyContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7162,6 +7193,7 @@ export function buildReviewBundleText({
   const providerDataBoundaryContract = safeModel.providerDataBoundaryContract || normalizeProviderDataBoundaryPayload(safeModel) || normalizeProviderDataBoundaryPayload(safeData) || normalizeProviderDataBoundaryPayload(safeAnalysis);
   const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = safeModel.typedObservationFamilyAuthorityContract || normalizeTypedObservationFamilyAuthorityPayload(safeModel) || normalizeTypedObservationFamilyAuthorityPayload(safeData) || normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
+  const institutionalMethodologyContract = safeModel.institutionalMethodologyContract || normalizeInstitutionalMethodologyContractPayload(safeModel) || normalizeInstitutionalMethodologyContractPayload(safeData) || normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -8879,6 +8911,46 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(typedObservationFamilyAuthorityContract?.knownLimitations, "No typed promotion limitations attached.", 8),
       bundleField("Next resume pointer", typedObservationFamilyAuthorityContract?.nextResumePointer || "Fresh browser/live live_current_qa bundle retry after Typed Observation Promotion + Route Surface Parity Repair v1."),
+    ]),
+    bundleSection("2AW. Institutional Methodology Contract Pack v1", [
+      bundleField("Contract attached", institutionalMethodologyContract ? "yes" : "missing"),
+      bundleField("Contract version", institutionalMethodologyContract?.contractVersion),
+      bundleField("Artifact version", institutionalMethodologyContract?.artifactVersion),
+      bundleField("Runtime mode", institutionalMethodologyContract?.runtimeMode),
+      bundleField("Doctrine constraints", institutionalMethodologyContract?.registrySummary?.doctrineConstraintCount),
+      bundleField("Family definitions", institutionalMethodologyContract?.registrySummary?.familyDefinitionCount),
+      bundleField("Question registry", institutionalMethodologyContract?.registrySummary?.questionCount),
+      bundleField("Source classes", institutionalMethodologyContract?.registrySummary?.sourceClassCount),
+      bundleField("Observation types", institutionalMethodologyContract?.registrySummary?.observationTypeCount),
+      bundleField("Answer states", institutionalMethodologyContract?.registrySummary?.answerStateCount),
+      bundleField("Score eligibility states", institutionalMethodologyContract?.registrySummary?.scoreEligibilityStateCount),
+      bundleField("Contamination guards", institutionalMethodologyContract?.registrySummary?.contaminationGuardCount),
+      bundleField("Report-only / diagnostic-only", yesNoUnknown(institutionalMethodologyContract?.runtimeMode === "diagnostic_report_only")),
+      bundleField("Current scoring activation", institutionalMethodologyContract?.currentScoringActivationStatus),
+      bundleField("Registry validation", institutionalMethodologyContract?.validation?.valid ? "PASS" : "FAIL"),
+      bundleField("Backend/frontend parity field", institutionalMethodologyContract ? "model.institutionalMethodologyContract (backend-derived)" : "missing"),
+      bundleField("Frontend stale fallback can override", yesNoUnknown(institutionalMethodologyContract?.guardrails?.frontendFallbackCanOverrideBackendContract)),
+      bundleField("Copy Bundle rebuilds contract independently", yesNoUnknown(institutionalMethodologyContract?.guardrails?.copyBundleRebuildsContractIndependently)),
+      bundleField("Protected report raw internals exposed", yesNoUnknown(institutionalMethodologyContract?.guardrails?.protectedReportRawInternalsExposed)),
+      "Validation errors:",
+      bundleList(institutionalMethodologyContract?.validation?.errors, "No methodology contract validation errors.", 20),
+      "Known limitations:",
+      bundleList(institutionalMethodologyContract?.knownLimitations, "No methodology contract limitations attached.", 12),
+      "Guardrails:",
+      bundleList([
+        `Score changed=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.scoreChanged)}`,
+        `Verdict changed=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.verdictChanged)}`,
+        `Provider fetch behavior changed=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.providerFetchBehaviorChanged)}`,
+        `Token-specific overrides added=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.tokenSpecificOverridesAdded)}`,
+        `Runtime AI decision authority added=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.runtimeAiDecisionAuthorityAdded)}`,
+        `Reviewed evidence scoring-active=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.reviewedEvidenceScoringActive)}`,
+        `Source candidates promoted=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.sourceCandidatesPromoted)}`,
+        `Source requirements promoted to evidence=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.sourceRequirementsPromotedToEvidence)}`,
+        `Manual review promoted to evidence=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.manualReviewPromotedToEvidence)}`,
+        `Snapshots reintroduced=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.snapshotsReintroduced)}`,
+        `Partial refresh reintroduced=${yesNoUnknown(institutionalMethodologyContract?.guardrails?.partialRefreshReintroduced)}`,
+      ], "No methodology guardrails attached.", 20),
+      bundleField("Next resume pointer", institutionalMethodologyContract?.nextResumePointer),
     ]),
     bundleSection("2AB. Data-First Decision Narrative Contract", [
       bundleField("Contract attached", dataFirstNarrativeContract ? "yes" : "missing"),

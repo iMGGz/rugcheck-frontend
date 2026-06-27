@@ -448,6 +448,7 @@ export default function ScoringTransparencyTab({
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
+  const methodologyContract = model?.institutionalMethodologyContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
 
@@ -541,6 +542,31 @@ export default function ScoringTransparencyTab({
       </div>
 
       <CalibrationWarningTransparency warnings={model?.calibrationWarnings} styles={styles} />
+
+      {methodologyContract.artifactVersion ? (
+        <Card
+          title="Institutional Methodology Coverage"
+          subtitle="Versioned diagnostic framework only. It does not alter the current score, verdict, route, or evidence status."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, methodologyContract.contractVersion || "Methodology v1")}
+            {boundaryChip(styles, `${methodologyContract.registrySummary?.familyDefinitionCount || 0} asset families`)}
+            {boundaryChip(styles, `${methodologyContract.registrySummary?.questionCount || 0} institutional questions`)}
+            {boundaryChip(styles, "Scoring inactive")}
+          </div>
+          <SectionRow
+            label="Methodology boundary"
+            value={methodologyContract.currentRuntimeEffect || "Diagnostic methodology coverage is attached."}
+            styles={styles}
+          />
+          <SectionRow
+            label="Validation"
+            value={methodologyContract.validation?.valid ? "Registry references and evidence boundaries validated." : "Methodology registry validation requires review."}
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {coverageGate.artifactVersion ? (
         <Card
