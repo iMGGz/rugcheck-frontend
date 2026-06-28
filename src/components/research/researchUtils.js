@@ -1490,11 +1490,14 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
 
 const PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS = {
   defi_governance_value_capture: [
-    /\breserve (?:attestation|composition|backing|audit)s?\b/i,
-    /\bredemption (?:terms?|path|eligibility|docs?|rights?)\b/i,
-    /\bpeg (?:stress|stability|liquidity|resilience)\b/i,
-    /\b(?:mint\/?redeem|supported mint|issuer mint|freeze\/?blacklist|stablecoin admin)\b/i,
+    /\breserves? (?:attestation|composition|backing|audit|proof)s?\b|\breserve attestations?\b/i,
+    /\bredemption (?:terms?|path|eligibility|docs?|rights?|process)\b/i,
+    /\bpeg (?:history|conditions?|stress|stability|liquidity|resilience|behavior)\b/i,
+    /\b(?:mint\/?redeem|supported mint|issuer mint|freeze\/?blacklist|admin\/freeze|stablecoin admin)\b/i,
+    /\bissuer\/custodian(?: docs?| dependency| evidence| status)?\b|\bbanking\/custody status\b|\bbacking proof\b/i,
+    /\bsupported network docs?\b|\bsupported networks? verification\b/i,
     /\b(?:eip-?1559|eth gas demand|validator\/client diversity|staking participation|l2\/blob|blob fee|mev\/pbs\/relay)\b/i,
+    /\b(?:rwa legal claim|fund[- ]product rights|nav methodology|bankruptcy remoteness|collateral proof)\b/i,
   ],
   native_eth_pos_gas_l2_fee_market: [
     /\breserve (?:attestation|composition|backing)\b/i,
@@ -1571,6 +1574,7 @@ export function normalizeRouteSurfaceParityPayload(responseLike) {
     surfaceQuestionGroupMap: safeObject(contract.surfaceQuestionGroupMap),
     surfaceSourceMatrixMap: safeObject(contract.surfaceSourceMatrixMap),
     wrongFamilyQuestionFindings: safeArray(contract.wrongFamilyQuestionFindings),
+    dataFirstFailureDetails: safeArray(contract.dataFirstFailureDetails),
     acceptedFamilyAliases: safeArray(contract.acceptedFamilyAliases),
     rejectedAliasMismatches: safeArray(contract.rejectedAliasMismatches),
     failedContracts: safeArray(contract.failedContracts),
@@ -1679,6 +1683,7 @@ export function normalizeDataFirstNarrativeContractPayload(responseLike) {
       confidenceCaps: safeArray(contract.scoreExplanationInputs?.confidenceCaps),
     },
     primaryNarrativeFailures: safeArray(contract.primaryNarrativeFailures),
+    primaryNarrativeFailureDetails: safeArray(contract.primaryNarrativeFailureDetails),
     wrongAssetNameMentions: safeArray(contract.wrongAssetNameMentions),
     forbiddenConceptMentions: safeArray(contract.forbiddenConceptMentions),
     unsupportedClaimsDetected: safeArray(contract.unsupportedClaimsDetected),
@@ -9158,6 +9163,11 @@ export function buildReviewBundleText({
       bundleField("Contract status", dataFirstNarrativeContract?.contractStatus),
       bundleField("Primary narrative gate status", dataFirstNarrativeContract?.primaryNarrativeGateStatus),
       bundleField("Primary narrative failure count", dataFirstNarrativeContract?.primaryNarrativeFailureCount),
+      bundleField("Canonical family", dataFirstNarrativeContract?.narrativeScope?.canonicalAssetFamily || dataFirstNarrativeContract?.narrativeScope?.assetClassGroup),
+      bundleField("Primary rendered gap count", safeArray(dataFirstNarrativeContract?.missingEvidenceGaps).length),
+      bundleField("Rejected audit-only gap count", safeArray(dataFirstNarrativeContract?.auditRejectedSourceGaps).length),
+      bundleField("Rejected audit-only gaps block DataFirst", "no"),
+      bundleField("Local DataFirst compatibility", dataFirstNarrativeContract?.sourceGapCompatibilityStatus || dataFirstNarrativeContract?.primaryNarrativeGateStatus),
       bundleField("Decision surface data binding status", dataFirstNarrativeContract?.decisionSurfaceDataBindingStatus),
       bundleField("Score explanation data-backed", yesNoUnknown(dataFirstNarrativeContract?.scoreExplanationInputs?.scoreExplanationDataBacked)),
       bundleField("Frontend normalization field", dataFirstNarrativeContract?.frontendNormalizationField),
@@ -9185,6 +9195,10 @@ export function buildReviewBundleText({
       bundleList(safeArray(dataFirstNarrativeContract?.auditRejectedSourceGaps).map((gap) =>
         `${gap.sourceRequirement || "requirement"} | canonical=${gap.canonicalFamily || "unknown"} | incompatible=${safeArray(gap.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(gap.matchedConcepts).join(", ") || "unknown"}`
       ), "No incompatible DataFirst source gaps were rejected.", 30),
+      "Exact primary failure fields:",
+      bundleList(safeArray(dataFirstNarrativeContract?.primaryNarrativeFailureDetails).map((failure) =>
+        `${failure.fieldPath || failure.fieldName || "field"} | text=${failure.offendingText || "unavailable"} | canonical=${failure.canonicalFamily || "unknown"} | incompatible=${safeArray(failure.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(failure.matchedConcepts).join(", ") || "unknown"} | renderedPrimary=${failure.renderedPrimary ? "yes" : "no"} | auditOnly=${failure.auditOnly ? "yes" : "no"} | reason=${failure.blockingReason || "unavailable"}`
+      ), "No primary DataFirst failure fields.", 30),
       "Allowed narrative concepts:",
       bundleList(dataFirstNarrativeContract?.allowedNarrativeConcepts),
       "Forbidden narrative concepts:",
@@ -9229,6 +9243,10 @@ export function buildReviewBundleText({
       bundleList(routeSurfaceParityContract?.acceptedFamilyAliases),
       "Rejected alias mismatches:",
       bundleList(routeSurfaceParityContract?.rejectedAliasMismatches, "No incompatible aliases detected."),
+      "Exact DataFirst / 2AB failure fields:",
+      bundleList(safeArray(routeSurfaceParityContract?.dataFirstFailureDetails).map((failure) =>
+        `${failure.fieldPath || failure.fieldName || "field"} | text=${failure.offendingText || "unavailable"} | canonical=${failure.canonicalFamily || "unknown"} | incompatible=${safeArray(failure.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(failure.matchedConcepts).join(", ") || "unknown"} | reason=${failure.blockingReason || "unavailable"}`
+      ), "No DataFirst primary failure fields."),
       "Surface family map:",
       bundleList(Object.entries(safeObject(routeSurfaceParityContract?.surfaceFamilyMap)).map(([surface, family]) => `${surface}=${family || "missing"}`)),
       "Surface question-group map:",
