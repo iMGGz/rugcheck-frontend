@@ -2102,6 +2102,12 @@ export function normalizeQuestionEvidenceMappingPayload(responseLike) {
   if (!contract.artifactVersion) return null;
   return {
     ...contract,
+    allowedCommonQuestions: safeArray(contract.allowedCommonQuestions).map((entry) => ({
+      ...safeObject(entry),
+      allowedFamilies: entry?.allowedFamilies === "all" ? "all" : safeArray(entry?.allowedFamilies),
+      forbiddenFamilies: safeArray(entry?.forbiddenFamilies),
+    })),
+    blockedQuestionMappings: safeArray(contract.blockedQuestionMappings),
     mappings: safeArray(contract.mappings).map((mapping) => ({
       ...safeObject(mapping),
       requiredEvidenceTypes: safeArray(mapping?.requiredEvidenceTypes),
@@ -2800,6 +2806,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Source readiness", sourceIntelligenceContract?.protectedReportSummary?.readiness || "Not available yet."),
     reportLine("Evidence packets", evidenceRegistryContract ? `${evidenceRegistryContract.summary?.packetCount || 0} classified source observations` : "Not available yet."),
     reportLine("Question evidence coverage", questionEvidenceMappingContract ? `${questionEvidenceMappingContract.summary?.coveragePercent || 0}%` : "Not available yet."),
+    reportLine("Family-compatible question mapping", questionEvidenceMappingContract?.contractStatus || "Not available yet."),
     reportLine("Source gaps", sourceIntelligenceContract ? `${sourceIntelligenceContract.protectedReportSummary?.sourceGapCount || 0} open source gaps` : "Not available yet."),
     reportLine("Contradiction review", sourceIntelligenceContract?.protectedReportSummary?.contradictionRequiresReview ? "Required" : "No contradiction gate attached"),
     reportLine("Evidence scoring boundary", sourceIntelligenceContract ? "Reviewed evidence improves source readiness but is not active in the numerical score." : "Not available yet."),
@@ -9391,6 +9398,14 @@ export function buildReviewBundleText({
       bundleField("Canonical question group", sourceIntelligenceContract?.canonicalQuestionGroup),
       bundleField("Evidence registry attached", evidenceRegistryContract ? "yes" : "no"),
       bundleField("Question mapping attached", questionEvidenceMappingContract ? "yes" : "no"),
+      bundleField("Question mapping contract status", questionEvidenceMappingContract?.contractStatus),
+      bundleField("Canonical family question count", questionEvidenceMappingContract?.canonicalFamilyQuestionCount),
+      bundleField("Allowed common question count", questionEvidenceMappingContract?.allowedCommonQuestionCount),
+      bundleField("Blocked wrong-family question count", questionEvidenceMappingContract?.wrongFamilyMappedQuestionCount),
+      bundleField("Blocked question mappings", questionEvidenceMappingContract?.blockedQuestionMappingCount),
+      bundleField("Audit-only rejected question mappings", questionEvidenceMappingContract?.auditOnlyRejectedQuestionMappingCount),
+      bundleField("Wrong-family questions remain primary", yesNoUnknown(questionEvidenceMappingContract?.wrongFamilyQuestionsRemainInPrimaryMapping)),
+      bundleField("Allowed common registry", questionEvidenceMappingContract?.allowedCommonQuestionRegistryVersion),
       bundleField("Evidence packets", sourceIntelligenceContract?.summary?.evidencePacketCount ?? evidenceRegistryContract?.summary?.packetCount),
       bundleField("Reviewed evidence packets", sourceIntelligenceContract?.summary?.reviewedEvidenceCount ?? evidenceRegistryContract?.summary?.reviewedCount),
       bundleField("Provider observations", sourceIntelligenceContract?.summary?.providerObservationCount ?? evidenceRegistryContract?.summary?.providerObservationCount),
@@ -9418,6 +9433,12 @@ export function buildReviewBundleText({
       bundleList(safeArray(questionEvidenceMappingContract?.mappings).flatMap((mapping) =>
         safeArray(mapping.blockingEvidenceGaps).map((gap) => `${mapping.questionId || "question"}: ${gap}`)
       ), "No question-level blocking evidence gaps attached.", 60),
+      "Blocked wrong-family question mappings (audit-only):",
+      bundleList(safeArray(questionEvidenceMappingContract?.blockedQuestionMappings).map((mapping) =>
+        `${mapping.questionId || "question"} | status=${mapping.compatibilityStatus || "unknown"} | candidateGroup=${mapping.candidateQuestionGroup || "unknown"} | candidateFamily=${mapping.candidateFamily || "unknown"} | canonicalFamily=${mapping.canonicalFamily || "unknown"} | canonicalGroup=${mapping.canonicalQuestionGroup || "unknown"} | source=${mapping.sourcePath || "unknown"} | packet=${mapping.evidencePacketId || "none"} | reason=${mapping.blockedReason || "unspecified"}`
+      ), "No wrong-family question mappings were rejected.", 60),
+      "Top blocked reasons:",
+      bundleList([...new Set(safeArray(questionEvidenceMappingContract?.blockedQuestionMappings).map((mapping) => mapping.blockedReason).filter(Boolean))], "No blocked question-mapping reasons.", 20),
       "Contradictions:",
       bundleList(safeArray(evidenceRegistryContract?.contradictions).map((contradiction) =>
         `${contradiction.contradictionId || "contradiction"} | ${contradiction.classification || "unknown"} | manualReview=${contradiction.manualReviewRequired ? "yes" : "no"} | ${contradiction.description || "No description"}`
@@ -9435,7 +9456,10 @@ export function buildReviewBundleText({
       "Frontend visibility:",
       bundleList(safeArray(sourceIntelligenceContract?.frontendVisibility?.surfaces)),
       "Guardrails:",
-      bundleList(Object.entries(safeObject(sourceIntelligenceContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      bundleList([
+        ...Object.entries(safeObject(sourceIntelligenceContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`),
+        ...Object.entries(safeObject(questionEvidenceMappingContract?.guardrails)).map(([name, value]) => `questionMapping.${name}=${String(value)}`),
+      ]),
       "Known limitations:",
       bundleList(sourceIntelligenceContract?.knownLimitations),
       bundleField("Next resume pointer", sourceIntelligenceContract?.nextResumePointer),

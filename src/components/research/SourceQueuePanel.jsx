@@ -388,6 +388,7 @@ export default function SourceQueuePanel({
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, sourceIntelligence.canonicalFamily || "Family unavailable")}
             {boundaryChip(styles, `${questionEvidenceMapping.summary?.coveragePercent || 0}% question coverage`)}
+            {boundaryChip(styles, questionEvidenceMapping.contractStatus || "Mapping status unavailable")}
             {boundaryChip(styles, "Diagnostic only")}
           </div>
           <ListBlock
