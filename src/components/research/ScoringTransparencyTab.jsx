@@ -451,6 +451,7 @@ export default function ScoringTransparencyTab({
   const methodologyContract = model?.institutionalMethodologyContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
+  const sourceIntelligence = model?.sourceIntelligenceContract || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -519,6 +520,16 @@ export default function ScoringTransparencyTab({
           status={provenance.assetSummary?.scoreEvidenceBasis || "Score basis unavailable"}
           impact="Score integration boundary"
           sourceState={provenance.contractAttached ? "Evidence provenance contract" : "Not attached"}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Can source intelligence activate scoring?"
+          answer={sourceIntelligence.artifactVersion
+            ? "No. Source Intelligence classifies evidence readiness and boundary violations; it does not activate evidence in the numerical score."
+            : "Source Intelligence contract was not attached."}
+          status={sourceIntelligence.artifactVersion ? "Not scoring-active" : "Unavailable"}
+          impact={`${sourceIntelligence.summary?.scoringActiveEvidenceCount || 0} active evidence packets`}
+          sourceState="Diagnostic evidence registry"
           styles={styles}
         />
         <QuestionPromptCard

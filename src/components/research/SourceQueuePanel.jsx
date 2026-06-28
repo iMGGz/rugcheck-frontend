@@ -352,6 +352,8 @@ export default function SourceQueuePanel({
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
+  const sourceIntelligence = model?.sourceIntelligenceContract || {};
+  const questionEvidenceMapping = model?.questionEvidenceMappingContract || sourceIntelligence.questionEvidenceMappingContract || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -380,6 +382,25 @@ export default function SourceQueuePanel({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {sourceIntelligence.artifactVersion ? (
+        <Card title="Question-Level Source Readiness" subtitle="Missing evidence is prioritized by the canonical question family." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, sourceIntelligence.canonicalFamily || "Family unavailable")}
+            {boundaryChip(styles, `${questionEvidenceMapping.summary?.coveragePercent || 0}% question coverage`)}
+            {boundaryChip(styles, "Diagnostic only")}
+          </div>
+          <ListBlock
+            title="Highest-priority evidence gaps"
+            items={safeArray(questionEvidenceMapping.mappings).flatMap((mapping) =>
+              safeArray(mapping.blockingEvidenceGaps).map((gap) => `${mapping.questionId}: ${gap}`)
+            ).slice(0, 8)}
+            emptyText="No question-level evidence gaps were attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {reviewedEvidence.packetLoaded ? (
         <Card title="Reviewed Evidence Coverage" subtitle="Mapped evidence can reduce duplicate source asks; remaining gaps stay visible." styles={styles}>

@@ -380,6 +380,8 @@ export default function ManualReviewPanel({
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const provenanceCounters = provenance.readinessCounters || {};
+  const sourceIntelligence = model?.sourceIntelligenceContract || {};
+  const evidenceRegistry = model?.evidenceRegistryContract || sourceIntelligence.evidenceRegistryContract || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -427,6 +429,23 @@ export default function ManualReviewPanel({
           />
         ) : null}
       </ExecutiveSummaryCard>
+
+      {sourceIntelligence.artifactVersion ? (
+        <Card title="Source Boundary Review" subtitle="Contradictions and blocked evidence promotions that require analyst attention." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${sourceIntelligence.summary?.contradictionCount || 0} contradictions`)}
+            {boundaryChip(styles, `${sourceIntelligence.summary?.sourcePromotionBlockedCount || 0} blocked promotions`)}
+            {boundaryChip(styles, "Does not change score or verdict")}
+          </div>
+          <ListBlock
+            title="Contradictions requiring review"
+            items={safeArray(evidenceRegistry.contradictions).map((entry) => entry.description)}
+            emptyText="No source-intelligence contradiction was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {coverageGate.artifactVersion ? (
         <Card title="Coverage / Score Eligibility Review" subtitle="Critical blockers before fundamental score interpretation." styles={styles}>

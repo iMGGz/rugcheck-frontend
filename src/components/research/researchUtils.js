@@ -2062,6 +2062,84 @@ export function normalizeInstitutionalMethodologyContractPayload(responseLike) {
   };
 }
 
+export function normalizeEvidenceRegistryPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "evidence-registry-v1"
+      ? root
+      : root.evidenceRegistryContract || nestedAnalysis.evidenceRegistryContract,
+  );
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    packets: safeArray(contract.packets).map((packet) => ({
+      ...safeObject(packet),
+      supportedQuestionIds: safeArray(packet?.supportedQuestionIds),
+      usability: safeArray(packet?.usability),
+      boundaryNotes: safeArray(packet?.boundaryNotes),
+    })),
+    packetsByClaimType: safeObject(contract.packetsByClaimType),
+    contradictions: safeArray(contract.contradictions).map((contradiction) => ({
+      ...safeObject(contradiction),
+      evidenceIds: safeArray(contradiction?.evidenceIds),
+      claimTypes: safeArray(contradiction?.claimTypes),
+    })),
+    rejectedPromotions: safeArray(contract.rejectedPromotions),
+    summary: safeObject(contract.summary),
+    sourceBoundary: safeArray(contract.sourceBoundary),
+  };
+}
+
+export function normalizeQuestionEvidenceMappingPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "question-evidence-mapping-v1"
+      ? root
+      : root.questionEvidenceMappingContract || nestedAnalysis.questionEvidenceMappingContract,
+  );
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    mappings: safeArray(contract.mappings).map((mapping) => ({
+      ...safeObject(mapping),
+      requiredEvidenceTypes: safeArray(mapping?.requiredEvidenceTypes),
+      availableEvidencePackets: safeArray(mapping?.availableEvidencePackets),
+      blockingEvidenceGaps: safeArray(mapping?.blockingEvidenceGaps),
+    })),
+    summary: safeObject(contract.summary),
+    sourceBoundary: safeArray(contract.sourceBoundary),
+  };
+}
+
+export function normalizeSourceIntelligencePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.sourceIntelligenceContract || nestedAnalysis.sourceIntelligenceContract);
+  if (!contract.artifactVersion) return null;
+  const evidenceRegistryContract = normalizeEvidenceRegistryPayload(contract.evidenceRegistryContract);
+  const questionEvidenceMappingContract = normalizeQuestionEvidenceMappingPayload(contract.questionEvidenceMappingContract);
+  return {
+    ...contract,
+    sourceClassRegistry: safeArray(contract.sourceClassRegistry),
+    summary: safeObject(contract.summary),
+    sourceClassCounts: safeObject(contract.sourceClassCounts),
+    sourceStatusCounts: safeObject(contract.sourceStatusCounts),
+    freshnessCounts: safeObject(contract.freshnessCounts),
+    boundaryDiagnostics: safeArray(contract.boundaryDiagnostics),
+    evidenceRegistryContract,
+    questionEvidenceMappingContract,
+    protectedReportSummary: safeObject(contract.protectedReportSummary),
+    frontendVisibility: {
+      ...safeObject(contract.frontendVisibility),
+      surfaces: safeArray(contract.frontendVisibility?.surfaces),
+    },
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2554,6 +2632,9 @@ export function buildProtectedInvestorReportText({
   const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = safeModel.typedObservationFamilyAuthorityContract || normalizeTypedObservationFamilyAuthorityPayload(safeModel) || normalizeTypedObservationFamilyAuthorityPayload(safeData) || normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
   const institutionalMethodologyContract = safeModel.institutionalMethodologyContract || normalizeInstitutionalMethodologyContractPayload(safeModel) || normalizeInstitutionalMethodologyContractPayload(safeData) || normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
+  const sourceIntelligenceContract = safeModel.sourceIntelligenceContract || normalizeSourceIntelligencePayload(safeModel) || normalizeSourceIntelligencePayload(safeData) || normalizeSourceIntelligencePayload(safeAnalysis);
+  const evidenceRegistryContract = safeModel.evidenceRegistryContract || normalizeEvidenceRegistryPayload(safeModel) || normalizeEvidenceRegistryPayload(safeData) || normalizeEvidenceRegistryPayload(safeAnalysis) || sourceIntelligenceContract?.evidenceRegistryContract || null;
+  const questionEvidenceMappingContract = safeModel.questionEvidenceMappingContract || normalizeQuestionEvidenceMappingPayload(safeModel) || normalizeQuestionEvidenceMappingPayload(safeData) || normalizeQuestionEvidenceMappingPayload(safeAnalysis) || sourceIntelligenceContract?.questionEvidenceMappingContract || null;
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2716,6 +2797,15 @@ export function buildProtectedInvestorReportText({
     reportLine("Questions aggregated", evidenceStatusAggregationContract?.questionAggregations?.length ? `${evidenceStatusAggregationContract.questionAggregations.length} question-level evidence statuses` : "Not available yet."),
     reportLine("Major gaps", normalizeRenderableList(evidenceStatusAggregationContract?.assetAggregation?.openChecks || benchmarkInstitutionalAnswerPack?.missingEvidence).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "No evidence gap summary attached"),
     reportLine("Score preview boundary", evidenceStatusAggregationContract ? "Evidence readiness improves explanation; score integration requires a calibrated release." : "Not available"),
+    reportLine("Source readiness", sourceIntelligenceContract?.protectedReportSummary?.readiness || "Not available yet."),
+    reportLine("Evidence packets", evidenceRegistryContract ? `${evidenceRegistryContract.summary?.packetCount || 0} classified source observations` : "Not available yet."),
+    reportLine("Question evidence coverage", questionEvidenceMappingContract ? `${questionEvidenceMappingContract.summary?.coveragePercent || 0}%` : "Not available yet."),
+    reportLine("Source gaps", sourceIntelligenceContract ? `${sourceIntelligenceContract.protectedReportSummary?.sourceGapCount || 0} open source gaps` : "Not available yet."),
+    reportLine("Contradiction review", sourceIntelligenceContract?.protectedReportSummary?.contradictionRequiresReview ? "Required" : "No contradiction gate attached"),
+    reportLine("Evidence scoring boundary", sourceIntelligenceContract ? "Reviewed evidence improves source readiness but is not active in the numerical score." : "Not available yet."),
+    ...(sourceIntelligenceContract?.protectedReportSummary?.summary ? [
+      `Source summary: ${cleanPrimaryAnswerText(sourceIntelligenceContract.protectedReportSummary.summary)}`,
+    ] : []),
     "",
     "8. Missing Evidence / Source Requirements",
     ...(familyDataRequirementMatrixContract?.protectedReportSummary?.length ? [
@@ -5529,6 +5619,13 @@ export function buildDecisionTerminalModel({
   const providerCapabilityRegistryContract = normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
   const institutionalMethodologyContract = normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
+  const sourceIntelligenceContract = normalizeSourceIntelligencePayload(safeAnalysis);
+  const evidenceRegistryContract = normalizeEvidenceRegistryPayload(safeAnalysis)
+    || sourceIntelligenceContract?.evidenceRegistryContract
+    || null;
+  const questionEvidenceMappingContract = normalizeQuestionEvidenceMappingPayload(safeAnalysis)
+    || sourceIntelligenceContract?.questionEvidenceMappingContract
+    || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -6030,6 +6127,9 @@ export function buildDecisionTerminalModel({
     typedObservationLayerContract,
     typedObservationFamilyAuthorityContract,
     institutionalMethodologyContract,
+    sourceIntelligenceContract,
+    evidenceRegistryContract,
+    questionEvidenceMappingContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7383,6 +7483,9 @@ export function buildReviewBundleText({
   const providerCapabilityRegistryContract = safeModel.providerCapabilityRegistryContract || normalizeProviderCapabilityRegistryPayload(safeModel) || normalizeProviderCapabilityRegistryPayload(safeData) || normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = safeModel.typedObservationFamilyAuthorityContract || normalizeTypedObservationFamilyAuthorityPayload(safeModel) || normalizeTypedObservationFamilyAuthorityPayload(safeData) || normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
   const institutionalMethodologyContract = safeModel.institutionalMethodologyContract || normalizeInstitutionalMethodologyContractPayload(safeModel) || normalizeInstitutionalMethodologyContractPayload(safeData) || normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
+  const sourceIntelligenceContract = safeModel.sourceIntelligenceContract || normalizeSourceIntelligencePayload(safeModel) || normalizeSourceIntelligencePayload(safeData) || normalizeSourceIntelligencePayload(safeAnalysis);
+  const evidenceRegistryContract = safeModel.evidenceRegistryContract || normalizeEvidenceRegistryPayload(safeModel) || normalizeEvidenceRegistryPayload(safeData) || normalizeEvidenceRegistryPayload(safeAnalysis) || sourceIntelligenceContract?.evidenceRegistryContract || null;
+  const questionEvidenceMappingContract = safeModel.questionEvidenceMappingContract || normalizeQuestionEvidenceMappingPayload(safeModel) || normalizeQuestionEvidenceMappingPayload(safeData) || normalizeQuestionEvidenceMappingPayload(safeAnalysis) || sourceIntelligenceContract?.questionEvidenceMappingContract || null;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9279,6 +9382,63 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(routeSurfaceParityContract?.knownLimitations),
       bundleField("Next resume pointer", routeSurfaceParityContract?.nextResumePointer),
+    ]),
+    bundleSection("2AY. Source Intelligence / Evidence Registry v1", [
+      bundleField("Contract attached", sourceIntelligenceContract ? "yes" : "no"),
+      bundleField("Artifact version", sourceIntelligenceContract?.artifactVersion),
+      bundleField("Runtime mode", sourceIntelligenceContract?.runtimeMode),
+      bundleField("Canonical family", sourceIntelligenceContract?.canonicalFamily),
+      bundleField("Canonical question group", sourceIntelligenceContract?.canonicalQuestionGroup),
+      bundleField("Evidence registry attached", evidenceRegistryContract ? "yes" : "no"),
+      bundleField("Question mapping attached", questionEvidenceMappingContract ? "yes" : "no"),
+      bundleField("Evidence packets", sourceIntelligenceContract?.summary?.evidencePacketCount ?? evidenceRegistryContract?.summary?.packetCount),
+      bundleField("Reviewed evidence packets", sourceIntelligenceContract?.summary?.reviewedEvidenceCount ?? evidenceRegistryContract?.summary?.reviewedCount),
+      bundleField("Provider observations", sourceIntelligenceContract?.summary?.providerObservationCount ?? evidenceRegistryContract?.summary?.providerObservationCount),
+      bundleField("Provider metadata context", sourceIntelligenceContract?.summary?.providerMetadataCount),
+      bundleField("Source candidates", sourceIntelligenceContract?.summary?.sourceCandidateCount ?? evidenceRegistryContract?.summary?.candidateCount),
+      bundleField("Missing evidence", sourceIntelligenceContract?.summary?.missingEvidenceCount ?? evidenceRegistryContract?.summary?.requirementCount),
+      bundleField("Contradictions", sourceIntelligenceContract?.summary?.contradictionCount ?? evidenceRegistryContract?.summary?.contradictionCount),
+      bundleField("Stale sources", sourceIntelligenceContract?.summary?.staleSourceCount),
+      bundleField("Question coverage", `${sourceIntelligenceContract?.summary?.questionMappingCoveragePercent ?? questionEvidenceMappingContract?.summary?.coveragePercent ?? 0}%`),
+      bundleField("Scoring-active evidence", sourceIntelligenceContract?.summary?.scoringActiveEvidenceCount ?? evidenceRegistryContract?.summary?.scoringActiveCount ?? 0),
+      bundleField("Blocked source promotions", sourceIntelligenceContract?.summary?.sourcePromotionBlockedCount ?? evidenceRegistryContract?.rejectedPromotions?.length ?? 0),
+      bundleField("Protected readiness", sourceIntelligenceContract?.protectedReportSummary?.readiness),
+      bundleField("Reviewed evidence scoring-active", yesNoUnknown(sourceIntelligenceContract?.protectedReportSummary?.reviewedEvidenceScoringActive)),
+      "Source-class counts:",
+      bundleList(Object.entries(safeObject(sourceIntelligenceContract?.sourceClassCounts)).map(([name, count]) => `${name}=${count}`), "No source-class counts attached."),
+      "Source-status counts:",
+      bundleList(Object.entries(safeObject(sourceIntelligenceContract?.sourceStatusCounts)).map(([name, count]) => `${name}=${count}`), "No source-status counts attached."),
+      "Freshness counts:",
+      bundleList(Object.entries(safeObject(sourceIntelligenceContract?.freshnessCounts)).map(([name, count]) => `${name}=${count}`), "No freshness counts attached."),
+      "Question evidence mapping:",
+      bundleList(safeArray(questionEvidenceMappingContract?.mappings).map((mapping) =>
+        `${mapping.questionId || "question"} | readiness=${mapping.answerReadiness || "unknown"} | evidence=${mapping.evidenceReadiness || "unknown"} | reviewed=${mapping.reviewedEvidenceCount || 0} | provider=${mapping.providerObservationCount || 0} | candidates=${mapping.candidateSourceCount || 0} | missing=${mapping.missingEvidenceCount || 0} | contradictions=${mapping.contradictionCount || 0}`
+      ), "No question-level evidence mappings attached.", 60),
+      "Missing evidence by question:",
+      bundleList(safeArray(questionEvidenceMappingContract?.mappings).flatMap((mapping) =>
+        safeArray(mapping.blockingEvidenceGaps).map((gap) => `${mapping.questionId || "question"}: ${gap}`)
+      ), "No question-level blocking evidence gaps attached.", 60),
+      "Contradictions:",
+      bundleList(safeArray(evidenceRegistryContract?.contradictions).map((contradiction) =>
+        `${contradiction.contradictionId || "contradiction"} | ${contradiction.classification || "unknown"} | manualReview=${contradiction.manualReviewRequired ? "yes" : "no"} | ${contradiction.description || "No description"}`
+      ), "No evidence contradictions detected.", 40),
+      "Source-boundary diagnostics:",
+      bundleList(safeArray(sourceIntelligenceContract?.boundaryDiagnostics).map((diagnostic) =>
+        `${diagnostic.diagnosticId || "diagnostic"} | ${diagnostic.violationType || "unknown"} | ${diagnostic.severity || "unknown"} | question=${diagnostic.questionId || "none"} | blocked=${diagnostic.blockedUse || "unspecified"} | ${diagnostic.finding || "No finding"}`
+      ), "No source-boundary diagnostics detected.", 60),
+      "Rejected promotions:",
+      bundleList(safeArray(evidenceRegistryContract?.rejectedPromotions).map((entry) =>
+        `${entry.evidenceId || "evidence"} | attempted=${entry.attemptedUse || "unknown"} | blocked=${entry.blockedReason || "unspecified"}`
+      ), "No source-promotion attempts recorded.", 40),
+      "Source boundary:",
+      bundleList(evidenceRegistryContract?.sourceBoundary),
+      "Frontend visibility:",
+      bundleList(safeArray(sourceIntelligenceContract?.frontendVisibility?.surfaces)),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(sourceIntelligenceContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(sourceIntelligenceContract?.knownLimitations),
+      bundleField("Next resume pointer", sourceIntelligenceContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),

@@ -506,6 +506,8 @@ export default function EvidenceMapTab({
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
+  const sourceIntelligence = model?.sourceIntelligenceContract || {};
+  const evidenceRegistry = model?.evidenceRegistryContract || sourceIntelligence.evidenceRegistryContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -544,6 +546,14 @@ export default function EvidenceMapTab({
       </ExecutiveSummaryCard>
 
       <div style={styles.advancedGrid}>
+        <QuestionPromptCard
+          question="What is the current source-readiness picture?"
+          answer={sourceIntelligence.protectedReportSummary?.summary || "Source Intelligence contract was not attached to this analysis."}
+          status={sourceIntelligence.protectedReportSummary?.readiness || "Unavailable"}
+          impact={`${sourceIntelligence.summary?.missingEvidenceCount || 0} source gaps`}
+          sourceState={`${evidenceRegistry.summary?.packetCount || 0} classified observations`}
+          styles={styles}
+        />
         <QuestionPromptCard
           question="How should evidence provenance be read?"
           answer={provenance.assetSummary?.summaryLabel || "Evidence provenance semantics were not attached."}
