@@ -382,6 +382,9 @@ export default function ManualReviewPanel({
   const provenanceCounters = provenance.readinessCounters || {};
   const sourceIntelligence = model?.sourceIntelligenceContract || {};
   const evidenceRegistry = model?.evidenceRegistryContract || sourceIntelligence.evidenceRegistryContract || {};
+  const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
+  const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
+  const sourceCandidatePipeline = model?.sourceCandidatePipelineContract || sourceDiscovery.sourceCandidatePipelineContract || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -429,6 +432,27 @@ export default function ManualReviewPanel({
           />
         ) : null}
       </ExecutiveSummaryCard>
+
+      {sourceDiscovery.artifactVersion ? (
+        <Card title="Source Candidate Review Boundary" subtitle="Rejected, duplicate, and unresolved candidates stay outside evidence and scoring." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.rejectedCandidateCount || 0} rejected`)}
+            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.duplicateCandidateCount || 0} duplicates`)}
+            {boundaryChip(styles, `${sourceCandidatePipeline.boundaryDiagnostics?.length || 0} boundary diagnostics`)}
+            {boundaryChip(styles, "Requires analyst review")}
+          </div>
+          <ListBlock
+            title="Candidate boundary findings"
+            items={safeArray(sourceCandidatePipeline.boundaryDiagnostics)
+              .filter((entry) => entry.severity !== "audit_only")
+              .slice(0, 8)
+              .map((entry) => entry.finding)}
+            emptyText="No blocking source-candidate boundary finding was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {sourceIntelligence.artifactVersion ? (
         <Card title="Source Boundary Review" subtitle="Contradictions and blocked evidence promotions that require analyst attention." styles={styles}>

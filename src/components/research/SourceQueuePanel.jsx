@@ -354,6 +354,8 @@ export default function SourceQueuePanel({
   const provenanceCounters = provenance.readinessCounters || {};
   const sourceIntelligence = model?.sourceIntelligenceContract || {};
   const questionEvidenceMapping = model?.questionEvidenceMappingContract || sourceIntelligence.questionEvidenceMappingContract || {};
+  const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
+  const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -382,6 +384,36 @@ export default function SourceQueuePanel({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {sourceDiscovery.artifactVersion ? (
+        <Card title="Source Candidates for Review" subtitle="Bounded discovery leads only; each candidate requires review before evidence use." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.acceptedCandidateCount || 0} candidates`)}
+            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.highPriorityReviewCandidateCount || 0} high priority`)}
+            {boundaryChip(styles, "Candidate only")}
+            {boundaryChip(styles, "Not scoring-active")}
+          </div>
+          <ListBlock
+            title="Highest-priority review leads"
+            items={safeArray(sourceCandidateRegistry.candidates)
+              .filter((candidate) => ["critical_gap", "high"].includes(candidate.reviewPriority))
+              .slice(0, 8)
+              .map((candidate) => `${candidate.candidateTitle}: ${candidate.candidateReason}`)}
+            emptyText="No high-priority source candidate was attached."
+            color="#7dd3fc"
+            styles={styles}
+          />
+          <ListBlock
+            title="Evidence gaps remain open"
+            items={safeArray(sourceDiscovery.sourceCandidatePipelineContract?.unresolvedEvidenceGaps)
+              .slice(0, 8)
+              .map((entry) => `${entry.questionId}: ${entry.gap}`)}
+            emptyText="No unresolved candidate-mapped source gap was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {sourceIntelligence.artifactVersion ? (
         <Card title="Question-Level Source Readiness" subtitle="Missing evidence is prioritized by the canonical question family." styles={styles}>

@@ -452,6 +452,8 @@ export default function ScoringTransparencyTab({
   const provenanceCounters = provenance.readinessCounters || {};
   const benchmarkPack = safeObject(model?.benchmarkInstitutionalAnswerPack);
   const sourceIntelligence = model?.sourceIntelligenceContract || {};
+  const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
+  const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -530,6 +532,16 @@ export default function ScoringTransparencyTab({
           status={sourceIntelligence.artifactVersion ? "Not scoring-active" : "Unavailable"}
           impact={`${sourceIntelligence.summary?.scoringActiveEvidenceCount || 0} active evidence packets`}
           sourceState="Diagnostic evidence registry"
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Can discovered source candidates affect this score?"
+          answer={sourceDiscovery.artifactVersion
+            ? "No. Discovered sources remain unreviewed candidates and cannot resolve evidence gaps or affect the numerical score."
+            : "Source discovery candidate contract was not attached."}
+          status={sourceDiscovery.artifactVersion ? "Not scoring-active" : "Unavailable"}
+          impact={`${sourceCandidateRegistry.summary?.scoringActiveCandidateCount || 0} active candidates`}
+          sourceState="Candidate discovery only"
           styles={styles}
         />
         <QuestionPromptCard

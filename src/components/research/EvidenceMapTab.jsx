@@ -509,6 +509,8 @@ export default function EvidenceMapTab({
   const sourceIntelligence = model?.sourceIntelligenceContract || {};
   const evidenceRegistry = model?.evidenceRegistryContract || sourceIntelligence.evidenceRegistryContract || {};
   const questionEvidenceMapping = model?.questionEvidenceMappingContract || sourceIntelligence.questionEvidenceMappingContract || {};
+  const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
+  const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -553,6 +555,14 @@ export default function EvidenceMapTab({
           status={questionEvidenceMapping.contractStatus || sourceIntelligence.protectedReportSummary?.readiness || "Unavailable"}
           impact={`${questionEvidenceMapping.blockedQuestionMappingCount || 0} audit-only mapping rejections`}
           sourceState={`${evidenceRegistry.summary?.packetCount || 0} classified observations`}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Were additional sources identified for review?"
+          answer={sourceDiscovery.protectedReportSummary?.summary || "No source-discovery candidate contract was attached."}
+          status={sourceDiscovery.contractStatus || "Discovery unavailable"}
+          impact={`${sourceCandidateRegistry.summary?.highPriorityReviewCandidateCount || 0} high-priority reviews`}
+          sourceState="Candidate only; review required"
           styles={styles}
         />
         <QuestionPromptCard

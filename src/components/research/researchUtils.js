@@ -2146,6 +2146,90 @@ export function normalizeSourceIntelligencePayload(responseLike) {
   };
 }
 
+export function normalizeSourceCandidateRegistryPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "source-candidate-registry-v1"
+      ? root
+      : root.sourceCandidateRegistryContract || nestedAnalysis.sourceCandidateRegistryContract,
+  );
+  if (!contract.artifactVersion) return null;
+  const normalizeCandidate = (candidate) => ({
+    ...safeObject(candidate),
+    boundaryNotes: safeArray(candidate?.boundaryNotes),
+    riskFlags: safeArray(candidate?.riskFlags),
+  });
+  return {
+    ...contract,
+    candidates: safeArray(contract.candidates).map(normalizeCandidate),
+    rejectedCandidates: safeArray(contract.rejectedCandidates).map(normalizeCandidate),
+    duplicateCandidates: safeArray(contract.duplicateCandidates).map(normalizeCandidate),
+    candidatesByQuestion: safeObject(contract.candidatesByQuestion),
+    candidatesBySourceClass: safeObject(contract.candidatesBySourceClass),
+    candidatesByPriority: safeObject(contract.candidatesByPriority),
+    summary: safeObject(contract.summary),
+    sourceBoundary: safeArray(contract.sourceBoundary),
+  };
+}
+
+export function normalizeSourceCandidatePipelinePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "source-candidate-pipeline-v1"
+      ? root
+      : root.sourceCandidatePipelineContract || nestedAnalysis.sourceCandidatePipelineContract,
+  );
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    discoveryMethodsUsed: safeArray(contract.discoveryMethodsUsed),
+    candidateIdsByQuestion: safeObject(contract.candidateIdsByQuestion),
+    unresolvedEvidenceGaps: safeArray(contract.unresolvedEvidenceGaps).map((gap) => ({
+      ...safeObject(gap),
+      candidateIds: safeArray(gap?.candidateIds),
+    })),
+    prioritizationOrder: safeArray(contract.prioritizationOrder),
+    boundaryDiagnostics: safeArray(contract.boundaryDiagnostics),
+    guardrails: safeObject(contract.guardrails),
+  };
+}
+
+export function normalizeDeepResearchSourceDiscoveryPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.deepResearchSourceDiscoveryContract || nestedAnalysis.deepResearchSourceDiscoveryContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    discoveryInputsUsed: safeArray(contract.discoveryInputsUsed),
+    familyTemplate: safeObject(contract.familyTemplate).templateId ? {
+      ...safeObject(contract.familyTemplate),
+      canonicalQuestionGroupCandidates: safeArray(contract.familyTemplate?.canonicalQuestionGroupCandidates),
+      requirements: safeArray(contract.familyTemplate?.requirements).map((requirement) => ({
+        ...safeObject(requirement),
+        questionIdPatterns: safeArray(requirement?.questionIdPatterns),
+        requiredSourceClasses: safeArray(requirement?.requiredSourceClasses),
+        boundaryNotes: safeArray(requirement?.boundaryNotes),
+      })),
+      familyBoundaries: safeArray(contract.familyTemplate?.familyBoundaries),
+      extensibilityNotes: safeArray(contract.familyTemplate?.extensibilityNotes),
+    } : null,
+    sourceCandidatePipelineContract: normalizeSourceCandidatePipelinePayload(contract.sourceCandidatePipelineContract),
+    sourceCandidateRegistryContract: normalizeSourceCandidateRegistryPayload(contract.sourceCandidateRegistryContract),
+    summary: safeObject(contract.summary),
+    freeApiCoverageLimitations: safeArray(contract.freeApiCoverageLimitations),
+    protectedReportSummary: safeObject(contract.protectedReportSummary),
+    frontendVisibility: {
+      ...safeObject(contract.frontendVisibility),
+      surfaces: safeArray(contract.frontendVisibility?.surfaces),
+    },
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2641,6 +2725,9 @@ export function buildProtectedInvestorReportText({
   const sourceIntelligenceContract = safeModel.sourceIntelligenceContract || normalizeSourceIntelligencePayload(safeModel) || normalizeSourceIntelligencePayload(safeData) || normalizeSourceIntelligencePayload(safeAnalysis);
   const evidenceRegistryContract = safeModel.evidenceRegistryContract || normalizeEvidenceRegistryPayload(safeModel) || normalizeEvidenceRegistryPayload(safeData) || normalizeEvidenceRegistryPayload(safeAnalysis) || sourceIntelligenceContract?.evidenceRegistryContract || null;
   const questionEvidenceMappingContract = safeModel.questionEvidenceMappingContract || normalizeQuestionEvidenceMappingPayload(safeModel) || normalizeQuestionEvidenceMappingPayload(safeData) || normalizeQuestionEvidenceMappingPayload(safeAnalysis) || sourceIntelligenceContract?.questionEvidenceMappingContract || null;
+  const deepResearchSourceDiscoveryContract = safeModel.deepResearchSourceDiscoveryContract || normalizeDeepResearchSourceDiscoveryPayload(safeModel) || normalizeDeepResearchSourceDiscoveryPayload(safeData) || normalizeDeepResearchSourceDiscoveryPayload(safeAnalysis);
+  const sourceCandidatePipelineContract = safeModel.sourceCandidatePipelineContract || normalizeSourceCandidatePipelinePayload(safeModel) || normalizeSourceCandidatePipelinePayload(safeData) || normalizeSourceCandidatePipelinePayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidatePipelineContract || null;
+  const sourceCandidateRegistryContract = safeModel.sourceCandidateRegistryContract || normalizeSourceCandidateRegistryPayload(safeModel) || normalizeSourceCandidateRegistryPayload(safeData) || normalizeSourceCandidateRegistryPayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract || null;
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2810,6 +2897,13 @@ export function buildProtectedInvestorReportText({
     reportLine("Source gaps", sourceIntelligenceContract ? `${sourceIntelligenceContract.protectedReportSummary?.sourceGapCount || 0} open source gaps` : "Not available yet."),
     reportLine("Contradiction review", sourceIntelligenceContract?.protectedReportSummary?.contradictionRequiresReview ? "Required" : "No contradiction gate attached"),
     reportLine("Evidence scoring boundary", sourceIntelligenceContract ? "Reviewed evidence improves source readiness but is not active in the numerical score." : "Not available yet."),
+    reportLine("Source discovery status", deepResearchSourceDiscoveryContract?.contractStatus || "Not available yet."),
+    reportLine("Source candidates for review", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.candidateCount || 0}` : "Not available yet."),
+    reportLine("High-priority source reviews", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.highPriorityReviewCount || 0}` : "Not available yet."),
+    reportLine("Candidate boundary", deepResearchSourceDiscoveryContract?.protectedReportSummary?.candidateEvidenceBoundary || "Not available yet."),
+    ...(deepResearchSourceDiscoveryContract?.protectedReportSummary?.summary ? [
+      `Discovery summary: ${cleanPrimaryAnswerText(deepResearchSourceDiscoveryContract.protectedReportSummary.summary)}`,
+    ] : []),
     ...(sourceIntelligenceContract?.protectedReportSummary?.summary ? [
       `Source summary: ${cleanPrimaryAnswerText(sourceIntelligenceContract.protectedReportSummary.summary)}`,
     ] : []),
@@ -5633,6 +5727,13 @@ export function buildDecisionTerminalModel({
   const questionEvidenceMappingContract = normalizeQuestionEvidenceMappingPayload(safeAnalysis)
     || sourceIntelligenceContract?.questionEvidenceMappingContract
     || null;
+  const deepResearchSourceDiscoveryContract = normalizeDeepResearchSourceDiscoveryPayload(safeAnalysis);
+  const sourceCandidatePipelineContract = normalizeSourceCandidatePipelinePayload(safeAnalysis)
+    || deepResearchSourceDiscoveryContract?.sourceCandidatePipelineContract
+    || null;
+  const sourceCandidateRegistryContract = normalizeSourceCandidateRegistryPayload(safeAnalysis)
+    || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract
+    || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -6137,6 +6238,9 @@ export function buildDecisionTerminalModel({
     sourceIntelligenceContract,
     evidenceRegistryContract,
     questionEvidenceMappingContract,
+    deepResearchSourceDiscoveryContract,
+    sourceCandidatePipelineContract,
+    sourceCandidateRegistryContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7493,6 +7597,9 @@ export function buildReviewBundleText({
   const sourceIntelligenceContract = safeModel.sourceIntelligenceContract || normalizeSourceIntelligencePayload(safeModel) || normalizeSourceIntelligencePayload(safeData) || normalizeSourceIntelligencePayload(safeAnalysis);
   const evidenceRegistryContract = safeModel.evidenceRegistryContract || normalizeEvidenceRegistryPayload(safeModel) || normalizeEvidenceRegistryPayload(safeData) || normalizeEvidenceRegistryPayload(safeAnalysis) || sourceIntelligenceContract?.evidenceRegistryContract || null;
   const questionEvidenceMappingContract = safeModel.questionEvidenceMappingContract || normalizeQuestionEvidenceMappingPayload(safeModel) || normalizeQuestionEvidenceMappingPayload(safeData) || normalizeQuestionEvidenceMappingPayload(safeAnalysis) || sourceIntelligenceContract?.questionEvidenceMappingContract || null;
+  const deepResearchSourceDiscoveryContract = safeModel.deepResearchSourceDiscoveryContract || normalizeDeepResearchSourceDiscoveryPayload(safeModel) || normalizeDeepResearchSourceDiscoveryPayload(safeData) || normalizeDeepResearchSourceDiscoveryPayload(safeAnalysis);
+  const sourceCandidatePipelineContract = safeModel.sourceCandidatePipelineContract || normalizeSourceCandidatePipelinePayload(safeModel) || normalizeSourceCandidatePipelinePayload(safeData) || normalizeSourceCandidatePipelinePayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidatePipelineContract || null;
+  const sourceCandidateRegistryContract = safeModel.sourceCandidateRegistryContract || normalizeSourceCandidateRegistryPayload(safeModel) || normalizeSourceCandidateRegistryPayload(safeData) || normalizeSourceCandidateRegistryPayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract || null;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9463,6 +9570,68 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(sourceIntelligenceContract?.knownLimitations),
       bundleField("Next resume pointer", sourceIntelligenceContract?.nextResumePointer),
+    ]),
+    bundleSection("2AZ. Deep Research Source Discovery + Evidence Candidate Pipeline v1", [
+      bundleField("Contract attached", deepResearchSourceDiscoveryContract ? "yes" : "no"),
+      bundleField("Artifact version", deepResearchSourceDiscoveryContract?.artifactVersion),
+      bundleField("Runtime mode", deepResearchSourceDiscoveryContract?.runtimeMode),
+      bundleField("Contract status", deepResearchSourceDiscoveryContract?.contractStatus),
+      bundleField("Canonical family", deepResearchSourceDiscoveryContract?.canonicalFamily),
+      bundleField("Canonical question group", deepResearchSourceDiscoveryContract?.canonicalQuestionGroup),
+      bundleField("Pipeline attached", sourceCandidatePipelineContract ? "yes" : "no"),
+      bundleField("Registry attached", sourceCandidateRegistryContract ? "yes" : "no"),
+      bundleField("Total candidates", sourceCandidateRegistryContract?.summary?.totalCandidates),
+      bundleField("Accepted candidates", sourceCandidateRegistryContract?.summary?.acceptedCandidateCount),
+      bundleField("Official candidates", sourceCandidateRegistryContract?.summary?.officialCandidateCount),
+      bundleField("Provider-context candidates", sourceCandidateRegistryContract?.summary?.providerContextCandidateCount),
+      bundleField("Third-party candidates", sourceCandidateRegistryContract?.summary?.thirdPartyCandidateCount),
+      bundleField("News/context candidates", sourceCandidateRegistryContract?.summary?.newsContextCandidateCount),
+      bundleField("Family-compatible candidates", sourceCandidateRegistryContract?.summary?.familyCompatibleCandidateCount),
+      bundleField("Wrong-family rejected candidates", sourceCandidateRegistryContract?.summary?.wrongFamilyRejectedCount),
+      bundleField("High-priority review candidates", sourceCandidateRegistryContract?.summary?.highPriorityReviewCandidateCount),
+      bundleField("Reviewed candidates", sourceCandidateRegistryContract?.summary?.reviewedCandidateCount ?? 0),
+      bundleField("Scoring-active candidates", sourceCandidateRegistryContract?.summary?.scoringActiveCandidateCount ?? 0),
+      bundleField("Unresolved source gaps", deepResearchSourceDiscoveryContract?.summary?.unresolvedSourceGapCount),
+      bundleField("Candidate question coverage", `${deepResearchSourceDiscoveryContract?.summary?.candidateQuestionCoveragePercent ?? 0}%`),
+      bundleField("Maximum candidates per asset", sourceCandidatePipelineContract?.maximumCandidatesPerAsset),
+      bundleField("Maximum candidates per question", sourceCandidatePipelineContract?.maximumCandidatesPerQuestion),
+      "Candidates by source class:",
+      bundleList(Object.entries(safeObject(sourceCandidateRegistryContract?.candidatesBySourceClass)).map(([name, ids]) => `${name}=${safeArray(ids).length}`), "No candidate source classes attached."),
+      "Candidates by review priority:",
+      bundleList(Object.entries(safeObject(sourceCandidateRegistryContract?.candidatesByPriority)).map(([name, ids]) => `${name}=${safeArray(ids).length}`), "No candidate priorities attached."),
+      "Candidates by question:",
+      bundleList(Object.entries(safeObject(sourceCandidateRegistryContract?.candidatesByQuestion)).map(([questionId, ids]) => `${questionId}=${safeArray(ids).length}`), "No question-level candidates attached.", 80),
+      "Accepted source candidates:",
+      bundleList(safeArray(sourceCandidateRegistryContract?.candidates).map((candidate) =>
+        `${candidate.candidateSourceId || "candidate"} | question=${candidate.questionId || "unknown"} | claim=${candidate.claimType || "unknown"} | class=${candidate.candidateSourceClass || "unknown"} | status=${candidate.candidateSourceStatus || "candidate_only"} | priority=${candidate.reviewPriority || "unknown"} | reviewed=${candidate.isReviewedEvidence ? "yes" : "no"} | scoringActive=${candidate.isScoringActive ? "yes" : "no"} | url=${candidate.candidateUrl || "not attached"} | reason=${candidate.candidateReason || "review required"}`
+      ), "No accepted source candidates attached.", 120),
+      "Unresolved evidence gaps:",
+      bundleList(safeArray(sourceCandidatePipelineContract?.unresolvedEvidenceGaps).map((entry) =>
+        `${entry.questionId || "question"} | ${entry.gap || "gap unavailable"} | candidates=${safeArray(entry.candidateIds).join(", ") || "none"} | automaticallyResolved=${entry.automaticallyResolved ? "yes" : "no"}`
+      ), "No unresolved source gaps attached.", 120),
+      "Rejected candidates:",
+      bundleList(safeArray(sourceCandidateRegistryContract?.rejectedCandidates).map((candidate) =>
+        `${candidate.candidateSourceId || "candidate"} | familyFit=${candidate.familyFitStatus || "unknown"} | questionFit=${candidate.questionFitStatus || "unknown"} | status=${candidate.candidateSourceStatus || "unknown"}`
+      ), "No rejected candidates attached.", 80),
+      "Duplicate candidates:",
+      bundleList(safeArray(sourceCandidateRegistryContract?.duplicateCandidates).map((candidate) =>
+        `${candidate.candidateSourceId || "candidate"} | dedupeKey=${candidate.dedupeKey || "unknown"}`
+      ), "No duplicate candidates attached.", 80),
+      "Boundary diagnostics:",
+      bundleList(safeArray(sourceCandidatePipelineContract?.boundaryDiagnostics).map((diagnostic) =>
+        `${diagnostic.diagnosticId || "diagnostic"} | ${diagnostic.diagnosticType || "unknown"} | severity=${diagnostic.severity || "unknown"} | blocked=${diagnostic.blockedUse || "unknown"} | ${diagnostic.finding || "No finding"}`
+      ), "No source-candidate boundary diagnostics attached.", 160),
+      "Source boundary:",
+      bundleList(sourceCandidateRegistryContract?.sourceBoundary),
+      "Free/API-first limitations:",
+      bundleList(deepResearchSourceDiscoveryContract?.freeApiCoverageLimitations),
+      "Frontend visibility:",
+      bundleList(deepResearchSourceDiscoveryContract?.frontendVisibility?.surfaces),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(deepResearchSourceDiscoveryContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(deepResearchSourceDiscoveryContract?.knownLimitations),
+      bundleField("Next resume pointer", deepResearchSourceDiscoveryContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),
