@@ -426,6 +426,7 @@ export default function SourceQueuePanel({
             {boundaryChip(styles, `${reviewQueue.summary?.acceptedForEvidencePacketDraftingCount || 0} accepted for packet drafting`)}
             {boundaryChip(styles, `${reviewQueue.summary?.scoringActiveCandidateCount || 0} scoring-active`)}
             {boundaryChip(styles, reviewWorkflow.persistence?.mode || "Persistence unavailable")}
+            {boundaryChip(styles, `API mutation available: ${reviewWorkflow.persistence?.diagnostic?.reviewMutationAvailable ? "yes" : "no"}`)}
           </div>
           <ListBlock
             title="Next review actions"

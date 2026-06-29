@@ -465,6 +465,7 @@ export default function ManualReviewPanel({
             {boundaryChip(styles, `${reviewQueue.summary?.totalReviewQueueItems || 0} queue items`)}
             {boundaryChip(styles, `${reviewQueue.summary?.needsCheckCount || 0} need checks`)}
             {boundaryChip(styles, `${reviewAudit.eventCount || 0} audit events`)}
+            {boundaryChip(styles, `Persistence available: ${reviewWorkflow.persistence?.diagnostic?.reviewPersistenceAvailable ? "yes" : "no"}`)}
             {boundaryChip(styles, "Candidate boundary preserved")}
           </div>
           <ListBlock

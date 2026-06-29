@@ -2297,7 +2297,10 @@ export function normalizeSourceCandidateReviewWorkflowPayload(responseLike) {
       ...safeObject(contract.sourceAuthorityRubricSummary),
       authorityTiers: safeArray(contract.sourceAuthorityRubricSummary?.authorityTiers),
     },
-    persistence: safeObject(contract.persistence),
+    persistence: {
+      ...safeObject(contract.persistence),
+      diagnostic: safeObject(contract.persistence?.diagnostic),
+    },
     protectedReportSummary: safeObject(contract.protectedReportSummary),
     marketWideCoverage: {
       ...safeObject(contract.marketWideCoverage),
@@ -9755,6 +9758,11 @@ export function buildReviewBundleText({
       bundleField("Contract status", sourceCandidateReviewWorkflowContract?.contractStatus),
       bundleField("Persistence mode", sourceCandidateReviewWorkflowContract?.persistence?.mode),
       bundleField("Durable persistence available", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.durablePersistenceAvailable)),
+      bundleField("Review persistence available", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.diagnostic?.reviewPersistenceAvailable)),
+      bundleField("Review mutation available", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.diagnostic?.reviewMutationAvailable)),
+      bundleField("Decisions table reachable", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.diagnostic?.decisionsTableReachable)),
+      bundleField("Audit events table reachable", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.diagnostic?.auditEventsTableReachable)),
+      bundleField("Persistence fallback reason", sourceCandidateReviewWorkflowContract?.persistence?.diagnostic?.fallbackReason),
       bundleField("Total review queue items", sourceCandidateReviewQueueContract?.summary?.totalReviewQueueItems),
       bundleField("Unreviewed count", sourceCandidateReviewQueueContract?.summary?.unreviewedCount),
       bundleField("In-review count", sourceCandidateReviewQueueContract?.summary?.inReviewCount),
