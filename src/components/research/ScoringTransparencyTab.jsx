@@ -454,6 +454,7 @@ export default function ScoringTransparencyTab({
   const sourceIntelligence = model?.sourceIntelligenceContract || {};
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
+  const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -540,8 +541,8 @@ export default function ScoringTransparencyTab({
             ? "No. Discovered sources remain unreviewed candidates and cannot resolve evidence gaps or affect the numerical score."
             : "Source discovery candidate contract was not attached."}
           status={sourceDiscovery.artifactVersion ? "Not scoring-active" : "Unavailable"}
-          impact={`${sourceCandidateRegistry.summary?.scoringActiveCandidateCount || 0} active candidates`}
-          sourceState="Candidate discovery only"
+          impact={`${sourceCandidateRegistry.summary?.scoringActiveCandidateCount || 0} active; ${candidateAccounting.acceptedCandidateCount ?? 0} accepted for review`}
+          sourceState={`${candidateAccounting.limitStatus || "Limit status unavailable"}; discovery only`}
           styles={styles}
         />
         <QuestionPromptCard

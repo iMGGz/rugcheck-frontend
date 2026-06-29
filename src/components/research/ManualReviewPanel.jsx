@@ -385,6 +385,7 @@ export default function ManualReviewPanel({
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const sourceCandidatePipeline = model?.sourceCandidatePipelineContract || sourceDiscovery.sourceCandidatePipelineContract || {};
+  const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -436,8 +437,9 @@ export default function ManualReviewPanel({
       {sourceDiscovery.artifactVersion ? (
         <Card title="Source Candidate Review Boundary" subtitle="Rejected, duplicate, and unresolved candidates stay outside evidence and scoring." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
-            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.rejectedCandidateCount || 0} rejected`)}
-            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.duplicateCandidateCount || 0} duplicates`)}
+            {boundaryChip(styles, `${candidateAccounting.rejectedCandidateCount ?? 0} rejected`)}
+            {boundaryChip(styles, `${candidateAccounting.auditOnlyCandidateCount ?? 0} audit-only`)}
+            {boundaryChip(styles, `${candidateAccounting.duplicateCandidateCount ?? 0} duplicates`)}
             {boundaryChip(styles, `${sourceCandidatePipeline.boundaryDiagnostics?.length || 0} boundary diagnostics`)}
             {boundaryChip(styles, "Requires analyst review")}
           </div>

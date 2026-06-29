@@ -356,6 +356,7 @@ export default function SourceQueuePanel({
   const questionEvidenceMapping = model?.questionEvidenceMappingContract || sourceIntelligence.questionEvidenceMappingContract || {};
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
+  const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -388,7 +389,8 @@ export default function SourceQueuePanel({
       {sourceDiscovery.artifactVersion ? (
         <Card title="Source Candidates for Review" subtitle="Bounded discovery leads only; each candidate requires review before evidence use." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
-            {boundaryChip(styles, `${sourceCandidateRegistry.summary?.acceptedCandidateCount || 0} candidates`)}
+            {boundaryChip(styles, `${candidateAccounting.acceptedCandidateCount ?? sourceCandidateRegistry.summary?.acceptedCandidateCount ?? 0} accepted`)}
+            {boundaryChip(styles, `${candidateAccounting.displayCandidateCount ?? 0} displayed`)}
             {boundaryChip(styles, `${sourceCandidateRegistry.summary?.highPriorityReviewCandidateCount || 0} high priority`)}
             {boundaryChip(styles, "Candidate only")}
             {boundaryChip(styles, "Not scoring-active")}
