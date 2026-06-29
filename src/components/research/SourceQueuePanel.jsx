@@ -357,6 +357,8 @@ export default function SourceQueuePanel({
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
+  const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
+  const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -412,6 +414,26 @@ export default function SourceQueuePanel({
               .map((entry) => `${entry.questionId}: ${entry.gap}`)}
             emptyText="No unresolved candidate-mapped source gap was attached."
             color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {reviewWorkflow.artifactVersion ? (
+        <Card title="Source Candidate Review Workflow" subtitle="Source usefulness review only; accepted candidates are not evidence." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${reviewQueue.summary?.unreviewedCount || 0} unreviewed`)}
+            {boundaryChip(styles, `${reviewQueue.summary?.acceptedForEvidencePacketDraftingCount || 0} accepted for packet drafting`)}
+            {boundaryChip(styles, `${reviewQueue.summary?.scoringActiveCandidateCount || 0} scoring-active`)}
+            {boundaryChip(styles, reviewWorkflow.persistence?.mode || "Persistence unavailable")}
+          </div>
+          <ListBlock
+            title="Next review actions"
+            items={safeArray(reviewQueue.items).slice(0, 8).map((item) =>
+              `${item.candidateTitle}: ${item.reviewStatus}; ${item.nextRecommendedAction} Authority: ${item.sourceAuthorityTier}.`
+            )}
+            emptyText="No source candidate review queue was attached."
+            color="#7dd3fc"
             styles={styles}
           />
         </Card>

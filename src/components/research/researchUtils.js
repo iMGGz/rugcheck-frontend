@@ -2233,6 +2233,82 @@ export function normalizeDeepResearchSourceDiscoveryPayload(responseLike) {
   };
 }
 
+export function normalizeSourceCandidateReviewQueuePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "source-candidate-review-queue-v1"
+      ? root
+      : root.sourceCandidateReviewQueueContract || nestedAnalysis.sourceCandidateReviewQueueContract,
+  );
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    items: safeArray(contract.items).map((item) => ({
+      ...safeObject(item),
+      reviewActionAvailable: safeArray(item?.reviewActionAvailable),
+      reviewBoundaryNotes: safeArray(item?.reviewBoundaryNotes),
+      currentDecision: {
+        ...safeObject(item?.currentDecision),
+        reviewNotes: safeArray(item?.currentDecision?.reviewNotes),
+        requiredFollowUp: safeArray(item?.currentDecision?.requiredFollowUp),
+        auditTrailEventIds: safeArray(item?.currentDecision?.auditTrailEventIds),
+      },
+      authorityRubric: {
+        ...safeObject(item?.authorityRubric),
+        boundaryNotes: safeArray(item?.authorityRubric?.boundaryNotes),
+      },
+    })),
+    summary: safeObject(contract.summary),
+    decisionsByFamily: safeObject(contract.decisionsByFamily),
+    decisionsBySourceClass: safeObject(contract.decisionsBySourceClass),
+  };
+}
+
+export function normalizeSourceCandidateReviewAuditTrailPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.artifactVersion === "source-candidate-review-audit-trail-v1"
+      ? root
+      : root.sourceCandidateReviewAuditTrailContract || nestedAnalysis.sourceCandidateReviewAuditTrailContract,
+  );
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    events: safeArray(contract.events).map((event) => ({
+      ...safeObject(event),
+      notes: safeArray(event?.notes),
+    })),
+  };
+}
+
+export function normalizeSourceCandidateReviewWorkflowPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.sourceCandidateReviewWorkflowContract || nestedAnalysis.sourceCandidateReviewWorkflowContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    sourceCandidateReviewQueueContract: normalizeSourceCandidateReviewQueuePayload(contract.sourceCandidateReviewQueueContract),
+    sourceCandidateReviewAuditTrailContract: normalizeSourceCandidateReviewAuditTrailPayload(contract.sourceCandidateReviewAuditTrailContract),
+    candidateReviewOverlays: safeObject(contract.candidateReviewOverlays),
+    sourceAuthorityRubricSummary: {
+      ...safeObject(contract.sourceAuthorityRubricSummary),
+      authorityTiers: safeArray(contract.sourceAuthorityRubricSummary?.authorityTiers),
+    },
+    persistence: safeObject(contract.persistence),
+    protectedReportSummary: safeObject(contract.protectedReportSummary),
+    marketWideCoverage: {
+      ...safeObject(contract.marketWideCoverage),
+      supportedFamilies: safeArray(contract.marketWideCoverage?.supportedFamilies),
+    },
+    boundaryNotes: safeArray(contract.boundaryNotes),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2731,6 +2807,9 @@ export function buildProtectedInvestorReportText({
   const deepResearchSourceDiscoveryContract = safeModel.deepResearchSourceDiscoveryContract || normalizeDeepResearchSourceDiscoveryPayload(safeModel) || normalizeDeepResearchSourceDiscoveryPayload(safeData) || normalizeDeepResearchSourceDiscoveryPayload(safeAnalysis);
   const sourceCandidatePipelineContract = safeModel.sourceCandidatePipelineContract || normalizeSourceCandidatePipelinePayload(safeModel) || normalizeSourceCandidatePipelinePayload(safeData) || normalizeSourceCandidatePipelinePayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidatePipelineContract || null;
   const sourceCandidateRegistryContract = safeModel.sourceCandidateRegistryContract || normalizeSourceCandidateRegistryPayload(safeModel) || normalizeSourceCandidateRegistryPayload(safeData) || normalizeSourceCandidateRegistryPayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract || null;
+  const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
+  const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
+  const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2904,6 +2983,9 @@ export function buildProtectedInvestorReportText({
     reportLine("Source candidates accepted for review", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.acceptedCandidateCount ?? deepResearchSourceDiscoveryContract.protectedReportSummary?.candidateCount ?? 0}` : "Not available yet."),
     reportLine("High-priority source reviews", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.highPriorityReviewCount || 0}` : "Not available yet."),
     reportLine("Candidate boundary", deepResearchSourceDiscoveryContract?.protectedReportSummary?.candidateEvidenceBoundary || "Not available yet."),
+    reportLine("Source review queue", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.queueItemCount || 0} candidates awaiting or carrying source review` : "Not available yet."),
+    reportLine("Source review outcomes", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.acceptedReviewCandidateCount || 0} accepted for future packet drafting; ${sourceCandidateReviewWorkflowContract.protectedReportSummary?.rejectedOrNeedsCheckCount || 0} rejected or needing checks` : "Not available yet."),
+    reportLine("Source review boundary", sourceCandidateReviewWorkflowContract ? "Source review evaluates drafting usefulness, not claim truth; evidence gaps remain until evidence packets are validated." : "Not available yet."),
     ...(deepResearchSourceDiscoveryContract?.protectedReportSummary?.summary ? [
       `Discovery summary: ${cleanPrimaryAnswerText(deepResearchSourceDiscoveryContract.protectedReportSummary.summary)}`,
     ] : []),
@@ -5737,6 +5819,13 @@ export function buildDecisionTerminalModel({
   const sourceCandidateRegistryContract = normalizeSourceCandidateRegistryPayload(safeAnalysis)
     || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract
     || null;
+  const sourceCandidateReviewWorkflowContract = normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
+  const sourceCandidateReviewQueueContract = normalizeSourceCandidateReviewQueuePayload(safeAnalysis)
+    || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract
+    || null;
+  const sourceCandidateReviewAuditTrailContract = normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis)
+    || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract
+    || null;
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -6244,6 +6333,9 @@ export function buildDecisionTerminalModel({
     deepResearchSourceDiscoveryContract,
     sourceCandidatePipelineContract,
     sourceCandidateRegistryContract,
+    sourceCandidateReviewWorkflowContract,
+    sourceCandidateReviewQueueContract,
+    sourceCandidateReviewAuditTrailContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7603,6 +7695,9 @@ export function buildReviewBundleText({
   const deepResearchSourceDiscoveryContract = safeModel.deepResearchSourceDiscoveryContract || normalizeDeepResearchSourceDiscoveryPayload(safeModel) || normalizeDeepResearchSourceDiscoveryPayload(safeData) || normalizeDeepResearchSourceDiscoveryPayload(safeAnalysis);
   const sourceCandidatePipelineContract = safeModel.sourceCandidatePipelineContract || normalizeSourceCandidatePipelinePayload(safeModel) || normalizeSourceCandidatePipelinePayload(safeData) || normalizeSourceCandidatePipelinePayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidatePipelineContract || null;
   const sourceCandidateRegistryContract = safeModel.sourceCandidateRegistryContract || normalizeSourceCandidateRegistryPayload(safeModel) || normalizeSourceCandidateRegistryPayload(safeData) || normalizeSourceCandidateRegistryPayload(safeAnalysis) || deepResearchSourceDiscoveryContract?.sourceCandidateRegistryContract || null;
+  const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
+  const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
+  const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9652,6 +9747,48 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(deepResearchSourceDiscoveryContract?.knownLimitations),
       bundleField("Next resume pointer", deepResearchSourceDiscoveryContract?.nextResumePointer),
+    ]),
+    bundleSection("2BA. Source Candidate Review Workflow v1", [
+      bundleField("Contract attached", sourceCandidateReviewWorkflowContract ? "yes" : "no"),
+      bundleField("Artifact version", sourceCandidateReviewWorkflowContract?.artifactVersion),
+      bundleField("Runtime mode", sourceCandidateReviewWorkflowContract?.runtimeMode),
+      bundleField("Contract status", sourceCandidateReviewWorkflowContract?.contractStatus),
+      bundleField("Persistence mode", sourceCandidateReviewWorkflowContract?.persistence?.mode),
+      bundleField("Durable persistence available", yesNoUnknown(sourceCandidateReviewWorkflowContract?.persistence?.durablePersistenceAvailable)),
+      bundleField("Total review queue items", sourceCandidateReviewQueueContract?.summary?.totalReviewQueueItems),
+      bundleField("Unreviewed count", sourceCandidateReviewQueueContract?.summary?.unreviewedCount),
+      bundleField("In-review count", sourceCandidateReviewQueueContract?.summary?.inReviewCount),
+      bundleField("Accepted for evidence packet drafting", sourceCandidateReviewQueueContract?.summary?.acceptedForEvidencePacketDraftingCount),
+      bundleField("Rejected count", sourceCandidateReviewQueueContract?.summary?.rejectedCount),
+      bundleField("Needs-check count", sourceCandidateReviewQueueContract?.summary?.needsCheckCount),
+      bundleField("Duplicate / superseded count", sourceCandidateReviewQueueContract?.summary?.duplicateOrSupersededCount),
+      bundleField("Evidence packet draft eligible", sourceCandidateReviewQueueContract?.summary?.evidencePacketDraftEligibleCount),
+      bundleField("Reviewed evidence count", sourceCandidateReviewQueueContract?.summary?.reviewedEvidenceCount ?? 0),
+      bundleField("Scoring-active candidate count", sourceCandidateReviewQueueContract?.summary?.scoringActiveCandidateCount ?? 0),
+      bundleField("Audit trail event count", sourceCandidateReviewAuditTrailContract?.eventCount ?? 0),
+      bundleField("Automatic gap resolution", sourceCandidateReviewWorkflowContract?.guardrails?.acceptedCandidateResolvesEvidenceGap ? "yes" : "no"),
+      bundleField("Promotion blocked reason", "evidence_packet_validation_required_before_evidence_use"),
+      bundleField("Required boundary", "Accepted source candidate means suitable for future evidence packet drafting, not proof of claim truth."),
+      "Review decisions by family:",
+      bundleList(Object.entries(safeObject(sourceCandidateReviewQueueContract?.decisionsByFamily)).map(([family, count]) => `${family}=${count}`)),
+      "Review decisions by source class:",
+      bundleList(Object.entries(safeObject(sourceCandidateReviewQueueContract?.decisionsBySourceClass)).map(([sourceClass, count]) => `${sourceClass}=${count}`)),
+      "Review queue:",
+      bundleList(safeArray(sourceCandidateReviewQueueContract?.items).map((item) =>
+        `${item.sourceCandidateReviewKey || "review"} | family=${item.canonicalFamily || "unknown"} | question=${item.questionId || "unknown"} | status=${item.reviewStatus || "unknown"} | authority=${item.sourceAuthorityTier || "unknown"} | priority=${item.reviewPriority || "unknown"} | draftEligible=${item.evidencePacketDraftEligible ? "yes" : "no"} | scoringActive=${item.isScoringActive ? "yes" : "no"} | resolvesGap=${item.doesResolveEvidenceGap ? "yes" : "no"} | next=${item.nextRecommendedAction || "manual review"}`), "No review queue items attached.", 120),
+      "Source authority rubric:",
+      bundleList([
+        `version=${sourceCandidateReviewWorkflowContract?.sourceAuthorityRubricSummary?.rubricVersion || "unavailable"}`,
+        `tiers=${safeArray(sourceCandidateReviewWorkflowContract?.sourceAuthorityRubricSummary?.authorityTiers).join(", ") || "none"}`,
+        sourceCandidateReviewWorkflowContract?.sourceAuthorityRubricSummary?.boundary,
+      ]),
+      "Candidate review boundary:",
+      bundleList(sourceCandidateReviewWorkflowContract?.boundaryNotes),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(sourceCandidateReviewWorkflowContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(sourceCandidateReviewWorkflowContract?.knownLimitations),
+      bundleField("Next resume pointer", sourceCandidateReviewWorkflowContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),

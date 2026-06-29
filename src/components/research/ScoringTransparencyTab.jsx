@@ -455,6 +455,8 @@ export default function ScoringTransparencyTab({
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
+  const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
+  const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -543,6 +545,16 @@ export default function ScoringTransparencyTab({
           status={sourceDiscovery.artifactVersion ? "Not scoring-active" : "Unavailable"}
           impact={`${sourceCandidateRegistry.summary?.scoringActiveCandidateCount || 0} active; ${candidateAccounting.acceptedCandidateCount ?? 0} accepted for review`}
           sourceState={`${candidateAccounting.limitStatus || "Limit status unavailable"}; discovery only`}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Can reviewed source candidates affect this score?"
+          answer={reviewWorkflow.artifactVersion
+            ? "No. Source review can make a candidate eligible for future evidence packet drafting, but it does not create reviewed evidence or scoring support."
+            : "Source candidate review workflow was not attached."}
+          status={`${reviewQueue.summary?.scoringActiveCandidateCount || 0} scoring-active candidates`}
+          impact={`${reviewQueue.summary?.evidencePacketDraftEligibleCount || 0} packet-draft eligible`}
+          sourceState="Source review is not evidence review"
           styles={styles}
         />
         <QuestionPromptCard

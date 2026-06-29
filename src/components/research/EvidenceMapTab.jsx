@@ -512,6 +512,8 @@ export default function EvidenceMapTab({
   const sourceDiscovery = model?.deepResearchSourceDiscoveryContract || {};
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
+  const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
+  const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -564,6 +566,14 @@ export default function EvidenceMapTab({
           status={sourceDiscovery.contractStatus || "Discovery unavailable"}
           impact={`${candidateAccounting.acceptedCandidateCount ?? 0} accepted; ${candidateAccounting.rawCandidateRecordCount ?? 0} raw records`}
           sourceState={`${candidateAccounting.limitStatus || "Limit status unavailable"}; candidate only`}
+          styles={styles}
+        />
+        <QuestionPromptCard
+          question="Have source candidates been reviewed?"
+          answer={reviewWorkflow.protectedReportSummary?.summary || "No source candidate review workflow was attached."}
+          status={`${reviewQueue.summary?.acceptedForEvidencePacketDraftingCount || 0} drafting-eligible candidates`}
+          impact="Does not create reviewed evidence"
+          sourceState={`${reviewQueue.summary?.scoringActiveCandidateCount || 0} scoring-active candidates`}
           styles={styles}
         />
         <QuestionPromptCard

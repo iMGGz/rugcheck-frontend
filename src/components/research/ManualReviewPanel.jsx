@@ -386,6 +386,9 @@ export default function ManualReviewPanel({
   const sourceCandidateRegistry = model?.sourceCandidateRegistryContract || sourceDiscovery.sourceCandidateRegistryContract || {};
   const sourceCandidatePipeline = model?.sourceCandidatePipelineContract || sourceDiscovery.sourceCandidatePipelineContract || {};
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
+  const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
+  const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
+  const reviewAudit = model?.sourceCandidateReviewAuditTrailContract || reviewWorkflow.sourceCandidateReviewAuditTrailContract || {};
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -450,6 +453,26 @@ export default function ManualReviewPanel({
               .slice(0, 8)
               .map((entry) => entry.finding)}
             emptyText="No blocking source-candidate boundary finding was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {reviewWorkflow.artifactVersion ? (
+        <Card title="Candidate Review Queue" subtitle="Available actions update source-review state, not evidence or scoring." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${reviewQueue.summary?.totalReviewQueueItems || 0} queue items`)}
+            {boundaryChip(styles, `${reviewQueue.summary?.needsCheckCount || 0} need checks`)}
+            {boundaryChip(styles, `${reviewAudit.eventCount || 0} audit events`)}
+            {boundaryChip(styles, "Candidate boundary preserved")}
+          </div>
+          <ListBlock
+            title="Review status and available actions"
+            items={safeArray(reviewQueue.items).slice(0, 8).map((item) =>
+              `${item.candidateTitle}: ${item.reviewStatus}; actions: ${safeArray(item.reviewActionAvailable).join(", ")}; reason: ${item.reviewReasonCode}.`
+            )}
+            emptyText="No source review workflow item was attached."
             color="#f9d976"
             styles={styles}
           />
