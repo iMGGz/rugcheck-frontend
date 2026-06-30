@@ -2312,13 +2312,78 @@ export function normalizeSourceCandidateReviewWorkflowPayload(responseLike) {
   };
 }
 
+const ANALYST_WORKFLOW_CANONICAL_FAMILY_BY_ALIAS = Object.freeze({
+  native_eth_pos_settlement_gas_fee_market: "native_eth_pos_gas_l2_fee_market",
+  non_eth_l1_smart_contract_native_gas: "non_eth_l1_smart_contract_platform",
+  wrapped_bridged_custodial_representation: "wrapped_bridged_asset",
+  stablecoin_algorithmic_reflexive: "stablecoin_algorithmic_or_synthetic",
+  rwa_protocol_governance_infrastructure: "rwa_hybrid_governance_or_infrastructure",
+  depin_physical_infrastructure_network: "depin_resource_network",
+  meme_attention_cultural_asset: "meme_market_structure",
+  gaming_gamefi_metaverse: "gaming_game_economy",
+  low_coverage_metadata_manual_review: "manual_low_coverage",
+});
+
+function normalizeAnalystWorkflowCanonicalRoute(root, contract) {
+  const nestedAnalysis = safeObject(root.analysis);
+  const canonicalRoute = safeObject(
+    root.canonicalProductRoute
+    || nestedAnalysis.canonicalProductRoute
+    || root.primaryAnalysisRoute
+    || nestedAnalysis.primaryAnalysisRoute,
+  );
+  const familyRoute = safeObject(
+    root.familyCanonicalRoutingContract
+    || nestedAnalysis.familyCanonicalRoutingContract,
+  );
+  const routeFamily = canonicalRoute.primaryFamily || canonicalRoute.assetFamily || familyRoute.effectiveFamily;
+  const routeQuestionGroup = canonicalRoute.primaryQuestionGroup || canonicalRoute.questionGroup || familyRoute.canonicalQuestionGroup;
+  const contractFamily = String(contract.canonicalFamily || "").trim();
+  const canonicalFamily = ANALYST_WORKFLOW_CANONICAL_FAMILY_BY_ALIAS[routeFamily]
+    || routeFamily
+    || ANALYST_WORKFLOW_CANONICAL_FAMILY_BY_ALIAS[contractFamily]
+    || contractFamily;
+  const legacyAlias = contractFamily && contractFamily !== canonicalFamily ? contractFamily : null;
+  const existingNormalization = safeObject(contract.familyAliasNormalization);
+  const existingNormalizedAliases = safeArray(existingNormalization.aliasesNormalized);
+  const aliasesNormalized = legacyAlias && !existingNormalizedAliases.some((entry) => entry?.alias === legacyAlias)
+    ? [...existingNormalizedAliases, {
+      alias: legacyAlias,
+      canonicalFamily,
+      reason: "legacy_route_alias",
+    }]
+    : existingNormalizedAliases;
+  const blockedAliases = [...new Set([
+    ...safeArray(existingNormalization.aliasesBlockedFromPrimaryRendering),
+    ...aliasesNormalized.map((entry) => entry?.alias),
+  ].filter(Boolean))];
+  return {
+    canonicalFamily,
+    canonicalQuestionGroup: routeQuestionGroup || contract.canonicalQuestionGroup,
+    familyAliasNormalization: {
+      ...existingNormalization,
+      status: "PASS",
+      routeAuthorityFamily: routeFamily || existingNormalization.routeAuthorityFamily || contractFamily,
+      canonicalFamily,
+      canonicalQuestionGroup: routeQuestionGroup || contract.canonicalQuestionGroup,
+      aliasesNormalized,
+      aliasesNormalizedCount: aliasesNormalized.length,
+      aliasesBlockedFromPrimaryRendering: blockedAliases,
+      aliasesBlockedFromPrimaryRenderingCount: blockedAliases.length,
+      auditOnly: true,
+    },
+  };
+}
+
 export function normalizeInstitutionalAnalystWorkflowPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
   const contract = safeObject(root.institutionalAnalystWorkflowContract || nestedAnalysis.institutionalAnalystWorkflowContract);
   if (!contract.artifactVersion) return null;
+  const canonicalRoute = normalizeAnalystWorkflowCanonicalRoute(root, contract);
   return {
     ...contract,
+    ...canonicalRoute,
     rawProblemDataInventory: {
       ...safeObject(contract.rawProblemDataInventory),
       items: safeArray(contract.rawProblemDataInventory?.items),
@@ -3060,6 +3125,8 @@ export function buildProtectedInvestorReportText({
     reportLine("Source review queue", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.queueItemCount || 0} candidates awaiting or carrying source review` : "Not available yet."),
     reportLine("Source review outcomes", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.acceptedReviewCandidateCount || 0} accepted for future packet drafting; ${sourceCandidateReviewWorkflowContract.protectedReportSummary?.rejectedOrNeedsCheckCount || 0} rejected or needing checks` : "Not available yet."),
     reportLine("Source review boundary", sourceCandidateReviewWorkflowContract ? "Source review evaluates drafting usefulness, not claim truth; evidence gaps remain until evidence packets are validated." : "Not available yet."),
+    reportLine("Analyst workflow family", institutionalAnalystWorkflowContract?.canonicalFamily ? titleCase(institutionalAnalystWorkflowContract.canonicalFamily) : "Not available yet."),
+    reportLine("Analyst workflow question group", institutionalAnalystWorkflowContract?.canonicalQuestionGroup ? titleCase(institutionalAnalystWorkflowContract.canonicalQuestionGroup) : "Not available yet."),
     reportLine("Analyst workflow thesis", institutionalAnalystWorkflowContract?.protectedReportSummary?.thesisSummary || "Not available yet."),
     reportLine("Analyst workflow tokenomics", institutionalAnalystWorkflowContract?.protectedReportSummary?.tokenomicsSummary || "Not available yet."),
     reportLine("Analyst workflow fundamentals", institutionalAnalystWorkflowContract?.protectedReportSummary?.fundamentalSummary || "Not available yet."),
@@ -9885,6 +9952,12 @@ export function buildReviewBundleText({
       bundleField("Canonical identity", institutionalAnalystWorkflowContract?.canonicalIdentity),
       bundleField("Canonical family", institutionalAnalystWorkflowContract?.canonicalFamily),
       bundleField("Canonical question group", institutionalAnalystWorkflowContract?.canonicalQuestionGroup),
+      bundleField("Alias normalization status", institutionalAnalystWorkflowContract?.familyAliasNormalization?.status),
+      bundleField("Aliases normalized count", institutionalAnalystWorkflowContract?.familyAliasNormalization?.aliasesNormalizedCount),
+      bundleField("Aliases blocked from primary rendering", institutionalAnalystWorkflowContract?.familyAliasNormalization?.aliasesBlockedFromPrimaryRenderingCount),
+      "Audit-only alias normalization:",
+      bundleList(safeArray(institutionalAnalystWorkflowContract?.familyAliasNormalization?.aliasesNormalized).map((entry) =>
+        `${entry.alias} -> ${entry.canonicalFamily} (${entry.reason})`)),
       bundleField("Workflow completeness", institutionalAnalystWorkflowContract?.workflowCompletenessStatus),
       bundleField("Available raw-data categories", safeArray(institutionalAnalystWorkflowContract?.rawProblemDataInventory?.availableCategories).length),
       bundleField("Partial raw-data categories", safeArray(institutionalAnalystWorkflowContract?.rawProblemDataInventory?.partialCategories).length),

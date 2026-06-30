@@ -75,6 +75,31 @@ try {
   const missingHtml = renderDecision(baseModel);
   assert.match(missingHtml, /Institutional Analyst Workflow unavailable/);
 
+  const staleAliasWorkflow = {
+    ...workflow,
+    canonicalFamily: "native_eth_pos_settlement_gas_fee_market",
+    canonicalQuestionGroup: "stale_methodology_group",
+    familyAliasNormalization: {
+      methodologyFamilyAlias: "native_eth_pos_settlement_gas_fee_market",
+      aliasesNormalized: [],
+      aliasesBlockedFromPrimaryRendering: [],
+    },
+  };
+  const canonicalRouteModel = {
+    ...baseModel,
+    canonicalProductRoute: {
+      primaryFamily: "native_eth_pos_gas_l2_fee_market",
+      primaryQuestionGroup: "native_eth_pos_questions",
+    },
+    institutionalAnalystWorkflowContract: staleAliasWorkflow,
+  };
+  const normalizedAliasWorkflow = researchUtils.resolveInstitutionalAnalystWorkflowContract(canonicalRouteModel);
+  assert.equal(normalizedAliasWorkflow.canonicalFamily, "native_eth_pos_gas_l2_fee_market");
+  assert.equal(normalizedAliasWorkflow.canonicalQuestionGroup, "native_eth_pos_questions");
+  assert.ok(normalizedAliasWorkflow.familyAliasNormalization.aliasesBlockedFromPrimaryRendering.includes(
+    "native_eth_pos_settlement_gas_fee_market",
+  ));
+
   const surfaceRenderers = [
     ["Right Rail", AnalysisRightRail, { model: baseModel }],
     ["Evidence Map", EvidenceMapTab, { model: baseModel }],
@@ -109,6 +134,14 @@ try {
   assert.match(presentBundle, /2BB\. Institutional Analyst Workflow Engine v1/);
   assert.match(presentBundle, /Contract attached: yes/);
 
+  const aliasBundle = researchUtils.buildReviewBundleText({
+    asset: { symbol: "TEST" },
+    model: canonicalRouteModel,
+  });
+  assert.match(aliasBundle, /Canonical family: native_eth_pos_gas_l2_fee_market/);
+  assert.doesNotMatch(aliasBundle, /Canonical family: native_eth_pos_settlement_gas_fee_market/);
+  assert.match(aliasBundle, /Alias normalization status: PASS/);
+
   const missingBundle = researchUtils.buildReviewBundleText({
     asset: { symbol: "TEST" },
     model: baseModel,
@@ -124,6 +157,12 @@ try {
     asset: { symbol: "TEST" },
     model: baseModel,
   }));
+  const aliasProtectedReport = researchUtils.buildProtectedInvestorReportText({
+    asset: { symbol: "TEST" },
+    model: canonicalRouteModel,
+  });
+  assert.match(aliasProtectedReport, /Analyst workflow family: Native Eth Pos Gas L2 Fee Market/);
+  assert.doesNotMatch(aliasProtectedReport, /methodologyFamilyAlias|aliasesNormalized|native_eth_pos_settlement_gas_fee_market/);
 
   console.log("Institutional Analyst Workflow render-safety smoke tests passed.");
 } finally {
