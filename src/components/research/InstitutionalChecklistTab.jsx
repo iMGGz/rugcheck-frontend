@@ -15,6 +15,7 @@ import {
   normalizeRenderableList,
   normalizeResolvedInstitutionalLensPayload,
   providerLabel,
+  resolveInstitutionalAnalystWorkflowContract,
   safeArray,
   safeObject,
   titleCase,
@@ -1049,7 +1050,7 @@ export default function InstitutionalChecklistTab({
     "Scoring/report boundary",
     "Verdict impact",
   ];
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
 
   return (
     <div style={styles.institutionalChecklistShell}>

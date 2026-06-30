@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanPrimaryAnswerText, formatDateTime, normalizeEvidenceProxyDisplayLabel, safeArray } from "./researchUtils";
+import { cleanPrimaryAnswerText, formatDateTime, normalizeEvidenceProxyDisplayLabel, resolveInstitutionalAnalystWorkflowContract, safeArray } from "./researchUtils";
 
 function RailBadge({ children, tone = "#7dd3fc", styles }) {
   return (
@@ -354,7 +354,7 @@ function RawDataCoverageRailSection({ model, styles }) {
 }
 
 function AnalystWorkflowRailSection({ model, styles }) {
-  const workflow = model?.institutionalAnalystWorkflowContract;
+  const workflow = resolveInstitutionalAnalystWorkflowContract(model);
   if (!workflow?.artifactVersion) return null;
   const answered = (workflow.autonomousQuestionAnswers || []).filter((answer) => answer.answerState === "answered_by_current_data").length;
   return (

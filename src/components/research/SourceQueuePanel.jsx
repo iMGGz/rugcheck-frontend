@@ -8,6 +8,7 @@ import {
   isPrimaryFamilyCompatibleText,
   normalizeRenderableList,
   providerLabel,
+  resolveInstitutionalAnalystWorkflowContract,
   safeArray,
   safeObject,
   titleCase,
@@ -342,7 +343,7 @@ export default function SourceQueuePanel({
   providerDiagnostics,
   styles,
 }) {
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
   const domains = suggestedResearchDomains(model, displayIdentity);
   const researchRequirements = safeArray(model?.researchRequirements);

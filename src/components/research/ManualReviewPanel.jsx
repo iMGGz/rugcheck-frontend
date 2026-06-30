@@ -6,6 +6,7 @@ import {
   isPrimaryFamilyCompatibleText,
   normalizeRenderableList,
   providerLabel,
+  resolveInstitutionalAnalystWorkflowContract,
   safeArray,
   safeObject,
   titleCase,
@@ -373,7 +374,7 @@ export default function ManualReviewPanel({
   calibrationWarnings,
   styles,
 }) {
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
   const verifyItems = analystVerificationItems(model);
   const coverageGate = model?.coverageScoreEligibilityContract || {};

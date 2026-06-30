@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CollapsibleDetail, QuestionPromptCard } from "./researchPrimitives";
-import { formatDateTime, formatScoreValue, getAnalystAnswerCard, safeArray, sanitizeSemanticLabel } from "./researchUtils";
+import { formatDateTime, formatScoreValue, getAnalystAnswerCard, resolveInstitutionalAnalystWorkflowContract, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -112,7 +112,6 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const canonicalSourceProfile = canonicalRoute.canonicalSourceProfile || model?.canonicalSourceProfile || primaryRoute.sourceProfile;
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
@@ -483,6 +482,8 @@ export default function DecisionHeroCard({
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshness = model?.analysisFreshness || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
+  const analystWorkflowAvailable = Boolean(analystWorkflow.artifactVersion);
   const freshnessLabel = freshness.freshnessLabel
     ? `${freshness.freshnessLabel}${freshness.generatedAt ? ` - ${formatDateTime(freshness.generatedAt)}` : ""}`
     : lastAnalyzed
@@ -526,7 +527,7 @@ export default function DecisionHeroCard({
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
             <div style={styles.decisionFinalSubcopy}>{finalDecisionSubcopy}</div>
-            {analystWorkflow.artifactVersion ? (
+            {analystWorkflowAvailable ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>
                   <div style={styles.metaLabel}>Autonomous analyst thesis</div>
@@ -539,7 +540,14 @@ export default function DecisionHeroCard({
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div style={styles.decisionSemanticMiniGrid}>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Institutional Analyst Workflow</div>
+                  <div style={styles.contextMuted}>Institutional Analyst Workflow unavailable for this response.</div>
+                </div>
+              </div>
+            )}
             {verdictSemantics.hasVerdictClass ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>

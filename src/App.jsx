@@ -45,6 +45,7 @@ import {
   normalizeResolvedInstitutionalLensPayload,
   normalizeProviderHealth,
   normalizeInstitutionalQuestionsPayload,
+  resolveInstitutionalAnalystWorkflowContract,
   normalizeWatchlistAsset,
   normalizeErrorMessage,
   BENCHMARK_SEARCH_PRESETS,
@@ -758,6 +759,7 @@ export default function App() {
     const resolvedInstitutionalLens = normalizeResolvedInstitutionalLensPayload(data);
     const assetIdentityResolution = normalizeAssetIdentityResolutionPayload(data);
     const analysisFreshness = normalizeAnalysisFreshnessPayload(data, null);
+    const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
@@ -766,6 +768,7 @@ export default function App() {
       assetIdentityResolution,
       calibrationWarnings,
       analysisFreshness,
+      institutionalAnalystWorkflowContract,
     };
   }, [data]);
   const asset = data?.asset;

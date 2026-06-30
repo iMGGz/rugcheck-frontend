@@ -8,6 +8,7 @@ import {
   extractRenderableText,
   formatScoreValue,
   normalizeRenderableList,
+  resolveInstitutionalAnalystWorkflowContract,
   safeArray,
   safeObject,
   titleCase,
@@ -457,7 +458,7 @@ export default function ScoringTransparencyTab({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>

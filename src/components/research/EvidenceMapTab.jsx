@@ -15,6 +15,7 @@ import {
   normalizeRenderableList,
   providerHealthDisplayTone,
   providerLabel,
+  resolveInstitutionalAnalystWorkflowContract,
   safeArray,
   safeObject,
   sourceColor,
@@ -514,7 +515,7 @@ export default function EvidenceMapTab({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
-  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
+  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 

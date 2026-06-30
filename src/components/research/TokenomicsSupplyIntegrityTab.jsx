@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
-import { cleanPrimaryAnswerText, formatCompact, formatPct, formatUsd, getAnalystAnswerCard, safeArray, safeObject, titleCase } from "./researchUtils";
+import { cleanPrimaryAnswerText, formatCompact, formatPct, formatUsd, getAnalystAnswerCard, resolveInstitutionalAnalystWorkflowContract, safeArray, safeObject, titleCase } from "./researchUtils";
 
 function isPresent(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
@@ -573,7 +573,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
   const tokenomics = safeObject(model?.tokenomicsSupplyIntegrity);
   const identity = safeObject(model?.assetIdentityResolution);
   const lens = safeObject(model?.resolvedInstitutionalLens);
-  const analystWorkflow = safeObject(model?.institutionalAnalystWorkflowContract);
+  const analystWorkflow = safeObject(resolveInstitutionalAnalystWorkflowContract(model));
 
   if (!tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
     return (

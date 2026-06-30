@@ -2353,6 +2353,35 @@ export function normalizeInstitutionalAnalystWorkflowPayload(responseLike) {
   };
 }
 
+export function resolveInstitutionalAnalystWorkflowContract(...sources) {
+  for (const source of sources) {
+    const normalized = normalizeInstitutionalAnalystWorkflowPayload(source);
+    if (normalized) return normalized;
+    const root = safeObject(source);
+    const nestedAnalysis = safeObject(root.analysis);
+    const partial = safeObject(
+      root.institutionalAnalystWorkflowContract
+      || nestedAnalysis.institutionalAnalystWorkflowContract,
+    );
+    if (Object.keys(partial).length) {
+      return {
+        ...partial,
+        contractAvailability: "partial",
+        rawProblemDataInventory: safeObject(partial.rawProblemDataInventory),
+        normalizedProblemData: safeArray(partial.normalizedProblemData),
+        typedObservations: safeArray(partial.typedObservations),
+        autonomousQuestionAnswers: safeArray(partial.autonomousQuestionAnswers),
+        analystJudgments: safeArray(partial.analystJudgments),
+        moduleScoringReadiness: safeArray(partial.moduleScoringReadiness),
+        confidenceCapDrivers: safeArray(partial.confidenceCapDrivers),
+        falsificationTriggers: safeArray(partial.falsificationTriggers),
+        missingData: safeArray(partial.missingData),
+      };
+    }
+  }
+  return null;
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2854,7 +2883,7 @@ export function buildProtectedInvestorReportText({
   const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
-  const institutionalAnalystWorkflowContract = safeModel.institutionalAnalystWorkflowContract || normalizeInstitutionalAnalystWorkflowPayload(safeModel) || normalizeInstitutionalAnalystWorkflowPayload(safeData) || normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
+  const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeModel, safeData, safeAnalysis);
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -5877,7 +5906,7 @@ export function buildDecisionTerminalModel({
   const sourceCandidateReviewAuditTrailContract = normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis)
     || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract
     || null;
-  const institutionalAnalystWorkflowContract = normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
+  const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeAnalysis);
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -7751,7 +7780,7 @@ export function buildReviewBundleText({
   const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
-  const institutionalAnalystWorkflowContract = safeModel.institutionalAnalystWorkflowContract || normalizeInstitutionalAnalystWorkflowPayload(safeModel) || normalizeInstitutionalAnalystWorkflowPayload(safeData) || normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
+  const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeModel, safeData, safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
