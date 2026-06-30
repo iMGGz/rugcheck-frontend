@@ -514,6 +514,7 @@ export default function EvidenceMapTab({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
 
@@ -550,6 +551,24 @@ export default function EvidenceMapTab({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Analyst Evidence Boundary" subtitle="Only family-compatible typed observations can support workflow answers." styles={styles}>
+          <div style={styles.evidenceMapBoundaryStrip}>
+            {boundaryChip(styles, `${analystWorkflow.typedObservations?.filter((entry) => entry.questionApplicability === "eligible").length || 0} eligible observations`)}
+            {boundaryChip(styles, `${analystWorkflow.contaminationControl?.rejectedWrongFamilyObservationCount || 0} wrong-family observations rejected`)}
+            {boundaryChip(styles, "Source candidates excluded")}
+            {boundaryChip(styles, analystWorkflow.contaminationControl?.status || "Contamination status unavailable")}
+          </div>
+          <ListBlock
+            title="Missing autonomous inputs"
+            items={analystWorkflow.missingData}
+            emptyText="No workflow-level missing input was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       <div style={styles.advancedGrid}>
         <QuestionPromptCard

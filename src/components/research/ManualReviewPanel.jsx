@@ -373,6 +373,7 @@ export default function ManualReviewPanel({
   calibrationWarnings,
   styles,
 }) {
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
   const verifyItems = analystVerificationItems(model);
   const coverageGate = model?.coverageScoreEligibilityContract || {};
@@ -436,6 +437,23 @@ export default function ManualReviewPanel({
           />
         ) : null}
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Workflow Audit Boundary" subtitle="Read-only escalation context; manual review is not the normal analysis flow." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `Workflow: ${analystWorkflow.workflowCompletenessStatus || "unknown"}`)}
+            {boundaryChip(styles, `${analystWorkflow.confidenceCapDrivers?.length || 0} confidence caps`)}
+            {boundaryChip(styles, "No score/readiness mutation")}
+          </div>
+          <ListBlock
+            title="Confidence cap drivers"
+            items={analystWorkflow.confidenceCapDrivers}
+            emptyText="No workflow confidence cap was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {sourceDiscovery.artifactVersion ? (
         <Card title="Source Candidate Review Boundary" subtitle="Rejected, duplicate, and unresolved candidates stay outside evidence and scoring." styles={styles}>

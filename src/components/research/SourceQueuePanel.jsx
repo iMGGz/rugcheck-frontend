@@ -342,6 +342,7 @@ export default function SourceQueuePanel({
   providerDiagnostics,
   styles,
 }) {
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
   const domains = suggestedResearchDomains(model, displayIdentity);
   const researchRequirements = safeArray(model?.researchRequirements);
@@ -387,6 +388,23 @@ export default function SourceQueuePanel({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Workflow Data Gaps" subtitle="Inputs needed to answer canonical institutional questions more completely." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${analystWorkflow.rawProblemDataInventory?.availableCategories?.length || 0} available categories`)}
+            {boundaryChip(styles, `${analystWorkflow.rawProblemDataInventory?.missingCategories?.length || 0} missing categories`)}
+            {boundaryChip(styles, "Candidates do not resolve gaps")}
+          </div>
+          <ListBlock
+            title="Priority missing data"
+            items={safeArray(analystWorkflow.missingData).slice(0, 10)}
+            emptyText="No autonomous workflow data gap was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {sourceDiscovery.artifactVersion ? (
         <Card title="Source Candidates for Review" subtitle="Bounded discovery leads only; each candidate requires review before evidence use." styles={styles}>

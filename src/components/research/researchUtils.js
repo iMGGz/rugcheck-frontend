@@ -2312,6 +2312,47 @@ export function normalizeSourceCandidateReviewWorkflowPayload(responseLike) {
   };
 }
 
+export function normalizeInstitutionalAnalystWorkflowPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(root.institutionalAnalystWorkflowContract || nestedAnalysis.institutionalAnalystWorkflowContract);
+  if (!contract.artifactVersion) return null;
+  return {
+    ...contract,
+    rawProblemDataInventory: {
+      ...safeObject(contract.rawProblemDataInventory),
+      items: safeArray(contract.rawProblemDataInventory?.items),
+      availableCategories: safeArray(contract.rawProblemDataInventory?.availableCategories),
+      partialCategories: safeArray(contract.rawProblemDataInventory?.partialCategories),
+      missingCategories: safeArray(contract.rawProblemDataInventory?.missingCategories),
+      notApplicableCategories: safeArray(contract.rawProblemDataInventory?.notApplicableCategories),
+    },
+    normalizedProblemData: safeArray(contract.normalizedProblemData),
+    typedObservations: safeArray(contract.typedObservations),
+    institutionalQuestionRegistryLink: {
+      ...safeObject(contract.institutionalQuestionRegistryLink),
+      selectedQuestionIds: safeArray(contract.institutionalQuestionRegistryLink?.selectedQuestionIds),
+      selectedQuestions: safeArray(contract.institutionalQuestionRegistryLink?.selectedQuestions),
+      notApplicableQuestionsBlockedByFamily: safeArray(contract.institutionalQuestionRegistryLink?.notApplicableQuestionsBlockedByFamily),
+    },
+    autonomousQuestionAnswers: safeArray(contract.autonomousQuestionAnswers),
+    analystJudgments: safeArray(contract.analystJudgments),
+    thesisAntiThesis: safeObject(contract.thesisAntiThesis),
+    tokenomicsAnalysis: safeObject(contract.tokenomicsAnalysis),
+    fundamentalAnalysis: safeObject(contract.fundamentalAnalysis),
+    moduleScoringReadiness: safeArray(contract.moduleScoringReadiness),
+    confidenceCapDrivers: safeArray(contract.confidenceCapDrivers),
+    falsificationTriggers: safeArray(contract.falsificationTriggers),
+    missingData: safeArray(contract.missingData),
+    investmentResearchMemo: safeObject(contract.investmentResearchMemo),
+    evidenceUseBoundary: safeObject(contract.evidenceUseBoundary),
+    contaminationControl: safeObject(contract.contaminationControl),
+    protectedReportSummary: safeObject(contract.protectedReportSummary),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -2813,6 +2854,7 @@ export function buildProtectedInvestorReportText({
   const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
+  const institutionalAnalystWorkflowContract = safeModel.institutionalAnalystWorkflowContract || normalizeInstitutionalAnalystWorkflowPayload(safeModel) || normalizeInstitutionalAnalystWorkflowPayload(safeData) || normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -2989,6 +3031,12 @@ export function buildProtectedInvestorReportText({
     reportLine("Source review queue", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.queueItemCount || 0} candidates awaiting or carrying source review` : "Not available yet."),
     reportLine("Source review outcomes", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.acceptedReviewCandidateCount || 0} accepted for future packet drafting; ${sourceCandidateReviewWorkflowContract.protectedReportSummary?.rejectedOrNeedsCheckCount || 0} rejected or needing checks` : "Not available yet."),
     reportLine("Source review boundary", sourceCandidateReviewWorkflowContract ? "Source review evaluates drafting usefulness, not claim truth; evidence gaps remain until evidence packets are validated." : "Not available yet."),
+    reportLine("Analyst workflow thesis", institutionalAnalystWorkflowContract?.protectedReportSummary?.thesisSummary || "Not available yet."),
+    reportLine("Analyst workflow tokenomics", institutionalAnalystWorkflowContract?.protectedReportSummary?.tokenomicsSummary || "Not available yet."),
+    reportLine("Analyst workflow fundamentals", institutionalAnalystWorkflowContract?.protectedReportSummary?.fundamentalSummary || "Not available yet."),
+    reportLine("Analyst workflow risks", institutionalAnalystWorkflowContract?.protectedReportSummary?.riskSummary || "Not available yet."),
+    reportLine("Analyst workflow confidence", institutionalAnalystWorkflowContract?.protectedReportSummary?.confidenceMissingDataSummary || "Not available yet."),
+    reportLine("Analyst workflow module readiness", institutionalAnalystWorkflowContract?.protectedReportSummary?.moduleReadinessSummary || "Not available yet."),
     ...(deepResearchSourceDiscoveryContract?.protectedReportSummary?.summary ? [
       `Discovery summary: ${cleanPrimaryAnswerText(deepResearchSourceDiscoveryContract.protectedReportSummary.summary)}`,
     ] : []),
@@ -5829,6 +5877,7 @@ export function buildDecisionTerminalModel({
   const sourceCandidateReviewAuditTrailContract = normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis)
     || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract
     || null;
+  const institutionalAnalystWorkflowContract = normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -6339,6 +6388,7 @@ export function buildDecisionTerminalModel({
     sourceCandidateReviewWorkflowContract,
     sourceCandidateReviewQueueContract,
     sourceCandidateReviewAuditTrailContract,
+    institutionalAnalystWorkflowContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7701,6 +7751,7 @@ export function buildReviewBundleText({
   const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
+  const institutionalAnalystWorkflowContract = safeModel.institutionalAnalystWorkflowContract || normalizeInstitutionalAnalystWorkflowPayload(safeModel) || normalizeInstitutionalAnalystWorkflowPayload(safeData) || normalizeInstitutionalAnalystWorkflowPayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9797,6 +9848,44 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(sourceCandidateReviewWorkflowContract?.knownLimitations),
       bundleField("Next resume pointer", sourceCandidateReviewWorkflowContract?.nextResumePointer),
+    ]),
+    bundleSection("2BB. Institutional Analyst Workflow Engine v1", [
+      bundleField("Contract attached", institutionalAnalystWorkflowContract ? "yes" : "no"),
+      bundleField("Contract status", institutionalAnalystWorkflowContract?.contractStatus),
+      bundleField("Canonical asset", institutionalAnalystWorkflowContract?.canonicalAsset),
+      bundleField("Canonical identity", institutionalAnalystWorkflowContract?.canonicalIdentity),
+      bundleField("Canonical family", institutionalAnalystWorkflowContract?.canonicalFamily),
+      bundleField("Canonical question group", institutionalAnalystWorkflowContract?.canonicalQuestionGroup),
+      bundleField("Workflow completeness", institutionalAnalystWorkflowContract?.workflowCompletenessStatus),
+      bundleField("Available raw-data categories", safeArray(institutionalAnalystWorkflowContract?.rawProblemDataInventory?.availableCategories).length),
+      bundleField("Partial raw-data categories", safeArray(institutionalAnalystWorkflowContract?.rawProblemDataInventory?.partialCategories).length),
+      bundleField("Missing raw-data categories", safeArray(institutionalAnalystWorkflowContract?.rawProblemDataInventory?.missingCategories).length),
+      bundleField("Normalized input count", safeArray(institutionalAnalystWorkflowContract?.normalizedProblemData).length),
+      bundleField("Typed observation count", safeArray(institutionalAnalystWorkflowContract?.typedObservations).length),
+      bundleField("Autonomous answered questions", safeArray(institutionalAnalystWorkflowContract?.autonomousQuestionAnswers).filter((answer) => answer.answerState === "answered_by_current_data").length),
+      bundleField("Partially answered questions", safeArray(institutionalAnalystWorkflowContract?.autonomousQuestionAnswers).filter((answer) => answer.answerState === "partially_answered").length),
+      bundleField("Unanswered required questions", safeArray(institutionalAnalystWorkflowContract?.autonomousQuestionAnswers).filter((answer) => !["answered_by_current_data", "partially_answered", "not_applicable_for_family"].includes(answer.answerState)).length),
+      "Analyst judgments by module:",
+      bundleList(safeArray(institutionalAnalystWorkflowContract?.analystJudgments).map((judgment) => `${judgment.module}: ${judgment.status}; ${safeArray(judgment.missingData).length} missing inputs`)),
+      bundleField("Tokenomics analysis", institutionalAnalystWorkflowContract?.tokenomicsAnalysis?.summary),
+      bundleField("Fundamental analysis", institutionalAnalystWorkflowContract?.fundamentalAnalysis?.summary),
+      bundleField("Primary thesis", institutionalAnalystWorkflowContract?.thesisAntiThesis?.primaryThesis),
+      bundleField("Anti-thesis", institutionalAnalystWorkflowContract?.thesisAntiThesis?.antiThesis),
+      "Module scoring readiness:",
+      bundleList(safeArray(institutionalAnalystWorkflowContract?.moduleScoringReadiness).map((module) => `${module.module}: support=${module.autonomousInputSupport}; eligibility=${module.scoreEligibility}; legacyScore=${bundleValue(module.currentLegacyScoreValue)}`)),
+      "Confidence cap drivers:",
+      bundleList(institutionalAnalystWorkflowContract?.confidenceCapDrivers),
+      "Falsification triggers:",
+      bundleList(institutionalAnalystWorkflowContract?.falsificationTriggers),
+      bundleField("Source candidates excluded from evidence", yesNoUnknown(institutionalAnalystWorkflowContract?.evidenceUseBoundary?.sourceCandidatesExcluded)),
+      bundleField("Manual review required for normal flow", institutionalAnalystWorkflowContract?.guardrails?.manualReviewRequiredForNormalFlow ? "yes" : "no"),
+      bundleField("Family contamination result", institutionalAnalystWorkflowContract?.contaminationControl?.status),
+      bundleField("Protected report redaction", institutionalAnalystWorkflowContract?.frontendVisibility?.protectedInvestorReport),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(institutionalAnalystWorkflowContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(institutionalAnalystWorkflowContract?.knownLimitations),
+      bundleField("Next resume pointer", institutionalAnalystWorkflowContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),

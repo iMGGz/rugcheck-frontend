@@ -112,6 +112,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const canonicalSourceProfile = canonicalRoute.canonicalSourceProfile || model?.canonicalSourceProfile || primaryRoute.sourceProfile;
   const identity = model?.assetIdentityResolution || {};
   const freshness = model?.analysisFreshness || {};
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
@@ -525,6 +526,20 @@ export default function DecisionHeroCard({
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
             <div style={styles.decisionFinalSubcopy}>{finalDecisionSubcopy}</div>
+            {analystWorkflow.artifactVersion ? (
+              <div style={styles.decisionSemanticMiniGrid}>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Autonomous analyst thesis</div>
+                  <div style={styles.contextMuted}>{analystWorkflow.investmentResearchMemo?.thesis || "Workflow thesis unavailable."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Data readiness</div>
+                  <div style={styles.contextMuted}>
+                    {analystWorkflow.workflowCompletenessStatus || "unknown"}; {analystWorkflow.missingData?.length || 0} explicit data gaps.
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {verdictSemantics.hasVerdictClass ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>

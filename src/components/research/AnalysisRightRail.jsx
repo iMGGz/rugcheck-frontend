@@ -353,6 +353,22 @@ function RawDataCoverageRailSection({ model, styles }) {
   );
 }
 
+function AnalystWorkflowRailSection({ model, styles }) {
+  const workflow = model?.institutionalAnalystWorkflowContract;
+  if (!workflow?.artifactVersion) return null;
+  const answered = (workflow.autonomousQuestionAnswers || []).filter((answer) => answer.answerState === "answered_by_current_data").length;
+  return (
+    <RailSection title="Analyst Workflow" badge={workflow.workflowCompletenessStatus || "Workflow"} styles={styles}>
+      <div style={styles.railMuted}>{workflow.investmentResearchMemo?.executiveSummary || "Autonomous analyst summary unavailable."}</div>
+      <div style={styles.railChipRow}>
+        <RailBadge styles={styles} tone="#7dd3fc">{answered}/{workflow.autonomousQuestionAnswers?.length || 0} answered</RailBadge>
+        <RailBadge styles={styles} tone="#f9d976">{workflow.missingData?.length || 0} gaps</RailBadge>
+      </div>
+      <div style={styles.railBoundaryText}>Source candidates and manual review state are excluded from autonomous answers.</div>
+    </RailSection>
+  );
+}
+
 function MobileRailSummary({
   model,
   primaryBlocker,
@@ -500,6 +516,8 @@ export default function AnalysisRightRail({
           <CategoryDrivenRailSection model={model} styles={styles} />
 
           <RawDataCoverageRailSection model={model} styles={styles} />
+
+          <AnalystWorkflowRailSection model={model} styles={styles} />
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

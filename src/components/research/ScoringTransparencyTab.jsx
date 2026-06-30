@@ -457,6 +457,7 @@ export default function ScoringTransparencyTab({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -485,6 +486,25 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Module Readiness" subtitle="Diagnostic input readiness only; final score and verdict formulas are unchanged." styles={styles}>
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${analystWorkflow.moduleScoringReadiness?.filter((module) => module.autonomousInputSupport === "strong").length || 0} strong-support modules`)}
+            {boundaryChip(styles, `${analystWorkflow.moduleScoringReadiness?.filter((module) => module.scoreEligibility === "blocked").length || 0} blocked modules`)}
+            {boundaryChip(styles, "Future calibration required")}
+          </div>
+          <ListBlock
+            title="Module readiness"
+            items={safeArray(analystWorkflow.moduleScoringReadiness).map((module) =>
+              `${module.module}: ${module.autonomousInputSupport}; ${module.scoreEligibility}. ${module.answerSummary}`
+            )}
+            emptyText="No autonomous module-readiness object was attached."
+            color="#9bd7ff"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       <div style={styles.advancedGrid}>
         <QuestionPromptCard

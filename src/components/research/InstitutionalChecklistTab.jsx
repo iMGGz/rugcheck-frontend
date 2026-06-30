@@ -1049,6 +1049,7 @@ export default function InstitutionalChecklistTab({
     "Scoring/report boundary",
     "Verdict impact",
   ];
+  const analystWorkflow = model?.institutionalAnalystWorkflowContract || {};
 
   return (
     <div style={styles.institutionalChecklistShell}>
@@ -1093,6 +1094,31 @@ export default function InstitutionalChecklistTab({
           </>
         ) : null}
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Institutional Questions" subtitle="Canonical family questions answered only from eligible typed observations." styles={styles}>
+          <div style={styles.sourceBoundaryStrip}>
+            {boundaryChip(styles, `${analystWorkflow.institutionalQuestionRegistryLink?.selectedQuestionIds?.length || 0} selected questions`)}
+            {boundaryChip(styles, `${analystWorkflow.autonomousQuestionAnswers?.filter((answer) => answer.answerState === "answered_by_current_data").length || 0} answered`)}
+            {boundaryChip(styles, `${analystWorkflow.autonomousQuestionAnswers?.filter((answer) => answer.answerState === "partially_answered").length || 0} partial`)}
+            {boundaryChip(styles, `${analystWorkflow.missingData?.length || 0} data gaps`)}
+          </div>
+          <ListBlock
+            title="Autonomous answer states"
+            items={safeArray(analystWorkflow.autonomousQuestionAnswers).slice(0, 10).map((answer) =>
+              `${answer.question} — ${answer.answerState.replaceAll("_", " ")}. ${answer.conciseAnalystAnswer}`
+            )}
+            emptyText="No autonomous workflow questions were attached."
+            color="#9bd7ff"
+            styles={styles}
+          />
+          <SectionRow
+            label="Boundary"
+            value="Provider metadata, source candidates, generated text, and manual-review state cannot answer these questions."
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {hasInstitutionalAnswers ? (
         <>

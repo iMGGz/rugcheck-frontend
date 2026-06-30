@@ -573,6 +573,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
   const tokenomics = safeObject(model?.tokenomicsSupplyIntegrity);
   const identity = safeObject(model?.assetIdentityResolution);
   const lens = safeObject(model?.resolvedInstitutionalLens);
+  const analystWorkflow = safeObject(model?.institutionalAnalystWorkflowContract);
 
   if (!tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
     return (
@@ -628,6 +629,22 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Diagnostic boundary" value="tokenomicsIntegrityScore is diagnostic-only and does not change the current overall score or verdict." styles={styles} />
         <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
       </ExecutiveSummaryCard>
+
+      {analystWorkflow.artifactVersion ? (
+        <Card title="Autonomous Tokenomics Assessment" subtitle="Workflow synthesis from eligible supply, governance, rights, and control observations." styles={styles}>
+          <SectionRow label="Workflow summary" value={analystWorkflow.tokenomicsAnalysis?.summary || "No autonomous tokenomics summary attached."} styles={styles} />
+          <ListBlock
+            title="Tokenomics dimensions"
+            items={safeArray(analystWorkflow.tokenomicsAnalysis?.dimensions).map((dimension) =>
+              `${dimension.dimension}: ${dimension.status}. ${dimension.summary}`
+            )}
+            emptyText="No autonomous tokenomics dimensions attached."
+            color="#9bd7ff"
+            styles={styles}
+          />
+          <SectionRow label="Evidence boundary" value="Source candidates and manual-review state do not become tokenomics evidence or scoring inputs." styles={styles} />
+        </Card>
+      ) : null}
 
       <Card title="Key Risk Summary" subtitle="What matters most for this asset class before relying on tokenomics conclusions." styles={styles}>
         <ListBlock title="What matters most" items={keyRiskItems(primaryLensId)} emptyText="No lens-specific risk summary attached." color="#9bd7ff" styles={styles} />
