@@ -507,6 +507,17 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
+      {methodologyContract.contractVersion === "1.1.0" ? (
+        <Card title="Methodology Readiness" subtitle="Diagnostic framework only; it does not alter the current score or verdict." styles={styles}>
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${methodologyContract.registrySummary?.canonicalFamilyCount || 0} canonical families`)}
+            {boundaryChip(styles, `${methodologyContract.registrySummary?.moduleCount || 0} analyst modules`)}
+            {boundaryChip(styles, `${methodologyContract.registrySummary?.regressionControlCount || 0} regression controls`)}
+            {boundaryChip(styles, methodologyContract.validation?.valid ? "Registry PASS" : "Registry review required")}
+          </div>
+        </Card>
+      ) : null}
+
       <div style={styles.advancedGrid}>
         <QuestionPromptCard
           question="Which live score is visible?"
