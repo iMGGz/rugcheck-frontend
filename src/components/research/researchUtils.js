@@ -5905,6 +5905,42 @@ function buildConfidenceSupportLabel(confidenceModel) {
   return "Evidence support unavailable";
 }
 
+export function resolveQaRepresentationType({
+  assetIdentityResolution,
+  representationFamilyDecision,
+  representationFamilyRoute,
+  primaryAnalysisRoute,
+}) {
+  const raw = String(assetIdentityResolution?.representationType || "").trim();
+  const decisionRepresentation = String(representationFamilyDecision?.representationType || "").trim();
+  const family = String(
+    primaryAnalysisRoute?.primaryFamily
+    || primaryAnalysisRoute?.assetFamily
+    || representationFamilyRoute?.selectedFamily
+    || representationFamilyDecision?.selectedFamily
+    || "",
+  ).trim();
+  if (!family) return raw || decisionRepresentation || "unknown";
+
+  if (family === "stablecoin_fiat_backed") {
+    return /stablecoin/i.test(raw) ? raw : "fiat_backed_stablecoin";
+  }
+  if (family === "wrapped_bridged_asset") return /wrapped|bridged/i.test(raw) ? raw : "wrapped_or_bridged_asset";
+  if (family === "liquid_staking_derivative") return "liquid_staking_derivative";
+  if (family === "native_btc_pow_monetary" || family === "native_eth_pos_gas_l2_fee_market" || family === "non_eth_l1_smart_contract_platform") return "native_asset";
+  if (family === "payments_settlement_network") return /payment|settlement|native/i.test(raw) ? raw : "payments_settlement_asset";
+
+  const stablecoinContaminated = /stablecoin/i.test(raw);
+  if (stablecoinContaminated) {
+    return decisionRepresentation && !/stablecoin/i.test(decisionRepresentation)
+      ? decisionRepresentation
+      : family === "defi_governance_value_capture"
+        ? "protocol_governance_token"
+        : "contract_representation";
+  }
+  return decisionRepresentation || raw || "contract_representation";
+}
+
 export function buildDecisionTerminalModel({
   analysis,
   scores,
@@ -6328,6 +6364,13 @@ export function buildDecisionTerminalModel({
     ].join(" "), canonicalPrimaryFamily));
   const displayAssetIdentityResolution = assetIdentityResolution ? {
     ...assetIdentityResolution,
+    rawRepresentationTypeAuditOnly: assetIdentityResolution.representationType,
+    representationType: resolveQaRepresentationType({
+      assetIdentityResolution,
+      representationFamilyDecision,
+      representationFamilyRoute,
+      primaryAnalysisRoute,
+    }),
     rawIdentityWarningsAuditOnly: safeArray(assetIdentityResolution.identityWarnings),
     rawChainWarningsAuditOnly: safeArray(assetIdentityResolution.chainWarnings),
     rawContractWarningsAuditOnly: safeArray(assetIdentityResolution.contractWarnings),
@@ -7894,6 +7937,12 @@ export function buildReviewBundleText({
     analysisFreshness.freshnessStatus === "unknown" ? "Freshness state is ambiguous; current product should be live full recompute." : null,
   ].filter(Boolean);
   const questionMismatchWarnings = safeArray(calibrationWarnings).filter((warning) => warning?.id === "question_lens_mismatch");
+  const qaRepresentationType = resolveQaRepresentationType({
+    assetIdentityResolution,
+    representationFamilyDecision,
+    representationFamilyRoute,
+    primaryAnalysisRoute,
+  });
   const providerInternalFlags = safeArray(lens?.ambiguityFlags).filter((flag) => /provider|internal|disagree|conflict|mismatch/i.test(flag));
   const lensAwarePrimaryDisplayActive = resolvedLensIsDisplayAuthoritative(lens) && Boolean(lensAware);
   const filterPrimaryBundleItems = (items) => {
@@ -8587,7 +8636,8 @@ export function buildReviewBundleText({
       bundleField("Contract", assetContract),
       bundleField("Analyzed network", assetIdentityResolution?.analyzedNetwork),
       bundleField("Analyzed contract", assetIdentityResolution?.analyzedContract),
-      bundleField("Representation type", assetIdentityResolution?.representationType),
+      bundleField("Representation type", qaRepresentationType),
+      bundleField("Raw representation type (audit only)", assetIdentityResolution?.representationType),
       bundleField("Wrong-asset risk", assetIdentityResolution?.wrongAssetRisk),
       bundleField("Search candidate recommendation", searchIdentityReconciliation?.recommendedCanonicalMatch === undefined ? null : yesNoUnknown(searchIdentityReconciliation.recommendedCanonicalMatch)),
       bundleField("Search candidate rank", searchIdentityReconciliation?.canonicalCandidateRank),
