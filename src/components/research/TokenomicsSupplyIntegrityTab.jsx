@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, CollapsibleDetail, ExecutiveSummaryCard, ListBlock, SectionRow } from "./researchPrimitives";
-import { cleanPrimaryAnswerText, formatCompact, formatPct, formatUsd, getAnalystAnswerCard, resolveInstitutionalAnalystWorkflowContract, safeArray, safeObject, titleCase } from "./researchUtils";
+import { cleanPrimaryAnswerText, formatPct, formatUsd, getAnalystAnswerCard, resolveInstitutionalAnalystWorkflowContract, safeArray, safeObject, titleCase } from "./researchUtils";
 
 function isPresent(value) {
   return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
@@ -574,6 +574,8 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
   const identity = safeObject(model?.assetIdentityResolution);
   const lens = safeObject(model?.resolvedInstitutionalLens);
   const analystWorkflow = safeObject(resolveInstitutionalAnalystWorkflowContract(model));
+  const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
+  const tokenomicsDisplay = safeObject(answerProduct.tabDisplayModel?.tokenomics);
 
   if (!tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
     return (
@@ -630,7 +632,34 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      {answerProduct.productLayerVersion ? (
+        <Card title="Current Supply Facts" subtitle="Backend-derived market and supply observations are shown before open diligence items." styles={styles}>
+          <FieldGrid>
+            {safeArray(answerProduct.currentDataUsed).slice(0, 10).map((point) => (
+              <MiniMetric key={point.dataPointId || point.label} label={point.label || "Current field"} value={point.displayValue || "Unavailable"} />
+            ))}
+          </FieldGrid>
+          <SectionRow
+            label="Institutional interpretation"
+            value={tokenomicsDisplay.interpretation || safeArray(answerProduct.boundedInterpretations)[0] || "No bounded tokenomics interpretation was attached."}
+            styles={styles}
+          />
+          <SectionRow
+            label="What this does not prove"
+            value={tokenomicsDisplay.doesNotProve || safeArray(answerProduct.unsupportedInferences)[0] || "No unsupported inference boundary was attached."}
+            styles={styles}
+          />
+          <ListBlock
+            title="Next tokenomics diligence"
+            items={safeArray(tokenomicsDisplay.nextDiligence || answerProduct.analystNextSteps).slice(0, 4)}
+            emptyText="No additional tokenomics diligence item was attached."
+            color="#f9d976"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {!answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Tokenomics Assessment" subtitle="Workflow synthesis from eligible supply, governance, rights, and control observations." styles={styles}>
           <SectionRow label="Workflow summary" value={analystWorkflow.tokenomicsAnalysis?.summary || "No autonomous tokenomics summary attached."} styles={styles} />
           <ListBlock

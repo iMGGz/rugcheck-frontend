@@ -391,6 +391,8 @@ export default function ManualReviewPanel({
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const reviewAudit = model?.sourceCandidateReviewAuditTrailContract || reviewWorkflow.sourceCandidateReviewAuditTrailContract || {};
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const verificationItems = safeArray(answerProduct?.tabDisplayModel?.analystVerification?.items);
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -404,9 +406,9 @@ export default function ManualReviewPanel({
   return (
     <div style={styles.sourceQueueShell}>
       <ExecutiveSummaryCard
-        eyebrow="Manual Review"
-        title="What requires human review?"
-        answer={signals[0]?.description || model?.manualReviewStatus?.detail || "No live manual-review signal was surfaced beyond normal analyst verification."}
+        eyebrow="Analyst Verification"
+        title="What evidence should be checked next?"
+        answer={verificationItems[0] || signals[0]?.description || "No additional analyst verification item was attached."}
         tone="#f9d976"
         badges={[
           { label: model?.manualReviewStatus?.label || "Review status unavailable", tone: "#f9d976" },
@@ -416,20 +418,9 @@ export default function ManualReviewPanel({
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, "Manual review is a workflow signal, not automatic proof of failure.")}
-          {boundaryChip(styles, "Critical gaps may cap confidence until reviewed.")}
-          {boundaryChip(styles, "Source overlays are explanatory context unless explicitly integrated later.")}
+          {boundaryChip(styles, answerProduct?.assetResearchSummary?.evidenceBoundary || "Verification items identify evidence needed for stronger confidence.")}
         </div>
-        <SectionRow
-          label="Live review proxy"
-          value={model?.manualReviewStatus?.label || "Unavailable"}
-          styles={styles}
-        />
-        <SectionRow
-          label="Reason"
-          value={model?.manualReviewStatus?.detail || "Manual review queue is not attached to live response yet."}
-          styles={styles}
-        />
+        <ListBlock title="External diligence items" items={verificationItems.slice(0, 6)} emptyText="No external diligence item attached." color="#f9d976" styles={styles} />
         {model?.reviewedEvidencePacket?.packetLoaded ? (
           <SectionRow
             label="Reviewed evidence packet"
@@ -439,7 +430,7 @@ export default function ManualReviewPanel({
         ) : null}
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      {!answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Workflow Audit Boundary" subtitle="Read-only escalation context; manual review is not the normal analysis flow." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `Workflow: ${analystWorkflow.workflowCompletenessStatus || "unknown"}`)}

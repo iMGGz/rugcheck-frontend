@@ -458,6 +458,9 @@ export default function AnalysisRightRail({
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || "Asset class unavailable";
   const assetFramingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const identityChip = displayIdentity?.primaryChip || assetClassLabel;
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const productRail = answerProduct?.tabDisplayModel?.rightRail || {};
+  const productLayerAvailable = Boolean(answerProduct?.productLayerVersion);
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],
     ["institutional_checklist", "Institutional Checklist"],
@@ -499,25 +502,34 @@ export default function AnalysisRightRail({
             </div>
           </RailSection>
 
-          <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} />
+          {productLayerAvailable ? (
+            <RailSection title="Analyst Snapshot" badge="Backend-derived" styles={styles}>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top fact</div><div style={styles.railMiniValue}>{productRail.topFact}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top risk</div><div style={styles.railMiniValue}>{productRail.topRisk}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Missing critical evidence</div><div style={styles.railMiniValue}>{productRail.missingCriticalEvidence}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Next diligence</div><div style={styles.railMiniValue}>{productRail.nextDiligenceStep}</div></div>
+            </RailSection>
+          ) : null}
+
+          {!productLayerAvailable ? <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} /> : null}
 
           <FreshnessRailSection model={model} styles={styles} />
 
           <TokenomicsRailSection model={model} styles={styles} />
 
-          <ScoringReadinessRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <ScoringReadinessRailSection model={model} styles={styles} /> : null}
 
-          <CoverageScoreEligibilityRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <CoverageScoreEligibilityRailSection model={model} styles={styles} /> : null}
 
-          <FamilyDataRequirementRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <FamilyDataRequirementRailSection model={model} styles={styles} /> : null}
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 
-          <CategoryDrivenRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <CategoryDrivenRailSection model={model} styles={styles} /> : null}
 
-          <RawDataCoverageRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <RawDataCoverageRailSection model={model} styles={styles} /> : null}
 
-          <AnalystWorkflowRailSection model={model} styles={styles} />
+          {!productLayerAvailable ? <AnalystWorkflowRailSection model={model} styles={styles} /> : null}
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

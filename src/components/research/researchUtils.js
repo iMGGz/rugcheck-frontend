@@ -651,6 +651,11 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       keyMetrics: safeArray(card?.keyMetrics).map(cleanPrimaryAnswerText),
       watchItems: safeArray(card?.watchItems).map(cleanPrimaryAnswerText),
       notApplicableNotes: safeArray(card?.notApplicableNotes).map(cleanPrimaryAnswerText),
+      dataUsed: safeArray(card?.dataUsed),
+      whatThisSupports: safeArray(card?.whatThisSupports).map(cleanPrimaryAnswerText),
+      whatThisDoesNotProve: safeArray(card?.whatThisDoesNotProve).map(cleanPrimaryAnswerText),
+      missingAnalysis: safeArray(card?.missingAnalysis).map(cleanPrimaryAnswerText),
+      analystNextStep: cleanPrimaryAnswerText(card?.analystNextStep),
       shortAnswer: cleanPrimaryAnswerText(card?.shortAnswer),
       fundamentalAnalysis: cleanPrimaryAnswerText(card?.fundamentalAnalysis),
       riskImpact: cleanPrimaryAnswerText(card?.riskImpact),
@@ -683,6 +688,24 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
     leakageCheck: {
       ...safeObject(contract.leakageCheck),
       wrongFamilyQuestionFindings: safeArray(contract.leakageCheck?.wrongFamilyQuestionFindings),
+    },
+    productLayer: {
+      ...safeObject(contract.productLayer),
+      currentDataUsed: safeArray(contract.productLayer?.currentDataUsed),
+      claimTrace: safeArray(contract.productLayer?.claimTrace),
+      supportedFacts: safeArray(contract.productLayer?.supportedFacts).map(cleanPrimaryAnswerText),
+      boundedInterpretations: safeArray(contract.productLayer?.boundedInterpretations).map(cleanPrimaryAnswerText),
+      unsupportedInferences: safeArray(contract.productLayer?.unsupportedInferences).map(cleanPrimaryAnswerText),
+      missingAnalysis: safeArray(contract.productLayer?.missingAnalysis).map(cleanPrimaryAnswerText),
+      analystNextSteps: safeArray(contract.productLayer?.analystNextSteps).map(cleanPrimaryAnswerText),
+      topRisks: safeArray(contract.productLayer?.topRisks).map(cleanPrimaryAnswerText),
+      topFalsifiers: safeArray(contract.productLayer?.topFalsifiers).map(cleanPrimaryAnswerText),
+      whatWouldChange: safeArray(contract.productLayer?.whatWouldChange).map(cleanPrimaryAnswerText),
+      assetResearchSummary: safeObject(contract.productLayer?.assetResearchSummary),
+      tabDisplayModel: safeObject(contract.productLayer?.tabDisplayModel),
+      uiVisibilityPolicy: safeObject(contract.productLayer?.uiVisibilityPolicy),
+      bundleParityMarkers: safeObject(contract.productLayer?.bundleParityMarkers),
+      internalOnlyFields: safeArray(contract.productLayer?.internalOnlyFields),
     },
   };
 }
@@ -2940,6 +2963,7 @@ export function buildProtectedInvestorReportText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const institutionalAnswerProductLayer = safeObject(institutionalAnswerSurfaceContract?.productLayer);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -3072,6 +3096,21 @@ export function buildProtectedInvestorReportText({
     reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
     reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
+    ...(institutionalAnswerProductLayer.artifactVersion ? [
+      "",
+      "Institutional research summary:",
+      reportLine("Thesis", institutionalAnswerProductLayer.assetResearchSummary?.assetSpecificThesis),
+      reportLine("Interpretation", safeArray(institutionalAnswerProductLayer.boundedInterpretations)[0]),
+      ...formatReportList(
+        safeArray(institutionalAnswerProductLayer.currentDataUsed).slice(0, 5).map((point) => `${point.label}: ${point.displayValue}`),
+        "No current data points were attached.",
+        5,
+      ),
+      "Primary risks:",
+      ...formatReportList(institutionalAnswerProductLayer.topRisks, "No primary risk summary was attached.", 4),
+      "Recommended diligence:",
+      ...formatReportList(institutionalAnswerProductLayer.analystNextSteps, "No next diligence item was attached.", 4),
+    ] : []),
     ...(institutionalProductTruthObject?.protectedReportSummary?.length ? [
       "Product truth summary:",
       ...formatReportList(institutionalProductTruthObject.protectedReportSummary, "No product truth summary attached.", 4),
@@ -8984,6 +9023,35 @@ export function buildReviewBundleText({
       bundleField("Audit preservation result", institutionalAnswerSurfaceContract?.guardrails?.auditRawDiagnosticsPreserved ? "raw diagnostics preserved" : "unknown"),
       bundleField("Internal QA preservation result", institutionalAnswerSurfaceContract?.guardrails?.internalQaDiagnosticsPreserved ? "internal diagnostics preserved" : "unknown"),
       bundleField("Protected Investor Report redaction", institutionalAnswerSurfaceContract?.protectedInvestorReportRedaction || "unknown"),
+      bundleField("Product layer attached", institutionalAnswerSurfaceContract?.productLayer?.productLayerVersion ? "yes" : "missing"),
+      bundleField("Product layer backend-derived", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.backendDerived)),
+      bundleField("Product layer deterministic", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.deterministic)),
+      "Product-layer current data mirror:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.currentDataUsed).map((point) =>
+        `${point.label || point.dataPointId || "field"}=${point.displayValue || point.value || "Unavailable"} | source=${point.sourceBasis || "unknown"} | field=${safeArray(point.fieldBasis).join(", ") || "unknown"} | freshness=${point.freshnessBasis || "unknown"} | boundary=${point.evidenceBoundary || "unknown"}`
+      ), "No product-layer data points attached.", 20),
+      "Product-layer claim provenance:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.claimTrace).map((claim) =>
+        `${claim.claimId || "claim"} | kind=${claim.claimKind || "unknown"} | ${claim.text || "No claim text"} | source=${claim.sourceBasis || "unknown"} | fields=${safeArray(claim.fieldBasis).join(", ") || "unknown"} | freshness=${claim.freshnessBasis || "unknown"} | boundary=${claim.evidenceBoundary || "unknown"} | confidence=${claim.confidenceEffect || "unknown"}`
+      ), "No product-layer claim trace attached.", 50),
+      "Product-layer bounded interpretations:",
+      bundleList(institutionalAnswerSurfaceContract?.productLayer?.boundedInterpretations),
+      "Product-layer unsupported inferences:",
+      bundleList(institutionalAnswerSurfaceContract?.productLayer?.unsupportedInferences),
+      "Product-layer missing analysis:",
+      bundleList(institutionalAnswerSurfaceContract?.productLayer?.missingAnalysis),
+      "Product-layer analyst next steps:",
+      bundleList(institutionalAnswerSurfaceContract?.productLayer?.analystNextSteps),
+      "Product-layer UI visibility policy:",
+      bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.productLayer?.uiVisibilityPolicy)).map(([key, value]) =>
+        `${key}=${Array.isArray(value) ? value.join(", ") : String(value)}`
+      )),
+      "Product-layer bundle parity markers:",
+      bundleList(Object.entries(safeObject(institutionalAnswerSurfaceContract?.productLayer?.bundleParityMarkers)).map(([key, value]) =>
+        `${key}=${yesNoUnknown(value)}`
+      )),
+      "Product-layer internal-only fields:",
+      bundleList(institutionalAnswerSurfaceContract?.productLayer?.internalOnlyFields),
       "User-facing mirror cards:",
       bundleList(institutionalAnswerCards.map((card) =>
         `${cleanPrimaryAnswerText(card.question || "Institutional question")} | ${cleanPrimaryAnswerText(card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`

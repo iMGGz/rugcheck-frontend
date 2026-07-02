@@ -4,7 +4,6 @@ import ScoreContributorsPanel from "./ScoreContributorsPanel";
 import { Card, ExecutiveSummaryCard, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 import {
-  cleanPrimaryAnswerText,
   extractRenderableText,
   formatScoreValue,
   normalizeRenderableList,
@@ -459,13 +458,15 @@ export default function ScoringTransparencyTab({
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
+  const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
+  const scoringDisplay = safeObject(answerProduct.tabDisplayModel?.scoring);
 
   return (
     <div style={styles.scoringTransparencyShell}>
       <ExecutiveSummaryCard
         eyebrow="Scoring Transparency"
         title="Why does the score look like this?"
-        answer="This view separates the current score from explanatory context, source requirements, and review workflow items. It explains boundaries before raw modules."
+        answer={scoringDisplay.summary || model?.institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary || "This view explains the current score, the data that supports confidence, and the measurements still needed."}
         tone="#7dd3fc"
         badges={[
           { label: `Overall: ${overallModule?.value || "Unavailable"}`, tone: "#7dd3fc" },
@@ -475,20 +476,25 @@ export default function ScoringTransparencyTab({
         styles={styles}
       >
         <div style={styles.scoringBoundaryStrip}>
-          {boundaryChip(styles, "Only the live scoring layer affects the current decision.")}
-          {boundaryChip(styles, "Explanatory evidence is context until integrated.")}
-          {boundaryChip(styles, "Candidate sources require review before use.")}
-          {boundaryChip(styles, "Manual review is workflow, not automatic proof of failure.")}
-          {boundaryChip(styles, "Proxy-derived values are not explicit backend scoring modules.")}
+          {boundaryChip(styles, `Current score: ${overallModule?.value || "Unavailable"}`)}
+          {boundaryChip(styles, coverageGate.scoreEligibility || "Eligibility unavailable")}
+          {boundaryChip(styles, coverageGate.coverageTierLabel || "Coverage tier unavailable")}
         </div>
+        <ListBlock
+          title="What currently caps confidence"
+          items={safeArray(scoringDisplay.confidenceCaps || answerProduct.missingAnalysis).slice(0, 4)}
+          emptyText="No additional confidence cap was attached."
+          color="#f9d976"
+          styles={styles}
+        />
         <SectionRow
-          label="Boundary"
-          value="Explanatory evidence, candidate sources, and manual-review workflow items do not change the current score unless explicitly integrated in a future calibrated release."
+          label="Score meaning"
+          value={scoringDisplay.boundary || "The displayed score reflects the current model. Additional evidence can improve confidence without changing the formula in this release."}
           styles={styles}
         />
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      {!answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Module Readiness" subtitle="Diagnostic input readiness only; final score and verdict formulas are unchanged." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.moduleScoringReadiness?.filter((module) => module.autonomousInputSupport === "strong").length || 0} strong-support modules`)}
@@ -507,7 +513,7 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
-      {methodologyContract.contractVersion === "1.1.0" ? (
+      {!answerProduct.productLayerVersion && methodologyContract.contractVersion === "1.1.0" ? (
         <Card title="Methodology Readiness" subtitle="Diagnostic framework only; it does not alter the current score or verdict." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${methodologyContract.registrySummary?.canonicalFamilyCount || 0} canonical families`)}

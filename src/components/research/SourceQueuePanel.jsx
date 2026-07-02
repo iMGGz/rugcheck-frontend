@@ -361,13 +361,15 @@ export default function SourceQueuePanel({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const nextDiligence = safeArray(answerProduct?.tabDisplayModel?.recommendedNextDiligence?.items);
 
   return (
     <div style={styles.sourceQueueShell}>
       <ExecutiveSummaryCard
-        eyebrow="Source Queue"
-        title="What source is needed next?"
-        answer={reviewLeads[0]?.description || "No live review leads were surfaced. Add reviewed sources before relying on stronger conclusions."}
+        eyebrow="Recommended Next Diligence"
+        title="What should the analyst verify next?"
+        answer={nextDiligence[0] || reviewLeads[0]?.description || "No additional diligence item was attached."}
         tone="#9bd7ff"
         badges={[
           { label: `${reviewLeads.length} review leads`, tone: reviewLeads.length ? "#f9d976" : "#d5dcec" },
@@ -378,19 +380,12 @@ export default function SourceQueuePanel({
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, "Open checks require source review.")}
-          {boundaryChip(styles, "Missing data is not negative proof.")}
-          {boundaryChip(styles, "See Methodology for evidence workflow.")}
-          {boundaryChip(styles, model?.analysisFreshness?.qaEligibilityWarning || "Freshness metadata should be checked before QA.")}
+          {boundaryChip(styles, answerProduct?.assetResearchSummary?.evidenceBoundary || "Recommended diligence is derived from current missing analysis.")}
         </div>
-        <SectionRow
-          label="Current attachment"
-          value="No accepted source discovery item is attached to this live response yet."
-          styles={styles}
-        />
+        <ListBlock title="Priority diligence" items={nextDiligence.slice(0, 5)} emptyText="No priority diligence attached." color="#9bd7ff" styles={styles} />
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      {!answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Workflow Data Gaps" subtitle="Inputs needed to answer canonical institutional questions more completely." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.rawProblemDataInventory?.availableCategories?.length || 0} available categories`)}

@@ -332,6 +332,17 @@ function AllocationCaseSection({ model, styles }) {
 
 export default function ThesisFalsificationTab({ model, displayIdentity = null, styles, onSelectSection }) {
   const thesis = buildThesisModel(model || {}, displayIdentity);
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const productThesis = answerProduct?.tabDisplayModel?.thesisFalsification || {};
+  if (answerProduct?.productLayerVersion) {
+    thesis.allocationThesis = answerProduct.assetResearchSummary?.assetSpecificThesis || thesis.allocationThesis;
+    thesis.whatMustBeTrue = productThesis.whatMustBeTrue?.length ? productThesis.whatMustBeTrue : thesis.whatMustBeTrue;
+    thesis.whatCouldBreak = productThesis.whatCouldBreak?.length ? productThesis.whatCouldBreak : thesis.whatCouldBreak;
+    thesis.weakestLinkExplanation = productThesis.weakestAssumption || thesis.weakestLinkExplanation;
+    thesis.missingContext = productThesis.missingMeasurements?.length ? productThesis.missingMeasurements : thesis.missingContext;
+    thesis.whatWouldChange = answerProduct.whatWouldChange?.length ? answerProduct.whatWouldChange : thesis.whatWouldChange;
+    thesis.falsePositiveRisk = answerProduct.unsupportedInferences?.[0] || thesis.falsePositiveRisk;
+  }
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis";
 
   return (
@@ -341,11 +352,12 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         subtitle="A decision-oriented view of what must be true, what could break, and what the engine refuses to infer."
         styles={styles}
       >
-        <div style={styles.thesisBoundaryStrip}>
-          <BoundaryChip styles={styles}>This tab uses the current live analysis response</BoundaryChip>
-          <BoundaryChip styles={styles}>Report-only source overlays are not connected to live scoring</BoundaryChip>
-          <BoundaryChip styles={styles}>Falsification lens items explain what the engine refuses to infer</BoundaryChip>
-        </div>
+        {answerProduct?.productLayerVersion ? null : (
+          <div style={styles.thesisBoundaryStrip}>
+            <BoundaryChip styles={styles}>This tab uses the current live analysis response</BoundaryChip>
+            <BoundaryChip styles={styles}>Falsification separates supported conclusions from stronger unsupported inferences</BoundaryChip>
+          </div>
+        )}
         <SectionRow label="Allocation Thesis" value={thesis.allocationThesis} styles={styles} />
         <SectionRow label="Asset framing" value={assetFraming} styles={styles} />
       </Card>
@@ -396,14 +408,14 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         <QuestionPromptCard
           question="What evidence would change the decision?"
           answer={thesis.whatWouldChange[0] || "Additional verified evidence required."}
-          status="Source required"
+          status="Recommended diligence"
           impact="What would change"
-          sourceState="Requirements"
+          sourceState="Missing analysis"
           details={[
             { label: "Why it matters", value: "These are the concrete source-backed conditions that could improve or alter the current thesis." },
             { label: "What would change", value: thesis.whatWouldChange.slice(0, 4).join("; ") || "Additional verified evidence required." },
             { label: "Impact", value: "Potential confidence improvement only after source review." },
-            { label: "Source boundary", value: "Source requirements are not evidence." },
+            { label: "Current boundary", value: answerProduct?.assetResearchSummary?.evidenceBoundary || "The listed evidence must be verified before it changes the thesis." },
           ]}
           styles={styles}
         />
@@ -426,12 +438,7 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
             Inspect requirements in Manual Review -&gt;
           </button>
         </Card>
-        <Card title="Missing Evidence / Provider Gaps" subtitle="Concise verification gaps. Long context is collapsed below." styles={styles}>
-          <SectionRow
-            label="Doctrine"
-            value="Missing evidence is a verification gap, not automatic proof of failure. Critical gaps may still cap confidence or trigger manual review."
-            styles={styles}
-          />
+        <Card title="Missing Measurements" subtitle="Specific data needed to strengthen or falsify the thesis." styles={styles}>
           <ListBlock
             title="Missing or unresolved context"
             items={thesis.missingContext}

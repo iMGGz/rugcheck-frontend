@@ -7,7 +7,6 @@ import {
   normalizeInstitutionalQuestionsPayload,
   normalizeEvidenceProvenanceSemanticsPayload,
   normalizeFamilyDataRequirementMatrixPayload,
-  normalizeFamilyCanonicalRoutingPayload,
   normalizePrimaryAnalysisRoutePayload,
   normalizeRepresentationFamilyDecisionPayload,
   normalizeRepresentationFamilyEvidenceGatesPayload,
@@ -979,6 +978,31 @@ function ScoringReadinessChecklistImpact({ readiness, styles }) {
   );
 }
 
+function ProductAnswerCards({ contract, styles }) {
+  const cards = safeArray(contract?.userAnswerCards);
+  if (!contract?.productLayer?.productLayerVersion || !cards.length) return null;
+  return (
+    <Card title="Institutional Answers" subtitle="Direct answers first; data, limits, and next diligence are expandable." styles={styles}>
+      {cards.map((card) => (
+        <CollapsibleDetail key={card.cardId} title={card.question} subtitle={card.shortAnswer} styles={styles} tone="#9bd7ff">
+          <SectionRow label="Answer" value={card.fundamentalAnalysis} styles={styles} />
+          <ListBlock
+            title="Data used"
+            items={safeArray(card.dataUsed).map((point) => `${point.label}: ${point.displayValue} · ${point.sourceBasis}`)}
+            emptyText="No current data point was attached to this answer."
+            color="#7dd3fc"
+            styles={styles}
+          />
+          <ListBlock title="What this supports" items={card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
+          <ListBlock title="What this does not prove" items={card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
+          <ListBlock title="Missing analysis" items={card.missingAnalysis} emptyText="No material missing analysis attached." color="#ffb6b6" styles={styles} />
+          <SectionRow label="Analyst next step" value={card.analystNextStep} styles={styles} />
+        </CollapsibleDetail>
+      ))}
+    </Card>
+  );
+}
+
 export default function InstitutionalChecklistTab({
   asset,
   analysis,
@@ -1002,9 +1026,6 @@ export default function InstitutionalChecklistTab({
     || normalizeResolvedInstitutionalLensPayload(model);
   const primaryAnalysisRoute = normalizePrimaryAnalysisRoutePayload(analysis)
     || normalizePrimaryAnalysisRoutePayload(model);
-  const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(analysis)
-    || normalizeFamilyCanonicalRoutingPayload(model)
-    || model?.familyCanonicalRoutingContract;
   const evidenceProvenanceSemanticsContract = normalizeEvidenceProvenanceSemanticsPayload(analysis)
     || normalizeEvidenceProvenanceSemanticsPayload(model)
     || model?.evidenceProvenanceSemanticsContract
@@ -1051,6 +1072,8 @@ export default function InstitutionalChecklistTab({
     "Verdict impact",
   ];
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
+  const answerSurface = model?.institutionalAnswerSurfaceContract || {};
+  const productLayerAvailable = Boolean(answerSurface?.productLayer?.productLayerVersion);
 
   return (
     <div style={styles.institutionalChecklistShell}>
@@ -1058,25 +1081,19 @@ export default function InstitutionalChecklistTab({
         eyebrow="Institutional Checklist"
         title={hasInstitutionalAnswers ? "What does the institutional Q&A say?" : "Which institutional questions should be asked?"}
         answer={hasInstitutionalAnswers
-          ? "Live deterministic question answers are attached. Rows show concise status first; source signals and raw technical fields are expandable."
+          ? answerSurface?.productLayer?.assetResearchSummary?.assetSpecificThesis || "Current institutional answers are attached with facts, bounded interpretation, and explicit missing diligence."
           : "Question-level answers are not attached yet. The checklist shows safe methodology prompts and live review signals without inventing answers."}
         tone="#9bd7ff"
         badges={[
           { label: hasInstitutionalAnswers ? `${institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
           hasInstitutionalAnswers ? { label: `${questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: visibleResolvedLensLabel || lensResolution.displayName, tone: "#9bd7ff" },
-          hasInstitutionalAnswers ? { label: `${questionCounts.sourceRequired + questionCounts.manualReview} source/review`, tone: "#f9d976" } : { label: "Provider metadata is context", tone: "#f9d976" },
+          hasInstitutionalAnswers ? { label: `${answerSurface?.productLayer?.currentDataUsed?.length || 0} current data points`, tone: "#7dd3fc" } : { label: "Evidence pending", tone: "#f9d976" },
           hasInstitutionalAnswers && questionCounts.notApplicable ? { label: `${questionCounts.notApplicable} not applicable`, tone: "#8a94a6" } : null,
         ].filter(Boolean)}
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, hasInstitutionalAnswers ? "Live deterministic question answers are attached." : "Live per-question evidence mapping is only shown when attached to the response.")}
-          {boundaryChip(styles, "This checklist is methodology/report-layer guidance, not a fake evidence map.")}
-          {boundaryChip(styles, "Missing evidence is a verification gap, not automatic proof of failure.")}
-          {familyCanonicalRoutingContract?.canonicalQuestionGroup ? boundaryChip(styles, `Canonical group: ${familyCanonicalRoutingContract.canonicalQuestionGroup}; source profile: ${familyCanonicalRoutingContract.canonicalSourceProfile || "unavailable"}.`) : null}
-          {representationFamilyRoute?.selectedFamily ? boundaryChip(styles, `Family route: ${representationFamilyRoute.visibleLabel || representationFamilyRoute.selectedFamily}; ${representationFamilyRoute.routeSafety || "route safety unknown"}.`) : null}
-          {evidenceProvenanceSemanticsContract?.contractAttached ? boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.summaryLabel || "Evidence provenance separated.") : null}
-          {boundaryChip(styles, "Report-only source evidence does not affect live scoring unless future calibrated integration occurs.")}
+          {boundaryChip(styles, answerSurface?.productLayer?.assetResearchSummary?.evidenceBoundary || "Answers are bounded by the current attached data.")}
         </div>
         {!hasInstitutionalAnswers ? (
           <>
@@ -1096,7 +1113,9 @@ export default function InstitutionalChecklistTab({
         ) : null}
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      <ProductAnswerCards contract={answerSurface} styles={styles} />
+
+      {!productLayerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Institutional Questions" subtitle="Canonical family questions answered only from eligible typed observations." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.institutionalQuestionRegistryLink?.selectedQuestionIds?.length || 0} selected questions`)}
@@ -1123,11 +1142,11 @@ export default function InstitutionalChecklistTab({
 
       {hasInstitutionalAnswers ? (
         <>
-          {model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
+          {!productLayerAvailable && model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
             <CategoryDrivenQuestionProfile model={model} styles={styles} />
           ) : null}
 
-          {evidenceProvenanceSemanticsContract?.contractAttached ? (
+          {!productLayerAvailable && evidenceProvenanceSemanticsContract?.contractAttached ? (
             <Card title="Question Evidence Provenance" subtitle="Question answers distinguish reviewed mechanism support from current-data and score-integration gaps." styles={styles}>
               <div style={styles.sourceBoundaryStrip}>
                 {boundaryChip(styles, evidenceProvenanceSemanticsContract.assetSummary?.manualEvidenceReadiness || "Manual evidence status unavailable")}
@@ -1148,7 +1167,7 @@ export default function InstitutionalChecklistTab({
             </Card>
           ) : null}
 
-          {familyDataRequirementMatrixContract?.artifactVersion ? (
+          {!productLayerAvailable && familyDataRequirementMatrixContract?.artifactVersion ? (
             <Card title="Family Question Requirements" subtitle="Family-specific data/source checks behind the institutional questions." styles={styles}>
               <div style={styles.sourceBoundaryStrip}>
                 {boundaryChip(styles, familyDataRequirementMatrixContract.primaryFamily || "Family unavailable")}
@@ -1165,18 +1184,18 @@ export default function InstitutionalChecklistTab({
             </Card>
           ) : null}
 
-          <InstitutionalQuestionAnswersSection
+          {!productLayerAvailable ? <InstitutionalQuestionAnswersSection
             questions={institutionalQuestions}
             provenance={institutionalQuestionsProvenance}
             calibrationWarnings={calibrationWarnings || model?.calibrationWarnings}
             styles={styles}
-          />
+          /> : null}
 
-          <ScoringReadinessChecklistImpact readiness={model?.scoringReadinessContract} styles={styles} />
+          {!productLayerAvailable ? <ScoringReadinessChecklistImpact readiness={model?.scoringReadinessContract} styles={styles} /> : null}
 
-          <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} />
+          {!productLayerAvailable ? <ChecklistEvidenceSummary questions={institutionalQuestions} styles={styles} /> : null}
 
-          {!model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
+          {!productLayerAvailable && !model?.categoryDrivenAssetFamilyContract?.categoryAuthorityApplied ? (
             <CategoryDrivenQuestionProfile model={model} styles={styles} />
           ) : null}
 

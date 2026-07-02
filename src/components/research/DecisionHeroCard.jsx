@@ -476,9 +476,11 @@ export default function DecisionHeroCard({
   const symbol = asset?.symbol || model?.assetName || "Asset";
   const assetInitial = String(symbol).trim().slice(0, 4).toUpperCase() || "TC";
   const verdictSemantics = model?.verdictSemantics || {};
-  const finalDecisionSubcopy = verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
-  const primaryPositiveCase = verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
-  const primaryBlockedCase = verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const productHeader = answerProduct?.tabDisplayModel?.decisionHeader || {};
+  const finalDecisionSubcopy = answerProduct?.assetResearchSummary?.assetSpecificThesis || verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
+  const primaryPositiveCase = productHeader.topFacts?.[0] || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
+  const primaryBlockedCase = productHeader.topBlockers?.[0] || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshness = model?.analysisFreshness || {};
@@ -494,7 +496,7 @@ export default function DecisionHeroCard({
     <div style={styles.decisionHeroWrap}>
       <Card
         title="Decision Command Header"
-        subtitle="Live scoring output with report-only evidence boundaries preserved."
+        subtitle="Current posture, facts used, decision constraints, and next diligence."
         styles={styles}
       >
         <div style={styles.decisionCommandGrid}>
@@ -527,17 +529,22 @@ export default function DecisionHeroCard({
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
             <div style={styles.decisionFinalSubcopy}>{finalDecisionSubcopy}</div>
-            {analystWorkflowAvailable ? (
+            {answerProduct?.productLayerVersion ? (
+              <div style={styles.decisionSemanticMiniGrid}>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Facts used</div>
+                  <div style={styles.contextMuted}>{productHeader.topFacts?.slice(0, 3).join(" · ") || "No current facts attached."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>What improves confidence</div>
+                  <div style={styles.contextMuted}>{productHeader.whatWouldImproveConfidence?.slice(0, 3).join(" · ") || "No confidence-improvement condition attached."}</div>
+                </div>
+              </div>
+            ) : analystWorkflowAvailable ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>
                   <div style={styles.metaLabel}>Autonomous analyst thesis</div>
                   <div style={styles.contextMuted}>{analystWorkflow.investmentResearchMemo?.thesis || "Workflow thesis unavailable."}</div>
-                </div>
-                <div style={styles.decisionSemanticMiniCard}>
-                  <div style={styles.metaLabel}>Data readiness</div>
-                  <div style={styles.contextMuted}>
-                    {analystWorkflow.workflowCompletenessStatus || "unknown"}; {analystWorkflow.missingData?.length || 0} explicit data gaps.
-                  </div>
                 </div>
               </div>
             ) : (
@@ -548,6 +555,9 @@ export default function DecisionHeroCard({
                 </div>
               </div>
             )}
+            {answerProduct?.assetResearchSummary?.evidenceBoundary ? (
+              <div style={styles.railBoundaryText}>{answerProduct.assetResearchSummary.evidenceBoundary}</div>
+            ) : null}
             {verdictSemantics.hasVerdictClass ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>

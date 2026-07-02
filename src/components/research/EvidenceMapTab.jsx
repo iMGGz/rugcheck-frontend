@@ -518,13 +518,17 @@ export default function EvidenceMapTab({
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
+  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const productEvidence = answerProduct?.tabDisplayModel?.evidenceMap || {};
 
   return (
     <div style={styles.evidenceMapShell}>
       <ExecutiveSummaryCard
         eyebrow="Evidence Map / Source Trace"
         title="What evidence is actually attached?"
-        answer="This tab separates reviewed evidence, provider metadata, source candidates, diagnostics, and missing/stale sections. Missing provider data is a verification gap, not negative evidence."
+        answer={answerProduct?.productLayerVersion
+          ? "Current facts, provider-reported context, missing evidence, and unsupported inferences are separated below."
+          : "This tab separates reviewed evidence, provider metadata, source candidates, diagnostics, and missing/stale sections."}
         tone="#7dd3fc"
         badges={[
           { label: evidenceStatusProxy?.label || "Live evidence proxy", tone: "#7dd3fc" },
@@ -534,13 +538,13 @@ export default function EvidenceMapTab({
         ]}
         styles={styles}
       >
-        <div style={styles.evidenceMapBoundaryStrip}>
+        {!answerProduct?.productLayerVersion ? <div style={styles.evidenceMapBoundaryStrip}>
           {boundaryChip(styles, "This view maps live provider/source context from the current analysis response. It is not the full institutional evidence map.")}
           {boundaryChip(styles, "Report-only overlays are not connected to live scoring.")}
           {boundaryChip(styles, "Source candidates require review before becoming evidence.")}
           {boundaryChip(styles, `${freshness.freshnessLabel || "Freshness unknown"}: stale or missing sections require review, not negative inference.`)}
           {boundaryChip(styles, freshness.qaEligibilityWarning || "Run fresh analysis before current QA if freshness is ambiguous.")}
-        </div>
+        </div> : null}
         <SectionRow
           label="Read this as"
           value="A source-trace view of live response context, provider availability, and qualitative evidence signals. It does not show institutional question counts or manual-source overlay status."
@@ -553,7 +557,20 @@ export default function EvidenceMapTab({
         />
       </ExecutiveSummaryCard>
 
-      {analystWorkflow.artifactVersion ? (
+      {answerProduct?.productLayerVersion ? (
+        <div style={styles.advancedGrid}>
+          <Card title="Facts Attached" subtitle="Backend-derived facts used by the analyst surface." styles={styles}>
+            <ListBlock title="Reviewed / supported facts" items={productEvidence.confirmedFacts} emptyText="No reviewed fact attached." color="#a6f3c2" styles={styles} />
+            <ListBlock title="Provider-reported facts" items={productEvidence.providerReportedFacts} emptyText="No provider-reported fact attached." color="#7dd3fc" styles={styles} />
+          </Card>
+          <Card title="Evidence Limits" subtitle="Missing facts and stronger inferences the current data cannot support." styles={styles}>
+            <ListBlock title="Missing facts" items={productEvidence.missingFacts} emptyText="No missing fact attached." color="#ffb6b6" styles={styles} />
+            <ListBlock title="Unsupported inferences" items={productEvidence.unsupportedInferences} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
+          </Card>
+        </div>
+      ) : null}
+
+      {!answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Analyst Evidence Boundary" subtitle="Only family-compatible typed observations can support workflow answers." styles={styles}>
           <div style={styles.evidenceMapBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.typedObservations?.filter((entry) => entry.questionApplicability === "eligible").length || 0} eligible observations`)}
