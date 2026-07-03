@@ -660,6 +660,11 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       fundamentalAnalysis: cleanPrimaryAnswerText(card?.fundamentalAnalysis),
       riskImpact: cleanPrimaryAnswerText(card?.riskImpact),
       scoreImpactPlainEnglish: cleanPrimaryAnswerText(card?.scoreImpactPlainEnglish),
+      semanticStatuses: safeArray(card?.semanticStatuses),
+      deduplicationMetadata: {
+        ...safeObject(card?.deduplicationMetadata),
+        repeatedCopySuppressed: safeArray(card?.deduplicationMetadata?.repeatedCopySuppressed),
+      },
     })),
     sourceSummary: {
       ...safeObject(contract.sourceSummary),
@@ -693,6 +698,16 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       ...safeObject(contract.productLayer),
       currentDataUsed: safeArray(contract.productLayer?.currentDataUsed),
       claimTrace: safeArray(contract.productLayer?.claimTrace),
+      semanticStatusSummary: {
+        ...safeObject(contract.productLayer?.semanticStatusSummary),
+        statuses: safeArray(contract.productLayer?.semanticStatusSummary?.statuses),
+        labels: safeArray(contract.productLayer?.semanticStatusSummary?.labels),
+      },
+      relevanceRanking: safeArray(contract.productLayer?.relevanceRanking),
+      deduplicationSummary: {
+        ...safeObject(contract.productLayer?.deduplicationSummary),
+        repeatedCopySuppressed: safeArray(contract.productLayer?.deduplicationSummary?.repeatedCopySuppressed),
+      },
       supportedFacts: safeArray(contract.productLayer?.supportedFacts).map(cleanPrimaryAnswerText),
       boundedInterpretations: safeArray(contract.productLayer?.boundedInterpretations).map(cleanPrimaryAnswerText),
       unsupportedInferences: safeArray(contract.productLayer?.unsupportedInferences).map(cleanPrimaryAnswerText),
@@ -3096,7 +3111,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
     reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
-    ...(institutionalAnswerProductLayer.artifactVersion ? [
+    ...(institutionalAnswerProductLayer.productLayerVersion ? [
       "",
       "Institutional research summary:",
       reportLine("Thesis", institutionalAnswerProductLayer.assetResearchSummary?.assetSpecificThesis),
@@ -3108,6 +3123,10 @@ export function buildProtectedInvestorReportText({
       ),
       "Primary risks:",
       ...formatReportList(institutionalAnswerProductLayer.topRisks, "No primary risk summary was attached.", 4),
+      "What the current facts support:",
+      ...formatReportList(institutionalAnswerProductLayer.supportedFacts, "No supported fact summary was attached.", 4),
+      "What the current facts do not prove:",
+      ...formatReportList(institutionalAnswerProductLayer.unsupportedInferences, "No unsupported-inference boundary was attached.", 3),
       "Recommended diligence:",
       ...formatReportList(institutionalAnswerProductLayer.analystNextSteps, "No next diligence item was attached.", 4),
     ] : []),
@@ -9026,6 +9045,10 @@ export function buildReviewBundleText({
       bundleField("Product layer attached", institutionalAnswerSurfaceContract?.productLayer?.productLayerVersion ? "yes" : "missing"),
       bundleField("Product layer backend-derived", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.backendDerived)),
       bundleField("Product layer deterministic", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.deterministic)),
+      bundleField("Product layer family policy", institutionalAnswerSurfaceContract?.productLayer?.familyRelevancePolicyId),
+      bundleField("Product layer primary source matrix", institutionalAnswerSurfaceContract?.productLayer?.primarySourceMatrixId),
+      bundleField("Product layer primary semantic status", institutionalAnswerSurfaceContract?.productLayer?.semanticStatusSummary?.primaryStatus),
+      bundleField("Product layer dedup suppression count", institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.suppressionCount ?? 0),
       "Product-layer current data mirror:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.currentDataUsed).map((point) =>
         `${point.label || point.dataPointId || "field"}=${point.displayValue || point.value || "Unavailable"} | source=${point.sourceBasis || "unknown"} | field=${safeArray(point.fieldBasis).join(", ") || "unknown"} | freshness=${point.freshnessBasis || "unknown"} | boundary=${point.evidenceBoundary || "unknown"}`
@@ -9034,6 +9057,22 @@ export function buildReviewBundleText({
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.claimTrace).map((claim) =>
         `${claim.claimId || "claim"} | kind=${claim.claimKind || "unknown"} | ${claim.text || "No claim text"} | source=${claim.sourceBasis || "unknown"} | fields=${safeArray(claim.fieldBasis).join(", ") || "unknown"} | freshness=${claim.freshnessBasis || "unknown"} | boundary=${claim.evidenceBoundary || "unknown"} | confidence=${claim.confidenceEffect || "unknown"}`
       ), "No product-layer claim trace attached.", 50),
+      "Product-layer semantic statuses:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.semanticStatusSummary?.statuses).map((status, index) =>
+        `${status} | ${safeArray(institutionalAnswerSurfaceContract?.productLayer?.semanticStatusSummary?.labels)[index] || "label unavailable"}`
+      ), "No semantic statuses attached."),
+      "Product-layer family relevance ranking:",
+      bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.relevanceRanking).map((item) =>
+        `${item.rank}. ${item.label} | tier=${item.relevanceTier} | category=${item.category} | available=${yesNoUnknown(item.available)} | status=${item.semanticStatus} | data=${safeArray(item.dataPointIds).join(", ") || "none"} | ${item.rationale || "No rationale attached."}`
+      ), "No family relevance ranking attached.", 30),
+      "Product-layer deduplication summary:",
+      bundleList([
+        `canonicalSourceSentence=${institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.canonicalSourceSentence || "missing"}`,
+        `primaryUiDisplayCopy=${institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.primaryUiDisplayCopy || "missing"}`,
+        `suppressionCount=${institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.suppressionCount ?? 0}`,
+        `hiddenAuditRepetitionRetainedInBundle=${yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.hiddenAuditRepetitionRetainedInBundle)}`,
+        ...safeArray(institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.repeatedCopySuppressed).map((text) => `suppressed=${text}`),
+      ], "No deduplication metadata attached.", 50),
       "Product-layer bounded interpretations:",
       bundleList(institutionalAnswerSurfaceContract?.productLayer?.boundedInterpretations),
       "Product-layer unsupported inferences:",
@@ -9054,8 +9093,12 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerSurfaceContract?.productLayer?.internalOnlyFields),
       "User-facing mirror cards:",
       bundleList(institutionalAnswerCards.map((card) =>
-        `${cleanPrimaryAnswerText(card.question || "Institutional question")} | ${cleanPrimaryAnswerText(card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`
+        `${cleanPrimaryAnswerText(card.question || "Institutional question")} | semantic=${card.semanticStatus || "unknown"} | ${cleanPrimaryAnswerText(card.semanticStatusLabel || card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`
       )),
+      "Per-card deduplication audit:",
+      bundleList(institutionalAnswerCards.map((card) =>
+        `${card.cardId || "card"} | suppressed=${card.deduplicationMetadata?.suppressionCount ?? 0} | retained=${yesNoUnknown(card.deduplicationMetadata?.hiddenAuditRepetitionRetainedInBundle)} | canonical=${card.deduplicationMetadata?.canonicalSourceSentence || "missing"} | hidden=${safeArray(card.deduplicationMetadata?.repeatedCopySuppressed).join(" || ") || "none"}`
+      ), "No per-card deduplication metadata attached.", 40),
       "Evidence we have:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.evidenceWeHave).map(cleanPrimaryAnswerText)),
       "Open checks / source queue summary:",

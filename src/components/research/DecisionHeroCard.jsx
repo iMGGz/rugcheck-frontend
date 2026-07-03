@@ -479,8 +479,8 @@ export default function DecisionHeroCard({
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const productHeader = answerProduct?.tabDisplayModel?.decisionHeader || {};
   const finalDecisionSubcopy = answerProduct?.assetResearchSummary?.assetSpecificThesis || verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
-  const primaryPositiveCase = productHeader.topFacts?.[0] || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
-  const primaryBlockedCase = productHeader.topBlockers?.[0] || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
+  const primaryPositiveCase = productHeader.whyItCouldMakeSense || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
+  const primaryBlockedCase = productHeader.whyConfidenceIsBlocked || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshness = model?.analysisFreshness || {};
@@ -538,6 +538,12 @@ export default function DecisionHeroCard({
                 <div style={styles.decisionSemanticMiniCard}>
                   <div style={styles.metaLabel}>What improves confidence</div>
                   <div style={styles.contextMuted}>{productHeader.whatWouldImproveConfidence?.slice(0, 3).join(" · ") || "No confidence-improvement condition attached."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Evidence state</div>
+                  <div style={styles.contextMuted}>
+                    {productHeader.topSemanticStatuses?.slice(0, 3).map((item) => sanitizeSemanticLabel(item, item)).join(" / ") || "Evidence state unavailable."}
+                  </div>
                 </div>
               </div>
             ) : analystWorkflowAvailable ? (

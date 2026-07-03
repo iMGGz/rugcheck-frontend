@@ -985,6 +985,7 @@ function ProductAnswerCards({ contract, styles }) {
     <Card title="Institutional Answers" subtitle="Direct answers first; data, limits, and next diligence are expandable." styles={styles}>
       {cards.map((card) => (
         <CollapsibleDetail key={card.cardId} title={card.question} subtitle={card.shortAnswer} styles={styles} tone="#9bd7ff">
+          <SectionRow label="Evidence state" value={card.semanticStatusLabel || card.statusLabel || "Evidence state unavailable"} styles={styles} />
           <SectionRow label="Answer" value={card.fundamentalAnalysis} styles={styles} />
           <ListBlock
             title="Data used"
