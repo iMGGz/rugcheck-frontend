@@ -458,6 +458,7 @@ export default function ScoringTransparencyTab({
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
+  const sourceCoverageRegistry = safeObject(model?.institutionalQuestionSourceCoverageContract);
   const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
   const scoringDisplay = safeObject(answerProduct.tabDisplayModel?.scoring);
 
@@ -493,6 +494,26 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {sourceCoverageRegistry.registryVersion ? (
+        <Card
+          title="Question Evidence Readiness"
+          subtitle="Diagnostic requirements only; this registry does not alter the score or verdict."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${safeArray(sourceCoverageRegistry.supportedQuestionTypes).length} question types`)}
+            {boundaryChip(styles, `${safeArray(sourceCoverageRegistry.observationTypeCatalog).length} typed observations`)}
+            {boundaryChip(styles, `${safeArray(sourceCoverageRegistry.forbiddenInputRules).length} forbidden-input controls`)}
+            {boundaryChip(styles, sourceCoverageRegistry.contractStatus || "Status unavailable")}
+          </div>
+          <SectionRow
+            label="Readiness boundary"
+            value="Specialized institutional questions require eligible typed observations. Unrelated market data remains context, and missing evidence is a gap rather than a negative conclusion."
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {!answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Module Readiness" subtitle="Diagnostic input readiness only; final score and verdict formulas are unchanged." styles={styles}>

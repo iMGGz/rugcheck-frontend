@@ -2498,6 +2498,30 @@ export function resolveInstitutionalAnalystWorkflowContract(...sources) {
   return null;
 }
 
+export function normalizeInstitutionalQuestionSourceCoveragePayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const contract = safeObject(
+    root.institutionalQuestionSourceCoverageContract
+    || nestedAnalysis.institutionalQuestionSourceCoverageContract,
+  );
+  if (!contract.registryVersion) return null;
+  return {
+    ...contract,
+    supportedFamilies: safeArray(contract.supportedFamilies),
+    supportedQuestionTypes: safeArray(contract.supportedQuestionTypes),
+    sourceTierModel: safeArray(contract.sourceTierModel),
+    familyCoverageSummary: safeArray(contract.familyCoverageSummary),
+    questionEvidenceContracts: safeArray(contract.questionEvidenceContracts),
+    forbiddenInputRules: safeArray(contract.forbiddenInputRules),
+    observationTypeCatalog: safeArray(contract.observationTypeCatalog),
+    gapOutputPolicies: safeArray(contract.gapOutputPolicies),
+    auditOnlyWarnings: safeArray(contract.auditOnlyWarnings),
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations),
+  };
+}
+
 export function normalizeCategoryDrivenAssetFamilyContractPayload(responseLike) {
   const root = safeObject(responseLike);
   const nestedAnalysis = safeObject(root.analysis);
@@ -3001,6 +3025,11 @@ export function buildProtectedInvestorReportText({
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
   const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeModel, safeData, safeAnalysis);
+  const institutionalQuestionSourceCoverageContract =
+    safeModel.institutionalQuestionSourceCoverageContract
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeModel)
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeData)
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeAnalysis);
   const institutionalProductTruthObject = apiFirstInstitutionalIntelligence?.institutionalProductTruthObject || safeModel.institutionalProductTruthObject || null;
   const typedObservationLayerContract = apiFirstInstitutionalIntelligence?.typedObservationLayerContract || safeModel.typedObservationLayerContract || null;
   const manualApiResearchGapQueue = apiFirstInstitutionalIntelligence?.manualApiResearchGapQueue || safeModel.manualApiResearchGapQueue || null;
@@ -3100,6 +3129,11 @@ export function buildProtectedInvestorReportText({
     reportLine("Typed family question/source profile", typedObservationFamilyAuthorityContract ? `${typedObservationFamilyAuthorityContract.selectedQuestionGroup || typedObservationFamilyAuthorityContract.questionGroupId || "question group unavailable"} / ${typedObservationFamilyAuthorityContract.selectedSourceMatrix || typedObservationFamilyAuthorityContract.sourceMatrixId || "source matrix unavailable"}` : "Not available yet."),
     reportLine("Provider capability registry", providerCapabilityRegistryContract ? `${safeArray(providerCapabilityRegistryContract.providers).length} provider capability profiles` : "Not available yet."),
     reportLine("Institutional methodology coverage", institutionalMethodologyContract?.protectedReportSummary || "Methodology contract was not attached to this analysis."),
+    reportLine(
+      "Question-specific evidence policy",
+      institutionalQuestionSourceCoverageContract?.protectedReportSummary
+        || "Question-specific evidence requirements are tracked internally; missing evidence does not imply a negative conclusion.",
+    ),
     reportLine("Research gap queue", manualApiResearchGapQueue ? `${safeArray(manualApiResearchGapQueue.gaps).length} open gaps; AI/deep research disabled` : "Not available yet."),
     reportLine("Critical family requirements", familyDataRequirementMatrixContract ? `${safeArray(familyDataRequirementMatrixContract.manualReviewTriggers).length} review gates; ${safeArray(familyDataRequirementMatrixContract.confidenceCapRules).length} confidence caps` : "Not available yet."),
     reportLine("Blocker class", familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace),
@@ -6081,6 +6115,8 @@ export function buildDecisionTerminalModel({
     || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract
     || null;
   const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeAnalysis);
+  const institutionalQuestionSourceCoverageContract =
+    normalizeInstitutionalQuestionSourceCoveragePayload(safeAnalysis);
   const evidenceStatusAggregationContract = normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -6599,6 +6635,7 @@ export function buildDecisionTerminalModel({
     sourceCandidateReviewQueueContract,
     sourceCandidateReviewAuditTrailContract,
     institutionalAnalystWorkflowContract,
+    institutionalQuestionSourceCoverageContract,
     providerDataBoundaryContract,
     providerCapabilityRegistryContract,
     institutionalProductTruthObject,
@@ -7962,6 +7999,11 @@ export function buildReviewBundleText({
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
   const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeModel, safeData, safeAnalysis);
+  const institutionalQuestionSourceCoverageContract =
+    safeModel.institutionalQuestionSourceCoverageContract
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeModel)
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeData)
+    || normalizeInstitutionalQuestionSourceCoveragePayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -10175,6 +10217,50 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(institutionalAnalystWorkflowContract?.knownLimitations),
       bundleField("Next resume pointer", institutionalAnalystWorkflowContract?.nextResumePointer),
+    ]),
+    bundleSection("2BC. Institutional Question Source Coverage Registry v1", [
+      bundleField("Contract attached", institutionalQuestionSourceCoverageContract ? "yes" : "no"),
+      bundleField("Registry version", institutionalQuestionSourceCoverageContract?.registryVersion),
+      bundleField("Contract status", institutionalQuestionSourceCoverageContract?.contractStatus),
+      bundleField("Supported families", safeArray(institutionalQuestionSourceCoverageContract?.supportedFamilies).length),
+      bundleField("Supported question types", safeArray(institutionalQuestionSourceCoverageContract?.supportedQuestionTypes).length),
+      bundleField("Evidence contracts", safeArray(institutionalQuestionSourceCoverageContract?.questionEvidenceContracts).length),
+      bundleField("Source tiers", safeArray(institutionalQuestionSourceCoverageContract?.sourceTierModel).length),
+      bundleField("Typed observation types", safeArray(institutionalQuestionSourceCoverageContract?.observationTypeCatalog).length),
+      bundleField("Forbidden-input rules", safeArray(institutionalQuestionSourceCoverageContract?.forbiddenInputRules).length),
+      bundleField("No runtime scoring change", institutionalQuestionSourceCoverageContract?.guardrails?.scoreChanged === false ? "yes" : "no"),
+      bundleField("No source fetch yet", institutionalQuestionSourceCoverageContract?.guardrails?.crawlerAdded === false ? "yes" : "no"),
+      "Family coverage matrix:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.familyCoverageSummary).map((entry) =>
+        `${entry.familyId}: questions=${safeArray(entry.topQuestionTypes).join(", ")}; required=${safeArray(entry.requiredObservationClasses).join(", ")}`
+      )),
+      "Question evidence matrix:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.questionEvidenceContracts).map((entry) =>
+        `${entry.questionId}: required=${safeArray(entry.requiredObservationTypes).join(", ")}; forbiddenRaw=${safeArray(entry.forbiddenRawInputs).join(", ") || "none"}; freshness=${entry.freshnessRule?.ruleId || "missing"}`
+      )),
+      "Source tier model:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.sourceTierModel).map((entry) =>
+        `${entry.tierId}: candidateOnly=${entry.candidateOnly ? "yes" : "no"}; userFacingEligible=${entry.userFacingEvidenceEligible ? "yes" : "no"}`
+      )),
+      "Forbidden input rules:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.forbiddenInputRules).map((entry) =>
+        `${entry.ruleId}: ${safeArray(entry.forbiddenInputs).join(", ")}`
+      )),
+      "Gap output policy:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.gapOutputPolicies).map((entry) =>
+        `${entry.policyId}: ${entry.template}`
+      )),
+      "Observation type catalog:",
+      bundleList(safeArray(institutionalQuestionSourceCoverageContract?.observationTypeCatalog).map((entry) =>
+        `${entry.observationType}: fastChanging=${entry.fastChanging ? "yes" : "no"}; measuredWindow=${entry.requiresMeasuredWindow ? "yes" : "no"}`
+      )),
+      "Audit-only warnings:",
+      bundleList(institutionalQuestionSourceCoverageContract?.auditOnlyWarnings, "No registry validation warnings."),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(institutionalQuestionSourceCoverageContract?.guardrails)).map(([name, value]) => `${name}=${String(value)}`)),
+      "Known limitations:",
+      bundleList(institutionalQuestionSourceCoverageContract?.knownLimitations),
+      bundleField("Next resume pointer", institutionalQuestionSourceCoverageContract?.nextResumePointer),
     ]),
     bundleSection("2AE. Institutional Scoring Readiness Contract v1", [
       bundleField("Contract attached", scoringReadinessContract ? "yes" : "missing"),
