@@ -661,6 +661,14 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       riskImpact: cleanPrimaryAnswerText(card?.riskImpact),
       scoreImpactPlainEnglish: cleanPrimaryAnswerText(card?.scoreImpactPlainEnglish),
       semanticStatuses: safeArray(card?.semanticStatuses),
+      questionSpecificEvidence: safeArray(card?.questionSpecificEvidence),
+      availableContext: safeArray(card?.availableContext),
+      rejectedQuestionEvidence: safeArray(card?.rejectedQuestionEvidence),
+      missingObservationTypes: safeArray(card?.missingObservationTypes),
+      nextDiligenceActions: safeArray(card?.nextDiligenceActions).map(cleanPrimaryAnswerText),
+      evidenceGapExplanation: cleanPrimaryAnswerText(card?.evidenceGapExplanation),
+      contextBoundary: cleanPrimaryAnswerText(card?.contextBoundary),
+      registryContractUsed: safeObject(card?.registryContractUsed),
       deduplicationMetadata: {
         ...safeObject(card?.deduplicationMetadata),
         repeatedCopySuppressed: safeArray(card?.deduplicationMetadata?.repeatedCopySuppressed),
@@ -703,7 +711,12 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
         statuses: safeArray(contract.productLayer?.semanticStatusSummary?.statuses),
         labels: safeArray(contract.productLayer?.semanticStatusSummary?.labels),
       },
-      relevanceRanking: safeArray(contract.productLayer?.relevanceRanking),
+      relevanceRanking: safeArray(contract.productLayer?.relevanceRanking).map((item) => ({
+        ...safeObject(item),
+        dataPointIds: safeArray(item?.dataPointIds),
+        missingObservationTypes: safeArray(item?.missingObservationTypes),
+      })),
+      registryEnforcementSummary: safeObject(contract.productLayer?.registryEnforcementSummary),
       deduplicationSummary: {
         ...safeObject(contract.productLayer?.deduplicationSummary),
         repeatedCopySuppressed: safeArray(contract.productLayer?.deduplicationSummary?.repeatedCopySuppressed),
@@ -9090,6 +9103,13 @@ export function buildReviewBundleText({
       bundleField("Product layer family policy", institutionalAnswerSurfaceContract?.productLayer?.familyRelevancePolicyId),
       bundleField("Product layer primary source matrix", institutionalAnswerSurfaceContract?.productLayer?.primarySourceMatrixId),
       bundleField("Product layer primary semantic status", institutionalAnswerSurfaceContract?.productLayer?.semanticStatusSummary?.primaryStatus),
+      bundleField("Registry version consumed", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.registryVersionConsumed),
+      bundleField("Registry-gated cards", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.cardsGated ?? 0),
+      bundleField("Cards with question-specific evidence", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.cardsWithQuestionSpecificEvidence ?? 0),
+      bundleField("Cards with context only", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.cardsWithContextOnly ?? 0),
+      bundleField("Invalid proxy answers found", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersFound ?? 0),
+      bundleField("Invalid proxy answers blocked", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersBlocked ?? 0),
+      bundleField("Available=yes with data=none findings", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.availableYesDataNoneFindings ?? 0),
       bundleField("Product layer dedup suppression count", institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.suppressionCount ?? 0),
       "Product-layer current data mirror:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.currentDataUsed).map((point) =>
@@ -9105,7 +9125,7 @@ export function buildReviewBundleText({
       ), "No semantic statuses attached."),
       "Product-layer family relevance ranking:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.relevanceRanking).map((item) =>
-        `${item.rank}. ${item.label} | tier=${item.relevanceTier} | category=${item.category} | available=${yesNoUnknown(item.available)} | status=${item.semanticStatus} | data=${safeArray(item.dataPointIds).join(", ") || "none"} | ${item.rationale || "No rationale attached."}`
+        `${item.rank}. ${item.label} | tier=${item.relevanceTier} | category=${item.category} | available=${yesNoUnknown(item.available)} | contextAvailable=${yesNoUnknown(item.contextAvailable)} | questionEvidenceAvailable=${yesNoUnknown(item.questionEvidenceAvailable)} | status=${item.semanticStatus} | data=${safeArray(item.dataPointIds).join(", ") || "none"} | missingObservations=${safeArray(item.missingObservationTypes).join(", ") || "none"} | ${item.rationale || "No rationale attached."}`
       ), "No family relevance ranking attached.", 30),
       "Product-layer deduplication summary:",
       bundleList([
@@ -9137,6 +9157,16 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerCards.map((card) =>
         `${cleanPrimaryAnswerText(card.question || "Institutional question")} | semantic=${card.semanticStatus || "unknown"} | ${cleanPrimaryAnswerText(card.semanticStatusLabel || card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`
       )),
+      "Per-card Question Source Coverage Registry enforcement:",
+      bundleList(institutionalAnswerCards.map((card) =>
+        `${card.cardId || "card"} | gate=${card.registryGateStatus || "unknown"} | contract=${card.registryContractUsed?.questionId || "none"} | readiness=${card.answerReadiness || "unknown"} | semanticSource=${card.semanticStatusSource || "unknown"} | eligible=${safeArray(card.questionSpecificEvidence).length} | context=${safeArray(card.availableContext).length} | rejected=${safeArray(card.rejectedQuestionEvidence).length} | missing=${safeArray(card.missingObservationTypes).join(", ") || "none"} | boundary=${card.contextBoundary || "none"}`
+      ), "No per-card registry enforcement diagnostics attached.", 60),
+      "Rejected question evidence (audit-only):",
+      bundleList(institutionalAnswerCards.flatMap((card) =>
+        safeArray(card.rejectedQuestionEvidence).map((item) =>
+          `${card.cardId || "card"} | ${item.label || item.itemId || "item"}=${item.displayValue || "none"} | classification=${item.classification || "unknown"} | reason=${item.reason || "none"}`
+        )
+      ), "No rejected question evidence attached.", 80),
       "Per-card deduplication audit:",
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | suppressed=${card.deduplicationMetadata?.suppressionCount ?? 0} | retained=${yesNoUnknown(card.deduplicationMetadata?.hiddenAuditRepetitionRetainedInBundle)} | canonical=${card.deduplicationMetadata?.canonicalSourceSentence || "missing"} | hidden=${safeArray(card.deduplicationMetadata?.repeatedCopySuppressed).join(" || ") || "none"}`

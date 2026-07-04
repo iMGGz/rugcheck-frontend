@@ -988,16 +988,24 @@ function ProductAnswerCards({ contract, styles }) {
           <SectionRow label="Evidence state" value={card.semanticStatusLabel || card.statusLabel || "Evidence state unavailable"} styles={styles} />
           <SectionRow label="Answer" value={card.fundamentalAnalysis} styles={styles} />
           <ListBlock
-            title="Data used"
-            items={safeArray(card.dataUsed).map((point) => `${point.label}: ${point.displayValue} · ${point.sourceBasis}`)}
-            emptyText="No current data point was attached to this answer."
+            title="Question-specific evidence used"
+            items={safeArray(card.questionSpecificEvidence).map((item) => `${item.label}: ${item.displayValue}`)}
+            emptyText={card.evidenceGapExplanation || "No eligible question-specific evidence is attached."}
             color="#7dd3fc"
             styles={styles}
           />
+          <ListBlock
+            title="Available context"
+            items={safeArray(card.availableContext).map((item) => `${item.label}: ${item.displayValue}`)}
+            emptyText="No additional context was attached."
+            color="#d5dcec"
+            styles={styles}
+          />
+          {card.contextBoundary ? <SectionRow label="Context boundary" value={card.contextBoundary} styles={styles} /> : null}
           <ListBlock title="What this supports" items={card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
           <ListBlock title="What this does not prove" items={card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
           <ListBlock title="Missing analysis" items={card.missingAnalysis} emptyText="No material missing analysis attached." color="#ffb6b6" styles={styles} />
-          <SectionRow label="Analyst next step" value={card.analystNextStep} styles={styles} />
+          <ListBlock title="Next diligence" items={card.nextDiligenceActions} emptyText={card.analystNextStep || "No next diligence action attached."} color="#f9d976" styles={styles} />
         </CollapsibleDetail>
       ))}
     </Card>
