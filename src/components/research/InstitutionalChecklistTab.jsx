@@ -1006,8 +1006,8 @@ function ProductAnswerCards({ contract, styles }) {
           {card.contextBoundary ? <SectionRow label="Evidence boundary" value={card.contextBoundary} styles={styles} /> : null}
           <ListBlock title="What this supports" items={card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
           <ListBlock title="What this does not prove" items={card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
-          <ListBlock title="Missing analysis" items={card.missingAnalysis} emptyText="No material missing analysis attached." color="#ffb6b6" styles={styles} />
-          <ListBlock title="Next diligence" items={card.nextDiligenceActions} emptyText={card.analystNextStep || "No next diligence action attached."} color="#f9d976" styles={styles} />
+          <ListBlock title="Missing observations" items={card.missingObservations} emptyText="No material missing observations attached." color="#ffb6b6" styles={styles} />
+          <SectionRow label="Analyst next step" value={card.analystNextStep || "No next diligence action attached."} styles={styles} />
         </CollapsibleDetail>
       ))}
     </Card>

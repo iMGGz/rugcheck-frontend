@@ -556,22 +556,22 @@ export function getAnalystAnswerCard(question) {
   if (Object.keys(surfaceCard).length) return {
     questionId: question?.questionId || surfaceCard.cardId || "question_unavailable",
     questionText: cleanPrimaryAnswerText(surfaceCard.question || question?.questionText || "Institutional question"),
-    directAnswer: cleanPrimaryAnswerText(surfaceCard.shortAnswer || surfaceCard.fundamentalAnalysis || "Needs verification."),
+    directAnswer: cleanPrimaryAnswerText(surfaceCard.answer || surfaceCard.shortAnswer || surfaceCard.fundamentalAnalysis || "Needs verification."),
     headlineStatus: cleanPrimaryAnswerText(surfaceCard.statusLabel || surfaceCard.sourceStateLabel || "Needs verification"),
-    evidenceBasis: safeArray(surfaceCard.evidenceWeHave).map(cleanPrimaryAnswerText),
+    evidenceBasis: safeArray(surfaceCard.questionSpecificEvidenceSummary || surfaceCard.evidenceWeHave).map(cleanPrimaryAnswerText),
     evidenceStatus: surfaceCard.sourceStateLabel || "Needs verification",
     reviewedEvidenceUsed: [],
     providerContextUsed: [],
     formulaContextUsed: [],
     liveDataUsed: safeArray(surfaceCard.keyMetrics).map(cleanPrimaryAnswerText),
-    whatEvidenceDoesNotProve: safeArray(surfaceCard.notApplicableNotes).map(cleanPrimaryAnswerText),
-    missingEvidence: safeArray(surfaceCard.openChecks).map(cleanPrimaryAnswerText),
+    whatEvidenceDoesNotProve: safeArray(surfaceCard.whatThisDoesNotProve || surfaceCard.notApplicableNotes).map(cleanPrimaryAnswerText),
+    missingEvidence: safeArray(surfaceCard.missingObservations || surfaceCard.missingAnalysis || surfaceCard.openChecks).map(cleanPrimaryAnswerText),
     decisionImpact: cleanPrimaryAnswerText(surfaceCard.riskImpact || surfaceCard.impactLabel || "Confidence depends on the unresolved checks."),
-    whatWouldChange: safeArray(surfaceCard.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
+    whatWouldChange: safeArray(surfaceCard.nextDiligenceActions || surfaceCard.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
     sourceBoundaryPlainEnglish: [cleanPrimaryAnswerText(surfaceCard.methodologyLinkLabel || "See Methodology for how evidence status is interpreted.")],
     confidenceBoundary: cleanPrimaryAnswerText(surfaceCard.scoreImpactPlainEnglish || "These checks explain confidence before any future scoring integration."),
-    manualReviewImplication: cleanPrimaryAnswerText(safeArray(surfaceCard.openChecks)[0] || "Review the open checks before relying on stronger conclusions."),
-    assetClassSpecificKeyIssue: cleanPrimaryAnswerText(surfaceCard.fundamentalAnalysis || surfaceCard.shortAnswer),
+    manualReviewImplication: cleanPrimaryAnswerText(surfaceCard.analystNextStep || safeArray(surfaceCard.openChecks)[0] || "Review the open checks before relying on stronger conclusions."),
+    assetClassSpecificKeyIssue: cleanPrimaryAnswerText(safeArray(surfaceCard.availableContextSummary)[0] || surfaceCard.answer || surfaceCard.shortAnswer),
     primaryBadges: [cleanPrimaryAnswerText(surfaceCard.statusLabel || "Needs verification")],
     auditFields: surfaceCard.auditDetailAvailable ? ["Clean primary card attached; raw diagnostic detail remains in Audit / Raw."] : [],
   };
@@ -672,6 +672,7 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       answer: cleanPrimaryAnswerText(card?.answer || card?.fundamentalAnalysis),
       questionSpecificEvidenceSummary: safeArray(card?.questionSpecificEvidenceSummary).map(cleanPrimaryAnswerText),
       availableContextSummary: safeArray(card?.availableContextSummary).map(cleanPrimaryAnswerText),
+      missingObservations: safeArray(card?.missingObservations || card?.missingAnalysis).map(cleanPrimaryAnswerText),
       mechanismContext: safeArray(card?.mechanismContext).map(cleanPrimaryAnswerText),
       currentLiveEvidence: safeArray(card?.currentLiveEvidence).map(cleanPrimaryAnswerText),
       currentLiveEvidenceStatus: card?.currentLiveEvidenceStatus || "missing",
@@ -9129,6 +9130,16 @@ export function buildReviewBundleText({
       bundleField("Identity missing evidence findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.identityMissingEvidenceFindings ?? "unknown"),
       bundleField("Thesis-support overclaim findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.thesisSupportOverclaimFindings ?? "unknown"),
       bundleField("Mechanism-context separation findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.mechanismContextSeparationFindings ?? "unknown"),
+      bundleField("Repeated primary-answer findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.repeatedPrimaryAnswerFindings ?? "unknown"),
+      bundleField("Repeated sentence findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.repeatedSentenceFindings ?? "unknown"),
+      bundleField("Repeated canonical-asset findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.repeatedCanonicalAssetFindings ?? "unknown"),
+      bundleField("Primary-copy similarity findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.primaryCopySimilarityFindings ?? "unknown"),
+      bundleField("Raw-label humanization findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.rawLabelHumanizationFindings ?? "unknown"),
+      bundleField("Context/evidence separation findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.contextMisclassifiedAsEvidenceFindings ?? "unknown"),
+      bundleField("Missing-observations=none findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.missingObservationNoneFindings ?? "unknown"),
+      bundleField("Stale mismatch-warning findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.staleMismatchWarningFindings ?? "unknown"),
+      bundleField("Source Queue wording findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.sourceQueueWordingFindings ?? "unknown"),
+      bundleField("Dedup applied to primary UI", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.primaryUiDedupApplied)),
       bundleField("Product layer dedup suppression count", institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.suppressionCount ?? 0),
       "Product-layer current data mirror:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.currentDataUsed).map((point) =>
@@ -9180,10 +9191,14 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | gate=${card.registryGateStatus || "unknown"} | contract=${card.registryContractUsed?.questionId || "none"} | readiness=${card.answerReadiness || "unknown"} | semanticSource=${card.semanticStatusSource || "unknown"} | eligible=${safeArray(card.questionSpecificEvidence).length} | context=${safeArray(card.availableContext).length} | rejected=${safeArray(card.rejectedQuestionEvidence).length} | missing=${safeArray(card.missingObservationTypes).join(", ") || "none"} | boundary=${card.contextBoundary || "none"}`
       ), "No per-card registry enforcement diagnostics attached.", 60),
-      "Per-card v1.2.1 fallback quality diagnostics:",
+      "Per-card v1.2.2 fallback quality diagnostics:",
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | fallbackRewritten=${yesNoUnknown(card.fallbackCopyRewritten)} | mapped=${yesNoUnknown(Boolean(card.registryContractUsed))} | primaryInternalHidden=${yesNoUnknown(card.primaryUiInternalWordingHidden)} | identityMissingSuppressed=${yesNoUnknown(card.identityMissingEvidenceSuppressed)} | mechanismSeparated=${yesNoUnknown(card.mechanismContextSeparated)} | liveEvidence=${card.currentLiveEvidenceStatus || "unknown"}`
       ), "No fallback-quality diagnostics attached.", 60),
+      "Per-card v1.2.2 final primary answer text:",
+      bundleList(institutionalAnswerCards.map((card) =>
+        `${card.cardId || "card"} | answer=${card.answer || card.shortAnswer || "missing"} | context=${safeArray(card.availableContextSummary).join(" / ") || "none"} | missing=${safeArray(card.missingObservations || card.missingAnalysis).join(" / ") || "none"} | doesNotProve=${safeArray(card.whatThisDoesNotProve).join(" / ") || "none"} | next=${card.analystNextStep || "none"}`
+      ), "No final primary answer text attached.", 60),
       "Rejected question evidence (audit-only):",
       bundleList(institutionalAnswerCards.flatMap((card) =>
         safeArray(card.rejectedQuestionEvidence).map((item) =>
