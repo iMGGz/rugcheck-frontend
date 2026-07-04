@@ -669,6 +669,17 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       evidenceGapExplanation: cleanPrimaryAnswerText(card?.evidenceGapExplanation),
       contextBoundary: cleanPrimaryAnswerText(card?.contextBoundary),
       registryContractUsed: safeObject(card?.registryContractUsed),
+      answer: cleanPrimaryAnswerText(card?.answer || card?.fundamentalAnalysis),
+      questionSpecificEvidenceSummary: safeArray(card?.questionSpecificEvidenceSummary).map(cleanPrimaryAnswerText),
+      availableContextSummary: safeArray(card?.availableContextSummary).map(cleanPrimaryAnswerText),
+      mechanismContext: safeArray(card?.mechanismContext).map(cleanPrimaryAnswerText),
+      currentLiveEvidence: safeArray(card?.currentLiveEvidence).map(cleanPrimaryAnswerText),
+      currentLiveEvidenceStatus: card?.currentLiveEvidenceStatus || "missing",
+      fallbackCopyRewritten: card?.fallbackCopyRewritten === true,
+      identityMissingEvidenceSuppressed: card?.identityMissingEvidenceSuppressed === true,
+      mechanismContextSeparated: card?.mechanismContextSeparated === true,
+      primaryUiInternalWordingHidden: card?.primaryUiInternalWordingHidden !== false,
+      auditOnlyDiagnostics: safeObject(card?.auditOnlyDiagnostics),
       deduplicationMetadata: {
         ...safeObject(card?.deduplicationMetadata),
         repeatedCopySuppressed: safeArray(card?.deduplicationMetadata?.repeatedCopySuppressed),
@@ -717,6 +728,7 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
         missingObservationTypes: safeArray(item?.missingObservationTypes),
       })),
       registryEnforcementSummary: safeObject(contract.productLayer?.registryEnforcementSummary),
+      fallbackQualitySummary: safeObject(contract.productLayer?.fallbackQualitySummary),
       deduplicationSummary: {
         ...safeObject(contract.productLayer?.deduplicationSummary),
         repeatedCopySuppressed: safeArray(contract.productLayer?.deduplicationSummary?.repeatedCopySuppressed),
@@ -9110,6 +9122,13 @@ export function buildReviewBundleText({
       bundleField("Invalid proxy answers found", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersFound ?? 0),
       bundleField("Invalid proxy answers blocked", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersBlocked ?? 0),
       bundleField("Available=yes with data=none findings", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.availableYesDataNoneFindings ?? 0),
+      bundleField("Fallback quality version", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.version),
+      bundleField("Fallback cards rewritten", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.fallbackCardsRewritten ?? 0),
+      bundleField("Cards mapped to contracts", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.cardsMappedToContracts ?? 0),
+      bundleField("Primary UI internal wording findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.primaryUiInternalWordingFindings ?? "unknown"),
+      bundleField("Identity missing evidence findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.identityMissingEvidenceFindings ?? "unknown"),
+      bundleField("Thesis-support overclaim findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.thesisSupportOverclaimFindings ?? "unknown"),
+      bundleField("Mechanism-context separation findings", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.mechanismContextSeparationFindings ?? "unknown"),
       bundleField("Product layer dedup suppression count", institutionalAnswerSurfaceContract?.productLayer?.deduplicationSummary?.suppressionCount ?? 0),
       "Product-layer current data mirror:",
       bundleList(safeArray(institutionalAnswerSurfaceContract?.productLayer?.currentDataUsed).map((point) =>
@@ -9161,6 +9180,10 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | gate=${card.registryGateStatus || "unknown"} | contract=${card.registryContractUsed?.questionId || "none"} | readiness=${card.answerReadiness || "unknown"} | semanticSource=${card.semanticStatusSource || "unknown"} | eligible=${safeArray(card.questionSpecificEvidence).length} | context=${safeArray(card.availableContext).length} | rejected=${safeArray(card.rejectedQuestionEvidence).length} | missing=${safeArray(card.missingObservationTypes).join(", ") || "none"} | boundary=${card.contextBoundary || "none"}`
       ), "No per-card registry enforcement diagnostics attached.", 60),
+      "Per-card v1.2.1 fallback quality diagnostics:",
+      bundleList(institutionalAnswerCards.map((card) =>
+        `${card.cardId || "card"} | fallbackRewritten=${yesNoUnknown(card.fallbackCopyRewritten)} | mapped=${yesNoUnknown(Boolean(card.registryContractUsed))} | primaryInternalHidden=${yesNoUnknown(card.primaryUiInternalWordingHidden)} | identityMissingSuppressed=${yesNoUnknown(card.identityMissingEvidenceSuppressed)} | mechanismSeparated=${yesNoUnknown(card.mechanismContextSeparated)} | liveEvidence=${card.currentLiveEvidenceStatus || "unknown"}`
+      ), "No fallback-quality diagnostics attached.", 60),
       "Rejected question evidence (audit-only):",
       bundleList(institutionalAnswerCards.flatMap((card) =>
         safeArray(card.rejectedQuestionEvidence).map((item) =>
