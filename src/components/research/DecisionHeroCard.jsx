@@ -477,10 +477,12 @@ export default function DecisionHeroCard({
   const assetInitial = String(symbol).trim().slice(0, 4).toUpperCase() || "TC";
   const verdictSemantics = model?.verdictSemantics || {};
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const composerAvailable = finalComposer?.contractAttached === true;
   const productHeader = answerProduct?.tabDisplayModel?.decisionHeader || {};
-  const finalDecisionSubcopy = answerProduct?.assetResearchSummary?.assetSpecificThesis || verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
-  const primaryPositiveCase = productHeader.whyItCouldMakeSense || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
-  const primaryBlockedCase = productHeader.whyConfidenceIsBlocked || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
+  const finalDecisionSubcopy = finalComposer?.analystView?.headline || answerProduct?.assetResearchSummary?.assetSpecificThesis || verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
+  const primaryPositiveCase = finalComposer?.analystView?.whatTheDataSupports || productHeader.whyItCouldMakeSense || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
+  const primaryBlockedCase = finalComposer?.analystView?.weakestPartOfAnalysis || productHeader.whyConfidenceIsBlocked || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshness = model?.analysisFreshness || {};
@@ -529,7 +531,22 @@ export default function DecisionHeroCard({
               {model?.allocationOutcome?.label || "Decision unavailable"}
             </div>
             <div style={styles.decisionFinalSubcopy}>{finalDecisionSubcopy}</div>
-            {answerProduct?.productLayerVersion ? (
+            {composerAvailable ? (
+              <div style={styles.decisionSemanticMiniGrid}>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Strongest support</div>
+                  <div style={styles.contextMuted}>{finalComposer.analystView?.strongestPartOfThesis || "No supporting category attached."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Weakest area</div>
+                  <div style={styles.contextMuted}>{finalComposer.analystView?.weakestPartOfAnalysis || "No limiting category attached."}</div>
+                </div>
+                <div style={styles.decisionSemanticMiniCard}>
+                  <div style={styles.metaLabel}>Score interpretation</div>
+                  <div style={styles.contextMuted}>{finalComposer.scoreExplanationBridge?.explanation || "Score explanation unavailable."}</div>
+                </div>
+              </div>
+            ) : answerProduct?.productLayerVersion ? (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>
                   <div style={styles.metaLabel}>Facts used</div>
@@ -561,8 +578,8 @@ export default function DecisionHeroCard({
                 </div>
               </div>
             )}
-            {answerProduct?.assetResearchSummary?.evidenceBoundary ? (
-              <div style={styles.railBoundaryText}>{answerProduct.assetResearchSummary.evidenceBoundary}</div>
+            {finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary ? (
+              <div style={styles.railBoundaryText}>{finalComposer?.assetSummary?.representationBoundary || answerProduct.assetResearchSummary.evidenceBoundary}</div>
             ) : null}
             {verdictSemantics.hasVerdictClass ? (
               <div style={styles.decisionSemanticMiniGrid}>

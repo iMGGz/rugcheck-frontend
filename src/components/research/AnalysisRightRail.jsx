@@ -459,8 +459,15 @@ export default function AnalysisRightRail({
   const assetFramingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const identityChip = displayIdentity?.primaryChip || assetClassLabel;
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const productRail = answerProduct?.tabDisplayModel?.rightRail || {};
-  const productLayerAvailable = Boolean(answerProduct?.productLayerVersion);
+  const productLayerAvailable = Boolean(finalComposer?.contractAttached || answerProduct?.productLayerVersion);
+  const composerRail = finalComposer?.contractAttached ? {
+    topFact: finalComposer.analystView?.strongestPartOfThesis,
+    topRisk: finalComposer.riskSummary?.[0] || finalComposer.analystView?.weakestPartOfAnalysis,
+    missingCriticalEvidence: finalComposer.analystView?.missingForHigherConviction?.[0],
+    nextDiligenceStep: finalComposer.sourceQueuePriorities?.[0],
+  } : productRail;
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],
     ["institutional_checklist", "Institutional Checklist"],
@@ -504,10 +511,10 @@ export default function AnalysisRightRail({
 
           {productLayerAvailable ? (
             <RailSection title="Analyst Snapshot" badge="Backend-derived" styles={styles}>
-              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top fact</div><div style={styles.railMiniValue}>{productRail.topFact}</div></div>
-              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top risk</div><div style={styles.railMiniValue}>{productRail.topRisk}</div></div>
-              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Missing critical evidence</div><div style={styles.railMiniValue}>{productRail.missingCriticalEvidence}</div></div>
-              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Next diligence</div><div style={styles.railMiniValue}>{productRail.nextDiligenceStep}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top fact</div><div style={styles.railMiniValue}>{composerRail.topFact}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top risk</div><div style={styles.railMiniValue}>{composerRail.topRisk}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Missing critical evidence</div><div style={styles.railMiniValue}>{composerRail.missingCriticalEvidence}</div></div>
+              <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Next diligence</div><div style={styles.railMiniValue}>{composerRail.nextDiligenceStep}</div></div>
             </RailSection>
           ) : null}
 

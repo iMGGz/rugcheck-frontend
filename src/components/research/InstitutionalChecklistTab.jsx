@@ -978,13 +978,14 @@ function ScoringReadinessChecklistImpact({ readiness, styles }) {
   );
 }
 
-function ProductAnswerCards({ contract, styles }) {
-  const cards = safeArray(contract?.userAnswerCards);
-  if (!contract?.productLayer?.productLayerVersion || !cards.length) return null;
+function ProductAnswerCards({ contract, composer, styles }) {
+  const composerCards = safeArray(composer?.fundamentalQuestionAnswers);
+  const cards = composerCards.length ? composerCards : safeArray(contract?.userAnswerCards);
+  if (!cards.length) return null;
   return (
-    <Card title="Institutional Answers" subtitle="Direct answers first; data, limits, and next diligence are expandable." styles={styles}>
+    <Card title="Institutional Answers" subtitle="Backend-composed answers, attached data, limits, and next diligence." styles={styles}>
       {cards.map((card) => (
-        <CollapsibleDetail key={card.cardId} title={card.question} subtitle={card.shortAnswer} styles={styles} tone="#9bd7ff">
+        <CollapsibleDetail key={card.answerId || card.cardId} title={card.question} subtitle={card.answer || card.shortAnswer} styles={styles} tone="#9bd7ff">
           <SectionRow label="Answer state" value={labelize(card.answerState || card.semanticStatusLabel || card.statusLabel || "missing_key_data")} styles={styles} />
           <SectionRow label="Answer" value={card.answer || card.fundamentalAnalysis} styles={styles} />
           <ListBlock
@@ -1004,8 +1005,8 @@ function ProductAnswerCards({ contract, styles }) {
           <ListBlock title="Mechanism context" items={card.mechanismContext} emptyText="No separate mechanism context is attached." color="#b9c8ff" styles={styles} />
           <ListBlock title="Current live evidence" items={card.currentLiveEvidence} emptyText="Current question-specific measurements are not attached." color="#a6f3c2" styles={styles} />
           {card.boundary || card.contextBoundary ? <SectionRow label="Boundary" value={card.boundary || card.contextBoundary} styles={styles} /> : null}
-          <ListBlock title="What the data supports" items={card.whatDataSupports || card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
-          <ListBlock title="What the data does not prove" items={card.whatDataDoesNotProve || card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
+          <ListBlock title="What the data supports" items={card.whatTheDataSupports || card.whatDataSupports || card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
+          <ListBlock title="What the data does not prove" items={card.whatTheDataDoesNotProve || card.whatDataDoesNotProve || card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
           <ListBlock title="Missing data / limits" items={card.missingData || card.missingObservations} emptyText="No material missing observations attached." color="#ffb6b6" styles={styles} />
           <SectionRow label="Analyst next step" value={card.analystNextStep || "No next diligence action attached."} styles={styles} />
         </CollapsibleDetail>
@@ -1066,7 +1067,13 @@ export default function InstitutionalChecklistTab({
   const visibleResolvedLensLabel = displayResolvedInstitutionalLens?.visibleLabelOverride
     || displayResolvedInstitutionalLens?.displayLabel
     || displayResolvedInstitutionalLens?.label;
-  const hasInstitutionalAnswers = institutionalQuestions.length > 0;
+  const composerAnswers = safeArray(model?.finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers);
+  const composerAnswerCount = composerAnswers.length;
+  const composerSupportedCount = composerAnswers.filter((answer) =>
+    !["missing_key_data", "manual_review_required", "not_applicable"].includes(answer?.answerState)
+  ).length;
+  const composerDataPointCount = composerAnswers.reduce((count, answer) => count + safeArray(answer?.dataUsed).length, 0);
+  const hasInstitutionalAnswers = institutionalQuestions.length > 0 || composerAnswerCount > 0;
   const signals = buildChecklistLiveSignals({ model, sourceStatus, providerDiagnostics, providerHealth, evidenceStatusProxy });
   const lensResolution = resolveInstitutionalChecklistLens(asset, analysis, model);
   const selectedLensGroup = lensSpecificGroup(lensResolution);
@@ -1084,7 +1091,8 @@ export default function InstitutionalChecklistTab({
   ];
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
   const answerSurface = model?.institutionalAnswerSurfaceContract || {};
-  const productLayerAvailable = Boolean(answerSurface?.productLayer?.productLayerVersion);
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const productLayerAvailable = Boolean(finalComposer?.contractAttached || answerSurface?.productLayer?.productLayerVersion);
 
   return (
     <div style={styles.institutionalChecklistShell}>
@@ -1092,19 +1100,19 @@ export default function InstitutionalChecklistTab({
         eyebrow="Institutional Checklist"
         title={hasInstitutionalAnswers ? "What does the institutional Q&A say?" : "Which institutional questions should be asked?"}
         answer={hasInstitutionalAnswers
-          ? answerSurface?.productLayer?.assetResearchSummary?.assetSpecificThesis || "Current institutional answers are attached with facts, bounded interpretation, and explicit missing diligence."
+          ? finalComposer?.analystView?.headline || answerSurface?.productLayer?.assetResearchSummary?.assetSpecificThesis || "Current institutional answers are attached with facts, bounded interpretation, and explicit missing diligence."
           : "Question-level answers are not attached yet. The checklist shows safe methodology prompts and live review signals without inventing answers."}
         tone="#9bd7ff"
         badges={[
-          { label: hasInstitutionalAnswers ? `${institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
-          hasInstitutionalAnswers ? { label: `${questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: visibleResolvedLensLabel || lensResolution.displayName, tone: "#9bd7ff" },
-          hasInstitutionalAnswers ? { label: `${answerSurface?.productLayer?.currentDataUsed?.length || 0} current data points`, tone: "#7dd3fc" } : { label: "Evidence pending", tone: "#f9d976" },
+          { label: hasInstitutionalAnswers ? `${composerAnswerCount || institutionalQuestions.length} live answers` : "Methodology prompts", tone: hasInstitutionalAnswers ? "#7dd3fc" : "#d5dcec" },
+          hasInstitutionalAnswers ? { label: `${composerAnswerCount ? composerSupportedCount : questionCounts.supported + questionCounts.partial} supported/partial`, tone: "#a6f3c2" } : { label: visibleResolvedLensLabel || lensResolution.displayName, tone: "#9bd7ff" },
+          hasInstitutionalAnswers ? { label: `${composerAnswerCount ? composerDataPointCount : answerSurface?.productLayer?.currentDataUsed?.length || 0} current data points`, tone: "#7dd3fc" } : { label: "Evidence pending", tone: "#f9d976" },
           hasInstitutionalAnswers && questionCounts.notApplicable ? { label: `${questionCounts.notApplicable} not applicable`, tone: "#8a94a6" } : null,
         ].filter(Boolean)}
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, answerSurface?.productLayer?.assetResearchSummary?.evidenceBoundary || "Answers are bounded by the current attached data.")}
+          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || answerSurface?.productLayer?.assetResearchSummary?.evidenceBoundary || "Answers are bounded by the current attached data.")}
         </div>
         {!hasInstitutionalAnswers ? (
           <>
@@ -1124,7 +1132,7 @@ export default function InstitutionalChecklistTab({
         ) : null}
       </ExecutiveSummaryCard>
 
-      <ProductAnswerCards contract={answerSurface} styles={styles} />
+      <ProductAnswerCards contract={answerSurface} composer={finalComposer} styles={styles} />
 
       {!productLayerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Institutional Questions" subtitle="Canonical family questions answered only from eligible typed observations." styles={styles}>

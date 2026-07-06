@@ -72,6 +72,16 @@ function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
   const canonicalPrimaryFamily = model?.canonicalProductRoute?.primaryFamily
     || model?.primaryAnalysisRoute?.assetFamily
     || null;
+  const composerPriorities = safeArray(model?.finalAnalystAnswerComposerContract?.sourceQueuePriorities);
+  if (composerPriorities.length) {
+    return composerPriorities.slice(0, 8).map((description, index) => ({
+      label: index === 0 ? "Highest-priority family diligence" : "Family diligence requirement",
+      description: cleanPrimaryAnswerText(description),
+      status: "Needs current evidence",
+      source: "finalAnalystAnswerComposerContract.sourceQueuePriorities",
+      color: index === 0 ? "#ffb020" : "#7dd3fc",
+    }));
+  }
   const required = normalizeRenderableList(model?.requiredConditions).map((entry) => ({
     label: "Required condition",
     description: entry,
@@ -362,7 +372,10 @@ export default function SourceQueuePanel({
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
-  const nextDiligence = safeArray(answerProduct?.tabDisplayModel?.recommendedNextDiligence?.items);
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const nextDiligence = safeArray(finalComposer?.sourceQueuePriorities).length
+    ? safeArray(finalComposer.sourceQueuePriorities)
+    : safeArray(answerProduct?.tabDisplayModel?.recommendedNextDiligence?.items);
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -380,7 +393,7 @@ export default function SourceQueuePanel({
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, answerProduct?.assetResearchSummary?.evidenceBoundary || "Recommended diligence is derived from current missing analysis.")}
+          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary || "Recommended diligence is derived from current missing analysis.")}
         </div>
         <ListBlock title="Priority diligence" items={nextDiligence.slice(0, 5)} emptyText="No priority diligence attached." color="#9bd7ff" styles={styles} />
       </ExecutiveSummaryCard>

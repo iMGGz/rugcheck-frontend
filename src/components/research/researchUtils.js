@@ -1559,6 +1559,74 @@ export function normalizePrimaryAnalysisRoutePayload(responseLike, authorityHier
   };
 }
 
+export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.finalAnalystAnswerComposerContract);
+  const nestedContract = safeObject(nestedAnalysis.finalAnalystAnswerComposerContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    assetSummary: safeObject(contract.assetSummary),
+    availableDataSummary: {
+      ...safeObject(contract.availableDataSummary),
+      typedObservationTypesUsed: safeArray(contract.availableDataSummary?.typedObservationTypesUsed),
+      marketDataAvailable: safeArray(contract.availableDataSummary?.marketDataAvailable),
+      supplyDataAvailable: safeArray(contract.availableDataSummary?.supplyDataAvailable),
+      usageEconomicsDataAvailable: safeArray(contract.availableDataSummary?.usageEconomicsDataAvailable),
+      securityContractDataAvailable: safeArray(contract.availableDataSummary?.securityContractDataAvailable),
+      missingSections: safeArray(contract.availableDataSummary?.missingSections).map(cleanPrimaryAnswerText),
+      limitations: safeArray(contract.availableDataSummary?.limitations).map(cleanPrimaryAnswerText),
+    },
+    fundamentalQuestionAnswers: safeArray(contract.fundamentalQuestionAnswers).map((answer) => ({
+      ...safeObject(answer),
+      question: cleanPrimaryAnswerText(answer?.question),
+      answer: cleanPrimaryAnswerText(answer?.answer),
+      dataUsed: safeArray(answer?.dataUsed),
+      whatTheDataSupports: safeArray(answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
+      whatTheDataDoesNotProve: safeArray(answer?.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
+      missingData: safeArray(answer?.missingData).map(cleanPrimaryAnswerText),
+      analystNextStep: cleanPrimaryAnswerText(answer?.analystNextStep),
+      observationTypesUsed: safeArray(answer?.observationTypesUsed),
+      observationTypesMissing: safeArray(answer?.observationTypesMissing),
+      familyApplicability: safeArray(answer?.familyApplicability),
+      boundary: cleanPrimaryAnswerText(answer?.boundary),
+    })),
+    analystView: {
+      ...safeObject(contract.analystView),
+      missingForHigherConviction: safeArray(contract.analystView?.missingForHigherConviction).map(cleanPrimaryAnswerText),
+    },
+    scoreExplanationBridge: {
+      ...safeObject(contract.scoreExplanationBridge),
+      strongestSupportingDataCategories: safeArray(contract.scoreExplanationBridge?.strongestSupportingDataCategories).map(cleanPrimaryAnswerText),
+      weakestOrMissingDataCategories: safeArray(contract.scoreExplanationBridge?.weakestOrMissingDataCategories).map(cleanPrimaryAnswerText),
+      familySpecificScoreConstraints: safeArray(contract.scoreExplanationBridge?.familySpecificScoreConstraints).map(cleanPrimaryAnswerText),
+      whatWouldImproveScoreOrConfidence: safeArray(contract.scoreExplanationBridge?.whatWouldImproveScoreOrConfidence).map(cleanPrimaryAnswerText),
+      explanation: cleanPrimaryAnswerText(contract.scoreExplanationBridge?.explanation),
+    },
+    sourceQueuePriorities: safeArray(contract.sourceQueuePriorities).map(cleanPrimaryAnswerText),
+    riskSummary: safeArray(contract.riskSummary).map(cleanPrimaryAnswerText),
+    familyPurityDiagnostics: {
+      ...safeObject(contract.familyPurityDiagnostics),
+      forbiddenFamilyTermsScanned: safeArray(contract.familyPurityDiagnostics?.forbiddenFamilyTermsScanned),
+      wrongDomainFindings: safeArray(contract.familyPurityDiagnostics?.wrongDomainFindings),
+      sourceQueueFamilyMismatchFindings: safeArray(contract.familyPurityDiagnostics?.sourceQueueFamilyMismatchFindings),
+      cardFamilyMismatchFindings: safeArray(contract.familyPurityDiagnostics?.cardFamilyMismatchFindings),
+      rawEffectiveRouteMismatchFindings: safeArray(contract.familyPurityDiagnostics?.rawEffectiveRouteMismatchFindings),
+      duplicateAnswerFindings: safeArray(contract.familyPurityDiagnostics?.duplicateAnswerFindings),
+      identityGrammarFindings: safeArray(contract.familyPurityDiagnostics?.identityGrammarFindings),
+      quarantinedPrimaryItems: safeArray(contract.familyPurityDiagnostics?.quarantinedPrimaryItems),
+    },
+    guardrails: safeObject(contract.guardrails),
+    knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
+  };
+}
+
 const PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS = {
   defi_governance_value_capture: [
     /\breserves? (?:attestation|composition|backing|audit|proof)s?\b|\breserve attestations?\b/i,
@@ -3035,6 +3103,9 @@ export function buildProtectedInvestorReportText({
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
+    || normalizeFinalAnalystAnswerComposerPayload(safeData)
+    || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const institutionalAnswerProductLayer = safeObject(institutionalAnswerSurfaceContract?.productLayer);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
@@ -3092,15 +3163,20 @@ export function buildProtectedInvestorReportText({
     safeAsset.name || displayIdentity?.assetName,
     safeAsset.symbol ? `(${safeAsset.symbol})` : "",
   ].filter(Boolean).join(" ") || "Selected asset";
+  const composerCards = safeArray(finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers);
   const institutionalSurfaceCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
-  const selectedQuestions = institutionalSurfaceCards.length ? institutionalSurfaceCards.slice(0, 8) : [...questions, ...tokenomicsQuestions].slice(0, 8);
+  const selectedQuestions = composerCards.length
+    ? composerCards.slice(0, 8)
+    : institutionalSurfaceCards.length
+      ? institutionalSurfaceCards.slice(0, 8)
+      : [...questions, ...tokenomicsQuestions].slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
-    if (institutionalSurfaceCards.length) {
+    if (composerCards.length || institutionalSurfaceCards.length) {
       const dataUsed = safeArray(question.dataUsed)
         .slice(0, 4)
         .map((item) => cleanPrimaryAnswerText(`${item?.label || "Data"}: ${item?.displayValue || item?.value || item}`));
-      const support = normalizeRenderableList(question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
-      const limits = normalizeRenderableList(question.whatDataDoesNotProve || question.whatThisDoesNotProve).slice(0, 3).map(cleanPrimaryAnswerText);
+      const support = normalizeRenderableList(question.whatTheDataSupports || question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
+      const limits = normalizeRenderableList(question.whatTheDataDoesNotProve || question.whatDataDoesNotProve || question.whatThisDoesNotProve).slice(0, 3).map(cleanPrimaryAnswerText);
       const missingEvidence = normalizeRenderableList(question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
       return [
         `${index + 1}. ${cleanPrimaryAnswerText(question.question || "Institutional question")}`,
@@ -3126,6 +3202,8 @@ export function buildProtectedInvestorReportText({
     ];
   });
   const missingEvidence = normalizeRenderableList([
+    finalAnalystAnswerComposerContract?.analystView?.missingForHigherConviction,
+    finalAnalystAnswerComposerContract?.availableDataSummary?.missingSections,
     safeModel.primaryBlocker?.label,
     safeModel.primaryBlocker?.explanation,
     safeModel.evidenceNeeded,
@@ -3136,6 +3214,8 @@ export function buildProtectedInvestorReportText({
     tokenomicsSupplyIntegrity?.sourceRequirements,
   ]).slice(0, 8);
   const whatWouldChange = normalizeRenderableList([
+    finalAnalystAnswerComposerContract?.scoreExplanationBridge?.whatWouldImproveScoreOrConfidence,
+    finalAnalystAnswerComposerContract?.sourceQueuePriorities,
     safeModel.whatWouldChangeDecision?.items,
     safeModel.whatWouldChange,
     tokenomicsSupplyIntegrity?.whatWouldChange,
@@ -3188,7 +3268,20 @@ export function buildProtectedInvestorReportText({
     reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
     reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
-    ...(institutionalAnswerProductLayer.productLayerVersion ? [
+    ...(finalAnalystAnswerComposerContract?.contractAttached ? [
+      "",
+      "Final analyst view:",
+      reportLine("Asset", finalAnalystAnswerComposerContract.analystView?.whatTheAssetIs),
+      reportLine("Analyst view", finalAnalystAnswerComposerContract.analystView?.headline),
+      reportLine("What the data supports", finalAnalystAnswerComposerContract.analystView?.whatTheDataSupports),
+      reportLine("Strongest area", finalAnalystAnswerComposerContract.analystView?.strongestPartOfThesis),
+      reportLine("Weakest area", finalAnalystAnswerComposerContract.analystView?.weakestPartOfAnalysis),
+      reportLine("Allocation readiness", finalAnalystAnswerComposerContract.analystView?.allocationReadinessExplanation),
+      "Primary risks:",
+      ...formatReportList(finalAnalystAnswerComposerContract.riskSummary, "No primary risk summary was attached.", 4),
+      "Recommended diligence:",
+      ...formatReportList(finalAnalystAnswerComposerContract.sourceQueuePriorities, "No next diligence item was attached.", 5),
+    ] : institutionalAnswerProductLayer.productLayerVersion ? [
       "",
       "Institutional research summary:",
       reportLine("Thesis", institutionalAnswerProductLayer.assetResearchSummary?.assetSpecificThesis),
@@ -3219,7 +3312,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Confidence", safeModel.confidenceLabel || safeConfidence.label || safeConfidence.level),
     reportLine("Score", safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore),
     reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
-    reportLine("Interpretation", safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
+    reportLine("Interpretation", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation || safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
     reportLine("Score caveat", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness || "Existing score remains subject to evidence-readiness caveats."),
     "",
     "3. Key Institutional Questions",
@@ -6177,6 +6270,7 @@ export function buildDecisionTerminalModel({
     institutionalProductTruthObject,
   }) || rawPrimaryAnalysisRoute;
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const finalAnalystAnswerComposerContract = normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -6632,6 +6726,7 @@ export function buildDecisionTerminalModel({
     representationFamilyRoute,
     representationFamilyEvidenceGates,
     institutionalAnswerSurfaceContract,
+    finalAnalystAnswerComposerContract,
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
     familyCanonicalRoutingContract,
@@ -8047,6 +8142,9 @@ export function buildReviewBundleText({
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeModel)
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeData)
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeAnalysis);
+  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
+    || normalizeFinalAnalystAnswerComposerPayload(safeData)
+    || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9092,6 +9190,57 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(representationFamilyDecision?.knownLimitations),
       bundleField("Next resume pointer", representationFamilyDecision?.nextResumePointer),
+    ]),
+    bundleSection("2BD. Final Analyst Answer Composer v1", [
+      bundleField("Contract attached", finalAnalystAnswerComposerContract ? "yes" : "missing"),
+      bundleField("Artifact version", finalAnalystAnswerComposerContract?.artifactVersion),
+      bundleField("Backend authoritative", yesNoUnknown(finalAnalystAnswerComposerContract?.backendAuthoritative)),
+      bundleField("Canonical family", finalAnalystAnswerComposerContract?.canonicalFamily),
+      bundleField("Canonical question group", finalAnalystAnswerComposerContract?.canonicalQuestionGroup),
+      bundleField("Canonical asset", finalAnalystAnswerComposerContract?.assetSummary?.canonicalAsset),
+      bundleField("Canonical identity", finalAnalystAnswerComposerContract?.assetSummary?.canonicalIdentity),
+      bundleField("Representation", finalAnalystAnswerComposerContract?.assetSummary?.representationType),
+      bundleField("Network scope", finalAnalystAnswerComposerContract?.assetSummary?.networkScope),
+      bundleField("Contract scope", finalAnalystAnswerComposerContract?.assetSummary?.contractScope),
+      bundleField("Representation boundary", finalAnalystAnswerComposerContract?.assetSummary?.representationBoundary),
+      "User-facing analyst view:",
+      bundleList([
+        finalAnalystAnswerComposerContract?.analystView?.headline,
+        finalAnalystAnswerComposerContract?.analystView?.whatTheAssetIs,
+        finalAnalystAnswerComposerContract?.analystView?.whatTheDataSupports,
+        finalAnalystAnswerComposerContract?.analystView?.strongestPartOfThesis,
+        finalAnalystAnswerComposerContract?.analystView?.weakestPartOfAnalysis,
+        finalAnalystAnswerComposerContract?.analystView?.allocationReadinessExplanation,
+      ].filter(Boolean)),
+      "User-facing fundamental answers:",
+      bundleList(safeArray(finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers).map((answer) =>
+        `${answer.question} | state=${answer.answerState || "missing_key_data"} | answer=${answer.answer || "missing"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | supports=${safeArray(answer.whatTheDataSupports).join(" / ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | missing=${safeArray(answer.missingData).join(" / ") || "none"} | next=${answer.analystNextStep || "none"} | boundary=${answer.boundary || "none"}`
+      ), "No final composer answers attached.", 20),
+      "Family-bound Source Queue:",
+      bundleList(finalAnalystAnswerComposerContract?.sourceQueuePriorities),
+      "Score explanation bridge:",
+      bundleList([
+        finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation,
+        `score=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.score ?? "unavailable"}`,
+        `verdict=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdict || "unavailable"}`,
+        `confidence=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.confidence || "unavailable"}`,
+        `formulaChanged=${yesNoUnknown(finalAnalystAnswerComposerContract?.scoreExplanationBridge?.formulaChanged)}`,
+      ]),
+      "Internal QA diagnostics (audit-only):",
+      bundleList([
+        `primarySurfacePass=${yesNoUnknown(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.primarySurfacePass)}`,
+        `wrongDomainFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.wrongDomainFindings).length}`,
+        `sourceQueueFamilyMismatchFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.sourceQueueFamilyMismatchFindings).length}`,
+        `cardFamilyMismatchFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.cardFamilyMismatchFindings).length}`,
+        `duplicateAnswerFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.duplicateAnswerFindings).length}`,
+        `identityGrammarFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.identityGrammarFindings).length}`,
+        `quarantinedPrimaryItems=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.quarantinedPrimaryItems).length}`,
+      ]),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(finalAnalystAnswerComposerContract?.guardrails)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Known limitations:",
+      bundleList(finalAnalystAnswerComposerContract?.knownLimitations),
+      bundleField("Next resume pointer", finalAnalystAnswerComposerContract?.nextResumePointer),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

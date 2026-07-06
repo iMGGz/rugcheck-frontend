@@ -177,11 +177,85 @@ try {
       statusLabel: "Partially supported",
     }],
   };
+  const finalAnalystComposer = {
+    artifactVersion: "final-analyst-answer-composer-v1",
+    contractAttached: true,
+    backendAuthoritative: true,
+    canonicalFamily: "native_btc_pow_monetary",
+    canonicalQuestionGroup: "native_btc_pow_questions",
+    assetSummary: {
+      canonicalAsset: "Bitcoin",
+      canonicalIdentity: "bitcoin",
+      representationType: "native_asset",
+      networkScope: "Bitcoin",
+      contractScope: "Not applicable",
+      representationBoundary: "BTC is being evaluated as the native asset of Bitcoin, not as a wrapped representation.",
+    },
+    availableDataSummary: {
+      missingSections: ["Mining-pool concentration"],
+    },
+    fundamentalQuestionAnswers: [{
+      answerId: "final_btc_security_budget",
+      questionId: "btc_security_budget",
+      question: "Is the proof-of-work security budget durable?",
+      answer: "Current network observations support a preliminary security-budget assessment.",
+      answerState: "partial_data_preliminary_answer",
+      dataUsed: [{ label: "Hashrate", displayValue: "Current sample" }],
+      whatTheDataSupports: ["Observed hashrate supports a bounded current-security assessment."],
+      whatTheDataDoesNotProve: ["It does not prove long-term fee and subsidy durability."],
+      missingData: ["Mining-pool concentration"],
+      analystNextStep: "Attach current pool concentration and fee-market observations.",
+      observationTypesUsed: ["network_security"],
+      observationTypesMissing: ["mining_pool_concentration"],
+      familyApplicability: ["native_btc_pow_monetary"],
+      scoreRelevance: "primary_constraint",
+      boundary: "Current network observations; not a forecast.",
+    }],
+    analystView: {
+      headline: "Bitcoin has a clear monetary thesis, with security-budget durability still requiring current evidence.",
+      whatTheAssetIs: "Bitcoin is a native proof-of-work monetary asset.",
+      whatTheDataSupports: "Current market and network observations support a bounded monetary-asset assessment.",
+      strongestPartOfThesis: "Canonical identity and fixed-supply monetary framing are clear.",
+      weakestPartOfAnalysis: "Current fee-market and mining concentration evidence is incomplete.",
+      missingForHigherConviction: ["Mining-pool concentration"],
+      allocationReadinessExplanation: "The existing verdict remains evidence-caveated.",
+      noPricePrediction: true,
+      researchSupportOnly: true,
+    },
+    scoreExplanationBridge: {
+      score: 60,
+      verdict: "Evidence blocked",
+      confidence: "Medium",
+      strongestSupportingDataCategories: ["Identity"],
+      weakestOrMissingDataCategories: ["Mining concentration"],
+      familySpecificScoreConstraints: ["Security-budget evidence"],
+      explanation: "The existing score is constrained by incomplete security-budget evidence.",
+      whatWouldImproveScoreOrConfidence: ["Current mining-pool and fee-market evidence"],
+      formulaChanged: false,
+      verdictChanged: false,
+      confidenceFormulaChanged: false,
+    },
+    sourceQueuePriorities: ["Attach current mining-pool concentration evidence."],
+    riskSummary: ["Security-budget durability remains the main open risk."],
+    familyPurityDiagnostics: {
+      primarySurfacePass: true,
+      wrongDomainFindings: [],
+      sourceQueueFamilyMismatchFindings: [],
+      cardFamilyMismatchFindings: [],
+      duplicateAnswerFindings: [],
+      identityGrammarFindings: [],
+      quarantinedPrimaryItems: [],
+    },
+    guardrails: {},
+    knownLimitations: ["Current evidence is incomplete."],
+    nextResumePointer: "Deployed cross-family QA",
+  };
   const structuredProtectedReport = researchUtils.buildProtectedInvestorReportText({
     asset: { symbol: "BTC" },
     model: {
       ...baseModel,
       institutionalAnswerSurfaceContract: structuredAnswerContract,
+      finalAnalystAnswerComposerContract: finalAnalystComposer,
       primaryAnalysisRoute: { visibleLabel: "Native BTC PoW Monetary" },
     },
   });
@@ -194,7 +268,23 @@ try {
     "Next step: Attach current pool concentration",
     "Boundary: Current network observations",
   ].forEach((text) => assert.match(structuredProtectedReport, new RegExp(text, "i")));
+  assert.match(structuredProtectedReport, /Bitcoin has a clear monetary thesis/);
+  assert.match(structuredProtectedReport, /Current mining-pool and fee-market evidence/);
   assert.doesNotMatch(structuredProtectedReport, /qsc_|registryGateStatus|rejectedQuestionEvidence/);
+
+  const finalComposerBundle = researchUtils.buildReviewBundleText({
+    asset: { symbol: "BTC" },
+    model: {
+      ...baseModel,
+      institutionalAnswerSurfaceContract: structuredAnswerContract,
+      finalAnalystAnswerComposerContract: finalAnalystComposer,
+    },
+  });
+  assert.match(finalComposerBundle, /2BD\. Final Analyst Answer Composer v1/);
+  assert.match(finalComposerBundle, /Contract attached: yes/);
+  assert.match(finalComposerBundle, /Is the proof-of-work security budget durable\?/);
+  assert.match(finalComposerBundle, /Current network observations support a preliminary security-budget assessment/);
+  assert.doesNotMatch(finalComposerBundle, /NO_MATCHING_QUESTION_EVIDENCE_CONTRACT/);
 
   const aliasProtectedReport = researchUtils.buildProtectedInvestorReportText({
     asset: { symbol: "TEST" },
