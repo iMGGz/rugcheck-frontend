@@ -157,6 +157,45 @@ try {
     asset: { symbol: "TEST" },
     model: baseModel,
   }));
+  const structuredAnswerContract = {
+    artifactVersion: "institutional-answer-product-layer-v1.2.3",
+    contractAttached: true,
+    assetFamily: "native_btc_pow_monetary",
+    userAnswerCards: [{
+      cardId: "btc_security_budget",
+      question: "Is the proof-of-work security budget durable?",
+      shortAnswer: "Current proof-of-work security evidence is incomplete.",
+      answer: "Current hashrate and transaction-fee observations support only a preliminary security-budget view.",
+      answerState: "partial_data_preliminary_answer",
+      dataUsed: [{ label: "Hashrate", displayValue: "Current sample" }],
+      whatDataSupports: ["Observed hashrate supports a bounded current-security assessment."],
+      whatDataDoesNotProve: ["It does not prove long-term fee/subsidy security-budget durability."],
+      missingData: ["Mining-pool concentration", "Transaction-fee pressure"],
+      analystNextStep: "Attach current pool concentration and fee/subsidy security-budget observations.",
+      boundary: "Current network observations; not a forecast.",
+      openChecks: ["Mining-pool concentration"],
+      statusLabel: "Partially supported",
+    }],
+  };
+  const structuredProtectedReport = researchUtils.buildProtectedInvestorReportText({
+    asset: { symbol: "BTC" },
+    model: {
+      ...baseModel,
+      institutionalAnswerSurfaceContract: structuredAnswerContract,
+      primaryAnalysisRoute: { visibleLabel: "Native BTC PoW Monetary" },
+    },
+  });
+  [
+    "Answer state: Partial Data Preliminary Answer",
+    "Data used: Hashrate: Current sample",
+    "Support: Observed hashrate supports",
+    "Limits: It does not prove",
+    "Missing data: Mining-pool concentration",
+    "Next step: Attach current pool concentration",
+    "Boundary: Current network observations",
+  ].forEach((text) => assert.match(structuredProtectedReport, new RegExp(text, "i")));
+  assert.doesNotMatch(structuredProtectedReport, /qsc_|registryGateStatus|rejectedQuestionEvidence/);
+
   const aliasProtectedReport = researchUtils.buildProtectedInvestorReportText({
     asset: { symbol: "TEST" },
     model: canonicalRouteModel,

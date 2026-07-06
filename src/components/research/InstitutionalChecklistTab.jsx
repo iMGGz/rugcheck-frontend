@@ -985,12 +985,12 @@ function ProductAnswerCards({ contract, styles }) {
     <Card title="Institutional Answers" subtitle="Direct answers first; data, limits, and next diligence are expandable." styles={styles}>
       {cards.map((card) => (
         <CollapsibleDetail key={card.cardId} title={card.question} subtitle={card.shortAnswer} styles={styles} tone="#9bd7ff">
-          <SectionRow label="Evidence state" value={card.semanticStatusLabel || card.statusLabel || "Evidence state unavailable"} styles={styles} />
+          <SectionRow label="Answer state" value={labelize(card.answerState || card.semanticStatusLabel || card.statusLabel || "missing_key_data")} styles={styles} />
           <SectionRow label="Answer" value={card.answer || card.fundamentalAnalysis} styles={styles} />
           <ListBlock
-            title="Question-specific evidence used"
-            items={card.questionSpecificEvidenceSummary}
-            emptyText={card.evidenceGapExplanation || "No eligible question-specific evidence is attached."}
+            title="Data used"
+            items={safeArray(card.dataUsed).map((item) => `${item.label || "Data"}: ${item.displayValue || item.value || "Available"}`)}
+            emptyText="No relevant API or reviewed data is attached for this question."
             color="#7dd3fc"
             styles={styles}
           />
@@ -1003,10 +1003,10 @@ function ProductAnswerCards({ contract, styles }) {
           />
           <ListBlock title="Mechanism context" items={card.mechanismContext} emptyText="No separate mechanism context is attached." color="#b9c8ff" styles={styles} />
           <ListBlock title="Current live evidence" items={card.currentLiveEvidence} emptyText="Current question-specific measurements are not attached." color="#a6f3c2" styles={styles} />
-          {card.contextBoundary ? <SectionRow label="Evidence boundary" value={card.contextBoundary} styles={styles} /> : null}
-          <ListBlock title="What this supports" items={card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
-          <ListBlock title="What this does not prove" items={card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
-          <ListBlock title="Missing observations" items={card.missingObservations} emptyText="No material missing observations attached." color="#ffb6b6" styles={styles} />
+          {card.boundary || card.contextBoundary ? <SectionRow label="Boundary" value={card.boundary || card.contextBoundary} styles={styles} /> : null}
+          <ListBlock title="What the data supports" items={card.whatDataSupports || card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
+          <ListBlock title="What the data does not prove" items={card.whatDataDoesNotProve || card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
+          <ListBlock title="Missing data / limits" items={card.missingData || card.missingObservations} emptyText="No material missing observations attached." color="#ffb6b6" styles={styles} />
           <SectionRow label="Analyst next step" value={card.analystNextStep || "No next diligence action attached."} styles={styles} />
         </CollapsibleDetail>
       ))}

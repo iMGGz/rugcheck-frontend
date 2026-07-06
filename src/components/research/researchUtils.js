@@ -656,6 +656,13 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
       whatThisDoesNotProve: safeArray(card?.whatThisDoesNotProve).map(cleanPrimaryAnswerText),
       missingAnalysis: safeArray(card?.missingAnalysis).map(cleanPrimaryAnswerText),
       analystNextStep: cleanPrimaryAnswerText(card?.analystNextStep),
+      answerState: card?.answerState || "missing_key_data",
+      whatDataSupports: safeArray(card?.whatDataSupports || card?.whatThisSupports).map(cleanPrimaryAnswerText),
+      whatDataDoesNotProve: safeArray(card?.whatDataDoesNotProve || card?.whatThisDoesNotProve).map(cleanPrimaryAnswerText),
+      missingData: safeArray(card?.missingData || card?.missingObservations || card?.missingAnalysis).map(cleanPrimaryAnswerText),
+      observationTypesUsed: safeArray(card?.observationTypesUsed),
+      observationTypesMissing: safeArray(card?.observationTypesMissing || card?.missingObservationTypes),
+      boundary: cleanPrimaryAnswerText(card?.boundary || card?.contextBoundary),
       shortAnswer: cleanPrimaryAnswerText(card?.shortAnswer),
       fundamentalAnalysis: cleanPrimaryAnswerText(card?.fundamentalAnalysis),
       riskImpact: cleanPrimaryAnswerText(card?.riskImpact),
@@ -3089,12 +3096,22 @@ export function buildProtectedInvestorReportText({
   const selectedQuestions = institutionalSurfaceCards.length ? institutionalSurfaceCards.slice(0, 8) : [...questions, ...tokenomicsQuestions].slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
     if (institutionalSurfaceCards.length) {
-      const missingEvidence = normalizeRenderableList(question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
+      const dataUsed = safeArray(question.dataUsed)
+        .slice(0, 4)
+        .map((item) => cleanPrimaryAnswerText(`${item?.label || "Data"}: ${item?.displayValue || item?.value || item}`));
+      const support = normalizeRenderableList(question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
+      const limits = normalizeRenderableList(question.whatDataDoesNotProve || question.whatThisDoesNotProve).slice(0, 3).map(cleanPrimaryAnswerText);
+      const missingEvidence = normalizeRenderableList(question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
       return [
         `${index + 1}. ${cleanPrimaryAnswerText(question.question || "Institutional question")}`,
-        `   Status: ${cleanPrimaryAnswerText(question.statusLabel || question.sourceStateLabel || "Needs verification")}`,
-        `   Answer: ${cleanPrimaryAnswerText(question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
-        ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.join("; ")}`] : []),
+        `   Answer state: ${cleanPrimaryAnswerText(titleCase(question.answerState || question.statusLabel || question.sourceStateLabel || "Needs verification"))}`,
+        `   Answer: ${cleanPrimaryAnswerText(question.answer || question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
+        `   Data used: ${dataUsed.length ? dataUsed.join("; ") : "No question-specific data attached."}`,
+        `   Support: ${support.length ? support.join("; ") : "No bounded support conclusion attached."}`,
+        `   Limits: ${limits.length ? limits.join("; ") : "No additional limits attached."}`,
+        `   Missing data: ${missingEvidence.length ? missingEvidence.join("; ") : "No material missing inputs attached."}`,
+        `   Next step: ${cleanPrimaryAnswerText(question.analystNextStep || safeArray(question.openChecks)[0] || "No additional diligence step attached.")}`,
+        `   Boundary: ${cleanPrimaryAnswerText(question.boundary || question.contextBoundary || "Use only within the stated evidence scope.")}`,
       ];
     }
     const answer = question?.synthesizedAnswer || {};
@@ -9123,6 +9140,11 @@ export function buildReviewBundleText({
       bundleField("Invalid proxy answers found", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersFound ?? 0),
       bundleField("Invalid proxy answers blocked", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.invalidProxyAnswersBlocked ?? 0),
       bundleField("Available=yes with data=none findings", institutionalAnswerSurfaceContract?.productLayer?.registryEnforcementSummary?.availableYesDataNoneFindings ?? 0),
+      bundleField("API fields converted to typed observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).length),
+      bundleField("Direct-answer observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).filter((item) => item.answerUse === "direct_answer_evidence").length),
+      bundleField("Partial-answer observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).filter((item) => item.answerUse === "partial_answer_evidence").length),
+      bundleField("Market-context observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).filter((item) => item.answerUse === "market_context").length),
+      bundleField("Forbidden-proxy observations", safeArray(typedObservationLayerContract?.eligibleAnswerObservations).filter((item) => item.answerUse === "forbidden_proxy").length),
       bundleField("Fallback quality version", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.version),
       bundleField("Fallback cards rewritten", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.fallbackCardsRewritten ?? 0),
       bundleField("Cards mapped to contracts", institutionalAnswerSurfaceContract?.productLayer?.fallbackQualitySummary?.cardsMappedToContracts ?? 0),
@@ -9191,13 +9213,13 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | gate=${card.registryGateStatus || "unknown"} | contract=${card.registryContractUsed?.questionId || "none"} | readiness=${card.answerReadiness || "unknown"} | semanticSource=${card.semanticStatusSource || "unknown"} | eligible=${safeArray(card.questionSpecificEvidence).length} | context=${safeArray(card.availableContext).length} | rejected=${safeArray(card.rejectedQuestionEvidence).length} | missing=${safeArray(card.missingObservationTypes).join(", ") || "none"} | boundary=${card.contextBoundary || "none"}`
       ), "No per-card registry enforcement diagnostics attached.", 60),
-      "Per-card v1.2.2 fallback quality diagnostics:",
+      "Per-card v1.2.3 API-first answer diagnostics:",
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | fallbackRewritten=${yesNoUnknown(card.fallbackCopyRewritten)} | mapped=${yesNoUnknown(Boolean(card.registryContractUsed))} | primaryInternalHidden=${yesNoUnknown(card.primaryUiInternalWordingHidden)} | identityMissingSuppressed=${yesNoUnknown(card.identityMissingEvidenceSuppressed)} | mechanismSeparated=${yesNoUnknown(card.mechanismContextSeparated)} | liveEvidence=${card.currentLiveEvidenceStatus || "unknown"}`
       ), "No fallback-quality diagnostics attached.", 60),
-      "Per-card v1.2.2 final primary answer text:",
+      "Per-card v1.2.3 final primary answer text:",
       bundleList(institutionalAnswerCards.map((card) =>
-        `${card.cardId || "card"} | answer=${card.answer || card.shortAnswer || "missing"} | context=${safeArray(card.availableContextSummary).join(" / ") || "none"} | missing=${safeArray(card.missingObservations || card.missingAnalysis).join(" / ") || "none"} | doesNotProve=${safeArray(card.whatThisDoesNotProve).join(" / ") || "none"} | next=${card.analystNextStep || "none"}`
+        `${card.cardId || "card"} | state=${card.answerState || "missing_key_data"} | answer=${card.answer || card.shortAnswer || "missing"} | dataUsed=${safeArray(card.dataUsed).map((item) => item?.label || item).join(" / ") || "none"} | observationTypesUsed=${safeArray(card.observationTypesUsed).join(",") || "none"} | observationTypesMissing=${safeArray(card.observationTypesMissing).join(",") || "none"} | supports=${safeArray(card.whatDataSupports || card.whatThisSupports).join(" / ") || "none"} | missing=${safeArray(card.missingData || card.missingObservations || card.missingAnalysis).join(" / ") || "none"} | doesNotProve=${safeArray(card.whatDataDoesNotProve || card.whatThisDoesNotProve).join(" / ") || "none"} | next=${card.analystNextStep || "none"}`
       ), "No final primary answer text attached.", 60),
       "Rejected question evidence (audit-only):",
       bundleList(institutionalAnswerCards.flatMap((card) =>
