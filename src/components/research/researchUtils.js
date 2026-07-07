@@ -1627,6 +1627,42 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
   };
 }
 
+export function normalizeMarketWideAnalystPipelinePurityPayload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const rootContract = safeObject(root.marketWideAnalystPipelinePurityContract);
+  const nestedContract = safeObject(nestedAnalysis.marketWideAnalystPipelinePurityContract);
+  const contract = rootContract.contractAttached || rootContract.artifactVersion
+    ? rootContract
+    : nestedContract.contractAttached || nestedContract.artifactVersion
+      ? nestedContract
+      : null;
+  if (!contract) return null;
+  return {
+    ...contract,
+    pipelineStages: safeArray(contract.pipelineStages),
+    familiesCovered: safeArray(contract.familiesCovered),
+    familyPolicy: safeObject(contract.familyPolicy),
+    familyPolicies: safeArray(contract.familyPolicies),
+    questionTraces: safeArray(contract.questionTraces).map((trace) => ({
+      ...safeObject(trace),
+      observationTypesUsed: safeArray(trace?.observationTypesUsed),
+      observationTypesMissing: safeArray(trace?.observationTypesMissing),
+      claimSupported: safeArray(trace?.claimSupported).map(cleanPrimaryAnswerText),
+      unsupportedInference: safeArray(trace?.unsupportedInference).map(cleanPrimaryAnswerText),
+      missingData: safeArray(trace?.missingData).map(cleanPrimaryAnswerText),
+      nextStep: cleanPrimaryAnswerText(trace?.nextStep),
+    })),
+    productSurfaceGate: safeObject(contract.productSurfaceGate),
+    frontendParity: safeObject(contract.frontendParity),
+    copyBundleParity: safeObject(contract.copyBundleParity),
+    protectedReportParity: safeObject(contract.protectedReportParity),
+    guardrailsVerified: safeObject(contract.guardrailsVerified),
+    failures: safeArray(contract.failures),
+    knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
+  };
+}
+
 const PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS = {
   defi_governance_value_capture: [
     /\breserves? (?:attestation|composition|backing|audit|proof)s?\b|\breserve attestations?\b/i,
@@ -3106,6 +3142,10 @@ export function buildProtectedInvestorReportText({
   const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
     || normalizeFinalAnalystAnswerComposerPayload(safeData)
     || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
+  const marketWideAnalystPipelinePurityContract = safeModel.marketWideAnalystPipelinePurityContract
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeModel)
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeData)
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
   const institutionalAnswerProductLayer = safeObject(institutionalAnswerSurfaceContract?.productLayer);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
@@ -3268,6 +3308,12 @@ export function buildProtectedInvestorReportText({
     reportLine("Live data readiness", evidenceProvenanceSemanticsContract?.assetSummary?.liveDataReadiness),
     reportLine("Score evidence basis", evidenceProvenanceSemanticsContract?.assetSummary?.scoreEvidenceBasis),
     reportLine("Route boundary", "Primary route reflects the current live asset interpretation. Raw resolver and benchmark diagnostics are omitted from this protected report."),
+    ...(marketWideAnalystPipelinePurityContract?.contractAttached ? [
+      reportLine("Analyst pipeline purity", marketWideAnalystPipelinePurityContract.status === "PASS" ? "Clean family-bound analyst pipeline attached" : "Analyst pipeline requires review"),
+      reportLine("Pipeline family", marketWideAnalystPipelinePurityContract.canonicalFamily),
+      reportLine("Pipeline question group", marketWideAnalystPipelinePurityContract.canonicalQuestionGroup),
+      reportLine("Pipeline surface rule", marketWideAnalystPipelinePurityContract.familyPolicy?.productSurfaceRule || "Primary product output uses clean analyst answers; internals stay in audit."),
+    ] : []),
     ...(finalAnalystAnswerComposerContract?.contractAttached ? [
       "",
       "Final analyst view:",
@@ -6271,6 +6317,7 @@ export function buildDecisionTerminalModel({
   }) || rawPrimaryAnalysisRoute;
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const finalAnalystAnswerComposerContract = normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
+  const marketWideAnalystPipelinePurityContract = normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -6727,6 +6774,7 @@ export function buildDecisionTerminalModel({
     representationFamilyEvidenceGates,
     institutionalAnswerSurfaceContract,
     finalAnalystAnswerComposerContract,
+    marketWideAnalystPipelinePurityContract,
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
     familyCanonicalRoutingContract,
@@ -8075,6 +8123,13 @@ export function buildReviewBundleText({
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
+  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
+    || normalizeFinalAnalystAnswerComposerPayload(safeData)
+    || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
+  const marketWideAnalystPipelinePurityContract = safeModel.marketWideAnalystPipelinePurityContract
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeModel)
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeData)
+    || normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -8142,9 +8197,6 @@ export function buildReviewBundleText({
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeModel)
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeData)
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeAnalysis);
-  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
-    || normalizeFinalAnalystAnswerComposerPayload(safeData)
-    || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const searchIdentityReconciliation = assetIdentityResolution?.searchIdentityReconciliation || null;
   const questions = safeModel.institutionalQuestions || normalizeInstitutionalQuestionsPayload(safeAnalysis).institutionalQuestions;
   const institutionalAnswerCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
@@ -9241,6 +9293,43 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(finalAnalystAnswerComposerContract?.knownLimitations),
       bundleField("Next resume pointer", finalAnalystAnswerComposerContract?.nextResumePointer),
+    ]),
+    bundleSection("2BE. Market-Wide Analyst Pipeline Purity + Premium Product Surface v1", [
+      bundleField("Contract attached", marketWideAnalystPipelinePurityContract ? "yes" : "missing"),
+      bundleField("Artifact version", marketWideAnalystPipelinePurityContract?.artifactVersion),
+      bundleField("Status", marketWideAnalystPipelinePurityContract?.status),
+      bundleField("Backend authoritative", yesNoUnknown(marketWideAnalystPipelinePurityContract?.backendAuthoritative)),
+      bundleField("Canonical family", marketWideAnalystPipelinePurityContract?.canonicalFamily),
+      bundleField("Canonical question group", marketWideAnalystPipelinePurityContract?.canonicalQuestionGroup),
+      bundleField("Families covered", safeArray(marketWideAnalystPipelinePurityContract?.familiesCovered).length),
+      bundleField("Primary product source", marketWideAnalystPipelinePurityContract?.frontendParity?.primaryProductSource),
+      bundleField("Frontend may synthesize claims", yesNoUnknown(marketWideAnalystPipelinePurityContract?.frontendParity?.frontendMaySynthesizeClaims)),
+      bundleField("Copy Bundle user mirror uses composer", yesNoUnknown(marketWideAnalystPipelinePurityContract?.copyBundleParity?.copyBundleUserMirrorUsesComposer)),
+      bundleField("Protected Report high-level only", yesNoUnknown(marketWideAnalystPipelinePurityContract?.protectedReportParity?.highLevelOnly)),
+      "Pipeline stages:",
+      bundleList(safeArray(marketWideAnalystPipelinePurityContract?.pipelineStages).map((stage) =>
+        `${stage.label || stage.stageId}: ${stage.status || "unknown"} | ${stage.summary || "No summary"}`
+      )),
+      "Family policy:",
+      bundleList([
+        `sourceMatrix=${marketWideAnalystPipelinePurityContract?.familyPolicy?.sourceMatrix || "missing"}`,
+        `focus=${safeArray(marketWideAnalystPipelinePurityContract?.familyPolicy?.primaryDiligenceFocus).join("; ") || "missing"}`,
+        `eligible=${safeArray(marketWideAnalystPipelinePurityContract?.familyPolicy?.eligibleObservationDomains).join("; ") || "missing"}`,
+        `forbidden proxies=${safeArray(marketWideAnalystPipelinePurityContract?.familyPolicy?.forbiddenProxyDomains).join("; ") || "missing"}`,
+      ]),
+      "Question traces:",
+      bundleList(safeArray(marketWideAnalystPipelinePurityContract?.questionTraces).map((trace) =>
+        `${trace.question || trace.questionId} | state=${trace.answerState || "unknown"} | data=${trace.dataUsedCount ?? 0} | missing=${safeArray(trace.missingData).join("; ") || "none"} | next=${trace.nextStep || "none"}`
+      ), "No question traces attached.", 20),
+      "Product surface gate:",
+      bundleList(Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.productSurfaceGate)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.guardrailsVerified)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      "Failures:",
+      bundleList(marketWideAnalystPipelinePurityContract?.failures, "No pipeline purity failures detected."),
+      "Known limitations:",
+      bundleList(marketWideAnalystPipelinePurityContract?.knownLimitations),
+      bundleField("Next resume pointer", marketWideAnalystPipelinePurityContract?.nextResumePointer),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),
