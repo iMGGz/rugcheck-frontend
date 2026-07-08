@@ -575,6 +575,8 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
   const lens = safeObject(model?.resolvedInstitutionalLens);
   const analystWorkflow = safeObject(resolveInstitutionalAnalystWorkflowContract(model));
   const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
+  const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
+  const composerAvailable = finalComposer?.contractAttached === true;
   const tokenomicsDisplay = safeObject(answerProduct.tabDisplayModel?.tokenomics);
 
   if (!tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
@@ -632,7 +634,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
       </ExecutiveSummaryCard>
 
-      {answerProduct.productLayerVersion ? (
+      {!composerAvailable && answerProduct.productLayerVersion ? (
         <Card title="Current Supply Facts" subtitle="Backend-derived market and supply observations are shown before open diligence items." styles={styles}>
           <FieldGrid>
             {safeArray(answerProduct.currentDataUsed).slice(0, 10).map((point) => (
@@ -659,7 +661,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         </Card>
       ) : null}
 
-      {!answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && !answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Tokenomics Assessment" subtitle="Workflow synthesis from eligible supply, governance, rights, and control observations." styles={styles}>
           <SectionRow label="Workflow summary" value={analystWorkflow.tokenomicsAnalysis?.summary || "No autonomous tokenomics summary attached."} styles={styles} />
           <ListBlock

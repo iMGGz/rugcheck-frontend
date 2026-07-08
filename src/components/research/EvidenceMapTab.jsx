@@ -519,14 +519,26 @@ export default function EvidenceMapTab({
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
-  const productEvidence = answerProduct?.tabDisplayModel?.evidenceMap || {};
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const composerAvailable = finalComposer?.contractAttached === true;
+  const composerEvidence = composerAvailable ? {
+    confirmedFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports)).slice(0, 6),
+    providerReportedFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) =>
+      safeArray(answer.dataUsed).map((item) => `${item.label || "Data"}: ${item.displayValue || item.value || "available"}`)
+    ).slice(0, 6),
+    missingFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.gap || answer.missingData)).slice(0, 8),
+    unsupportedInferences: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.whatTheDataDoesNotProve)).slice(0, 6),
+  } : {};
+  const productEvidence = composerAvailable ? composerEvidence : answerProduct?.tabDisplayModel?.evidenceMap || {};
 
   return (
     <div style={styles.evidenceMapShell}>
       <ExecutiveSummaryCard
         eyebrow="Evidence Map / Source Trace"
         title="What evidence is actually attached?"
-        answer={answerProduct?.productLayerVersion
+        answer={composerAvailable
+          ? "Canonical analyst answers separate evidence, missing data, and unsupported inferences below."
+          : answerProduct?.productLayerVersion
           ? "Current facts, provider-reported context, missing evidence, and unsupported inferences are separated below."
           : "This tab separates reviewed evidence, provider metadata, source candidates, diagnostics, and missing/stale sections."}
         tone="#7dd3fc"
@@ -538,7 +550,7 @@ export default function EvidenceMapTab({
         ]}
         styles={styles}
       >
-        {!answerProduct?.productLayerVersion ? <div style={styles.evidenceMapBoundaryStrip}>
+        {!composerAvailable && !answerProduct?.productLayerVersion ? <div style={styles.evidenceMapBoundaryStrip}>
           {boundaryChip(styles, "This view maps live provider/source context from the current analysis response. It is not the full institutional evidence map.")}
           {boundaryChip(styles, "Report-only overlays are not connected to live scoring.")}
           {boundaryChip(styles, "Source candidates require review before becoming evidence.")}
@@ -557,7 +569,7 @@ export default function EvidenceMapTab({
         />
       </ExecutiveSummaryCard>
 
-      {answerProduct?.productLayerVersion ? (
+      {composerAvailable || answerProduct?.productLayerVersion ? (
         <div style={styles.advancedGrid}>
           <Card title="Facts Attached" subtitle="Backend-derived facts used by the analyst surface." styles={styles}>
             <ListBlock title="Reviewed / supported facts" items={productEvidence.confirmedFacts} emptyText="No reviewed fact attached." color="#a6f3c2" styles={styles} />
@@ -570,7 +582,7 @@ export default function EvidenceMapTab({
         </div>
       ) : null}
 
-      {!answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && !answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Analyst Evidence Boundary" subtitle="Only family-compatible typed observations can support workflow answers." styles={styles}>
           <div style={styles.evidenceMapBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.typedObservations?.filter((entry) => entry.questionApplicability === "eligible").length || 0} eligible observations`)}

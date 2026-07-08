@@ -460,14 +460,19 @@ export default function ScoringTransparencyTab({
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
   const sourceCoverageRegistry = safeObject(model?.institutionalQuestionSourceCoverageContract);
   const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
+  const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
+  const composerAvailable = finalComposer?.contractAttached === true;
   const scoringDisplay = safeObject(answerProduct.tabDisplayModel?.scoring);
+  const composerScore = safeObject(finalComposer.scoreExplanationBridge);
 
   return (
     <div style={styles.scoringTransparencyShell}>
       <ExecutiveSummaryCard
         eyebrow="Scoring Transparency"
         title="Why does the score look like this?"
-        answer={scoringDisplay.summary || model?.institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary || "This view explains the current score, the data that supports confidence, and the measurements still needed."}
+        answer={composerAvailable
+          ? composerScore.explanation || "This view explains the current score, verdict, and confidence using the canonical analyst composer."
+          : scoringDisplay.summary || model?.institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary || "This view explains the current score, the data that supports confidence, and the measurements still needed."}
         tone="#7dd3fc"
         badges={[
           { label: `Overall: ${overallModule?.value || "Unavailable"}`, tone: "#7dd3fc" },
@@ -483,14 +488,14 @@ export default function ScoringTransparencyTab({
         </div>
         <ListBlock
           title="What currently caps confidence"
-          items={safeArray(scoringDisplay.confidenceCaps || answerProduct.missingAnalysis).slice(0, 4)}
+          items={safeArray(composerAvailable ? composerScore.whatWouldImproveScoreOrConfidence : scoringDisplay.confidenceCaps || answerProduct.missingAnalysis).slice(0, 4)}
           emptyText="No additional confidence cap was attached."
           color="#f9d976"
           styles={styles}
         />
         <SectionRow
           label="Score meaning"
-          value={scoringDisplay.boundary || "The displayed score reflects the current model. Additional evidence can improve confidence without changing the formula in this release."}
+          value={composerAvailable ? "The displayed score reflects the current model. The canonical composer explains it without changing the formula." : scoringDisplay.boundary || "The displayed score reflects the current model. Additional evidence can improve confidence without changing the formula in this release."}
           styles={styles}
         />
       </ExecutiveSummaryCard>
@@ -515,7 +520,7 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
-      {!answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && !answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Module Readiness" subtitle="Diagnostic input readiness only; final score and verdict formulas are unchanged." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.moduleScoringReadiness?.filter((module) => module.autonomousInputSupport === "strong").length || 0} strong-support modules`)}
@@ -534,7 +539,7 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
-      {!answerProduct.productLayerVersion && methodologyContract.contractVersion === "1.1.0" ? (
+      {!composerAvailable && !answerProduct.productLayerVersion && methodologyContract.contractVersion === "1.1.0" ? (
         <Card title="Methodology Readiness" subtitle="Diagnostic framework only; it does not alter the current score or verdict." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${methodologyContract.registrySummary?.canonicalFamilyCount || 0} canonical families`)}

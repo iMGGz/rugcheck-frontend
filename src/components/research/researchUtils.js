@@ -723,6 +723,7 @@ export function normalizeInstitutionalAnswerSurfacePayload(responseLike) {
     },
     productLayer: {
       ...safeObject(contract.productLayer),
+      canonicalOwnerDisposition: safeObject(contract.productLayer?.canonicalOwnerDisposition),
       currentDataUsed: safeArray(contract.productLayer?.currentDataUsed),
       claimTrace: safeArray(contract.productLayer?.claimTrace),
       semanticStatusSummary: {
@@ -1586,11 +1587,15 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
     fundamentalQuestionAnswers: safeArray(contract.fundamentalQuestionAnswers).map((answer) => ({
       ...safeObject(answer),
       question: cleanPrimaryAnswerText(answer?.question),
+      directAnswer: cleanPrimaryAnswerText(answer?.directAnswer || answer?.answer),
       answer: cleanPrimaryAnswerText(answer?.answer),
       dataUsed: safeArray(answer?.dataUsed),
+      evidenceBehindIt: safeArray(answer?.evidenceBehindIt || answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
       whatTheDataSupports: safeArray(answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
+      gap: safeArray(answer?.gap || answer?.missingData).map(cleanPrimaryAnswerText),
       whatTheDataDoesNotProve: safeArray(answer?.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
       missingData: safeArray(answer?.missingData).map(cleanPrimaryAnswerText),
+      whatWouldChangeTheView: cleanPrimaryAnswerText(answer?.whatWouldChangeTheView || answer?.analystNextStep),
       analystNextStep: cleanPrimaryAnswerText(answer?.analystNextStep),
       observationTypesUsed: safeArray(answer?.observationTypesUsed),
       observationTypesMissing: safeArray(answer?.observationTypesMissing),
@@ -1622,6 +1627,7 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
       identityGrammarFindings: safeArray(contract.familyPurityDiagnostics?.identityGrammarFindings),
       quarantinedPrimaryItems: safeArray(contract.familyPurityDiagnostics?.quarantinedPrimaryItems),
     },
+    canonicalRenderOwnership: safeObject(contract.canonicalRenderOwnership),
     guardrails: safeObject(contract.guardrails),
     knownLimitations: safeArray(contract.knownLimitations).map(cleanPrimaryAnswerText),
   };
@@ -3215,18 +3221,18 @@ export function buildProtectedInvestorReportText({
       const dataUsed = safeArray(question.dataUsed)
         .slice(0, 4)
         .map((item) => cleanPrimaryAnswerText(`${item?.label || "Data"}: ${item?.displayValue || item?.value || item}`));
-      const support = normalizeRenderableList(question.whatTheDataSupports || question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
+      const support = normalizeRenderableList(question.evidenceBehindIt || question.whatTheDataSupports || question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
       const limits = normalizeRenderableList(question.whatTheDataDoesNotProve || question.whatDataDoesNotProve || question.whatThisDoesNotProve).slice(0, 3).map(cleanPrimaryAnswerText);
-      const missingEvidence = normalizeRenderableList(question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
+      const missingEvidence = normalizeRenderableList(question.gap || question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
       return [
         `${index + 1}. ${cleanPrimaryAnswerText(question.question || "Institutional question")}`,
         `   Answer state: ${cleanPrimaryAnswerText(titleCase(question.answerState || question.statusLabel || question.sourceStateLabel || "Needs verification"))}`,
-        `   Answer: ${cleanPrimaryAnswerText(question.answer || question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
+        `   Answer: ${cleanPrimaryAnswerText(question.directAnswer || question.answer || question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
         `   Data used: ${dataUsed.length ? dataUsed.join("; ") : "No question-specific data attached."}`,
         `   Support: ${support.length ? support.join("; ") : "No bounded support conclusion attached."}`,
         `   Limits: ${limits.length ? limits.join("; ") : "No additional limits attached."}`,
         `   Missing data: ${missingEvidence.length ? missingEvidence.join("; ") : "No material missing inputs attached."}`,
-        `   Next step: ${cleanPrimaryAnswerText(question.analystNextStep || safeArray(question.openChecks)[0] || "No additional diligence step attached.")}`,
+        `   Next step: ${cleanPrimaryAnswerText(question.whatWouldChangeTheView || question.analystNextStep || safeArray(question.openChecks)[0] || "No additional diligence step attached.")}`,
         `   Boundary: ${cleanPrimaryAnswerText(question.boundary || question.contextBoundary || "Use only within the stated evidence scope.")}`,
       ];
     }
@@ -9247,6 +9253,15 @@ export function buildReviewBundleText({
       bundleField("Contract attached", finalAnalystAnswerComposerContract ? "yes" : "missing"),
       bundleField("Artifact version", finalAnalystAnswerComposerContract?.artifactVersion),
       bundleField("Backend authoritative", yesNoUnknown(finalAnalystAnswerComposerContract?.backendAuthoritative)),
+      bundleField("Canonical render owner", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.ownerStage),
+      bundleField("Primary render source", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.primaryRenderSource),
+      bundleField("Answer structure", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.answerStructure),
+      bundleField("Legacy layers static/audit only", yesNoUnknown(finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.legacyLayersStaticAuditOnly)),
+      bundleField("Frontend primary source", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.frontendPrimarySource),
+      bundleField("Copy Bundle primary source", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.copyBundlePrimarySource),
+      bundleField("Protected Report primary source", finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.protectedReportPrimarySource),
+      "Superseded live product-truth layers:",
+      bundleList(finalAnalystAnswerComposerContract?.canonicalRenderOwnership?.supersedesLiveProductTruth),
       bundleField("Canonical family", finalAnalystAnswerComposerContract?.canonicalFamily),
       bundleField("Canonical question group", finalAnalystAnswerComposerContract?.canonicalQuestionGroup),
       bundleField("Canonical asset", finalAnalystAnswerComposerContract?.assetSummary?.canonicalAsset),
@@ -9266,7 +9281,7 @@ export function buildReviewBundleText({
       ].filter(Boolean)),
       "User-facing fundamental answers:",
       bundleList(safeArray(finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers).map((answer) =>
-        `${answer.question} | state=${answer.answerState || "missing_key_data"} | answer=${answer.answer || "missing"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | supports=${safeArray(answer.whatTheDataSupports).join(" / ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | missing=${safeArray(answer.missingData).join(" / ") || "none"} | next=${answer.analystNextStep || "none"} | boundary=${answer.boundary || "none"}`
+        `${answer.question} | state=${answer.answerState || "missing_key_data"} | direct=${answer.directAnswer || answer.answer || "missing"} | evidence=${safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports).join(" / ") || "none"} | gap=${safeArray(answer.gap || answer.missingData).join(" / ") || "none"} | whatWouldChange=${answer.whatWouldChangeTheView || answer.analystNextStep || "none"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | boundary=${answer.boundary || "none"}`
       ), "No final composer answers attached.", 20),
       "Family-bound Source Queue:",
       bundleList(finalAnalystAnswerComposerContract?.sourceQueuePriorities),
@@ -9334,6 +9349,10 @@ export function buildReviewBundleText({
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),
       bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
+      bundleField("Live primary truth", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.livePrimaryTruth)),
+      bundleField("Superseded by", institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.supersededBy),
+      bundleField("Disposition", institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.disposition),
+      bundleField("Disposition reason", institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.reason),
       bundleField("Asset family", institutionalAnswerSurfaceContract?.assetFamily),
       bundleField("Cards transformed", institutionalAnswerSurfaceContract?.cardsTransformedCount ?? institutionalAnswerCards.length),
       bundleField("Rejected incompatible raw answers (audit-only)", institutionalAnswerSurfaceContract?.rejectedIncompatibleAnswerCount ?? 0),

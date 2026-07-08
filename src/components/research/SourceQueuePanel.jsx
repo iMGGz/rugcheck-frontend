@@ -373,6 +373,7 @@ export default function SourceQueuePanel({
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const composerAvailable = finalComposer?.contractAttached === true;
   const nextDiligence = safeArray(finalComposer?.sourceQueuePriorities).length
     ? safeArray(finalComposer.sourceQueuePriorities)
     : safeArray(answerProduct?.tabDisplayModel?.recommendedNextDiligence?.items);
@@ -398,7 +399,7 @@ export default function SourceQueuePanel({
         <ListBlock title="Priority diligence" items={nextDiligence.slice(0, 5)} emptyText="No priority diligence attached." color="#9bd7ff" styles={styles} />
       </ExecutiveSummaryCard>
 
-      {!answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && !answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Workflow Data Gaps" subtitle="Inputs needed to answer canonical institutional questions more completely." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.rawProblemDataInventory?.availableCategories?.length || 0} available categories`)}
