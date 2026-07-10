@@ -331,11 +331,18 @@ function AllocationCaseSection({ model, styles }) {
 }
 
 export default function ThesisFalsificationTab({ model, displayIdentity = null, styles, onSelectSection }) {
-  const thesis = buildThesisModel(model || {}, displayIdentity);
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
-  const productThesis = answerProduct?.tabDisplayModel?.thesisFalsification || {};
+  const thesis = composerAvailable ? buildThesisModel(model || {}, displayIdentity) : {
+    allocationThesis: "Canonical analyst report unavailable for this response.",
+    whatMustBeTrue: [],
+    whatCouldBreak: [],
+    weakestLinkExplanation: "Canonical judgment state required.",
+    weakestLinkLabel: "Evidence unavailable",
+    missingContext: [],
+    whatWouldChange: [],
+    falsePositiveRisk: "No thesis conclusion is rendered without the canonical report.",
+  };
   if (composerAvailable) {
     thesis.allocationThesis = finalComposer.analystView?.headline || thesis.allocationThesis;
     thesis.whatMustBeTrue = normalizeRenderableList(finalComposer.fundamentalQuestionAnswers?.map((answer) => answer.directAnswer || answer.answer)).slice(0, 4);
@@ -344,14 +351,6 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
     thesis.missingContext = normalizeRenderableList(finalComposer.analystView?.missingForHigherConviction).length ? normalizeRenderableList(finalComposer.analystView.missingForHigherConviction) : thesis.missingContext;
     thesis.whatWouldChange = normalizeRenderableList(finalComposer.sourceQueuePriorities).length ? normalizeRenderableList(finalComposer.sourceQueuePriorities) : thesis.whatWouldChange;
     thesis.falsePositiveRisk = finalComposer.availableDataSummary?.limitations?.[0] || thesis.falsePositiveRisk;
-  } else if (answerProduct?.productLayerVersion) {
-    thesis.allocationThesis = answerProduct.assetResearchSummary?.assetSpecificThesis || thesis.allocationThesis;
-    thesis.whatMustBeTrue = productThesis.whatMustBeTrue?.length ? productThesis.whatMustBeTrue : thesis.whatMustBeTrue;
-    thesis.whatCouldBreak = productThesis.whatCouldBreak?.length ? productThesis.whatCouldBreak : thesis.whatCouldBreak;
-    thesis.weakestLinkExplanation = productThesis.weakestAssumption || thesis.weakestLinkExplanation;
-    thesis.missingContext = productThesis.missingMeasurements?.length ? productThesis.missingMeasurements : thesis.missingContext;
-    thesis.whatWouldChange = answerProduct.whatWouldChange?.length ? answerProduct.whatWouldChange : thesis.whatWouldChange;
-    thesis.falsePositiveRisk = answerProduct.unsupportedInferences?.[0] || thesis.falsePositiveRisk;
   }
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis";
 
@@ -362,7 +361,7 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
         subtitle="A decision-oriented view of what must be true, what could break, and what the engine refuses to infer."
         styles={styles}
       >
-        {composerAvailable || answerProduct?.productLayerVersion ? null : (
+        {composerAvailable ? null : (
           <div style={styles.thesisBoundaryStrip}>
             <BoundaryChip styles={styles}>This tab uses the current live analysis response</BoundaryChip>
             <BoundaryChip styles={styles}>Falsification separates supported conclusions from stronger unsupported inferences</BoundaryChip>
@@ -425,7 +424,7 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
             { label: "Why it matters", value: "These are the concrete source-backed conditions that could improve or alter the current thesis." },
             { label: "What would change", value: thesis.whatWouldChange.slice(0, 4).join("; ") || "Additional verified evidence required." },
             { label: "Impact", value: "Potential confidence improvement only after source review." },
-            { label: "Current boundary", value: finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary || "The listed evidence must be verified before it changes the thesis." },
+            { label: "Current boundary", value: finalComposer?.assetSummary?.representationBoundary || "Canonical judgment state is required before thesis evidence is rendered." },
           ]}
           styles={styles}
         />

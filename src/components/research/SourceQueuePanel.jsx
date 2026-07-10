@@ -356,7 +356,23 @@ export default function SourceQueuePanel({
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
   const domains = suggestedResearchDomains(model, displayIdentity);
-  const researchRequirements = safeArray(model?.researchRequirements);
+  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
+  const composerAvailable = finalComposer?.contractAttached === true;
+  const nextDiligence = safeArray(finalComposer?.sourceQueuePriorities);
+  const canonicalJudgments = safeArray(finalComposer?.canonicalQuestionJudgments);
+  const researchRequirements = composerAvailable
+    ? nextDiligence.map((requirement, index) => ({
+      id: `canonical-diligence-${index}`,
+      title: requirement,
+      reason: "Derived from the canonical question judgment gap and next-evidence state.",
+      evidenceNeeded: [requirement],
+      preferredSourceTypes: [],
+      priority: index < 2 ? "high" : "medium",
+      verdictImpact: "May improve confidence if the canonical evidence gap is resolved.",
+      currentStatus: "needs_verification",
+      canChangeVerdict: false,
+    }))
+    : safeArray(model?.researchRequirements);
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
@@ -371,12 +387,6 @@ export default function SourceQueuePanel({
   const candidateAccounting = sourceCandidateRegistry.candidateAccountingSummary || sourceDiscovery.candidateAccountingSummary || {};
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
-  const finalComposer = model?.finalAnalystAnswerComposerContract || {};
-  const composerAvailable = finalComposer?.contractAttached === true;
-  const nextDiligence = safeArray(finalComposer?.sourceQueuePriorities).length
-    ? safeArray(finalComposer.sourceQueuePriorities)
-    : safeArray(answerProduct?.tabDisplayModel?.recommendedNextDiligence?.items);
 
   return (
     <div style={styles.sourceQueueShell}>
@@ -394,12 +404,12 @@ export default function SourceQueuePanel({
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary || "Recommended diligence is derived from current missing analysis.")}
+          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || "Canonical question judgments are required before source priorities are rendered.")}
         </div>
         <ListBlock title="Priority diligence" items={nextDiligence.slice(0, 5)} emptyText="No priority diligence attached." color="#9bd7ff" styles={styles} />
       </ExecutiveSummaryCard>
 
-      {!composerAvailable && !answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Workflow Data Gaps" subtitle="Inputs needed to answer canonical institutional questions more completely." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.rawProblemDataInventory?.availableCategories?.length || 0} available categories`)}
@@ -416,7 +426,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {sourceDiscovery.artifactVersion ? (
+      {!composerAvailable && sourceDiscovery.artifactVersion ? (
         <Card title="Source Candidates for Review" subtitle="Bounded discovery leads only; each candidate requires review before evidence use." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${candidateAccounting.acceptedCandidateCount ?? sourceCandidateRegistry.summary?.acceptedCandidateCount ?? 0} accepted`)}
@@ -447,7 +457,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {reviewWorkflow.artifactVersion ? (
+      {!composerAvailable && reviewWorkflow.artifactVersion ? (
         <Card title="Source Candidate Review Workflow" subtitle="Source usefulness review only; accepted candidates are not evidence." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `${reviewQueue.summary?.unreviewedCount || 0} unreviewed`)}
@@ -468,7 +478,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {sourceIntelligence.artifactVersion ? (
+      {!composerAvailable && sourceIntelligence.artifactVersion ? (
         <Card title="Question-Level Source Readiness" subtitle="Missing evidence is prioritized by the canonical question family." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, sourceIntelligence.canonicalFamily || "Family unavailable")}
@@ -488,7 +498,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {reviewedEvidence.packetLoaded ? (
+      {!composerAvailable && reviewedEvidence.packetLoaded ? (
         <Card title="Reviewed Evidence Coverage" subtitle="Mapped evidence can reduce duplicate source asks; remaining gaps stay visible." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `Packet: ${reviewedEvidence.packetId || "loaded"}`)}
@@ -512,7 +522,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {canonicalRoute.artifactVersion ? (
+      {!composerAvailable && canonicalRoute.artifactVersion ? (
         <Card title="Canonical Source Family" subtitle="Effective family controls the primary question group and source matrix." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, canonicalRoute.effectiveFamily || "Family unavailable")}
@@ -529,7 +539,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {coverageGate.artifactVersion ? (
+      {!composerAvailable && coverageGate.artifactVersion ? (
         <Card title="Coverage Upgrade Priorities" subtitle="Sources that would improve analysis depth or score display eligibility." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
@@ -553,7 +563,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {familyMatrix.artifactVersion ? (
+      {!composerAvailable && familyMatrix.artifactVersion ? (
         <Card title="Family Data Requirements" subtitle="Asset-family-specific data and reviewed-source requirements." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, familyMatrix.primaryFamily || "Family unavailable")}
@@ -577,7 +587,7 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {provenance.contractAttached ? (
+      {!composerAvailable && provenance.contractAttached ? (
         <Card title="Evidence Provenance Readiness" subtitle="Separates reviewed evidence, live data, source candidates, and score integration." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, provenance.assetSummary?.summaryLabel || "Evidence provenance separated")}
@@ -617,7 +627,7 @@ export default function SourceQueuePanel({
         />
         <QuestionPromptCard
           question="Which question would it answer?"
-          answer={researchRequirements[0]?.title || reviewLeads[0]?.label || "No mapped research question was attached."}
+          answer={canonicalJudgments[0]?.question || researchRequirements[0]?.title || reviewLeads[0]?.label || "No mapped research question was attached."}
           status="Research requirement"
           impact="Question mapping"
           sourceState="Requirement model"
@@ -633,7 +643,7 @@ export default function SourceQueuePanel({
         />
       </div>
 
-      <CollapsibleDetail title="Source Lifecycle Explainer" subtitle="Report-only workflow. Not live scoring input." styles={styles} tone="#8a94a6">
+      {!composerAvailable ? <CollapsibleDetail title="Source Lifecycle Explainer" subtitle="Report-only workflow. Not live scoring input." styles={styles} tone="#8a94a6">
         <div style={styles.sourceWorkflowGrid}>
           {[
             ["Source Candidate", "Review prompt only. Not evidence.", "Cannot affect scoring"],
@@ -649,9 +659,9 @@ export default function SourceQueuePanel({
             </div>
           ))}
         </div>
-      </CollapsibleDetail>
+      </CollapsibleDetail> : null}
 
-      <div style={styles.advancedGrid}>
+      {!composerAvailable ? <div style={styles.advancedGrid}>
         <Card title="Research Requirements" subtitle="Generated from live gaps. These are not reviewed evidence." styles={styles}>
         <div style={styles.sourceBoundaryStrip}>
           {boundaryChip(styles, "Research requirements are not evidence.")}
@@ -758,7 +768,7 @@ export default function SourceQueuePanel({
             styles={styles}
           />
         </Card>
-      </div>
+      </div> : null}
     </div>
   );
 }

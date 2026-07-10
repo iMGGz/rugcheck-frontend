@@ -458,16 +458,14 @@ export default function AnalysisRightRail({
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || "Asset class unavailable";
   const assetFramingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const identityChip = displayIdentity?.primaryChip || assetClassLabel;
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
-  const productRail = answerProduct?.tabDisplayModel?.rightRail || {};
-  const productLayerAvailable = Boolean(finalComposer?.contractAttached || answerProduct?.productLayerVersion);
+  const canonicalReportAvailable = Boolean(finalComposer?.contractAttached);
   const composerRail = finalComposer?.contractAttached ? {
     topFact: finalComposer.analystView?.strongestPartOfThesis,
     topRisk: finalComposer.riskSummary?.[0] || finalComposer.analystView?.weakestPartOfAnalysis,
     missingCriticalEvidence: finalComposer.analystView?.missingForHigherConviction?.[0],
     nextDiligenceStep: finalComposer.sourceQueuePriorities?.[0],
-  } : productRail;
+  } : {};
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],
     ["institutional_checklist", "Institutional Checklist"],
@@ -509,7 +507,7 @@ export default function AnalysisRightRail({
             </div>
           </RailSection>
 
-          {productLayerAvailable ? (
+          {canonicalReportAvailable ? (
             <RailSection title="Analyst Snapshot" badge="Backend-derived" styles={styles}>
               <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top fact</div><div style={styles.railMiniValue}>{composerRail.topFact}</div></div>
               <div style={styles.railMiniCard}><div style={styles.railMiniLabel}>Top risk</div><div style={styles.railMiniValue}>{composerRail.topRisk}</div></div>
@@ -518,25 +516,25 @@ export default function AnalysisRightRail({
             </RailSection>
           ) : null}
 
-          {!productLayerAvailable ? <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <LensIdentityRailSection model={model} displayIdentity={displayIdentity} styles={styles} /> : null}
 
           <FreshnessRailSection model={model} styles={styles} />
 
           <TokenomicsRailSection model={model} styles={styles} />
 
-          {!productLayerAvailable ? <ScoringReadinessRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <ScoringReadinessRailSection model={model} styles={styles} /> : null}
 
-          {!productLayerAvailable ? <CoverageScoreEligibilityRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <CoverageScoreEligibilityRailSection model={model} styles={styles} /> : null}
 
-          {!productLayerAvailable ? <FamilyDataRequirementRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <FamilyDataRequirementRailSection model={model} styles={styles} /> : null}
 
           <ReviewedEvidenceRailSection model={model} styles={styles} />
 
-          {!productLayerAvailable ? <CategoryDrivenRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <CategoryDrivenRailSection model={model} styles={styles} /> : null}
 
-          {!productLayerAvailable ? <RawDataCoverageRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <RawDataCoverageRailSection model={model} styles={styles} /> : null}
 
-          {!productLayerAvailable ? <AnalystWorkflowRailSection model={model} styles={styles} /> : null}
+          {!canonicalReportAvailable ? <AnalystWorkflowRailSection model={model} styles={styles} /> : null}
 
           <RailSection title="Blocker / Weakest Link" styles={styles}>
             <div style={styles.railMiniCard}>

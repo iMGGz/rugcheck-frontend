@@ -1571,6 +1571,36 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
       ? nestedContract
       : null;
   if (!contract) return null;
+  const canonicalQuestionJudgments = safeArray(
+    safeArray(contract.canonicalQuestionJudgments).length
+      ? contract.canonicalQuestionJudgments
+      : contract.fundamentalQuestionAnswers
+  ).map((answer) => ({
+    ...safeObject(answer),
+    question: cleanPrimaryAnswerText(answer?.question || answer?.questionText),
+    questionText: cleanPrimaryAnswerText(answer?.questionText || answer?.question),
+    directAnswer: cleanPrimaryAnswerText(answer?.directAnswer || answer?.answer),
+    answer: cleanPrimaryAnswerText(answer?.answer || answer?.directAnswer),
+    dataUsed: safeArray(answer?.dataUsed),
+    eligibleObservations: safeArray(answer?.eligibleObservations),
+    contextOnlyObservations: safeArray(answer?.contextOnlyObservations),
+    forbiddenForQuestionObservations: safeArray(answer?.forbiddenForQuestionObservations),
+    unsupportedInferences: safeArray(answer?.unsupportedInferences || answer?.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
+    missingRequiredObservations: safeArray(answer?.missingRequiredObservations || answer?.gap || answer?.missingData).map(cleanPrimaryAnswerText),
+    evidenceBehindIt: safeArray(answer?.evidenceBehindIt || answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
+    whatTheDataSupports: safeArray(answer?.whatTheDataSupports || answer?.evidenceBehindIt).map(cleanPrimaryAnswerText),
+    gap: safeArray(answer?.gap || answer?.missingRequiredObservations || answer?.missingData).map(cleanPrimaryAnswerText),
+    whatTheDataDoesNotProve: safeArray(answer?.whatTheDataDoesNotProve || answer?.unsupportedInferences).map(cleanPrimaryAnswerText),
+    missingData: safeArray(answer?.missingData || answer?.missingRequiredObservations).map(cleanPrimaryAnswerText),
+    whatWouldChangeTheView: cleanPrimaryAnswerText(answer?.whatWouldChangeTheView || answer?.analystNextStep),
+    analystNextStep: cleanPrimaryAnswerText(answer?.analystNextStep || answer?.whatWouldChangeTheView),
+    observationTypesUsed: safeArray(answer?.observationTypesUsed),
+    observationTypesMissing: safeArray(answer?.observationTypesMissing),
+    familyApplicability: safeArray(answer?.familyApplicability),
+    sourceTrace: safeArray(answer?.sourceTrace),
+    auditDiagnostics: safeObject(answer?.auditDiagnostics),
+    boundary: cleanPrimaryAnswerText(answer?.boundary),
+  }));
   return {
     ...contract,
     assetSummary: safeObject(contract.assetSummary),
@@ -1584,24 +1614,8 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
       missingSections: safeArray(contract.availableDataSummary?.missingSections).map(cleanPrimaryAnswerText),
       limitations: safeArray(contract.availableDataSummary?.limitations).map(cleanPrimaryAnswerText),
     },
-    fundamentalQuestionAnswers: safeArray(contract.fundamentalQuestionAnswers).map((answer) => ({
-      ...safeObject(answer),
-      question: cleanPrimaryAnswerText(answer?.question),
-      directAnswer: cleanPrimaryAnswerText(answer?.directAnswer || answer?.answer),
-      answer: cleanPrimaryAnswerText(answer?.answer),
-      dataUsed: safeArray(answer?.dataUsed),
-      evidenceBehindIt: safeArray(answer?.evidenceBehindIt || answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
-      whatTheDataSupports: safeArray(answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
-      gap: safeArray(answer?.gap || answer?.missingData).map(cleanPrimaryAnswerText),
-      whatTheDataDoesNotProve: safeArray(answer?.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
-      missingData: safeArray(answer?.missingData).map(cleanPrimaryAnswerText),
-      whatWouldChangeTheView: cleanPrimaryAnswerText(answer?.whatWouldChangeTheView || answer?.analystNextStep),
-      analystNextStep: cleanPrimaryAnswerText(answer?.analystNextStep),
-      observationTypesUsed: safeArray(answer?.observationTypesUsed),
-      observationTypesMissing: safeArray(answer?.observationTypesMissing),
-      familyApplicability: safeArray(answer?.familyApplicability),
-      boundary: cleanPrimaryAnswerText(answer?.boundary),
-    })),
+    canonicalQuestionJudgments,
+    fundamentalQuestionAnswers: canonicalQuestionJudgments,
     analystView: {
       ...safeObject(contract.analystView),
       missingForHigherConviction: safeArray(contract.analystView?.missingForHigherConviction).map(cleanPrimaryAnswerText),
@@ -3144,7 +3158,6 @@ export function buildProtectedInvestorReportText({
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
-  const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
     || normalizeFinalAnalystAnswerComposerPayload(safeData)
     || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
@@ -3152,7 +3165,6 @@ export function buildProtectedInvestorReportText({
     || normalizeMarketWideAnalystPipelinePurityPayload(safeModel)
     || normalizeMarketWideAnalystPipelinePurityPayload(safeData)
     || normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
-  const institutionalAnswerProductLayer = safeObject(institutionalAnswerSurfaceContract?.productLayer);
   const evidenceStatusAggregationContract = safeModel.evidenceStatusAggregationContract || normalizeEvidenceStatusAggregationPayload(safeData) || normalizeEvidenceStatusAggregationPayload(safeAnalysis);
   const coverageScoreEligibilityContract = safeModel.coverageScoreEligibilityContract || normalizeCoverageScoreEligibilityPayload(safeData) || normalizeCoverageScoreEligibilityPayload(safeAnalysis);
   const familyCanonicalRoutingContract = safeModel.familyCanonicalRoutingContract || normalizeFamilyCanonicalRoutingPayload(safeData) || normalizeFamilyCanonicalRoutingPayload(safeAnalysis);
@@ -3174,7 +3186,6 @@ export function buildProtectedInvestorReportText({
   const sourceCandidateReviewWorkflowContract = safeModel.sourceCandidateReviewWorkflowContract || normalizeSourceCandidateReviewWorkflowPayload(safeModel) || normalizeSourceCandidateReviewWorkflowPayload(safeData) || normalizeSourceCandidateReviewWorkflowPayload(safeAnalysis);
   const sourceCandidateReviewQueueContract = safeModel.sourceCandidateReviewQueueContract || normalizeSourceCandidateReviewQueuePayload(safeModel) || normalizeSourceCandidateReviewQueuePayload(safeData) || normalizeSourceCandidateReviewQueuePayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewQueueContract || null;
   const sourceCandidateReviewAuditTrailContract = safeModel.sourceCandidateReviewAuditTrailContract || normalizeSourceCandidateReviewAuditTrailPayload(safeModel) || normalizeSourceCandidateReviewAuditTrailPayload(safeData) || normalizeSourceCandidateReviewAuditTrailPayload(safeAnalysis) || sourceCandidateReviewWorkflowContract?.sourceCandidateReviewAuditTrailContract || null;
-  const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(safeModel, safeData, safeAnalysis);
   const institutionalQuestionSourceCoverageContract =
     safeModel.institutionalQuestionSourceCoverageContract
     || normalizeInstitutionalQuestionSourceCoveragePayload(safeModel)
@@ -3209,15 +3220,10 @@ export function buildProtectedInvestorReportText({
     safeAsset.name || displayIdentity?.assetName,
     safeAsset.symbol ? `(${safeAsset.symbol})` : "",
   ].filter(Boolean).join(" ") || "Selected asset";
-  const composerCards = safeArray(finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers);
-  const institutionalSurfaceCards = safeArray(institutionalAnswerSurfaceContract?.userAnswerCards);
-  const selectedQuestions = composerCards.length
-    ? composerCards.slice(0, 8)
-    : institutionalSurfaceCards.length
-      ? institutionalSurfaceCards.slice(0, 8)
-      : [...questions, ...tokenomicsQuestions].slice(0, 8);
+  const composerCards = safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments);
+  const selectedQuestions = composerCards.slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
-    if (composerCards.length || institutionalSurfaceCards.length) {
+    if (composerCards.length) {
       const dataUsed = safeArray(question.dataUsed)
         .slice(0, 4)
         .map((item) => cleanPrimaryAnswerText(`${item?.label || "Data"}: ${item?.displayValue || item?.value || item}`));
@@ -3236,16 +3242,7 @@ export function buildProtectedInvestorReportText({
         `   Boundary: ${cleanPrimaryAnswerText(question.boundary || question.contextBoundary || "Use only within the stated evidence scope.")}`,
       ];
     }
-    const answer = question?.synthesizedAnswer || {};
-    const shortAnswer = answer.shortAnswer || answer.answerSummary || question?.shortAnswer || question?.answerSummary;
-    const status = answer.reviewedEvidenceStatus || answer.answerStatus || question?.answerStatus || question?.status || "source_required";
-    const missingEvidence = normalizeRenderableList(answer.missingEvidence || question?.missingEvidence).slice(0, 3);
-    return [
-      `${index + 1}. ${extractRenderableText(question?.question || question?.label || question?.title, "Institutional question")}`,
-      `   Status: ${cleanPrimaryAnswerText(titleCase(status))}`,
-      `   Answer: ${cleanPrimaryAnswerText(extractRenderableText(shortAnswer, "Source review required before a stronger answer is shown."))}`,
-      ...(missingEvidence.length ? [`   Still needed: ${missingEvidence.map(cleanPrimaryAnswerText).join("; ")}`] : []),
-    ];
+    return [];
   });
   const missingEvidence = normalizeRenderableList([
     finalAnalystAnswerComposerContract?.analystView?.missingForHigherConviction,
@@ -3333,24 +3330,6 @@ export function buildProtectedInvestorReportText({
       ...formatReportList(finalAnalystAnswerComposerContract.riskSummary, "No primary risk summary was attached.", 4),
       "Recommended diligence:",
       ...formatReportList(finalAnalystAnswerComposerContract.sourceQueuePriorities, "No next diligence item was attached.", 5),
-    ] : institutionalAnswerProductLayer.productLayerVersion ? [
-      "",
-      "Institutional research summary:",
-      reportLine("Thesis", institutionalAnswerProductLayer.assetResearchSummary?.assetSpecificThesis),
-      reportLine("Interpretation", safeArray(institutionalAnswerProductLayer.boundedInterpretations)[0]),
-      ...formatReportList(
-        safeArray(institutionalAnswerProductLayer.currentDataUsed).slice(0, 5).map((point) => `${point.label}: ${point.displayValue}`),
-        "No current data points were attached.",
-        5,
-      ),
-      "Primary risks:",
-      ...formatReportList(institutionalAnswerProductLayer.topRisks, "No primary risk summary was attached.", 4),
-      "What the current facts support:",
-      ...formatReportList(institutionalAnswerProductLayer.supportedFacts, "No supported fact summary was attached.", 4),
-      "What the current facts do not prove:",
-      ...formatReportList(institutionalAnswerProductLayer.unsupportedInferences, "No unsupported-inference boundary was attached.", 3),
-      "Recommended diligence:",
-      ...formatReportList(institutionalAnswerProductLayer.analystNextSteps, "No next diligence item was attached.", 4),
     ] : []),
     ...(institutionalProductTruthObject?.protectedReportSummary?.length ? [
       "Product truth summary:",
@@ -3418,14 +3397,6 @@ export function buildProtectedInvestorReportText({
     reportLine("Source review queue", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.queueItemCount || 0} candidates awaiting or carrying source review` : "Not available yet."),
     reportLine("Source review outcomes", sourceCandidateReviewWorkflowContract ? `${sourceCandidateReviewWorkflowContract.protectedReportSummary?.acceptedReviewCandidateCount || 0} accepted for future packet drafting; ${sourceCandidateReviewWorkflowContract.protectedReportSummary?.rejectedOrNeedsCheckCount || 0} rejected or needing checks` : "Not available yet."),
     reportLine("Source review boundary", sourceCandidateReviewWorkflowContract ? "Source review evaluates drafting usefulness, not claim truth; evidence gaps remain until evidence packets are validated." : "Not available yet."),
-    reportLine("Analyst workflow family", institutionalAnalystWorkflowContract?.canonicalFamily ? titleCase(institutionalAnalystWorkflowContract.canonicalFamily) : "Not available yet."),
-    reportLine("Analyst workflow question group", institutionalAnalystWorkflowContract?.canonicalQuestionGroup ? titleCase(institutionalAnalystWorkflowContract.canonicalQuestionGroup) : "Not available yet."),
-    reportLine("Analyst workflow thesis", institutionalAnalystWorkflowContract?.protectedReportSummary?.thesisSummary || "Not available yet."),
-    reportLine("Analyst workflow tokenomics", institutionalAnalystWorkflowContract?.protectedReportSummary?.tokenomicsSummary || "Not available yet."),
-    reportLine("Analyst workflow fundamentals", institutionalAnalystWorkflowContract?.protectedReportSummary?.fundamentalSummary || "Not available yet."),
-    reportLine("Analyst workflow risks", institutionalAnalystWorkflowContract?.protectedReportSummary?.riskSummary || "Not available yet."),
-    reportLine("Analyst workflow confidence", institutionalAnalystWorkflowContract?.protectedReportSummary?.confidenceMissingDataSummary || "Not available yet."),
-    reportLine("Analyst workflow module readiness", institutionalAnalystWorkflowContract?.protectedReportSummary?.moduleReadinessSummary || "Not available yet."),
     ...(deepResearchSourceDiscoveryContract?.protectedReportSummary?.summary ? [
       `Discovery summary: ${cleanPrimaryAnswerText(deepResearchSourceDiscoveryContract.protectedReportSummary.summary)}`,
     ] : []),
@@ -6528,20 +6499,6 @@ export function buildDecisionTerminalModel({
       currentStatus: gate.status || "source_required",
       canChangeVerdict: false,
     }));
-  const institutionalAnswerSurfaceResearchRequirements = safeArray(institutionalAnswerSurfaceContract?.sourceSummary?.sourceQueueSummary)
-    .slice(0, 8)
-    .map((requirement, index) => ({
-      id: `answer-surface-open-check-${index}`,
-      title: requirement,
-      assetClassLens: institutionalAnswerSurfaceContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "institutional_answer_surface",
-      reason: "Open check from the clean institutional answer surface.",
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
-      priority: index < 3 ? "high" : "medium",
-      verdictImpact: "Could improve confidence if source-backed evidence resolves the open check.",
-      currentStatus: "needs_verification",
-      canChangeVerdict: true,
-    }));
   const evidenceAggregationResearchRequirements = safeArray(evidenceStatusAggregationContract?.sourceQueueItems)
     .slice(0, 10)
     .map((item, index) => ({
@@ -6623,7 +6580,6 @@ export function buildDecisionTerminalModel({
     ...familyCanonicalResearchRequirements,
     ...coverageEligibilityResearchRequirements,
     ...evidenceAggregationResearchRequirements,
-    ...institutionalAnswerSurfaceResearchRequirements,
     ...baseDisplayResearchRequirements,
     ...representationFamilyResearchRequirements,
     ...categoryResearchRequirements,
@@ -9280,9 +9236,13 @@ export function buildReviewBundleText({
         finalAnalystAnswerComposerContract?.analystView?.allocationReadinessExplanation,
       ].filter(Boolean)),
       "User-facing fundamental answers:",
-      bundleList(safeArray(finalAnalystAnswerComposerContract?.fundamentalQuestionAnswers).map((answer) =>
+      bundleList(safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments).map((answer) =>
         `${answer.question} | state=${answer.answerState || "missing_key_data"} | direct=${answer.directAnswer || answer.answer || "missing"} | evidence=${safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports).join(" / ") || "none"} | gap=${safeArray(answer.gap || answer.missingData).join(" / ") || "none"} | whatWouldChange=${answer.whatWouldChangeTheView || answer.analystNextStep || "none"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | boundary=${answer.boundary || "none"}`
       ), "No final composer answers attached.", 20),
+      "Canonical judgment audit classifications:",
+      bundleList(safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments).map((answer) =>
+        `${answer.questionId} | claim=${answer.claimType || "unavailable"} | eligible=${safeArray(answer.eligibleObservations).length} | contextOnly=${safeArray(answer.contextOnlyObservations).length} | forbidden=${safeArray(answer.forbiddenForQuestionObservations).length} | missing=${safeArray(answer.missingRequiredObservations).join("; ") || "none"}`
+      ), "No canonical judgment classifications attached.", 20),
       "Family-bound Source Queue:",
       bundleList(finalAnalystAnswerComposerContract?.sourceQueuePriorities),
       "Score explanation bridge:",
@@ -9321,6 +9281,14 @@ export function buildReviewBundleText({
       bundleField("Frontend may synthesize claims", yesNoUnknown(marketWideAnalystPipelinePurityContract?.frontendParity?.frontendMaySynthesizeClaims)),
       bundleField("Copy Bundle user mirror uses composer", yesNoUnknown(marketWideAnalystPipelinePurityContract?.copyBundleParity?.copyBundleUserMirrorUsesComposer)),
       bundleField("Protected Report high-level only", yesNoUnknown(marketWideAnalystPipelinePurityContract?.protectedReportParity?.highLevelOnly)),
+      bundleField("Wrong-family question leakage count", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.wrongFamilyQuestionLeakageCount ?? "missing"),
+      bundleField("Duplicate answer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.duplicateAnswerFindings ?? "missing"),
+      bundleField("Repeated sentence findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.repeatedSentenceFindings ?? "missing"),
+      bundleField("Identity grammar findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.identityGrammarFindings ?? "missing"),
+      bundleField("Forbidden proxy support findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.forbiddenProxySupportFindings ?? "missing"),
+      bundleField("Source Queue family mismatch findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.sourceQueueFamilyMismatchFindings ?? "missing"),
+      bundleField("Legacy primary consumer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.legacyPrimaryConsumerFindings ?? "missing"),
+      bundleField("Duplicate live producer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.duplicateLiveProducerFindings ?? "missing"),
       "Pipeline stages:",
       bundleList(safeArray(marketWideAnalystPipelinePurityContract?.pipelineStages).map((stage) =>
         `${stage.label || stage.stageId}: ${stage.status || "unknown"} | ${stage.summary || "No summary"}`
@@ -9348,6 +9316,7 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),
+      bundleField("Runtime role", "deprecated read-only static audit; never primary product truth"),
       bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
       bundleField("Live primary truth", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.livePrimaryTruth)),
       bundleField("Superseded by", institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.supersededBy),
@@ -9462,7 +9431,7 @@ export function buildReviewBundleText({
       )),
       "Product-layer internal-only fields:",
       bundleList(institutionalAnswerSurfaceContract?.productLayer?.internalOnlyFields),
-      "User-facing mirror cards:",
+      "Deprecated answer cards (audit-only):",
       bundleList(institutionalAnswerCards.map((card) =>
         `${cleanPrimaryAnswerText(card.question || "Institutional question")} | semantic=${card.semanticStatus || "unknown"} | ${cleanPrimaryAnswerText(card.semanticStatusLabel || card.statusLabel || card.sourceStateLabel || "Needs verification")} | ${cleanPrimaryAnswerText(card.shortAnswer || card.fundamentalAnalysis || "Needs verification.")}`
       )),
@@ -9474,7 +9443,7 @@ export function buildReviewBundleText({
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | fallbackRewritten=${yesNoUnknown(card.fallbackCopyRewritten)} | mapped=${yesNoUnknown(Boolean(card.registryContractUsed))} | primaryInternalHidden=${yesNoUnknown(card.primaryUiInternalWordingHidden)} | identityMissingSuppressed=${yesNoUnknown(card.identityMissingEvidenceSuppressed)} | mechanismSeparated=${yesNoUnknown(card.mechanismContextSeparated)} | liveEvidence=${card.currentLiveEvidenceStatus || "unknown"}`
       ), "No fallback-quality diagnostics attached.", 60),
-      "Per-card v1.2.3 final primary answer text:",
+      "Per-card legacy answer diagnostics (audit-only):",
       bundleList(institutionalAnswerCards.map((card) =>
         `${card.cardId || "card"} | state=${card.answerState || "missing_key_data"} | answer=${card.answer || card.shortAnswer || "missing"} | dataUsed=${safeArray(card.dataUsed).map((item) => item?.label || item).join(" / ") || "none"} | observationTypesUsed=${safeArray(card.observationTypesUsed).join(",") || "none"} | observationTypesMissing=${safeArray(card.observationTypesMissing).join(",") || "none"} | supports=${safeArray(card.whatDataSupports || card.whatThisSupports).join(" / ") || "none"} | missing=${safeArray(card.missingData || card.missingObservations || card.missingAnalysis).join(" / ") || "none"} | doesNotProve=${safeArray(card.whatDataDoesNotProve || card.whatThisDoesNotProve).join(" / ") || "none"} | next=${card.analystNextStep || "none"}`
       ), "No final primary answer text attached.", 60),

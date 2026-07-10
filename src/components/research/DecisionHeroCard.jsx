@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CollapsibleDetail, QuestionPromptCard } from "./researchPrimitives";
-import { formatDateTime, formatScoreValue, getAnalystAnswerCard, resolveInstitutionalAnalystWorkflowContract, safeArray, sanitizeSemanticLabel } from "./researchUtils";
+import { formatDateTime, formatScoreValue, getAnalystAnswerCard, safeArray, sanitizeSemanticLabel } from "./researchUtils";
 
 function outcomeColor(outcomeKey) {
   if (outcomeKey === "capital_worthy") return "#2fd67b";
@@ -476,18 +476,14 @@ export default function DecisionHeroCard({
   const symbol = asset?.symbol || model?.assetName || "Asset";
   const assetInitial = String(symbol).trim().slice(0, 4).toUpperCase() || "TC";
   const verdictSemantics = model?.verdictSemantics || {};
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
-  const productHeader = answerProduct?.tabDisplayModel?.decisionHeader || {};
-  const finalDecisionSubcopy = finalComposer?.analystView?.headline || answerProduct?.assetResearchSummary?.assetSpecificThesis || verdictSemantics.summary || model?.summaryMemo || "Live decision layer returned no structured summary.";
-  const primaryPositiveCase = finalComposer?.analystView?.whatTheDataSupports || productHeader.whyItCouldMakeSense || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
-  const primaryBlockedCase = finalComposer?.analystView?.weakestPartOfAnalysis || productHeader.whyConfidenceIsBlocked || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
+  const finalDecisionSubcopy = finalComposer?.analystView?.headline || verdictSemantics.summary || model?.summaryMemo || "Canonical analyst report unavailable for this response.";
+  const primaryPositiveCase = finalComposer?.analystView?.whatTheDataSupports || verdictSemantics.positiveCase?.[0] || model?.primaryStrength || null;
+  const primaryBlockedCase = finalComposer?.analystView?.weakestPartOfAnalysis || verdictSemantics.blockedCase?.[0] || model?.primaryWeakness || null;
   const assetClassLabel = displayIdentity?.displayAssetClass || model?.assetClassLabel || sanitizeSemanticLabel(model?.assetClass, "Asset class unavailable");
   const framingLabel = displayIdentity?.displayFraming || model?.assetFramingLabel || "Digital Asset Allocation Thesis";
   const freshness = model?.analysisFreshness || {};
-  const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
-  const analystWorkflowAvailable = Boolean(analystWorkflow.artifactVersion);
   const freshnessLabel = freshness.freshnessLabel
     ? `${freshness.freshnessLabel}${freshness.generatedAt ? ` - ${formatDateTime(freshness.generatedAt)}` : ""}`
     : lastAnalyzed
@@ -546,30 +542,6 @@ export default function DecisionHeroCard({
                   <div style={styles.contextMuted}>{finalComposer.scoreExplanationBridge?.explanation || "Score explanation unavailable."}</div>
                 </div>
               </div>
-            ) : answerProduct?.productLayerVersion ? (
-              <div style={styles.decisionSemanticMiniGrid}>
-                <div style={styles.decisionSemanticMiniCard}>
-                  <div style={styles.metaLabel}>Facts used</div>
-                  <div style={styles.contextMuted}>{productHeader.topFacts?.slice(0, 3).join(" · ") || "No current facts attached."}</div>
-                </div>
-                <div style={styles.decisionSemanticMiniCard}>
-                  <div style={styles.metaLabel}>What improves confidence</div>
-                  <div style={styles.contextMuted}>{productHeader.whatWouldImproveConfidence?.slice(0, 3).join(" · ") || "No confidence-improvement condition attached."}</div>
-                </div>
-                <div style={styles.decisionSemanticMiniCard}>
-                  <div style={styles.metaLabel}>Evidence state</div>
-                  <div style={styles.contextMuted}>
-                    {productHeader.topSemanticStatuses?.slice(0, 3).map((item) => sanitizeSemanticLabel(item, item)).join(" / ") || "Evidence state unavailable."}
-                  </div>
-                </div>
-              </div>
-            ) : analystWorkflowAvailable ? (
-              <div style={styles.decisionSemanticMiniGrid}>
-                <div style={styles.decisionSemanticMiniCard}>
-                  <div style={styles.metaLabel}>Autonomous analyst thesis</div>
-                  <div style={styles.contextMuted}>{analystWorkflow.investmentResearchMemo?.thesis || "Workflow thesis unavailable."}</div>
-                </div>
-              </div>
             ) : (
               <div style={styles.decisionSemanticMiniGrid}>
                 <div style={styles.decisionSemanticMiniCard}>
@@ -578,8 +550,8 @@ export default function DecisionHeroCard({
                 </div>
               </div>
             )}
-            {finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary ? (
-              <div style={styles.railBoundaryText}>{finalComposer?.assetSummary?.representationBoundary || answerProduct.assetResearchSummary.evidenceBoundary}</div>
+            {finalComposer?.assetSummary?.representationBoundary ? (
+              <div style={styles.railBoundaryText}>{finalComposer.assetSummary.representationBoundary}</div>
             ) : null}
             {verdictSemantics.hasVerdictClass ? (
               <div style={styles.decisionSemanticMiniGrid}>

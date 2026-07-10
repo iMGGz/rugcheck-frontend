@@ -391,12 +391,9 @@ export default function ManualReviewPanel({
   const reviewWorkflow = model?.sourceCandidateReviewWorkflowContract || {};
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const reviewAudit = model?.sourceCandidateReviewAuditTrailContract || reviewWorkflow.sourceCandidateReviewAuditTrailContract || {};
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
-  const verificationItems = composerAvailable
-    ? safeArray(finalComposer.sourceQueuePriorities)
-    : safeArray(answerProduct?.tabDisplayModel?.analystVerification?.items);
+  const verificationItems = composerAvailable ? safeArray(finalComposer.sourceQueuePriorities) : [];
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -422,7 +419,7 @@ export default function ManualReviewPanel({
         styles={styles}
       >
         <div style={styles.sourceBoundaryStrip}>
-          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || answerProduct?.assetResearchSummary?.evidenceBoundary || "Verification items identify evidence needed for stronger confidence.")}
+          {boundaryChip(styles, finalComposer?.assetSummary?.representationBoundary || "Canonical question judgments are required before verification priorities are rendered.")}
         </div>
         <ListBlock title="External diligence items" items={verificationItems.slice(0, 6)} emptyText="No external diligence item attached." color="#f9d976" styles={styles} />
         {model?.reviewedEvidencePacket?.packetLoaded ? (
@@ -434,7 +431,7 @@ export default function ManualReviewPanel({
         ) : null}
       </ExecutiveSummaryCard>
 
-      {!composerAvailable && !answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Workflow Audit Boundary" subtitle="Read-only escalation context; manual review is not the normal analysis flow." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, `Workflow: ${analystWorkflow.workflowCompletenessStatus || "unknown"}`)}

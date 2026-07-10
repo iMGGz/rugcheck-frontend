@@ -518,18 +518,20 @@ export default function EvidenceMapTab({
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
   const firstProviderMetadata = lensEvidenceRows[0]?.value || "Provider classification metadata is unavailable or not attached.";
   const firstContradiction = calibrationWarningRows[0]?.value || tokenomicsEvidenceRows.find((row) => /contradiction/i.test(row.label))?.value;
-  const answerProduct = model?.institutionalAnswerSurfaceContract?.productLayer || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerEvidence = composerAvailable ? {
-    confirmedFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports)).slice(0, 6),
-    providerReportedFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) =>
-      safeArray(answer.dataUsed).map((item) => `${item.label || "Data"}: ${item.displayValue || item.value || "available"}`)
+    confirmedFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) => safeArray(answer.eligibleObservations).map((item) => `${item.label}: ${item.displayValue}`)).slice(0, 6),
+    providerReportedFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) =>
+      safeArray(answer.contextOnlyObservations).map((item) => `${item.label}: ${item.displayValue}`)
     ).slice(0, 6),
-    missingFacts: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.gap || answer.missingData)).slice(0, 8),
-    unsupportedInferences: safeArray(finalComposer.fundamentalQuestionAnswers).flatMap((answer) => safeArray(answer.whatTheDataDoesNotProve)).slice(0, 6),
+    rejectedFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) =>
+      safeArray(answer.forbiddenForQuestionObservations).map((item) => `${item.label}: ${item.boundary}`)
+    ).slice(0, 6),
+    missingFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) => safeArray(answer.missingRequiredObservations)).slice(0, 8),
+    unsupportedInferences: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) => safeArray(answer.unsupportedInferences)).slice(0, 6),
   } : {};
-  const productEvidence = composerAvailable ? composerEvidence : answerProduct?.tabDisplayModel?.evidenceMap || {};
+  const productEvidence = composerEvidence;
 
   return (
     <div style={styles.evidenceMapShell}>
@@ -538,9 +540,7 @@ export default function EvidenceMapTab({
         title="What evidence is actually attached?"
         answer={composerAvailable
           ? "Canonical analyst answers separate evidence, missing data, and unsupported inferences below."
-          : answerProduct?.productLayerVersion
-          ? "Current facts, provider-reported context, missing evidence, and unsupported inferences are separated below."
-          : "This tab separates reviewed evidence, provider metadata, source candidates, diagnostics, and missing/stale sections."}
+          : "Canonical question judgments are unavailable; diagnostic source context remains visible below."}
         tone="#7dd3fc"
         badges={[
           { label: evidenceStatusProxy?.label || "Live evidence proxy", tone: "#7dd3fc" },
@@ -550,7 +550,7 @@ export default function EvidenceMapTab({
         ]}
         styles={styles}
       >
-        {!composerAvailable && !answerProduct?.productLayerVersion ? <div style={styles.evidenceMapBoundaryStrip}>
+        {!composerAvailable ? <div style={styles.evidenceMapBoundaryStrip}>
           {boundaryChip(styles, "This view maps live provider/source context from the current analysis response. It is not the full institutional evidence map.")}
           {boundaryChip(styles, "Report-only overlays are not connected to live scoring.")}
           {boundaryChip(styles, "Source candidates require review before becoming evidence.")}
@@ -569,7 +569,7 @@ export default function EvidenceMapTab({
         />
       </ExecutiveSummaryCard>
 
-      {composerAvailable || answerProduct?.productLayerVersion ? (
+      {composerAvailable ? (
         <div style={styles.advancedGrid}>
           <Card title="Facts Attached" subtitle="Backend-derived facts used by the analyst surface." styles={styles}>
             <ListBlock title="Reviewed / supported facts" items={productEvidence.confirmedFacts} emptyText="No reviewed fact attached." color="#a6f3c2" styles={styles} />
@@ -577,12 +577,13 @@ export default function EvidenceMapTab({
           </Card>
           <Card title="Evidence Limits" subtitle="Missing facts and stronger inferences the current data cannot support." styles={styles}>
             <ListBlock title="Missing facts" items={productEvidence.missingFacts} emptyText="No missing fact attached." color="#ffb6b6" styles={styles} />
+            <ListBlock title="Rejected for this question" items={productEvidence.rejectedFacts} emptyText="No rejected proxy observation attached." color="#ffb020" styles={styles} />
             <ListBlock title="Unsupported inferences" items={productEvidence.unsupportedInferences} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
           </Card>
         </div>
       ) : null}
 
-      {!composerAvailable && !answerProduct?.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Analyst Evidence Boundary" subtitle="Only family-compatible typed observations can support workflow answers." styles={styles}>
           <div style={styles.evidenceMapBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.typedObservations?.filter((entry) => entry.questionApplicability === "eligible").length || 0} eligible observations`)}
@@ -600,7 +601,7 @@ export default function EvidenceMapTab({
         </Card>
       ) : null}
 
-      <div style={styles.advancedGrid}>
+      {!composerAvailable ? <div style={styles.advancedGrid}>
         <QuestionPromptCard
           question="What is the current source-readiness picture?"
           answer={sourceIntelligence.protectedReportSummary?.summary || "Source Intelligence contract was not attached to this analysis."}
@@ -691,9 +692,9 @@ export default function EvidenceMapTab({
           sourceState={familyMatrix.primaryFamily || "Family unavailable"}
           styles={styles}
         />
-      </div>
+      </div> : null}
 
-      <div style={styles.advancedGrid}>
+      {!composerAvailable ? <div style={styles.advancedGrid}>
         {familyMatrix.artifactVersion ? (
           <Card title="Family Requirement Evidence Matrix" subtitle="What data/source classes are needed for this asset family." styles={styles}>
             <div style={styles.evidenceMapBoundaryStrip}>
@@ -766,9 +767,9 @@ export default function EvidenceMapTab({
             styles={styles}
           />
         </Card>
-      </div>
+      </div> : null}
 
-      <div style={styles.advancedGrid}>
+      {!composerAvailable ? <div style={styles.advancedGrid}>
         <Card title="Source Trace / Provenance" subtitle="References attached to the live response, if present." styles={styles}>
           {provenanceRows.length ? provenanceRows.map((row) => (
             <div key={row.key} style={styles.evidenceProvenanceRow}>
@@ -792,7 +793,7 @@ export default function EvidenceMapTab({
             <LifecycleLane title="Report-Only Overlay" description="Context for reports. Not attached to live scoring unless a future endpoint explicitly says so." styles={styles} />
           </div>
         </Card>
-      </div>
+      </div> : null}
 
       <div style={styles.evidenceDetailsStack}>
         <AuditGroup title="Live Provider Context" subtitle="Existing live evidence and source-context panels, grouped under source trace." styles={styles}>

@@ -459,10 +459,8 @@ export default function ScoringTransparencyTab({
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
   const sourceCoverageRegistry = safeObject(model?.institutionalQuestionSourceCoverageContract);
-  const answerProduct = safeObject(model?.institutionalAnswerSurfaceContract?.productLayer);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
-  const scoringDisplay = safeObject(answerProduct.tabDisplayModel?.scoring);
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
 
   return (
@@ -472,7 +470,7 @@ export default function ScoringTransparencyTab({
         title="Why does the score look like this?"
         answer={composerAvailable
           ? composerScore.explanation || "This view explains the current score, verdict, and confidence using the canonical analyst composer."
-          : scoringDisplay.summary || model?.institutionalAnswerSurfaceContract?.scoreSummary?.plainEnglishSummary || "This view explains the current score, the data that supports confidence, and the measurements still needed."}
+          : "Canonical score explanation is unavailable; the existing score object remains visible without a reconstructed evidence narrative."}
         tone="#7dd3fc"
         badges={[
           { label: `Overall: ${overallModule?.value || "Unavailable"}`, tone: "#7dd3fc" },
@@ -488,14 +486,14 @@ export default function ScoringTransparencyTab({
         </div>
         <ListBlock
           title="What currently caps confidence"
-          items={safeArray(composerAvailable ? composerScore.whatWouldImproveScoreOrConfidence : scoringDisplay.confidenceCaps || answerProduct.missingAnalysis).slice(0, 4)}
+          items={safeArray(composerAvailable ? composerScore.whatWouldImproveScoreOrConfidence : []).slice(0, 4)}
           emptyText="No additional confidence cap was attached."
           color="#f9d976"
           styles={styles}
         />
         <SectionRow
           label="Score meaning"
-          value={composerAvailable ? "The displayed score reflects the current model. The canonical composer explains it without changing the formula." : scoringDisplay.boundary || "The displayed score reflects the current model. Additional evidence can improve confidence without changing the formula in this release."}
+          value={composerAvailable ? "The displayed score reflects the current model. The canonical composer explains it without changing the formula." : "The displayed score reflects the existing score object; no fallback evidence interpretation is attached."}
           styles={styles}
         />
       </ExecutiveSummaryCard>
@@ -520,7 +518,7 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
-      {!composerAvailable && !answerProduct.productLayerVersion && analystWorkflow.artifactVersion ? (
+      {!composerAvailable && analystWorkflow.artifactVersion ? (
         <Card title="Autonomous Module Readiness" subtitle="Diagnostic input readiness only; final score and verdict formulas are unchanged." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${analystWorkflow.moduleScoringReadiness?.filter((module) => module.autonomousInputSupport === "strong").length || 0} strong-support modules`)}
@@ -539,7 +537,7 @@ export default function ScoringTransparencyTab({
         </Card>
       ) : null}
 
-      {!composerAvailable && !answerProduct.productLayerVersion && methodologyContract.contractVersion === "1.1.0" ? (
+      {!composerAvailable && methodologyContract.contractVersion === "1.1.0" ? (
         <Card title="Methodology Readiness" subtitle="Diagnostic framework only; it does not alter the current score or verdict." styles={styles}>
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, `${methodologyContract.registrySummary?.canonicalFamilyCount || 0} canonical families`)}
