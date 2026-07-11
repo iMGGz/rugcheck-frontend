@@ -393,7 +393,11 @@ export default function ManualReviewPanel({
   const reviewAudit = model?.sourceCandidateReviewAuditTrailContract || reviewWorkflow.sourceCandidateReviewAuditTrailContract || {};
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
-  const verificationItems = composerAvailable ? safeArray(finalComposer.sourceQueuePriorities) : [];
+  const verificationItems = composerAvailable
+    ? (safeArray(finalComposer.familyBoundSourceQueue).length
+      ? safeArray(finalComposer.familyBoundSourceQueue).map((item) => item.text)
+      : safeArray(finalComposer.sourceQueuePriorities))
+    : [];
   const outcomes = [
     ["requires_review", "Needs human review before use."],
     ["accepted_for_report", "Accepted for explanation. Does not by itself mean production truth or score support."],
@@ -508,7 +512,7 @@ export default function ManualReviewPanel({
         </Card>
       ) : null}
 
-      {coverageGate.artifactVersion ? (
+      {!composerAvailable && coverageGate.artifactVersion ? (
         <Card title="Coverage / Score Eligibility Review" subtitle="Critical blockers before fundamental score interpretation." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
@@ -537,7 +541,7 @@ export default function ManualReviewPanel({
         </Card>
       ) : null}
 
-      {provenance.contractAttached ? (
+      {!composerAvailable && provenance.contractAttached ? (
         <Card title="Evidence Provenance Review" subtitle="Manual review distinguishes missing current data from explanation support." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, provenance.assetSummary?.summaryLabel || "Evidence provenance separated")}
@@ -568,7 +572,7 @@ export default function ManualReviewPanel({
         </Card>
       ) : null}
 
-      {canonicalRoute.artifactVersion ? (
+      {!composerAvailable && canonicalRoute.artifactVersion ? (
         <Card title="Canonical Family Review" subtitle="Family-scoped manual checks; raw fallback groups stay audit-only." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, canonicalRoute.effectiveFamily || "Family unavailable")}

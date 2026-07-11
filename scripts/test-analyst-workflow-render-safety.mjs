@@ -297,6 +297,138 @@ try {
   assert.doesNotMatch(aliasProtectedReport, /Analyst workflow family:/);
   assert.doesNotMatch(aliasProtectedReport, /methodologyFamilyAlias|aliasesNormalized|native_eth_pos_settlement_gas_fee_market/);
 
+  const staleEthRequirement = "Verify EIP-1559 base-fee burn, L2/blob fees, proposer-builder separation, and post-Merge issuance.";
+  const adaCanonicalRequirement = "Verify current Cardano transaction activity, fee generation, staking concentration, and liveness.";
+  const adaComposer = {
+    ...finalAnalystComposer,
+    canonicalFamily: "non_eth_l1_smart_contract_platform",
+    canonicalQuestionGroup: "non_eth_l1_smart_contract_platform_questions",
+    assetSummary: {
+      ...finalAnalystComposer.assetSummary,
+      canonicalAsset: "Cardano",
+      canonicalIdentity: "cardano",
+      representationType: "native_asset",
+      networkScope: "Cardano",
+      representationBoundary: "ADA is evaluated as the native asset of Cardano.",
+    },
+    analystView: {
+      ...finalAnalystComposer.analystView,
+      headline: "Cardano has a native smart-contract platform thesis with current chain usage and security evidence still required.",
+      whatTheAssetIs: "Cardano is a non-Ethereum native smart-contract platform.",
+      missingForHigherConviction: [adaCanonicalRequirement],
+    },
+    canonicalQuestionJudgments: [{
+      ...finalAnalystComposer.canonicalQuestionJudgments[0],
+      questionId: "non_eth_l1_chain_usage",
+      question: "Is native-chain usage and fee generation durable?",
+      answer: "Current chain evidence supports only a preliminary usage assessment.",
+      gap: adaCanonicalRequirement,
+      missingRequiredObservations: ["chain_transaction_activity", "chain_fee_generation"],
+      whatWouldChangeTheView: [adaCanonicalRequirement],
+      familyApplicability: ["non_eth_l1_smart_contract_platform"],
+    }],
+    familyBoundSourceQueue: [{
+      queueItemId: "ada-chain-usage",
+      canonicalFamily: "non_eth_l1_smart_contract_platform",
+      questionId: "non_eth_l1_chain_usage",
+      requirementId: "chain_transaction_activity",
+      text: adaCanonicalRequirement,
+      status: "needs_verification",
+    }],
+    sourceQueuePriorities: [adaCanonicalRequirement],
+    riskSummary: ["Current chain usage and security evidence remains incomplete."],
+  };
+  adaComposer.fundamentalQuestionAnswers = adaComposer.canonicalQuestionJudgments;
+  const adaFamilyMatrix = {
+    artifactVersion: "family-data-requirement-matrix-v2",
+    primaryFamily: "non_eth_l1_smart_contract_platform",
+    primarySourceMatrixId: "matrix_non_eth_l1_smart_contract_platform",
+    manualReviewItems: ["Review chain-specific validator or stake-pool concentration and liveness."],
+    manualReviewTriggers: ["chain_security_review"],
+    scoreEligibilityBlockers: [{ label: "Current native-chain usage and security evidence is incomplete." }],
+    evidenceMapRows: [{ label: "Native-chain usage", requirement: adaCanonicalRequirement }],
+    scoringTransparencyRows: [{ label: "Chain evidence gap", requirement: adaCanonicalRequirement }],
+    auditOnlyLegacyInputs: [staleEthRequirement],
+  };
+  const adaModel = {
+    ...baseModel,
+    canonicalProductRoute: {
+      primaryFamily: "non_eth_l1_smart_contract_platform",
+      primaryQuestionGroup: "non_eth_l1_smart_contract_platform_questions",
+    },
+    primaryAnalysisRoute: {
+      assetFamily: "non_eth_l1_smart_contract_platform",
+      questionGroup: "non_eth_l1_smart_contract_platform_questions",
+      visibleLabel: "Non-ETH L1 Smart-Contract Platform",
+    },
+    finalAnalystAnswerComposerContract: adaComposer,
+    familyDataRequirementMatrixContract: adaFamilyMatrix,
+    evidenceStatusAggregationContract: {
+      artifactVersion: "evidence-status-aggregation-v1",
+      sourceQueueItems: [adaCanonicalRequirement],
+      manualReviewItems: ["Review chain-specific validator or stake-pool concentration and liveness."],
+      canonicalProjection: {
+        productSourceQueueOwner: "finalAnalystAnswerComposerContract.familyBoundSourceQueue",
+        independentProductQueueProduced: false,
+      },
+      auditOnlyLegacyInputs: { sourceRequirements: [staleEthRequirement] },
+      assetAggregation: { openChecks: [adaCanonicalRequirement] },
+    },
+    coverageScoreEligibilityContract: {
+      artifactVersion: "coverage-score-eligibility-v1",
+      coverageBlockers: [{ label: "Current native-chain usage evidence is incomplete." }],
+      whatWouldUpgradeTier: [adaCanonicalRequirement],
+      whatWouldMakeScoreEligible: [adaCanonicalRequirement],
+      auditDetails: { rejectedLegacyInputsAuditOnly: [staleEthRequirement] },
+    },
+    familyCanonicalRoutingContract: {
+      artifactVersion: "family-canonical-routing-v1",
+      effectiveFamily: "non_eth_l1_smart_contract_platform",
+      sourceQueueCanonicalRequirements: [adaCanonicalRequirement],
+      manualReviewCanonicalRequirements: ["Review chain-specific validator or stake-pool concentration and liveness."],
+      rejectedWrongFamilyRequirements: [{ text: staleEthRequirement, sourcePath: "audit-only" }],
+      auditOnlyFields: { coverageBlockersBeforeCanonicalizationAuditOnlyNonCurrent: [staleEthRequirement] },
+      independentProductQueueProduced: false,
+    },
+    evidenceProvenanceSemanticsContract: {
+      contractAttached: true,
+      readinessGaps: [{
+        gapId: "ada-chain-usage-gap",
+        family: "non_eth_l1_smart_contract_platform",
+        visibility: "product",
+        label: adaCanonicalRequirement,
+      }],
+      auditDetails: { legacyRequirements: [staleEthRequirement] },
+    },
+  };
+  const adaSurfaceRenderers = [
+    ["Decision", DecisionHeroCard, { asset: { symbol: "ADA" }, model: adaModel, showSupportSections: false }],
+    ["Right Rail", AnalysisRightRail, { model: adaModel }],
+    ["Evidence Map", EvidenceMapTab, { model: adaModel }],
+    ["Manual Review", ManualReviewPanel, { model: adaModel }],
+    ["Scoring Transparency", ScoringTransparencyTab, { model: adaModel, analysis: {} }],
+    ["Source Queue", SourceQueuePanel, { model: adaModel }],
+  ];
+  for (const [name, Component, props] of adaSurfaceRenderers) {
+    const html = renderToString(React.createElement(Component, { ...props, styles: {} }));
+    assert.doesNotMatch(html, /EIP-?1559|base-fee burn|L2\/blob|proposer-builder|post-Merge/i, `${name} must ignore audit-only ETH requirements`);
+  }
+  const adaSourceQueueHtml = renderToString(React.createElement(SourceQueuePanel, { model: adaModel, styles: {} }));
+  assert.match(adaSourceQueueHtml, /Cardano transaction activity/);
+  const adaProtectedReport = researchUtils.buildProtectedInvestorReportText({
+    asset: { symbol: "ADA", name: "Cardano" },
+    model: adaModel,
+  });
+  assert.match(adaProtectedReport, /Cardano transaction activity/);
+  assert.doesNotMatch(adaProtectedReport, /EIP-?1559|base-fee burn|L2\/blob|proposer-builder|post-Merge/i);
+  const adaBundle = researchUtils.buildReviewBundleText({
+    asset: { symbol: "ADA", name: "Cardano" },
+    model: adaModel,
+  });
+  const adaUserMirror = adaBundle.split("2BD. Final Analyst Answer Composer v1")[1]?.split("\n=== 2BE.")[0] || "";
+  assert.match(adaUserMirror, /Cardano transaction activity/);
+  assert.doesNotMatch(adaUserMirror, /EIP-?1559|base-fee burn|L2\/blob|proposer-builder|post-Merge/i);
+
   console.log("Institutional Analyst Workflow render-safety smoke tests passed.");
 } finally {
   await server.close();

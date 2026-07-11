@@ -4,13 +4,8 @@ import {
   extractRenderableText,
   buildLensSpecificResearchDomains,
   cleanPrimaryAnswerText,
-  getAnalystAnswerCard,
-  isPrimaryFamilyCompatibleText,
-  normalizeRenderableList,
-  providerLabel,
   resolveInstitutionalAnalystWorkflowContract,
   safeArray,
-  safeObject,
   titleCase,
 } from "./researchUtils";
 
@@ -30,268 +25,29 @@ function boundaryChip(styles, children) {
   );
 }
 
-function dedupeByText(items) {
-  const seen = new Set();
-  return items.filter((item) => {
-    const key = `${item.label}-${item.description}`.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+function composerQueueItems(contract) {
+  const structured = safeArray(contract?.familyBoundSourceQueue);
+  if (structured.length) return structured.map((item) => ({
+    id: item.queueItemId,
+    text: cleanPrimaryAnswerText(item.text || item),
+  })).filter((item) => item.text);
+  return safeArray(contract?.sourceQueuePriorities).map((item, index) => ({
+    id: `legacy-composer-queue-${index}`,
+    text: cleanPrimaryAnswerText(item),
+  })).filter((item) => item.text);
 }
 
-function providerGapLeads(providerDiagnostics) {
-  return safeArray(providerDiagnostics)
-    .filter((entry) => (
-      entry.status === "failure" ||
-      entry.status === "skipped" ||
-      ["missing", "unavailable", "unsupported", "weak", "partial"].includes(entry.coverage || "")
-    ))
-    .map((entry) => ({
-      label: providerLabel(entry.provider || entry.source || entry.section || "provider"),
-      description: entry.reason || "Provider/source context is partial or unavailable in the live response.",
-      status: entry.status === "failure" ? "Provider unavailable" : "Needs verification",
-      source: "meta.providerDiagnostics",
-      color: entry.status === "failure" ? "#ff6b6b" : "#ffb020",
-    }));
-}
-
-function sourceStatusLeads(sourceStatus) {
-  return Object.entries(safeObject(sourceStatus))
-    .filter(([, value]) => ["partial", "modeled", "weak", "unsupported", "skipped", "unavailable", "missing"].includes(String(value).toLowerCase()))
-    .map(([section, value]) => ({
-      label: providerLabel(section),
-      description: `Live source status is ${titleCase(value)}. This is a review lead, not a discovered source.`,
-      status: "Potential source/review lead",
-      source: "sourceStatus",
-      color: ["unsupported", "skipped", "unavailable", "missing"].includes(String(value).toLowerCase()) ? "#ffb020" : "#7dd3fc",
-    }));
-}
-
-function buildReviewLeads({ model, sourceStatus, providerDiagnostics }) {
-  const canonicalPrimaryFamily = model?.canonicalProductRoute?.primaryFamily
-    || model?.primaryAnalysisRoute?.assetFamily
-    || null;
-  const composerPriorities = safeArray(model?.finalAnalystAnswerComposerContract?.sourceQueuePriorities);
-  if (composerPriorities.length) {
-    return composerPriorities.slice(0, 8).map((description, index) => ({
+function buildReviewLeads({ model }) {
+  return composerQueueItems(model?.finalAnalystAnswerComposerContract)
+    .slice(0, 8)
+    .map((item, index) => ({
       label: index === 0 ? "Highest-priority family diligence" : "Family diligence requirement",
-      description: cleanPrimaryAnswerText(description),
+      description: item.text,
       status: "Needs current evidence",
-      source: "finalAnalystAnswerComposerContract.sourceQueuePriorities",
+      source: `finalAnalystAnswerComposerContract.familyBoundSourceQueue.${item.id || index}`,
       color: index === 0 ? "#ffb020" : "#7dd3fc",
     }));
-  }
-  const required = normalizeRenderableList(model?.requiredConditions).map((entry) => ({
-    label: "Required condition",
-    description: entry,
-    status: "Needs source",
-    source: "decisionModel.requiredConditions",
-    color: "#7dd3fc",
-  }));
-  const missing = normalizeRenderableList(model?.missingCritical).map((entry) => ({
-    label: "Missing critical evidence",
-    description: entry,
-    status: "Needs verification",
-    source: "decisionModel.missingCritical",
-    color: "#ffb020",
-  }));
-  const whatWouldChange = normalizeRenderableList(model?.whatWouldChangeDecision?.items).map((entry) => ({
-    label: "Decision-change requirement",
-    description: entry,
-    status: "Potential source/review lead",
-    source: "decisionModel.whatWouldChangeDecision",
-    color: "#7dd3fc",
-  }));
-  const alerts = normalizeRenderableList(model?.auditAlerts).map((entry) => ({
-    label: "Audit alert",
-    description: entry,
-    status: "Needs review",
-    source: "decisionModel.auditAlerts",
-    color: "#ff6b6b",
-  }));
-  const freshness = model?.analysisFreshness || {};
-  const identity = model?.assetIdentityResolution || {};
-  const freshnessLeads = [
-    ...safeArray(freshness.staleSections).map((section) => ({
-      label: "Refresh stale section",
-      description: `Refresh or verify ${providerLabel(section)} before relying on this section.`,
-      status: "Freshness review",
-      source: "decisionModel.analysisFreshness.staleSections",
-      color: "#ffb020",
-    })),
-    ...safeArray(freshness.missingSections).map((section) => ({
-      label: "Verify missing section",
-      description: `Verify ${providerLabel(section)} separately; missing data is not negative evidence.`,
-      status: "Missing section",
-      source: "decisionModel.analysisFreshness.missingSections",
-      color: "#ffb020",
-    })),
-    ...(!freshness.freshQaEligible || freshness.isPartialRefresh ? [{
-      label: "Verify analysis freshness",
-      description: freshness.qaEligibilityWarning || freshness.summary || "Analysis source is unclear; verify current provider state before relying on the output.",
-      status: freshness.isSnapshot ? "Historical snapshot" : freshness.isPartialRefresh ? "Partial refresh caveat" : freshness.isCachedRecentMemo ? "Cached/recent memo" : "Freshness review",
-      source: "decisionModel.analysisFreshness",
-      color: "#ffb020",
-    }] : []),
-  ];
-  const identityLeads = safeArray(identity.sourceRequirements).map((entry) => ({
-    label: "Identity / contract verification",
-    description: entry,
-    status: "Identity review",
-    source: "decisionModel.assetIdentityResolution.sourceRequirements",
-    color: "#ffb020",
-  }));
-  const tokenomics = model?.tokenomicsSupplyIntegrity || {};
-  const tokenomicsLeads = safeArray(tokenomics.sourceRequirements).map((entry) => ({
-    label: "Tokenomics supply verification",
-    description: entry,
-    status: "Supply review",
-    source: "decisionModel.tokenomicsSupplyIntegrity.sourceRequirements",
-    color: "#ffb020",
-  }));
-  const readiness = model?.scoringReadinessContract || {};
-  const scoringReadinessLeads = [
-    ...safeArray(readiness.whatWouldChangeScore).slice(0, 6).map((entry) => ({
-      label: "Scoring-readiness evidence requirement",
-      description: entry,
-      status: "Diagnostic-only source requirement",
-      source: "decisionModel.scoringReadinessContract.whatWouldChangeScore",
-      color: "#c7a7ff",
-    })),
-    ...safeArray(readiness.liveMetricRequirements).slice(0, 4).map((entry) => ({
-      label: "Live metric readiness requirement",
-      description: entry,
-      status: "Future scoring input candidate",
-      source: "decisionModel.scoringReadinessContract.liveMetricRequirements",
-      color: "#9bd7ff",
-    })),
-  ];
-  const reviewedEvidence = model?.reviewedEvidencePacket || {};
-  const synthesizedLeads = [
-    ...safeArray(model?.institutionalQuestions),
-    ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
-  ]
-    .filter((question) => question?.synthesizedAnswer)
-    .flatMap((question) => safeArray(getAnalystAnswerCard(question).missingEvidence).slice(0, 2).map((entry) => ({
-      label: `Question evidence gap: ${question.questionId || "institutional question"}`,
-      description: `${entry} ${getAnalystAnswerCard(question).whatWouldChange?.[0] ? `What would change: ${getAnalystAnswerCard(question).whatWouldChange[0]}` : ""}`.trim(),
-      status: getAnalystAnswerCard(question).headlineStatus || (question.synthesizedAnswer.evidenceStatus === "source_required" ? "Source required" : "Remaining evidence gap"),
-      source: "decisionModel.institutionalQuestions.synthesizedAnswer.analystAnswerCard",
-      color: "#f9d976",
-    })));
-  const reviewedCoverageLeads = [
-    ...safeArray(reviewedEvidence.sourceQueueNotes).slice(0, 3).map((entry) => ({
-      label: "Reviewed evidence mapped",
-      description: entry,
-      status: "Partially/source-backed",
-      source: "decisionModel.reviewedEvidencePacket.sourceQueueNotes",
-      color: "#a6f3c2",
-    })),
-    ...safeArray(reviewedEvidence.remainingSourceRequirements).map((entry) => ({
-      label: "Reviewed evidence remaining gap",
-      description: entry,
-      status: "Remaining source required",
-      source: "decisionModel.reviewedEvidencePacket.remainingSourceRequirements",
-      color: "#f9d976",
-    })),
-  ];
-  const benchmarkPack = model?.benchmarkInstitutionalAnswerPack || {};
-  const benchmarkPackLeads = [
-    ...safeArray(benchmarkPack.sourceRequirements).slice(0, 6).map((entry) => ({
-      label: "Benchmark answer-pack source requirement",
-      description: entry,
-      status: "Diagnostic-only source requirement",
-      source: "decisionModel.benchmarkInstitutionalAnswerPack.sourceRequirements",
-      color: "#c7a7ff",
-    })),
-    ...safeArray(benchmarkPack.questions).flatMap((question) =>
-      safeArray(question.sourceRequirements).slice(0, 2).map((entry) => ({
-        label: `Benchmark question source: ${question.questionId || "question"}`,
-        description: `${entry} ${question.directAnswer ? `Why: ${question.directAnswer}` : ""}`.trim(),
-        status: question.decisionImpact === "requires_manual_review" ? "Manual review" : "Source required",
-        source: "decisionModel.benchmarkInstitutionalAnswerPack.questions",
-        color: question.priority === "critical" ? "#ffb020" : "#c7a7ff",
-      }))
-    ).slice(0, 6),
-  ];
-  const engineLearning = model?.engineLearningBackbone || {};
-  const feedbackLoop = engineLearning.engineLearningFeedbackLoop || {};
-  const engineLearningLeads = [
-    ...safeArray(engineLearning.sourceRequirementsTriggered).slice(0, 3).map((entry) => ({
-      label: "Engine-learning source requirement",
-      description: entry.title || entry.requirement || entry.id || "Source requirement",
-      status: entry.diagnosticOnly ? "Diagnostic only" : "Source required",
-      source: "decisionModel.engineLearningBackbone.sourceRequirementsTriggered",
-      color: "#f9d976",
-    })),
-    ...safeArray(engineLearning.sourceCandidates).slice(0, 3).map((entry) => ({
-      label: "Source candidate, not reviewed evidence",
-      description: `${entry.sourceCandidateTitle || entry.candidateId || "Source candidate"}${entry.publisher ? ` (${entry.publisher})` : ""}`,
-      status: entry.scoringActive ? "QA warning: unexpectedly included in score" : "Candidate only",
-      source: "decisionModel.engineLearningBackbone.sourceCandidates",
-      color: "#9bd7ff",
-    })),
-    ...safeArray(feedbackLoop.sourceRequirementTemplatesProposed).slice(0, 5).map((entry) => ({
-      label: "Learning feedback source requirement",
-      description: entry,
-      status: "Diagnostic proposal",
-      source: "decisionModel.engineLearningBackbone.engineLearningFeedbackLoop.sourceRequirementTemplatesProposed",
-      color: "#c7a7ff",
-    })),
-  ];
-  const rawDataExpansion = model?.providerRawDataExpansion || {};
-  const rawDataCoverage = model?.rawDataCoverageDiagnostics || rawDataExpansion.rawDataCoverageDiagnostics || {};
-  const rawDataLeads = [
-    ...safeArray(rawDataExpansion.categoryDataSourceRequirements),
-    ...safeArray(rawDataCoverage.sourceCriticalMissingFields),
-  ].slice(0, 6).map((entry) => ({
-    label: "Provider raw-data requirement",
-    description: entry,
-    status: "Source required",
-    source: "decisionModel.providerRawDataExpansion.categoryDataSourceRequirements",
-    color: "#f9d976",
-  }));
-  const evidenceAggregation = model?.evidenceStatusAggregationContract || {};
-  const evidenceAggregationLeads = safeArray(evidenceAggregation.sourceQueueItems)
-    .slice(0, 8)
-    .map((item) => ({
-      label: "Evidence aggregation source requirement",
-      description: item || "Reviewed evidence or live data required.",
-      status: "Needs verification",
-      source: "decisionModel.evidenceStatusAggregationContract.sourceQueueItems",
-      color: "#f9d976",
-    }));
-
-  return dedupeByText([
-    ...evidenceAggregationLeads,
-    ...rawDataLeads,
-    ...engineLearningLeads,
-    ...benchmarkPackLeads,
-    ...reviewedCoverageLeads,
-    ...synthesizedLeads,
-    ...scoringReadinessLeads,
-    ...tokenomicsLeads,
-    ...identityLeads,
-    ...freshnessLeads,
-    ...missing,
-    ...required,
-    ...whatWouldChange,
-    ...alerts,
-    ...providerGapLeads(providerDiagnostics),
-    ...sourceStatusLeads(sourceStatus),
-  ]).filter((lead) => isPrimaryFamilyCompatibleText(
-    `${lead.label || ""} ${lead.description || ""}`,
-    canonicalPrimaryFamily,
-  )).map((lead) => ({
-    ...lead,
-    label: cleanPrimaryAnswerText(lead.label),
-    description: cleanPrimaryAnswerText(lead.description),
-    status: cleanPrimaryAnswerText(lead.status),
-    source: cleanPrimaryAnswerText(lead.source),
-  })).slice(0, 8);
 }
-
 function suggestedResearchDomains(model, displayIdentity = null) {
   return buildLensSpecificResearchDomains(model, displayIdentity);
 }
@@ -349,20 +105,19 @@ function ResearchRequirementCard({ requirement, styles }) {
 export default function SourceQueuePanel({
   model,
   displayIdentity = null,
-  sourceStatus,
-  providerDiagnostics,
   styles,
 }) {
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model) || {};
-  const reviewLeads = buildReviewLeads({ model, sourceStatus, providerDiagnostics });
+  const reviewLeads = buildReviewLeads({ model });
   const domains = suggestedResearchDomains(model, displayIdentity);
   const finalComposer = model?.finalAnalystAnswerComposerContract || {};
   const composerAvailable = finalComposer?.contractAttached === true;
-  const nextDiligence = safeArray(finalComposer?.sourceQueuePriorities);
+  const canonicalQueue = composerQueueItems(finalComposer);
+  const nextDiligence = canonicalQueue.map((item) => item.text);
   const canonicalJudgments = safeArray(finalComposer?.canonicalQuestionJudgments);
   const researchRequirements = composerAvailable
     ? nextDiligence.map((requirement, index) => ({
-      id: `canonical-diligence-${index}`,
+      id: canonicalQueue[index]?.id || `canonical-diligence-${index}`,
       title: requirement,
       reason: "Derived from the canonical question judgment gap and next-evidence state.",
       evidenceNeeded: [requirement],
@@ -372,7 +127,7 @@ export default function SourceQueuePanel({
       currentStatus: "needs_verification",
       canChangeVerdict: false,
     }))
-    : safeArray(model?.researchRequirements);
+    : [];
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
   const coverageGate = model?.coverageScoreEligibilityContract || {};

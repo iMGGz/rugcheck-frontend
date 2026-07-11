@@ -464,7 +464,7 @@ export default function AnalysisRightRail({
     topFact: finalComposer.analystView?.strongestPartOfThesis,
     topRisk: finalComposer.riskSummary?.[0] || finalComposer.analystView?.weakestPartOfAnalysis,
     missingCriticalEvidence: finalComposer.analystView?.missingForHigherConviction?.[0],
-    nextDiligenceStep: finalComposer.sourceQueuePriorities?.[0],
+    nextDiligenceStep: finalComposer.familyBoundSourceQueue?.[0]?.text || finalComposer.sourceQueuePriorities?.[0],
   } : {};
   const navItems = [
     ["thesis_falsification", "Thesis Falsification"],

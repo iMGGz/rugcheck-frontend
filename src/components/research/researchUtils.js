@@ -809,6 +809,8 @@ export function normalizeEvidenceStatusAggregationPayload(responseLike) {
     },
     sourceQueueItems: safeArray(contract.sourceQueueItems).map(cleanPrimaryAnswerText),
     manualReviewItems: safeArray(contract.manualReviewItems).map(cleanPrimaryAnswerText),
+    canonicalProjection: safeObject(contract.canonicalProjection),
+    auditOnlyLegacyInputs: safeObject(contract.auditOnlyLegacyInputs),
     readinessImpact: safeObject(contract.readinessImpact),
     policiesApplied: safeArray(contract.policiesApplied),
     conflicts: safeArray(contract.conflicts),
@@ -894,6 +896,10 @@ export function normalizeFamilyCanonicalRoutingPayload(responseLike) {
     familyScopedEvidenceRequirements: safeArray(contract.familyScopedEvidenceRequirements).map(cleanPrimaryAnswerText),
     familyScopedSourceQueueRequirements: safeArray(contract.familyScopedSourceQueueRequirements).map(cleanPrimaryAnswerText),
     familyScopedManualReviewItems: safeArray(contract.familyScopedManualReviewItems).map(cleanPrimaryAnswerText),
+    sourceQueueCanonicalRequirements: safeArray(contract.sourceQueueCanonicalRequirements || contract.familyScopedSourceQueueRequirements).map(cleanPrimaryAnswerText),
+    manualReviewCanonicalRequirements: safeArray(contract.manualReviewCanonicalRequirements || contract.familyScopedManualReviewItems).map(cleanPrimaryAnswerText),
+    canonicalQueueItemIds: safeArray(contract.canonicalQueueItemIds),
+    rejectedWrongFamilyRequirements: safeArray(contract.rejectedWrongFamilyRequirements),
     auditOnlyFields: safeObject(contract.auditOnlyFields),
     frontendParity: safeObject(contract.frontendParity),
     bundleParity: safeObject(contract.bundleParity),
@@ -1608,6 +1614,17 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
   const normalizedConfidenceLabel = cleanPrimaryAnswerText(
     rawScoreExplanationBridge.confidenceLabel || rawScoreExplanationBridge.confidence
   );
+  const familyBoundSourceQueue = safeArray(contract.familyBoundSourceQueue).map((item, index) => ({
+    ...safeObject(item),
+    queueItemId: item?.queueItemId || `canonical-queue-${index}`,
+    canonicalFamily: item?.canonicalFamily || contract.canonicalFamily || null,
+    questionId: item?.questionId || null,
+    requirementId: item?.requirementId || item?.queueItemId || `canonical-queue-${index}`,
+    text: cleanPrimaryAnswerText(item?.text || item?.label || item),
+  })).filter((item) => item.text);
+  const sourceQueuePriorities = familyBoundSourceQueue.length
+    ? familyBoundSourceQueue.map((item) => item.text)
+    : safeArray(contract.sourceQueuePriorities).map(cleanPrimaryAnswerText);
   return {
     ...contract,
     assetSummary: safeObject(contract.assetSummary),
@@ -1646,7 +1663,8 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
       whatWouldImproveScoreOrConfidence: safeArray(contract.scoreExplanationBridge?.whatWouldImproveScoreOrConfidence).map(cleanPrimaryAnswerText),
       explanation: cleanPrimaryAnswerText(contract.scoreExplanationBridge?.explanation),
     },
-    sourceQueuePriorities: safeArray(contract.sourceQueuePriorities).map(cleanPrimaryAnswerText),
+    familyBoundSourceQueue,
+    sourceQueuePriorities,
     riskSummary: safeArray(contract.riskSummary).map(cleanPrimaryAnswerText),
     familyPurityDiagnostics: {
       ...safeObject(contract.familyPurityDiagnostics),
@@ -1708,6 +1726,8 @@ export function normalizeMarketWideAnalystPipelinePurityPayload(responseLike) {
       nextStep: cleanPrimaryAnswerText(trace?.nextStep),
     })),
     requiredCounters,
+    sourceQueueFamilyMismatchDetails: safeArray(contract.sourceQueueFamilyMismatchDetails),
+    sourceQueueFamilyMismatchCorpusPaths: safeArray(contract.sourceQueueFamilyMismatchCorpusPaths),
     counterValidation: safeObject(contract.counterValidation),
     productSurfaceGate: {
       ...rawProductSurfaceGate,
@@ -3261,6 +3281,10 @@ export function buildProtectedInvestorReportText({
     safeAsset.symbol ? `(${safeAsset.symbol})` : "",
   ].filter(Boolean).join(" ") || "Selected asset";
   const composerCards = safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments);
+  const canonicalSourceQueue = safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue);
+  const canonicalSourceQueueText = canonicalSourceQueue.length
+    ? canonicalSourceQueue.map((item) => cleanPrimaryAnswerText(item?.text || item))
+    : safeArray(finalAnalystAnswerComposerContract?.sourceQueuePriorities).map(cleanPrimaryAnswerText);
   const selectedQuestions = composerCards.slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
     if (composerCards.length) {
@@ -3284,21 +3308,24 @@ export function buildProtectedInvestorReportText({
     }
     return [];
   });
-  const missingEvidence = normalizeRenderableList([
+  const missingEvidence = normalizeRenderableList(finalAnalystAnswerComposerContract?.contractAttached ? [
     finalAnalystAnswerComposerContract?.analystView?.missingForHigherConviction,
     finalAnalystAnswerComposerContract?.availableDataSummary?.missingSections,
+    composerCards.flatMap((question) => safeArray(question.gap || question.missingRequiredObservations)),
+    canonicalSourceQueueText,
+    tokenomicsSupplyIntegrity?.sourceRequirements,
+  ] : [
     safeModel.primaryBlocker?.label,
     safeModel.primaryBlocker?.explanation,
     safeModel.evidenceNeeded,
     evidenceStatusAggregationContract?.assetAggregation?.openChecks,
-    safeArray(evidenceStatusAggregationContract?.sourceQueueItems),
     safeModel.blockers,
     sourceStatusObject.missing,
     tokenomicsSupplyIntegrity?.sourceRequirements,
   ]).slice(0, 8);
   const whatWouldChange = normalizeRenderableList([
     finalAnalystAnswerComposerContract?.scoreExplanationBridge?.whatWouldImproveScoreOrConfidence,
-    finalAnalystAnswerComposerContract?.sourceQueuePriorities,
+    canonicalSourceQueueText,
     safeModel.whatWouldChangeDecision?.items,
     safeModel.whatWouldChange,
     tokenomicsSupplyIntegrity?.whatWouldChange,
@@ -3369,7 +3396,7 @@ export function buildProtectedInvestorReportText({
       "Primary risks:",
       ...formatReportList(finalAnalystAnswerComposerContract.riskSummary, "No primary risk summary was attached.", 4),
       "Recommended diligence:",
-      ...formatReportList(finalAnalystAnswerComposerContract.sourceQueuePriorities, "No next diligence item was attached.", 5),
+      ...formatReportList(canonicalSourceQueueText, "No next diligence item was attached.", 5),
     ] : []),
     ...(institutionalProductTruthObject?.protectedReportSummary?.length ? [
       "Product truth summary:",
@@ -6497,146 +6524,21 @@ export function buildDecisionTerminalModel({
       badge: "Lens-aware requirement",
     }
     : primaryBlocker;
-  const baseDisplayResearchRequirements = lensAwareExplanations?.sourceQueueRequirements?.length
-    ? lensAwareExplanations.sourceQueueRequirements.map((requirement, index) => ({
-      id: `lens-aware-${lensAwareExplanations.lensId}-${index}`,
-      title: requirement,
-      assetClassLens: lensAwareExplanations.lensId,
-      reason: "Lens-aware source priority derived from resolvedInstitutionalLens. It does not change scoring.",
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
+  const composerResearchRequirements = safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue)
+    .map((item, index) => ({
+      id: item.queueItemId || `canonical-composer-queue-${index}`,
+      title: item.text,
+      assetClassLens: item.canonicalFamily || canonicalPrimaryFamily,
+      reason: "Canonical question-judgment gap owned by the Final Analyst Answer Composer.",
+      evidenceNeeded: [item.text],
+      preferredSourceTypes: [],
       priority: index < 2 ? "high" : "medium",
-      verdictImpact: "Could clarify allocation thesis support or blockers if independently verified.",
-      currentStatus: "review_required",
-      canChangeVerdict: true,
-    }))
-    : verdictSemantics.researchRequirements;
-  const categoryResearchRequirements = safeArray(categoryDrivenAssetFamilyContract?.sourceRequirementProfile?.priorityRequirements)
-    .slice(0, 8)
-    .map((requirement, index) => ({
-      id: `category-driven-${categoryDrivenAssetFamilyContract.primaryAssetFamily}-${index}`,
-      title: requirement,
-      assetClassLens: categoryDrivenAssetFamilyContract.primaryAssetFamily,
-      reason: `Category-driven question registry requirement for ${categoryDrivenAssetFamilyContract.frontendVisibleLabel}. Provider categories are context, not reviewed evidence.`,
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["official_docs", "provider_category_metadata", "reviewed_source"],
-      priority: index < 3 ? "high" : "medium",
-      verdictImpact: "Diagnostic-only; can improve answer quality after reviewed evidence is attached.",
-      currentStatus: "source_required",
+      verdictImpact: "May improve confidence if the canonical evidence gap is resolved.",
+      currentStatus: item.status || "needs_verification",
       canChangeVerdict: false,
+      canonicalQueueItemId: item.queueItemId,
     }));
-  const representationFamilyResearchRequirements = safeArray(representationFamilyEvidenceGates)
-    .slice(0, 8)
-    .map((gate, index) => ({
-      id: `representation-family-${gate.gateId || index}`,
-      title: gate.sourceRequirement || gate.label || "Representation-family evidence gate requires source review.",
-      assetClassLens: representationFamilyRoute?.selectedFamily || primaryAnalysisRoute?.assetFamily || "representation_family_authority",
-      reason: `${gate.label || "Evidence gate"} for ${representationFamilyRoute?.visibleLabel || representationFamilyRoute?.selectedFamily || "asset family route"}. Missing evidence is a source/manual-review gate, not a wrong-family route.`,
-      evidenceNeeded: [gate.label || gate.sourceRequirement || "Reviewed source required."],
-      preferredSourceTypes: ["official_docs", "primary_source", "manual_review"],
-      priority: index < 3 ? "high" : "medium",
-      verdictImpact: gate.affectsVerdict ? "Could affect verdict if future scoring policy explicitly integrates reviewed evidence." : "Diagnostic/source-routing only in v1; does not change current verdict.",
-      currentStatus: gate.status || "source_required",
-      canChangeVerdict: false,
-    }));
-  const evidenceAggregationResearchRequirements = safeArray(evidenceStatusAggregationContract?.sourceQueueItems)
-    .slice(0, 10)
-    .map((item, index) => ({
-      id: `evidence-aggregation-${index}`,
-      title: item || "Evidence source review required.",
-      assetClassLens: evidenceStatusAggregationContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "evidence_status_aggregation",
-      reason: "Open check from the evidence status aggregation contract.",
-      evidenceNeeded: [item || "Reviewed evidence or current live data is required."],
-      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data"],
-      priority: index < 4 ? "high" : "medium",
-      verdictImpact: "Could improve answer readiness and confidence explanation if resolved.",
-      currentStatus: "needs_verification",
-      canChangeVerdict: true,
-    }));
-  const familyCanonicalResearchRequirements = safeArray(familyCanonicalRoutingContract?.familyScopedSourceQueueRequirements)
-    .slice(0, 10)
-    .map((item, index) => ({
-      id: `family-canonical-routing-${index}`,
-      title: item || "Canonical family route requires source review.",
-      assetClassLens: familyCanonicalRoutingContract?.effectiveFamily || primaryAnalysisRoute?.assetFamily || "family_canonical_routing",
-      reason: `Canonical family route: ${familyCanonicalRoutingContract?.canonicalQuestionGroup || "question group unavailable"} / ${familyCanonicalRoutingContract?.canonicalSourceProfile || "source profile unavailable"}. Raw fallback groups are audit-only.`,
-      evidenceNeeded: [item || "Verify canonical family source requirement."],
-      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
-      priority: index < 4 ? "high" : "medium",
-      verdictImpact: "Controls question/source routing only; does not change current score or verdict formula.",
-      currentStatus: "source_required",
-      canChangeVerdict: false,
-    }));
-  const coverageEligibilityResearchRequirements = safeArray([
-    ...safeArray(coverageScoreEligibilityContract?.whatWouldUpgradeTier),
-    ...safeArray(coverageScoreEligibilityContract?.whatWouldMakeScoreEligible),
-  ])
-    .slice(0, 10)
-    .map((item, index) => ({
-      id: `coverage-score-eligibility-${index}`,
-      title: item || "Coverage gate requires source review.",
-      assetClassLens: coverageScoreEligibilityContract?.assetFamily || primaryAnalysisRoute?.assetFamily || "coverage_score_eligibility",
-      reason: coverageScoreEligibilityContract?.primaryUserMessage || "Coverage Tier + Score Eligibility Gate source requirement.",
-      evidenceNeeded: [item || "Resolve coverage blocker."],
-      preferredSourceTypes: ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
-      priority: index < 4 ? "high" : "medium",
-      verdictImpact: "Controls analysis depth and score display eligibility; does not change current score or verdict formula.",
-      currentStatus: coverageScoreEligibilityContract?.scoreEligibility || "needs_verification",
-      canChangeVerdict: false,
-    }));
-  const familyMatrixResearchRequirements = safeArray(familyDataRequirementMatrixContract?.sourceQueueItems)
-    .slice(0, 12)
-    .map((item, index) => ({
-      id: `family-data-requirement-matrix-${index}`,
-      title: item || "Family data requirement needs verification.",
-      assetClassLens: familyDataRequirementMatrixContract?.primaryFamily || primaryAnalysisRoute?.assetFamily || "family_data_requirement_matrix",
-      reason: `Family Data Requirement Matrix v2: ${familyDataRequirementMatrixContract?.primarySourceMatrixId || "source matrix unavailable"}. Provider metadata is classification context only.`,
-      evidenceNeeded: [item || "Verify family-specific source/data requirement."],
-      preferredSourceTypes: familyDataRequirementMatrixContract?.recommendedSourceTypes?.length
-        ? familyDataRequirementMatrixContract.recommendedSourceTypes.slice(0, 5)
-        : ["official_docs", "primary_source", "reviewed_source", "live_provider_data", "manual_review"],
-      priority: index < 5 ? "high" : "medium",
-      verdictImpact: "Defines family-specific readiness requirements only; does not change the current score or verdict formula.",
-      currentStatus: "needs_verification",
-      canChangeVerdict: false,
-    }));
-  const rawDataResearchRequirements = safeArray(providerRawDataExpansion?.categoryDataSourceRequirements || rawDataCoverageDiagnostics?.sourceCriticalMissingFields)
-    .slice(0, 8)
-    .map((requirement, index) => ({
-      id: `raw-data-coverage-${index}`,
-      title: requirement,
-      assetClassLens: primaryAnalysisRoute?.assetFamily || categoryDrivenAssetFamilyContract?.primaryAssetFamily || resolvedInstitutionalLens?.lensId || "raw_data_coverage",
-      reason: "Generated from provider category/raw-data coverage diagnostics. Missing provider data is source-required, not negative evidence.",
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["provider_endpoint", "official_docs", "primary_source", "manual_review"],
-      priority: index < 3 ? "high" : "medium",
-      verdictImpact: "Diagnostic-only in v1; can improve answer quality after reviewed evidence or reliable provider data is attached.",
-      currentStatus: "source_required",
-      canChangeVerdict: false,
-    }));
-  const canonicalRequirementFamily = String(canonicalPrimaryFamily || "").trim().toLowerCase();
-  const canonicalResearchRequirements = [
-    ...familyMatrixResearchRequirements,
-    ...familyCanonicalResearchRequirements,
-    ...coverageEligibilityResearchRequirements,
-    ...evidenceAggregationResearchRequirements,
-    ...baseDisplayResearchRequirements,
-    ...representationFamilyResearchRequirements,
-    ...categoryResearchRequirements,
-    ...rawDataResearchRequirements,
-  ].filter((requirement) => {
-    const declaredFamily = String(requirement?.assetClassLens || "").trim().toLowerCase();
-    if (!canonicalRequirementFamily || !declaredFamily) return true;
-    return declaredFamily === canonicalRequirementFamily
-      || declaredFamily === "raw_data_coverage"
-      || declaredFamily === "representation_family_authority"
-      || declaredFamily === "institutional_answer_surface"
-      || declaredFamily === "evidence_status_aggregation"
-      || declaredFamily === "family_canonical_routing"
-      || declaredFamily === "coverage_score_eligibility"
-      || declaredFamily === "family_data_requirement_matrix";
-  });
-  const displayResearchRequirements = dedupeObjectsByTitle(canonicalResearchRequirements)
+  const displayResearchRequirements = dedupeObjectsByTitle(composerResearchRequirements)
     .filter((requirement) => isPrimaryFamilyCompatibleText([
       requirement?.title,
       requirement?.reason,
@@ -9285,7 +9187,9 @@ export function buildReviewBundleText({
         `${answer.questionId} | claim=${answer.claimType || "unavailable"} | eligible=${safeArray(answer.eligibleObservations).length} | contextOnly=${safeArray(answer.contextOnlyObservations).length} | forbidden=${safeArray(answer.forbiddenForQuestionObservations).length} | missing=${safeArray(answer.missingRequiredObservations).join("; ") || "none"}`
       ), "No canonical judgment classifications attached.", 20),
       "Family-bound Source Queue:",
-      bundleList(finalAnalystAnswerComposerContract?.sourceQueuePriorities),
+      bundleList(safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue).length
+        ? safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue).map((item) => `${item.queueItemId || "queue-item"} | ${item.text || item}`)
+        : finalAnalystAnswerComposerContract?.sourceQueuePriorities),
       "Score explanation bridge:",
       bundleList([
         finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation,
@@ -9333,6 +9237,14 @@ export function buildReviewBundleText({
       bundleField("Source Queue family mismatch findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.sourceQueueFamilyMismatchFindings ?? "missing"),
       bundleField("Legacy primary consumer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.legacyPrimaryConsumerFindings ?? "missing"),
       bundleField("Duplicate live producer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.duplicateLiveProducerFindings ?? "missing"),
+      bundleField("Family mismatch corpus item count", marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchCorpusItemCount ?? "missing"),
+      bundleField("Family mismatch corpus complete", yesNoUnknown(marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchCorpusComplete)),
+      "Family mismatch corpus paths:",
+      bundleList(marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchCorpusPaths, "No product requirement corpus paths attached.", 40),
+      "Family mismatch details:",
+      bundleList(safeArray(marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchDetails).map((finding) =>
+        `${finding.fieldPath || "path unavailable"} | id=${finding.requirementId || "none"} | expected=${finding.expectedFamily || "unknown"} | detected=${finding.detectedIncompatibleFamily || "unknown"} | concepts=${safeArray(finding.matchedConcepts).join(", ") || "unknown"} | ${finding.text || "text unavailable"}`
+      ), "No downstream family mismatch findings detected.", 40),
       "Pipeline stages:",
       bundleList(safeArray(marketWideAnalystPipelinePurityContract?.pipelineStages).map((stage) =>
         `${stage.label || stage.stageId}: ${stage.status || "unknown"} | ${stage.summary || "No summary"}`
@@ -9596,7 +9508,7 @@ export function buildReviewBundleText({
       bundleList(safeArray(evidenceStatusAggregationContract?.questionAggregations).slice(0, 12).map((question) =>
         `${question.questionId || "question"} | ${question.primaryStatus || "status_unknown"} | ${cleanPrimaryAnswerText(question.plainLanguageStatus || "Needs verification")} | supported=${safeArray(question.supportedClaims).length} missing=${safeArray(question.missingClaims).length} live=${safeArray(question.liveDataRequiredClaims || question.liveDataClaims).length} contradictions=${safeArray(question.contradictedClaims).length} notApplicable=${safeArray(question.notApplicableClaims).length} | ${cleanPrimaryAnswerText(question.plainLanguageSummary || "")}`
       ), "No question aggregations attached.", 12),
-      "Source Queue items from aggregation:",
+      "Canonical Source Queue mirrors from aggregation:",
       bundleList(safeArray(evidenceStatusAggregationContract?.sourceQueueItems).slice(0, 12).map((item) =>
         cleanPrimaryAnswerText(item || "Source review required")
       ), "No aggregation source queue items.", 12),
@@ -9618,7 +9530,9 @@ export function buildReviewBundleText({
       bundleList([
         `Copy Bundle 2AN present=yes`,
         `Evidence Map receives aggregation=${yesNoUnknown(Boolean(evidenceStatusAggregationContract?.frontendVisibility?.evidenceMap))}`,
-        `Source Queue receives aggregation=${yesNoUnknown(safeArray(evidenceStatusAggregationContract?.sourceQueueItems).length > 0 || Boolean(evidenceStatusAggregationContract?.frontendVisibility?.sourceQueue))}`,
+        `2AN independent product queue produced=${yesNoUnknown(evidenceStatusAggregationContract?.canonicalProjection?.independentProductQueueProduced)}`,
+        `2AN canonical queue owner=${evidenceStatusAggregationContract?.canonicalProjection?.productSourceQueueOwner || "unavailable"}`,
+        `2AN canonical queue refs=${safeArray(evidenceStatusAggregationContract?.canonicalProjection?.sourceQueueItemIds).length}`,
         `Manual Review receives aggregation=${yesNoUnknown(Boolean(evidenceStatusAggregationContract?.frontendVisibility?.manualReview))}`,
         `Answer Surface integration=${evidenceStatusAggregationContract?.frontendVisibility?.answerSurface || "unknown"}`,
         `Protected Investor Report redaction=${evidenceStatusAggregationContract?.frontendVisibility?.protectedInvestorReport || "unknown"}`,
@@ -9698,7 +9612,7 @@ export function buildReviewBundleText({
         `Decision Header receives coverage gate=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.decisionHeader))}`,
         `Right Rail receives coverage gate=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.rightRail))}`,
         `Scoring Transparency separates eligibility=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.scoringTransparency))}`,
-        `Source Queue receives tier blockers=${yesNoUnknown(safeArray(coverageScoreEligibilityContract?.whatWouldUpgradeTier).length > 0)}`,
+        `Coverage requirements project canonical owners=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.auditDetails?.canonicalRequirementOwners))}`,
         `Manual Review receives critical blockers=${yesNoUnknown(Boolean(coverageScoreEligibilityContract?.frontendVisibility?.manualReview))}`,
         `Protected Investor Report redaction=${coverageScoreEligibilityContract?.protectedInvestorReportRedaction || "unknown"}`,
         `Copy Bundle 2AO present=yes`,
@@ -9744,9 +9658,14 @@ export function buildReviewBundleText({
       "Family-scoped evidence requirements:",
       bundleList(familyCanonicalRoutingContract?.familyScopedEvidenceRequirements, "No family-scoped evidence requirements attached.", 16),
       "Source Queue canonical requirements:",
-      bundleList(familyCanonicalRoutingContract?.familyScopedSourceQueueRequirements, "No canonical Source Queue requirements attached.", 12),
+      bundleList(familyCanonicalRoutingContract?.sourceQueueCanonicalRequirements || familyCanonicalRoutingContract?.familyScopedSourceQueueRequirements, "No canonical Source Queue requirements attached.", 12),
       "Manual Review canonical requirements:",
-      bundleList(familyCanonicalRoutingContract?.familyScopedManualReviewItems, "No canonical Manual Review requirements attached.", 12),
+      bundleList(familyCanonicalRoutingContract?.manualReviewCanonicalRequirements || familyCanonicalRoutingContract?.familyScopedManualReviewItems, "No canonical Manual Review requirements attached.", 12),
+      bundleField("Independent product queue produced", yesNoUnknown(familyCanonicalRoutingContract?.independentProductQueueProduced)),
+      "Rejected wrong-family legacy requirements (audit-only):",
+      bundleList(safeArray(familyCanonicalRoutingContract?.rejectedWrongFamilyRequirements).map((item) =>
+        `${item.sourcePath || "legacy path"} | expected=${item.expectedFamily || "unknown"} | incompatible=${safeArray(item.incompatibleFamilies).join(", ") || "unknown"} | concepts=${safeArray(item.matchedConcepts).join(", ") || "unknown"} | ${item.text || "text unavailable"}`
+      ), "No wrong-family legacy requirements were rejected.", 20),
       "Frontend parity:",
       bundleList([
         `normalizedField=${familyCanonicalRoutingContract?.frontendParity?.normalizedField || "unavailable"}`,
@@ -9803,7 +9722,7 @@ export function buildReviewBundleText({
       bundleList(evidenceProvenanceSemanticsContract?.primaryLabels, "No provenance labels attached.", 12),
       "Readiness gaps:",
       bundleList(safeArray(evidenceProvenanceSemanticsContract?.readinessGaps).slice(0, 16).map((gap) =>
-        `${gap.gapType || "gap"} | ${cleanPrimaryAnswerText(gap.displayLabel || gap.label || "Verification gap")}`
+        `${gap.gapType || "gap"} | family=${gap.family || "unknown"} | question=${gap.questionId || "family-wide"} | requirement=${gap.requirementId || gap.gapId || "unknown"} | sourceClass=${gap.sourceClass || "unknown"} | visibility=${gap.visibility || "product"} | ${cleanPrimaryAnswerText(gap.displayLabel || gap.label || "Verification gap")}`
       ), "No readiness gaps attached.", 16),
       "Question summaries:",
       bundleList(safeArray(evidenceProvenanceSemanticsContract?.questionSummaries).slice(0, 12).map((question) =>

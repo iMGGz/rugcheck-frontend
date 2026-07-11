@@ -3,7 +3,7 @@ import FailureModeCard from "./FailureModeCard";
 import TokenDemandCard from "./TokenDemandCard";
 import ConvictionDriversMatrix from "./ConvictionDriversMatrix";
 import { Card, CollapsibleDetail, ListBlock, QuestionPromptCard, SectionRow } from "./researchPrimitives";
-import { getAnalystAnswerCard, normalizeRenderableList, sanitizeSemanticLabel, titleCase } from "./researchUtils";
+import { getAnalystAnswerCard, normalizeRenderableList, safeArray, sanitizeSemanticLabel, titleCase } from "./researchUtils";
 import { TokenomicsSupplyIntegrityCard } from "./TokenomicsSupplyIntegrityCard";
 
 function dedupe(items) {
@@ -349,7 +349,10 @@ export default function ThesisFalsificationTab({ model, displayIdentity = null, 
     thesis.whatCouldBreak = normalizeRenderableList(finalComposer.riskSummary).length ? normalizeRenderableList(finalComposer.riskSummary).slice(0, 4) : thesis.whatCouldBreak;
     thesis.weakestLinkExplanation = finalComposer.analystView?.weakestPartOfAnalysis || thesis.weakestLinkExplanation;
     thesis.missingContext = normalizeRenderableList(finalComposer.analystView?.missingForHigherConviction).length ? normalizeRenderableList(finalComposer.analystView.missingForHigherConviction) : thesis.missingContext;
-    thesis.whatWouldChange = normalizeRenderableList(finalComposer.sourceQueuePriorities).length ? normalizeRenderableList(finalComposer.sourceQueuePriorities) : thesis.whatWouldChange;
+    const composerQueue = safeArray(finalComposer.familyBoundSourceQueue).length
+      ? safeArray(finalComposer.familyBoundSourceQueue).map((item) => item.text)
+      : finalComposer.sourceQueuePriorities;
+    thesis.whatWouldChange = normalizeRenderableList(composerQueue).length ? normalizeRenderableList(composerQueue) : thesis.whatWouldChange;
     thesis.falsePositiveRisk = finalComposer.availableDataSummary?.limitations?.[0] || thesis.falsePositiveRisk;
   }
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || model?.assetFramingLabel || model?.assetClassLabel || "Digital asset allocation thesis";
