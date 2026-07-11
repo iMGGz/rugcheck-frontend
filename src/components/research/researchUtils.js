@@ -1601,6 +1601,13 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
     auditDiagnostics: safeObject(answer?.auditDiagnostics),
     boundary: cleanPrimaryAnswerText(answer?.boundary),
   }));
+  const rawScoreExplanationBridge = safeObject(contract.scoreExplanationBridge);
+  const normalizedVerdictLabel = cleanPrimaryAnswerText(
+    rawScoreExplanationBridge.verdictLabel || rawScoreExplanationBridge.verdict
+  );
+  const normalizedConfidenceLabel = cleanPrimaryAnswerText(
+    rawScoreExplanationBridge.confidenceLabel || rawScoreExplanationBridge.confidence
+  );
   return {
     ...contract,
     assetSummary: safeObject(contract.assetSummary),
@@ -1621,7 +1628,18 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
       missingForHigherConviction: safeArray(contract.analystView?.missingForHigherConviction).map(cleanPrimaryAnswerText),
     },
     scoreExplanationBridge: {
-      ...safeObject(contract.scoreExplanationBridge),
+      ...rawScoreExplanationBridge,
+      verdictClass: rawScoreExplanationBridge.verdictClass || null,
+      verdictLabel: normalizedVerdictLabel,
+      verdict: normalizedVerdictLabel,
+      scoreDisplayMode: rawScoreExplanationBridge.scoreDisplayMode || null,
+      scoreDisplayLabel: cleanPrimaryAnswerText(rawScoreExplanationBridge.scoreDisplayLabel),
+      scoreEligibility: rawScoreExplanationBridge.scoreEligibility || null,
+      confidenceScore: Number.isFinite(rawScoreExplanationBridge.confidenceScore)
+        ? rawScoreExplanationBridge.confidenceScore
+        : null,
+      confidenceLabel: normalizedConfidenceLabel,
+      confidence: normalizedConfidenceLabel,
       strongestSupportingDataCategories: safeArray(contract.scoreExplanationBridge?.strongestSupportingDataCategories).map(cleanPrimaryAnswerText),
       weakestOrMissingDataCategories: safeArray(contract.scoreExplanationBridge?.weakestOrMissingDataCategories).map(cleanPrimaryAnswerText),
       familySpecificScoreConstraints: safeArray(contract.scoreExplanationBridge?.familySpecificScoreConstraints).map(cleanPrimaryAnswerText),
@@ -1658,6 +1676,22 @@ export function normalizeMarketWideAnalystPipelinePurityPayload(responseLike) {
       ? nestedContract
       : null;
   if (!contract) return null;
+  const rawRequiredCounters = safeObject(contract.requiredCounters);
+  const requiredCounterKeys = [
+    "wrongFamilyQuestionLeakageCount",
+    "duplicateAnswerFindings",
+    "repeatedSentenceFindings",
+    "identityGrammarFindings",
+    "forbiddenProxySupportFindings",
+    "sourceQueueFamilyMismatchFindings",
+    "legacyPrimaryConsumerFindings",
+    "duplicateLiveProducerFindings",
+  ];
+  const requiredCounters = Object.fromEntries(requiredCounterKeys.map((key) => [
+    key,
+    Number.isFinite(rawRequiredCounters[key]) ? rawRequiredCounters[key] : null,
+  ]));
+  const rawProductSurfaceGate = safeObject(contract.productSurfaceGate);
   return {
     ...contract,
     pipelineStages: safeArray(contract.pipelineStages),
@@ -1673,7 +1707,13 @@ export function normalizeMarketWideAnalystPipelinePurityPayload(responseLike) {
       missingData: safeArray(trace?.missingData).map(cleanPrimaryAnswerText),
       nextStep: cleanPrimaryAnswerText(trace?.nextStep),
     })),
-    productSurfaceGate: safeObject(contract.productSurfaceGate),
+    requiredCounters,
+    counterValidation: safeObject(contract.counterValidation),
+    productSurfaceGate: {
+      ...rawProductSurfaceGate,
+      requiredCounters,
+      ...requiredCounters,
+    },
     frontendParity: safeObject(contract.frontendParity),
     copyBundleParity: safeObject(contract.copyBundleParity),
     protectedReportParity: safeObject(contract.protectedReportParity),
@@ -3339,7 +3379,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
     "",
     "2. Decision Snapshot",
-    reportLine("Verdict", safeModel.verdictLabel || safeAnalysis.verdict || safeScores.verdict),
+    reportLine("Verdict", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdictLabel || safeModel.verdictLabel || safeAnalysis.verdict || safeScores.verdict),
     reportLine("Confidence", safeModel.confidenceLabel || safeConfidence.label || safeConfidence.level),
     reportLine("Score", safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore),
     reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
@@ -3370,7 +3410,7 @@ export function buildProtectedInvestorReportText({
     reportLine("Coverage tier", coverageScoreEligibilityContract?.coverageTierLabel || "Not available yet."),
     reportLine("Analysis depth", coverageScoreEligibilityContract?.analysisDepthLabel || "Not available yet."),
     reportLine("Score eligibility", coverageScoreEligibilityContract?.scoreEligibility || "Not available yet."),
-    reportLine("Score display", coverageScoreEligibilityContract?.scoreDisplayMode || "Not available yet."),
+    reportLine("Score display", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || "Not available yet."),
     reportLine("Coverage meaning", coverageScoreEligibilityContract?.primaryUserMessage || "Coverage gate was not attached."),
     ...formatReportList(
       normalizeRenderableList(coverageScoreEligibilityContract?.criticalBlockers?.map((blocker) => blocker.label)).slice(0, 5),
@@ -4898,7 +4938,7 @@ export function buildVerdictSemanticsDisplay(decisionLayer, thesisCore, analysis
     hasVerdictClass: true,
     key: verdictClass,
     verdictClass,
-    label: base.label,
+    label: cleanPrimaryAnswerText(safeDecisionLayer.verdictLabel) || base.label,
     shortLabel: base.shortLabel,
     tone: base.tone,
     summary: base.summary,
@@ -6695,6 +6735,7 @@ export function buildDecisionTerminalModel({
     overallScore,
     confidenceScore,
     confidenceLabel: confidenceLabelText,
+    scoreDisplayLabel: finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || null,
     allocationOutcome,
     verdictSemantics: dataFirstVerdictSemantics,
     verdictClass: dataFirstVerdictSemantics.verdictClass || null,
@@ -9249,12 +9290,15 @@ export function buildReviewBundleText({
       bundleList([
         finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation,
         `score=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.score ?? "unavailable"}`,
-        `verdict=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdict || "unavailable"}`,
-        `confidence=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.confidence || "unavailable"}`,
+        `verdictClass=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdictClass || "unavailable"}`,
+        `verdictLabel=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdictLabel || "unavailable"}`,
+        `scoreDisplay=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || "unavailable"}`,
+        `confidence=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.confidenceLabel || "unavailable"}`,
         `formulaChanged=${yesNoUnknown(finalAnalystAnswerComposerContract?.scoreExplanationBridge?.formulaChanged)}`,
       ]),
       "Internal QA diagnostics (audit-only):",
       bundleList([
+        `scoreDisplayMode=${finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayMode || "unavailable"}`,
         `primarySurfacePass=${yesNoUnknown(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.primarySurfacePass)}`,
         `wrongDomainFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.wrongDomainFindings).length}`,
         `sourceQueueFamilyMismatchFindings=${safeArray(finalAnalystAnswerComposerContract?.familyPurityDiagnostics?.sourceQueueFamilyMismatchFindings).length}`,
@@ -9281,14 +9325,14 @@ export function buildReviewBundleText({
       bundleField("Frontend may synthesize claims", yesNoUnknown(marketWideAnalystPipelinePurityContract?.frontendParity?.frontendMaySynthesizeClaims)),
       bundleField("Copy Bundle user mirror uses composer", yesNoUnknown(marketWideAnalystPipelinePurityContract?.copyBundleParity?.copyBundleUserMirrorUsesComposer)),
       bundleField("Protected Report high-level only", yesNoUnknown(marketWideAnalystPipelinePurityContract?.protectedReportParity?.highLevelOnly)),
-      bundleField("Wrong-family question leakage count", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.wrongFamilyQuestionLeakageCount ?? "missing"),
-      bundleField("Duplicate answer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.duplicateAnswerFindings ?? "missing"),
-      bundleField("Repeated sentence findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.repeatedSentenceFindings ?? "missing"),
-      bundleField("Identity grammar findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.identityGrammarFindings ?? "missing"),
-      bundleField("Forbidden proxy support findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.forbiddenProxySupportFindings ?? "missing"),
-      bundleField("Source Queue family mismatch findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.sourceQueueFamilyMismatchFindings ?? "missing"),
-      bundleField("Legacy primary consumer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.legacyPrimaryConsumerFindings ?? "missing"),
-      bundleField("Duplicate live producer findings", marketWideAnalystPipelinePurityContract?.productSurfaceGate?.duplicateLiveProducerFindings ?? "missing"),
+      bundleField("Wrong-family question leakage count", marketWideAnalystPipelinePurityContract?.requiredCounters?.wrongFamilyQuestionLeakageCount ?? "missing"),
+      bundleField("Duplicate answer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.duplicateAnswerFindings ?? "missing"),
+      bundleField("Repeated sentence findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.repeatedSentenceFindings ?? "missing"),
+      bundleField("Identity grammar findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.identityGrammarFindings ?? "missing"),
+      bundleField("Forbidden proxy support findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.forbiddenProxySupportFindings ?? "missing"),
+      bundleField("Source Queue family mismatch findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.sourceQueueFamilyMismatchFindings ?? "missing"),
+      bundleField("Legacy primary consumer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.legacyPrimaryConsumerFindings ?? "missing"),
+      bundleField("Duplicate live producer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.duplicateLiveProducerFindings ?? "missing"),
       "Pipeline stages:",
       bundleList(safeArray(marketWideAnalystPipelinePurityContract?.pipelineStages).map((stage) =>
         `${stage.label || stage.stageId}: ${stage.status || "unknown"} | ${stage.summary || "No summary"}`
@@ -9305,7 +9349,13 @@ export function buildReviewBundleText({
         `${trace.question || trace.questionId} | state=${trace.answerState || "unknown"} | data=${trace.dataUsedCount ?? 0} | missing=${safeArray(trace.missingData).join("; ") || "none"} | next=${trace.nextStep || "none"}`
       ), "No question traces attached.", 20),
       "Product surface gate:",
-      bundleList(Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.productSurfaceGate)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
+      bundleList([
+        ...Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.productSurfaceGate?.requiredCounters))
+          .map(([key, value]) => `${key}=${Number.isFinite(value) ? value : "missing"}`),
+        ...Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.productSurfaceGate))
+          .filter(([key, value]) => key !== "requiredCounters" && typeof value === "boolean")
+          .map(([key, value]) => `${key}=${value ? "yes" : "no"}`),
+      ]),
       "Guardrails:",
       bundleList(Object.entries(safeObject(marketWideAnalystPipelinePurityContract?.guardrailsVerified)).map(([key, value]) => `${key}=${yesNoUnknown(value)}`)),
       "Failures:",
@@ -9316,7 +9366,9 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),
-      bundleField("Runtime role", "deprecated read-only static audit; never primary product truth"),
+      bundleField("Runtime role", institutionalAnswerSurfaceContract
+        ? "historical/non-current static audit; never primary product truth"
+        : "disabled for live recompute; historical/static audit only"),
       bundleField("Artifact version", institutionalAnswerSurfaceContract?.artifactVersion),
       bundleField("Live primary truth", yesNoUnknown(institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.livePrimaryTruth)),
       bundleField("Superseded by", institutionalAnswerSurfaceContract?.productLayer?.canonicalOwnerDisposition?.supersededBy),

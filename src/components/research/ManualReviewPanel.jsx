@@ -513,7 +513,7 @@ export default function ManualReviewPanel({
           <div style={styles.sourceBoundaryStrip}>
             {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
             {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
-            {boundaryChip(styles, coverageGate.scoreDisplayMode || "Score display mode")}
+            {boundaryChip(styles, finalComposer?.scoreExplanationBridge?.scoreDisplayLabel || "Score display policy")}
           </div>
           <SectionRow
             label="Coverage message"

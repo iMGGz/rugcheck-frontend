@@ -115,6 +115,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const composerScore = model?.finalAnalystAnswerComposerContract?.scoreExplanationBridge || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
   const representationFamilyRoute = model?.representationFamilyRoute || model?.representationFamilyDecision?.route || {};
@@ -233,7 +234,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
         {coverageGate.artifactVersion ? (
           <LayerLegendItem
             title={`Coverage tier: ${coverageGate.coverageTierLabel || coverageGate.coverageTier || "Unavailable"}`}
-            detail={`${coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${coverageGate.scoreDisplayMode || "unavailable"}.`}
+            detail={`${coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${composerScore.scoreDisplayLabel || "unavailable"}.`}
             badge={coverageGate.scoreEligibility ? `Score eligibility: ${coverageGate.scoreEligibility}` : "Score eligibility"}
             tone={coverageGate.scoreEligibility === "eligible" || coverageGate.scoreEligibility === "partially_eligible" ? "#2fd67b" : "#ffb020"}
             styles={styles}

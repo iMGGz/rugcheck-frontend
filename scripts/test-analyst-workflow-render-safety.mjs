@@ -58,13 +58,15 @@ try {
     ...baseModel,
     institutionalAnalystWorkflowContract: workflow,
   });
-  assert.match(presentHtml, /Workflow thesis/);
+  assert.match(presentHtml, /Institutional Analyst Workflow unavailable/);
+  assert.doesNotMatch(presentHtml, /Workflow thesis/);
 
   const nestedHtml = renderDecision({
     ...baseModel,
     analysis: { institutionalAnalystWorkflowContract: workflow },
   });
-  assert.match(nestedHtml, /Workflow thesis/);
+  assert.match(nestedHtml, /Institutional Analyst Workflow unavailable/);
+  assert.doesNotMatch(nestedHtml, /Workflow thesis/);
 
   const partialHtml = renderDecision({
     ...baseModel,
@@ -250,6 +252,7 @@ try {
     knownLimitations: ["Current evidence is incomplete."],
     nextResumePointer: "Deployed cross-family QA",
   };
+  finalAnalystComposer.canonicalQuestionJudgments = finalAnalystComposer.fundamentalQuestionAnswers;
   const structuredProtectedReport = researchUtils.buildProtectedInvestorReportText({
     asset: { symbol: "BTC" },
     model: {
@@ -290,7 +293,8 @@ try {
     asset: { symbol: "TEST" },
     model: canonicalRouteModel,
   });
-  assert.match(aliasProtectedReport, /Analyst workflow family: Native Eth Pos Gas L2 Fee Market/);
+  assert.match(aliasProtectedReport, /Analysis question family: native_eth_pos_questions/);
+  assert.doesNotMatch(aliasProtectedReport, /Analyst workflow family:/);
   assert.doesNotMatch(aliasProtectedReport, /methodologyFamilyAlias|aliasesNormalized|native_eth_pos_settlement_gas_fee_market/);
 
   console.log("Institutional Analyst Workflow render-safety smoke tests passed.");

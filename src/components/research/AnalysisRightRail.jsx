@@ -237,7 +237,7 @@ function CoverageScoreEligibilityRailSection({ model, styles }) {
       </div>
       <div style={styles.railBoundaryGrid}>
         <div style={styles.railBoundaryPill}>Tier: {coverage.coverageTierLabel || coverage.coverageTier || "unknown"}</div>
-        <div style={styles.railBoundaryPill}>Score: {coverage.scoreDisplayMode || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Score: {model?.scoreDisplayLabel || "unknown"}</div>
         <div style={styles.railBoundaryPill}>Route: {coverage.familyRouteSafety || "unknown"}</div>
       </div>
       {blockers.slice(0, 3).map((blocker, index) => (

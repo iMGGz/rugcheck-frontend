@@ -577,7 +577,7 @@ export default function ScoringTransparencyTab({
           question="Is the score institutionally eligible?"
           answer={coverageGate.primaryUserMessage || "Coverage score-eligibility gate was not attached."}
           status={coverageGate.scoreEligibility || "Unavailable"}
-          impact={coverageGate.scoreDisplayMode || "Score display mode unavailable"}
+          impact={composerScore.scoreDisplayLabel || "Score display policy unavailable"}
           sourceState={coverageGate.coverageTierLabel || "Coverage tier unavailable"}
           styles={styles}
         />
@@ -675,7 +675,7 @@ export default function ScoringTransparencyTab({
           <div style={styles.scoringBoundaryStrip}>
             {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
             {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
-            {boundaryChip(styles, coverageGate.scoreDisplayMode || "Score display mode")}
+            {boundaryChip(styles, composerScore.scoreDisplayLabel || "Score display policy")}
             {boundaryChip(styles, "Legacy score preserved for audit")}
           </div>
           <SectionRow label="Primary message" value={coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} styles={styles} />
