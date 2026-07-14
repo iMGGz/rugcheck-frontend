@@ -179,7 +179,9 @@ function FreshnessRailSection({ model, styles }) {
 
 function TokenomicsRailSection({ model, styles }) {
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
-  if (tokenomics.tokenomicsIntegrityScore === undefined) return null;
+  const supplyTruth = tokenomics.supplyTruth || {};
+  if (!supplyTruth.methodologyVersion && tokenomics.tokenomicsIntegrityScore === undefined) return null;
+  const fdvRatio = safeArray(supplyTruth.calculatedMetrics).find((entry) => entry?.formulaId === "fdv_market_cap_ratio");
 
   return (
     <RailSection title="Tokenomics Integrity" badge="Explanation context" styles={styles}>
@@ -188,12 +190,15 @@ function TokenomicsRailSection({ model, styles }) {
         <div style={styles.railMiniValue}>{tokenomics.tokenomicsIntegrityScore}/100</div>
       </div>
       <div style={styles.railBoundaryGrid}>
-        <div style={styles.railBoundaryPill}>Max supply: {tokenomics.maxSupplyStatus || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Family: {supplyTruth.canonicalFamily || tokenomics.canonicalFamily || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Supply Truth: {supplyTruth.status || "unavailable"}</div>
+        <div style={styles.railBoundaryPill}>Max supply: {supplyTruth.maxSupplySemantics?.semanticClassification || tokenomics.maxSupplyStatus || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>FDV/MC: {fdvRatio?.displayedValue || fdvRatio?.display || "unavailable"}</div>
         <div style={styles.railBoundaryPill}>Unlocks: {tokenomics.unlockScheduleStatus || "unknown"}</div>
         <div style={styles.railBoundaryPill}>Evidence: {tokenomics.evidenceConfidence || "unknown"}</div>
       </div>
       <div style={styles.railBoundaryText}>
-        Separate dilution/supply-underwriting signal. Provider supply fields are reported context until source-backed; this does not change the current overall score.
+        {supplyTruth.statusSummary || "Separate dilution/supply-underwriting signal. Provider supply fields are reported context until source-backed; this does not change the current overall score."}
       </div>
     </RailSection>
   );

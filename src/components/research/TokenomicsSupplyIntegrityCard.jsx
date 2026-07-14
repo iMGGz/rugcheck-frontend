@@ -41,6 +41,17 @@ export function TokenomicsSupplyIntegrityCard({
   if (!tokenomics) return null;
 
   const summary = tokenomics.supplySummary || {};
+  const supplyTruth = tokenomics.supplyTruth || {};
+  const canonicalFacts = supplyTruth.canonicalFacts || {};
+  const formulas = safeArray(supplyTruth.calculatedMetrics).length ? safeArray(supplyTruth.calculatedMetrics) : safeArray(tokenomics.formulaOutputs);
+  const canonicalValue = (field, fallback) => {
+    const value = canonicalFacts?.[field]?.value;
+    return value === null || value === undefined ? fallback : value;
+  };
+  const formulaDisplay = (formulaId, fallback) => {
+    const formula = formulas.find((entry) => entry?.formulaId === formulaId);
+    return formula?.displayedValue || formula?.display || fallback;
+  };
   const reviewItems = [
     ...safeArray(tokenomics.hardBlockers),
     ...safeArray(tokenomics.manualReviewTriggers),
@@ -57,22 +68,22 @@ export function TokenomicsSupplyIntegrityCard({
     >
       <SectionRow label="Integrity score" value={tokenomics.tokenomicsIntegrityScore === null || tokenomics.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${tokenomics.tokenomicsIntegrityScore}/100`} styles={styles} />
       <SectionRow label="Evidence confidence" value={titleCase(tokenomics.evidenceConfidence)} styles={styles} />
-      <SectionRow label="Max supply status" value={titleCase(tokenomics.maxSupplyStatus)} styles={styles} />
+      <SectionRow label="Max supply status" value={titleCase(supplyTruth.maxSupplySemantics?.semanticClassification || tokenomics.maxSupplyStatus)} styles={styles} />
       <SectionRow label="Unlock coverage" value={titleCase(tokenomics.unlockScheduleStatus)} styles={styles} />
       <SectionRow label="Supply boundary" value="Provider supply fields are reported context until source-backed; missing unlock data is not proof of no unlock risk." styles={styles} />
       {!compact && (
         <>
-          <SectionRow label="Circulating / total / max" value={`${formatCompact(tokenomics.circulatingSupply)} / ${formatCompact(tokenomics.totalSupply)} / ${formatCompact(tokenomics.maxSupplyValue)}`} styles={styles} />
-          <SectionRow label="Price / 24h volume" value={`${formatUsd(tokenomics.currentPrice)} / ${formatUsd(tokenomics.volume24h)}`} styles={styles} />
-          <SectionRow label="Market cap / FDV" value={`${formatUsd(tokenomics.marketCap)} / ${formatUsd(tokenomics.fdv)}`} styles={styles} />
-          <SectionRow label="Market cap / FDV method" value={`${titleCase(tokenomics.marketCapMethod)} / ${titleCase(tokenomics.fdvMethod)}`} styles={styles} />
-          <SectionRow label="FDV / market cap" value={formatRatio(tokenomics.fdvMarketCapRatio)} styles={styles} />
-          <SectionRow label="Circulating percent of max" value={formatPct(tokenomics.circulatingPercentOfMax)} styles={styles} />
-          <SectionRow label="Remaining dilution" value={formatPct(tokenomics.remainingDilutionPercent)} styles={styles} />
-          <SectionRow label="Supply gaps" value={`total-circ: ${formatNumber(tokenomics.supplyGapTotalMinusCirculating)} | max-circ: ${formatNumber(tokenomics.supplyGapMaxMinusCirculating)}`} styles={styles} />
+          <SectionRow label="Circulating / total / max" value={`${formatCompact(canonicalValue("circulatingSupply", tokenomics.circulatingSupply))} / ${formatCompact(canonicalValue("totalSupply", tokenomics.totalSupply))} / ${formatCompact(canonicalValue("maxSupply", tokenomics.maxSupplyValue))}`} styles={styles} />
+          <SectionRow label="Price / 24h volume" value={`${formatUsd(canonicalValue("currentPrice", tokenomics.currentPrice))} / ${formatUsd(canonicalValue("volume24h", tokenomics.volume24h))}`} styles={styles} />
+          <SectionRow label="Market cap / FDV" value={`${formatUsd(canonicalValue("marketCap", tokenomics.marketCap))} / ${formatUsd(canonicalValue("fdv", tokenomics.fdv))}`} styles={styles} />
+          <SectionRow label="Market cap / FDV selection" value={`${canonicalFacts.marketCap?.selectionReason || titleCase(tokenomics.marketCapMethod)} / ${canonicalFacts.fdv?.selectionReason || titleCase(tokenomics.fdvMethod)}`} styles={styles} />
+          <SectionRow label="FDV / market cap" value={formulaDisplay("fdv_market_cap_ratio", formatRatio(tokenomics.fdvMarketCapRatio))} styles={styles} />
+          <SectionRow label="Circulating percent of max" value={formulaDisplay("circulating_percent_of_max", formatPct(tokenomics.circulatingPercentOfMax))} styles={styles} />
+          <SectionRow label="Remaining dilution" value={formulaDisplay("remaining_dilution", formatPct(tokenomics.remainingDilutionPercent))} styles={styles} />
+          <SectionRow label="Supply gaps" value={`total-circ: ${formulaDisplay("supply_gap_total_minus_circulating", formatNumber(tokenomics.supplyGapTotalMinusCirculating))} | max-circ: ${formulaDisplay("max_supply_gap", formatNumber(tokenomics.supplyGapMaxMinusCirculating))}`} styles={styles} />
           <SectionRow label="Self-reported CMC supply/mcap" value={`${formatNumber(tokenomics.selfReportedCirculatingSupply)} / ${formatUsd(tokenomics.selfReportedMarketCap)}`} styles={styles} />
           <SectionRow label="Next unlock" value={`${tokenomics.nextUnlockDate || "Unknown date"} | ${formatPct(tokenomics.nextUnlockPercent)} | ${formatUsd(tokenomics.nextUnlockUsdValue)}`} styles={styles} />
-          <SectionRow label="Canonical supply context" value={summary.summary || "Supply summary unavailable."} styles={styles} />
+          <SectionRow label="Canonical supply context" value={supplyTruth.statusSummary || summary.summary || "Supply summary unavailable."} styles={styles} />
           <SectionRow label="Analyzed representation" value={summary.analyzedRepresentation || "Unavailable"} styles={styles} />
         </>
       )}

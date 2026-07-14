@@ -91,6 +91,9 @@ function MiniMetric({ label, value, tone = "#d5dcec" }) {
 }
 
 function ProviderComparison({ tokenomics, styles }) {
+  const supplyTruth = safeObject(tokenomics.supplyTruth);
+  const canonicalFacts = safeObject(supplyTruth.canonicalFacts);
+  const rawFacts = safeArray(supplyTruth.rawProviderFacts);
   const snapshots = [
     tokenomics.coingeckoSupply,
     tokenomics.coinmarketcapSupply,
@@ -102,7 +105,7 @@ function ProviderComparison({ tokenomics, styles }) {
     ...safeArray(tokenomics.providerSupplyValues),
   ].filter((entry) => entry?.scope === "pair_liquidity_local");
 
-  if (!snapshots.length) {
+  if (!snapshots.length && !rawFacts.length) {
     return (
       <Card title="Provider Comparison" subtitle="Provider-specific numeric rows were not attached to this response." styles={styles}>
         <ListBlock
@@ -123,6 +126,13 @@ function ProviderComparison({ tokenomics, styles }) {
 
   return (
     <Card title="Provider Comparison" subtitle="CoinGecko/CMC rows are provider-reported context, not reviewed evidence." styles={styles}>
+      <ListBlock
+        title="Canonical selections"
+        items={Object.values(canonicalFacts).map((fact) => fact?.field ? `${fact.field}: ${displayNumber(fact.value)}; provider=${fact.selectedProvider || "compatibility fallback"}; method=${fact.selectionMethod || "unavailable"}; reason=${fact.selectionReason || "not attached"}` : null).filter(Boolean)}
+        emptyText="No canonical Supply Truth selection was attached."
+        color="#a6f3c2"
+        styles={styles}
+      />
       <div style={{ display: "grid", gap: "0.85rem" }}>
         {snapshots.map((snapshot) => (
           <div key={snapshot.provider} style={{
@@ -140,7 +150,20 @@ function ProviderComparison({ tokenomics, styles }) {
           </div>
         ))}
       </div>
-      <ListBlock title="Provider disagreements" items={tokenomics.providerDisagreements} emptyText="No material provider disagreement was attached." color="#f9d976" styles={styles} />
+      <ListBlock
+        title="Provider disagreements"
+        items={(safeArray(supplyTruth.providerDisagreements).length ? safeArray(supplyTruth.providerDisagreements) : safeArray(tokenomics.providerDisagreements)).map((entry) => typeof entry === "string" ? entry : `${entry.field}: ${entry.leftProvider}=${displayNumber(entry.leftValue)} vs ${entry.rightProvider}=${displayNumber(entry.rightValue)}; relative difference=${displayDecimalPercent(entry.relativeDifference)}; material=${entry.material ? "yes" : "no"}; reconciliation=${entry.reconciliationStatus || "unavailable"}`)}
+        emptyText="No material comparable-scope provider disagreement was attached."
+        color="#f9d976"
+        styles={styles}
+      />
+      <ListBlock
+        title="Supply contradictions"
+        items={safeArray(supplyTruth.contradictions).map((entry) => `${entry.type}: ${entry.explanation}; values=${safeArray(entry.values).map(displayNumber).join(" / ")}; provider=${entry.provider}`)}
+        emptyText="No arithmetic supply contradiction was attached."
+        color="#ffb6b6"
+        styles={styles}
+      />
       <ListBlock title="Provider scope notes" items={tokenomics.providerScopeNotes} emptyText="No cross-scope provider note was attached." color="#d5dcec" styles={styles} />
       <ListBlock
         title="Liquidity / Pair Context"
@@ -149,12 +172,26 @@ function ProviderComparison({ tokenomics, styles }) {
         color="#9bd7ff"
         styles={styles}
       />
+      {rawFacts.length ? (
+        <details style={{ marginTop: 14 }}>
+          <summary style={{ color: "#9bd7ff", cursor: "pointer", fontWeight: 800 }}>View raw provider supply facts ({rawFacts.length})</summary>
+          <ListBlock
+            title="Raw provider facts"
+            items={rawFacts.map((fact) => `${fact.provider}.${fact.field}: raw=${displayNumber(fact.rawValue)}; normalized=${displayNumber(fact.normalizedValue)}; unit=${fact.unit || "unavailable"}; role=${fact.role}; freshness=${fact.freshnessStatus}; validation=${fact.validationState}; path=${fact.rawPath}`)}
+            emptyText="No raw provider facts attached."
+            color="#d5dcec"
+            styles={styles}
+          />
+        </details>
+      ) : null}
     </Card>
   );
 }
 
 function FormulaPanel({ tokenomics, styles }) {
-  const formulas = safeArray(tokenomics.formulaOutputs);
+  const formulas = safeArray(tokenomics.supplyTruth?.calculatedMetrics).length
+    ? safeArray(tokenomics.supplyTruth.calculatedMetrics)
+    : safeArray(tokenomics.formulaOutputs);
   const primaryIds = new Set([
     "fdv_market_cap_ratio",
     "remaining_dilution",
@@ -177,17 +214,21 @@ function FormulaPanel({ tokenomics, styles }) {
           padding: "0.85rem",
           background: "rgba(6, 12, 24, 0.32)",
         }}>
-          <SectionRow label={formula.label || "Formula"} value={formula.display || "Unavailable"} styles={styles} />
+          <SectionRow label={formula.label || "Formula"} value={formula.displayedValue || formula.display || "Unavailable"} styles={styles} />
           <SectionRow label="Formula" value={formula.formula || "Unavailable"} styles={styles} />
-          <SectionRow label="Status / method" value={`${status(formula.status)} / ${status(formula.method)}`} styles={styles} />
+          <SectionRow label="Status / applicability" value={`${status(formula.status)} / ${status(formula.applicability)}`} styles={styles} />
+          <SectionRow label="Method / owner" value={`${status(formula.method)} / ${formula.canonicalOwner || "Backend owner unavailable"}`} styles={styles} />
           <ListBlock
             title="Inputs"
-            items={compactList(formula.inputs, (entry) => `${entry.name}: ${displayNumber(entry.value)} (${entry.sourcePath || "source unavailable"})`)}
+            items={compactList(formula.inputs, (entry) => `${entry.name}: ${displayNumber(entry.rawValue ?? entry.value)} ${entry.unit || "unit unavailable"}; provider=${entry.provider || "derived/fallback"}; freshness=${entry.freshnessStatus || "unknown"}; validation=${entry.validationState || "unknown"}; source=${entry.sourcePath || "source unavailable"}`)}
             emptyText="No formula inputs attached."
             color="#d5dcec"
             styles={styles}
           />
           <ListBlock title="Missing inputs" items={formula.missingInputs} emptyText="No missing inputs for this formula." color="#f9d976" styles={styles} />
+          <ListBlock title="Invalid inputs / limitations" items={[...safeArray(formula.invalidInputs), ...safeArray(formula.limitations)]} emptyText="No invalid input or formula limitation attached." color="#f9d976" styles={styles} />
+          {formula.discrepancy ? <SectionRow label="Provider/calculated discrepancy" value={`absolute=${displayNumber(formula.discrepancy.absoluteDifference)}; relative=${displayDecimalPercent(formula.discrepancy.relativeDifference)}; material=${formula.discrepancy.material ? "yes" : "no"}`} styles={styles} /> : null}
+          <SectionRow label="Denominator / rounding" value={`${status(formula.denominatorStatus)} / ${formula.roundingPolicy || "Display-only rounding policy unavailable"}`} styles={styles} />
           <SectionRow label="Source requirement" value={formula.sourceRequirement || "Unavailable"} styles={styles} />
         </div>
       ))}
@@ -216,31 +257,6 @@ function FormulaPanel({ tokenomics, styles }) {
       )}
     </Card>
   );
-}
-
-function keyRiskItems(lensId) {
-  switch (lensId) {
-    case "STABLECOIN_SETTLEMENT":
-      return ["Are reserves and redemption rights source-backed?", "Are mint/redeem controls and supported networks verified?", "Are issuer/custodian dependencies clear?", "Are admin/freeze policies disclosed?", "How did the peg behave under stress?"];
-    case "DEFI_PROTOCOL_TOKEN":
-      return ["Does protocol success accrue to tokenholders?", "Are fee switch, fee routing, buyback, burn, or staking mechanisms active?", "Are unlocks and treasury risks material?", "Is protocol economics mapping source-backed?"];
-    case "GAMING_METAVERSE_CONSUMER":
-      return ["Are emissions offset by real token sinks?", "Are active/paying users and retention source-backed?", "Are unlocks and mint/admin controls reviewed?", "Is gameplay demand organic rather than subsidy-driven?"];
-    case "RWA_HYBRID_INFRASTRUCTURE":
-      return ["Are utility-token rights separated from RWA/security-token rights?", "Is canonical network/contract mapping verified?", "Can supply or cap policy change through governance?", "Are fee, staking, or gas-demand mechanics source-backed?"];
-    case "BASE_LAYER_SETTLEMENT":
-      return ["Is monetary policy clear?", "Are issuance, base-fee burn, staking/validator, and L2/blob fee-market mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
-    case "NATIVE_MONETARY_BENCHMARK":
-      return ["Is monetary policy clear?", "Are issuance, fee-market, miner/security-budget, and concentration mechanics understood?", "Is network liveness/security evidence sufficient?", "Is market depth institutionally usable?"];
-    case "MEME_NARRATIVE":
-      return ["Is supply certainty clear?", "Are mint/admin controls safe for the selected contract?", "Is concentration/liquidity risk acceptable?", "Is the analysis avoiding fake protocol fundamentals?"];
-    case "WRAPPED_ASSET":
-      return ["Is backing/proof-of-reserves current?", "Are custodian/bridge controls understood?", "Is the mint/burn and redemption path source-backed?", "Is native-asset inheritance avoided?"];
-    case "LST_STAKING_DERIVATIVE":
-      return ["Is the withdrawal/redemption path source-backed?", "Are slashing/operator risks understood?", "Is depeg/liquidity risk reviewed?", "Are protocol/admin controls disclosed?"];
-    default:
-      return ["Is supply data complete and source-backed?", "Can future dilution be measured?", "Who controls supply changes?", "Are provider disagreements resolved?"];
-  }
 }
 
 const QUESTION_GROUPS = [
@@ -336,21 +352,41 @@ function impactBadgeForQuestion(question) {
   return "Source review";
 }
 
-function whyItMatters(question, lensId) {
-  const id = String(question?.questionId || "");
-  if (/max_supply/.test(id)) return "Max supply is only useful when the cap is credible, immutable, or clearly governed. Provider-reported caps are not reviewed evidence.";
-  if (/remaining_dilution/.test(id)) return "Remaining dilution helps underwrite future supply pressure, but it may be secondary or not applicable for stablecoins, wrapped assets, LSTs, and adaptive native assets.";
-  if (/unlock/.test(id)) return "Unlocks can create sell-pressure or confidence caps when timing, recipients, liquidity, and demand absorption are not source-backed.";
-  if (/mint_admin/.test(id)) return "Mint/admin authority determines who can change supply or restrict transfer behavior; selected-contract scans may not cover the canonical supply tree.";
-  if (/burn_buyback|emissions/.test(id)) return "Burn, buyback, and emission mechanics only matter when activation, materiality, durability, and source backing are clear.";
-  if (/value_capture/.test(id)) return "Protocol or network success does not automatically accrue to tokenholders without an active, material, source-backed mechanism.";
-  if (/canonical_supply_tree/.test(id)) return "Supply conclusions depend on analyzing the correct canonical asset, network, contract, bridge, wrapper, or multichain representation.";
-  if (/asset_class/.test(id)) return contextualNote(lensId);
-  return "This question converts tokenomics data into a source-boundary-aware institutional diligence answer.";
+function whyItMatters(question, tokenomics) {
+  return question?.whyItMatters
+    || tokenomics?.supplyTruth?.applicability?.familyPolicySummary
+    || "This question connects the attached supply facts and formula trace to a bounded institutional diligence conclusion.";
 }
 
 function valueFromPath(tokenomics, path) {
   if (!path || typeof path !== "string") return null;
+  const canonicalFieldAliases = {
+    currentPrice: "currentPrice",
+    marketCap: "marketCap",
+    fdv: "fdv",
+    volume24h: "volume24h",
+    circulatingSupply: "circulatingSupply",
+    totalSupply: "totalSupply",
+    maxSupplyValue: "maxSupply",
+  };
+  if (canonicalFieldAliases[path]) {
+    const canonicalValue = tokenomics?.supplyTruth?.canonicalFacts?.[canonicalFieldAliases[path]]?.value;
+    if (canonicalValue !== null && canonicalValue !== undefined) return canonicalValue;
+  }
+  const formulaAliases = {
+    fdvMarketCapRatio: ["fdv_market_cap_ratio", 1],
+    circulatingPercentOfMax: ["circulating_percent_of_max", 100],
+    remainingDilutionPercent: ["remaining_dilution", 100],
+    supplyGapTotalMinusCirculating: ["supply_gap_total_minus_circulating", 1],
+    supplyGapMaxMinusCirculating: ["max_supply_gap", 1],
+    fdvMinusMarketCap: ["fdv_minus_market_cap", 1],
+    volumeMarketCapRatio: ["volume_market_cap_ratio", 1],
+  };
+  if (formulaAliases[path]) {
+    const [formulaId, multiplier] = formulaAliases[path];
+    const formula = safeArray(tokenomics?.supplyTruth?.calculatedMetrics).find((entry) => entry?.formulaId === formulaId);
+    if (formula?.rawResult !== null && formula?.rawResult !== undefined) return formula.rawResult * multiplier;
+  }
   const direct = tokenomics?.[path];
   if (direct !== undefined) return direct;
   const parts = path.split(".");
@@ -432,10 +468,10 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
       ? formulaRows
       : [
           synthesized.synthesisTemplateId
-            ? `Rule-based synthesized answer: ${synthesized.synthesisTemplateId}. ${contextualNote(tokenomics.supplySummary?.lensId)}`
+            ? `Backend rule-based answer: ${question.ruleUsed || tokenomics.supplyTruth?.applicability?.familyPolicySummary || "family methodology attached"}.`
             : question.answerStatus === "not_applicable"
-              ? `Not applicable for this asset class. ${displayQuestionAnswer(question) || contextualNote(tokenomics.supplySummary?.lensId)}`
-              : `Rule-based answer. ${contextualNote(tokenomics.supplySummary?.lensId)}`,
+              ? `Not applicable for this asset class. ${displayQuestionAnswer(question) || tokenomics.supplyTruth?.applicability?.notApplicableRedirects?.[0] || "Use the family-specific alternative."}`
+              : `Backend rule-based answer. ${question.ruleUsed || tokenomics.supplyTruth?.applicability?.familyPolicySummary || "No formula applies to this question."}`,
         ];
     const answerText = analystCard.directAnswer || displayQuestionAnswer(question);
 
@@ -477,7 +513,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
         {isOpen ? (
           <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.14)", padding: "1rem", display: "grid", gap: "0.85rem" }}>
             <SectionRow label="A. Direct answer" value={answerText} styles={styles} />
-            <SectionRow label="B. Why it matters" value={analystCard.assetClassSpecificKeyIssue || whyItMatters(question, tokenomics.supplySummary?.lensId)} styles={styles} />
+            <SectionRow label="B. Why it matters" value={analystCard.assetClassSpecificKeyIssue || whyItMatters(question, tokenomics)} styles={styles} />
             <SectionRow label="Answer support" value={synthesized.synthesisTemplateId ? cleanPrimaryAnswerText(status(synthesized.evidenceStatus)) : "No structured answer attached."} styles={styles} />
             <ListBlock title="C. Evidence / data basis" items={safeArray(analystCard.evidenceBasis).length ? analystCard.evidenceBasis : dataRows} emptyText="No data fields listed; source-required review remains." color="#d5dcec" styles={styles} />
             <ListBlock title="D. Formula / rule used" items={ruleRows} emptyText="No formula or rule linkage attached." color="#9bd7ff" styles={styles} />
@@ -543,40 +579,19 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
   );
 }
 
-function contextualNote(lensId) {
-  switch (lensId) {
-    case "BASE_LAYER_SETTLEMENT":
-      return "Native PoS/base-layer tokenomics should focus on issuance, base-fee burn, net issuance, staking/validator incentives, L2/blob fee contribution, security budget, client diversity, liveness, and market depth. A missing EVM contract scan is not itself negative evidence for native assets.";
-    case "NATIVE_MONETARY_BENCHMARK":
-      return "Native monetary tokenomics should focus on issuance schedule, fee-market durability, miner/security-budget incentives, concentration, liveness, and market depth. A missing EVM contract scan is not itself negative evidence.";
-    case "DEFI_PROTOCOL_TOKEN":
-    case "L2_GOVERNANCE_TOKEN":
-      return "Protocol success does not automatically accrue to tokenholders; fee switch, fee routing, treasury, unlocks, and governance durability require source-backed review.";
-    case "GAMING_METAVERSE_CONSUMER":
-      return "Gaming/GameFi supply underwriting focuses on rewards versus sinks, emissions, unlocks, mintability, and active/paying user demand.";
-    case "RWA_HYBRID_INFRASTRUCTURE":
-      return "RWA infrastructure relevance is not legal/economic rights. Utility-token supply, cap mutability, canonical chain, migration, and fee/gas/staking demand require review.";
-    case "STABLECOIN_SETTLEMENT":
-      return "Stablecoin tokenomics is primarily mint/redeem, reserves, redemption, legal claim, issuer/custodian, and admin/freeze-control diligence.";
-    case "WRAPPED_ASSET":
-      return "Wrapped-asset supply integrity depends on backing, custodian/bridge controls, mint/burn, redemption, and proof-of-reserves.";
-    case "LST_STAKING_DERIVATIVE":
-      return "LST tokenomics depends on mint/burn, withdrawal queue, slashing/operator risk, depeg/liquidity, and protocol/admin controls.";
-    case "MEME_NARRATIVE":
-      return "Meme-asset tokenomics focuses on supply certainty, mint/admin controls, holder concentration, liquidity, and avoiding fake value-capture claims.";
-    default:
-      return "Tokenomics diligence is supply-integrity and dilution underwriting, not a retail utility checklist or price forecast.";
-  }
-}
-
 export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
   const tokenomics = safeObject(model?.tokenomicsSupplyIntegrity);
+  const supplyTruth = safeObject(tokenomics.supplyTruth);
+  const canonicalFacts = safeObject(supplyTruth.canonicalFacts);
+  const calculatedMetrics = safeArray(supplyTruth.calculatedMetrics).length
+    ? safeArray(supplyTruth.calculatedMetrics)
+    : safeArray(tokenomics.formulaOutputs);
   const identity = safeObject(model?.assetIdentityResolution);
   const lens = safeObject(model?.resolvedInstitutionalLens);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
 
-  if (!tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
+  if (!supplyTruth.methodologyVersion && !tokenomics.supplySummary && tokenomics.tokenomicsIntegrityScore === undefined) {
     return (
       <Card title="Tokenomics / Supply Integrity" subtitle="No tokenomics supply-integrity object is attached to this response." styles={styles}>
         <SectionRow label="Status" value="Unavailable - source-required tokenomics object not attached." styles={styles} />
@@ -591,6 +606,18 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
     ? `${identity.analyzedNetwork || "network unavailable"} ${identity.analyzedContract}`
     : "No selected/analyzed contract attached";
   const primaryLensId = lens.lensId || tokenomics.supplySummary?.lensId;
+  const canonicalValue = (field, fallback) => {
+    const value = canonicalFacts?.[field]?.value;
+    return value === null || value === undefined ? fallback : value;
+  };
+  const formula = (formulaId) => calculatedMetrics.find((entry) => entry?.formulaId === formulaId) || null;
+  const formulaDisplay = (formulaId, fallback = "Unavailable") => {
+    const selected = formula(formulaId);
+    return selected?.displayedValue || selected?.display || fallback;
+  };
+  const familyPolicySummary = supplyTruth.applicability?.familyPolicySummary
+    || "Supply analysis is bounded to the canonical family and selected representation attached by the backend.";
+  const primaryDiligenceQuestions = safeArray(supplyTruth.applicability?.primaryDiligenceQuestions);
   const providerRawDataExpansion = model?.providerRawDataExpansion || {};
   const rawDataCoverage = model?.rawDataCoverageDiagnostics || providerRawDataExpansion.rawDataCoverageDiagnostics || {};
   const scopeWarnings = [
@@ -604,7 +631,7 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
       <ExecutiveSummaryCard
         eyebrow="Tokenomics / Supply Integrity"
         title="What is the supply-integrity answer?"
-        answer={tokenomics.explanationSummary || "Supply integrity is shown as a diagnostic underwriting layer. Exact provider numbers, formulas, and missing evidence remain available below."}
+        answer={supplyTruth.statusSummary || tokenomics.explanationSummary || "Supply integrity is unavailable for the current response."}
         tone="#9bd7ff"
         badges={[
           { label: tokenomics.tokenomicsIntegrityScore === null || tokenomics.tokenomicsIntegrityScore === undefined ? "Score unavailable" : `${tokenomics.tokenomicsIntegrityScore}/100 diagnostic`, tone: "#9bd7ff" },
@@ -616,23 +643,24 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
         <FieldGrid>
           <MiniMetric label="Integrity score" value={tokenomics.tokenomicsIntegrityScore === null || tokenomics.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${tokenomics.tokenomicsIntegrityScore}/100`} tone="#7dd3fc" />
           <MiniMetric label="Evidence confidence" value={status(tokenomics.evidenceConfidence)} />
-          <MiniMetric label="Max supply status" value={status(tokenomics.maxSupplyStatus)} />
+          <MiniMetric label="Max supply semantics" value={status(supplyTruth.maxSupplySemantics?.semanticClassification || tokenomics.maxSupplyStatus)} />
           <MiniMetric label="Unlock schedule" value={status(tokenomics.unlockScheduleStatus)} />
           <MiniMetric label="Mint authority" value={controlStatusLabel(tokenomics.mintAuthorityStatus, "mint", primaryLensId)} />
           <MiniMetric label="Admin controls" value={controlStatusLabel(tokenomics.adminControlStatus, "admin", primaryLensId)} />
           <MiniMetric label="Governance supply risk" value={status(tokenomics.governanceSupplyChangeRisk)} />
-          <MiniMetric label="FDV / market cap" value={displayRatio(tokenomics.fdvMarketCapRatio)} />
-          <MiniMetric label="Remaining dilution" value={displayPercent(tokenomics.remainingDilutionPercent)} />
+          <MiniMetric label="FDV / market cap" value={formulaDisplay("fdv_market_cap_ratio", displayRatio(tokenomics.fdvMarketCapRatio))} />
+          <MiniMetric label="Remaining dilution" value={formulaDisplay("remaining_dilution", displayPercent(tokenomics.remainingDilutionPercent))} />
         </FieldGrid>
         <SectionRow label="Primary tokenomics blocker" value={safeArray(tokenomics.hardBlockers)[0] || safeArray(tokenomics.softBlockers)[0] || safeArray(tokenomics.confidenceCaps)[0] || "No primary tokenomics blocker attached."} styles={styles} />
         <SectionRow label="Top positive signal" value={safeArray(tokenomics.positiveSignals)[0] || "No positive tokenomics signal attached."} styles={styles} />
         <SectionRow label="Top negative signal" value={safeArray(tokenomics.negativeSignals)[0] || "No negative tokenomics signal attached."} styles={styles} />
         <SectionRow label="Diagnostic boundary" value="tokenomicsIntegrityScore is diagnostic-only and does not change the current overall score or verdict." styles={styles} />
-        <SectionRow label="Asset-class context" value={contextualNote(primaryLensId)} styles={styles} />
+        <SectionRow label="Asset-family context" value={familyPolicySummary} styles={styles} />
+        <SectionRow label="Supply Truth status / freshness" value={`${status(supplyTruth.status)} / ${status(supplyTruth.freshnessSummary?.overall)}`} styles={styles} />
       </ExecutiveSummaryCard>
 
       <Card title="Key Risk Summary" subtitle="What matters most for this asset class before relying on tokenomics conclusions." styles={styles}>
-        <ListBlock title="What matters most" items={keyRiskItems(primaryLensId)} emptyText="No lens-specific risk summary attached." color="#9bd7ff" styles={styles} />
+        <ListBlock title="What matters most" items={primaryDiligenceQuestions} emptyText="No backend family-specific diligence questions were attached." color="#9bd7ff" styles={styles} />
         <ListBlock title="Primary review signals" items={[
           ...safeArray(tokenomics.manualReviewTriggers).slice(0, 3),
           ...safeArray(tokenomics.confidenceCaps).slice(0, 3),
@@ -642,26 +670,27 @@ export default function TokenomicsSupplyIntegrityTab({ model, asset, styles }) {
 
       <TokenomicsQuestionPanel tokenomics={tokenomics} styles={styles} />
 
-      <Card title="Key Numbers" subtitle="Exact normalized values and derived supply ratios from provider-reported fields." styles={styles}>
+      <Card title="Key Numbers" subtitle="Canonical provider facts and backend-calculated metrics for the selected representation." styles={styles}>
         <FieldGrid>
-          <MiniMetric label="Current price" value={displayUsd(tokenomics.currentPrice)} />
-          <MiniMetric label="Market cap" value={displayUsd(tokenomics.marketCap)} />
-          <MiniMetric label="FDV" value={displayUsd(tokenomics.fdv)} />
-          <MiniMetric label="24h volume" value={displayUsd(tokenomics.volume24h)} />
-          <MiniMetric label="Circulating supply" value={displayNumber(tokenomics.circulatingSupply)} />
-          <MiniMetric label="Total supply" value={displayNumber(tokenomics.totalSupply)} />
-          <MiniMetric label="Max supply" value={displayNumber(tokenomics.maxSupplyValue)} />
+          <MiniMetric label="Current price" value={displayUsd(canonicalValue("currentPrice", tokenomics.currentPrice))} />
+          <MiniMetric label="Market cap" value={displayUsd(canonicalValue("marketCap", tokenomics.marketCap))} />
+          <MiniMetric label="FDV" value={displayUsd(canonicalValue("fdv", tokenomics.fdv))} />
+          <MiniMetric label="24h volume" value={displayUsd(canonicalValue("volume24h", tokenomics.volume24h))} />
+          <MiniMetric label="Circulating supply" value={displayNumber(canonicalValue("circulatingSupply", tokenomics.circulatingSupply))} />
+          <MiniMetric label="Total supply" value={displayNumber(canonicalValue("totalSupply", tokenomics.totalSupply))} />
+          <MiniMetric label="Max supply" value={displayNumber(canonicalValue("maxSupply", tokenomics.maxSupplyValue))} />
           <MiniMetric label="Self-reported CMC supply" value={displayNumber(tokenomics.selfReportedCirculatingSupply)} />
           <MiniMetric label="Self-reported CMC market cap" value={displayUsd(tokenomics.selfReportedMarketCap)} />
-          <MiniMetric label="Circulating % max" value={displayPercent(tokenomics.circulatingPercentOfMax)} />
-          <MiniMetric label="Supply gap total-circ" value={displayNumber(tokenomics.supplyGapTotalMinusCirculating)} />
-          <MiniMetric label="Supply gap max-circ" value={displayNumber(tokenomics.supplyGapMaxMinusCirculating)} />
-          <MiniMetric label="FDV minus market cap" value={displayUsd(tokenomics.fdvMinusMarketCap)} />
-          <MiniMetric label="Derived market cap" value={displayUsd(tokenomics.derivedMarketCap)} />
-          <MiniMetric label="Derived FDV" value={displayUsd(tokenomics.derivedFdv)} />
+          <MiniMetric label="Circulating % max" value={formulaDisplay("circulating_percent_of_max", displayPercent(tokenomics.circulatingPercentOfMax))} />
+          <MiniMetric label="Supply gap total-circ" value={formulaDisplay("supply_gap_total_minus_circulating", displayNumber(tokenomics.supplyGapTotalMinusCirculating))} />
+          <MiniMetric label="Supply gap max-circ" value={formulaDisplay("max_supply_gap", displayNumber(tokenomics.supplyGapMaxMinusCirculating))} />
+          <MiniMetric label="FDV minus market cap" value={formulaDisplay("fdv_minus_market_cap", displayUsd(tokenomics.fdvMinusMarketCap))} />
+          <MiniMetric label="Calculated market cap" value={formulaDisplay("market_cap_price_times_circulating", displayUsd(tokenomics.derivedMarketCap))} />
+          <MiniMetric label="Calculated FDV" value={formulaDisplay("fdv_price_times_max_supply", displayUsd(tokenomics.derivedFdv))} />
         </FieldGrid>
-        <SectionRow label="Market cap / FDV method" value={`${status(tokenomics.marketCapMethod)} / ${status(tokenomics.fdvMethod)}`} styles={styles} />
-        <SectionRow label="Max supply method" value={status(tokenomics.maxSupplyMethod)} styles={styles} />
+        <SectionRow label="Market cap selection" value={canonicalFacts.marketCap?.selectionReason || status(tokenomics.marketCapMethod)} styles={styles} />
+        <SectionRow label="FDV selection" value={canonicalFacts.fdv?.selectionReason || status(tokenomics.fdvMethod)} styles={styles} />
+        <SectionRow label="Max supply status / applicability" value={`${status(supplyTruth.maxSupplySemantics?.rawValueStatus || tokenomics.maxSupplyMethod)} / ${status(supplyTruth.maxSupplySemantics?.formulaApplicability)}`} styles={styles} />
       </Card>
 
       {providerRawDataExpansion.artifactVersion ? (

@@ -216,7 +216,7 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
         {tokenomics.tokenomicsIntegrityScore !== undefined ? (
           <LayerLegendItem
             title="Tokenomics supply integrity"
-            detail={`Separate integrity signal: ${tokenomics.tokenomicsIntegrityScore}/100; max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`}
+            detail={tokenomics.supplyTruth?.statusSummary || `Separate integrity signal: ${tokenomics.tokenomicsIntegrityScore}/100; max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`}
             badge="Diagnostic, not overall scoring"
             tone="#9bd7ff"
             styles={styles}
@@ -366,7 +366,7 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
         <ScoreTile
           label="Tokenomics Integrity"
           value={model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${model.tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`}
-          detail={model?.tokenomicsSupplyIntegrity ? "Separate dilution/supply signal; not current overall score" : null}
+          detail={model?.tokenomicsSupplyIntegrity?.supplyTruth ? `${model.tokenomicsSupplyIntegrity.supplyTruth.status || "unavailable"} Supply Truth; separate from current overall score` : model?.tokenomicsSupplyIntegrity ? "Separate dilution/supply signal; not current overall score" : null}
           styles={styles}
         />
         <ScoreTile

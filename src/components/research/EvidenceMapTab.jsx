@@ -216,21 +216,59 @@ function buildAssetIdentityRows(model) {
 
 function buildTokenomicsEvidenceRows(model) {
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
-  if (tokenomics.tokenomicsIntegrityScore === undefined && !safeArray(tokenomics.sourceContradictions).length) return [];
+  const supplyTruth = safeObject(tokenomics.supplyTruth);
+  const canonicalFacts = Object.values(safeObject(supplyTruth.canonicalFacts));
+  const formulas = safeArray(supplyTruth.calculatedMetrics);
+  if (!supplyTruth.methodologyVersion && tokenomics.tokenomicsIntegrityScore === undefined && !safeArray(tokenomics.sourceContradictions).length) return [];
   return [
     {
       key: "tokenomics-integrity-summary",
-      label: "Tokenomics supply integrity",
-      value: `${tokenomics.explanationSummary || "Supply integrity summary unavailable."} Max supply: ${tokenomics.maxSupplyStatus || "unknown"}; unlock coverage: ${tokenomics.unlockScheduleStatus || "unknown"}.`,
-      sourceType: "Supply underwriting diagnostic",
-      boundary: "Separate supply-integrity context; score integration requires a calibrated release.",
+      label: "Canonical Supply Truth",
+      value: supplyTruth.statusSummary || tokenomics.explanationSummary || "Supply integrity summary unavailable.",
+      sourceType: "Backend-owned supply facts and deterministic calculations",
+      boundary: "Supply Truth is non-scoring in v1 and does not prove unlocks, backing, redemption, or value capture.",
     },
+    ...canonicalFacts.filter((fact) => fact?.status === "selected").map((fact) => ({
+      key: `supply-truth-fact-${fact.field}`,
+      label: `Canonical ${titleCase(fact.field)}`,
+      value: `${fact.value} ${fact.unit || ""}`.trim(),
+      sourceType: `${titleCase(fact.selectedProvider || "normalized fallback")} provider fact`,
+      boundary: `${fact.selectionReason || "Canonical selection reason unavailable"} Provider-reported facts are not reviewed evidence.`,
+    })),
+    ...formulas.filter((formula) => formula?.formulaPhase === "phase_1_canonical").map((formula) => ({
+      key: `supply-truth-formula-${formula.formulaId}`,
+      label: formula.label || titleCase(formula.formulaId),
+      value: formula.displayedValue || formula.display || "Unavailable",
+      sourceType: "Deterministic backend calculation",
+      boundary: formula.result !== null ? `${formula.formula}. ${safeArray(formula.limitations).join(" ")}` : formula.sourceRequirement || "Required inputs are unavailable or not applicable.",
+    })),
+    ...safeArray(supplyTruth.providerDisagreements).map((entry) => ({
+      key: entry.disagreementId,
+      label: `Provider disagreement: ${titleCase(entry.field)}`,
+      value: `${entry.leftProvider} ${entry.leftValue} vs ${entry.rightProvider} ${entry.rightValue}`,
+      sourceType: "Comparable-scope provider reconciliation",
+      boundary: `Values were not averaged. Material: ${entry.material ? "yes" : "no"}. ${entry.selectionReason || ""}`,
+    })),
+    ...safeArray(supplyTruth.contradictions).map((entry) => ({
+      key: entry.contradictionId,
+      label: "Supply contradiction",
+      value: entry.explanation,
+      sourceType: "Deterministic arithmetic check",
+      boundary: "Affected ratios remain visible as contradicted and require provider/source reconciliation.",
+    })),
     ...safeArray(tokenomics.sourceContradictions).map((entry, index) => ({
       key: `tokenomics-contradiction-${index}`,
       label: "Supply contradiction",
       value: entry,
       sourceType: "Provider supply contradiction",
       boundary: "Requires source reconciliation before provider supply fields are treated as reliable.",
+    })),
+    ...safeArray(supplyTruth.missingInputs).slice(0, 6).map((entry, index) => ({
+      key: `supply-truth-missing-${index}`,
+      label: "Supply Truth input needed",
+      value: entry,
+      sourceType: "Formula/source requirement",
+      boundary: "Missing data withholds the affected formula; it is not treated as zero or negative evidence.",
     })),
     ...safeArray(tokenomics.sourceBoundary).slice(0, 4).map((entry, index) => ({
       key: `tokenomics-boundary-${index}`,

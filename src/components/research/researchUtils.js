@@ -2943,16 +2943,77 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
   const nestedAnalysis = safeObject(root.analysis);
   const rootTokenomics = safeObject(root.tokenomicsSupplyIntegrity);
   const nestedTokenomics = safeObject(nestedAnalysis.tokenomicsSupplyIntegrity);
-  const tokenomics = rootTokenomics.supplySummary || rootTokenomics.tokenomicsIntegrityScore !== undefined
+  const tokenomics = rootTokenomics.supplyTruth || rootTokenomics.supplySummary || rootTokenomics.tokenomicsIntegrityScore !== undefined
     ? rootTokenomics
-    : nestedTokenomics.supplySummary || nestedTokenomics.tokenomicsIntegrityScore !== undefined
+    : nestedTokenomics.supplyTruth || nestedTokenomics.supplySummary || nestedTokenomics.tokenomicsIntegrityScore !== undefined
       ? nestedTokenomics
       : null;
 
   if (!tokenomics) return null;
 
+  const normalizeFormula = (formula) => ({
+    ...safeObject(formula),
+    inputs: safeArray(formula?.inputs).map((input) => ({
+      ...safeObject(input),
+      sourceBoundary: safeArray(input?.sourceBoundary),
+    })),
+    missingInputs: safeArray(formula?.missingInputs),
+    invalidInputs: safeArray(formula?.invalidInputs),
+    sourceInputs: safeArray(formula?.sourceInputs),
+    sourceBoundary: safeArray(formula?.sourceBoundary),
+    limitations: safeArray(formula?.limitations),
+    discrepancy: formula?.discrepancy ? safeObject(formula.discrepancy) : null,
+  });
+  const rawSupplyTruth = safeObject(tokenomics.supplyTruth);
+  const canonicalFacts = Object.fromEntries(Object.entries(safeObject(rawSupplyTruth.canonicalFacts)).map(([field, fact]) => [field, {
+    ...safeObject(fact),
+    sourceBoundary: safeArray(fact?.sourceBoundary),
+  }]));
+  const calculatedMetrics = safeArray(rawSupplyTruth.calculatedMetrics).map(normalizeFormula);
+  const supplyTruth = Object.keys(rawSupplyTruth).length ? {
+    ...rawSupplyTruth,
+    representationContext: safeObject(rawSupplyTruth.representationContext),
+    applicability: {
+      ...safeObject(rawSupplyTruth.applicability),
+      primaryDiligenceQuestions: safeArray(rawSupplyTruth.applicability?.primaryDiligenceQuestions),
+      notApplicableRedirects: safeArray(rawSupplyTruth.applicability?.notApplicableRedirects),
+    },
+    providerCandidates: safeArray(rawSupplyTruth.providerCandidates),
+    rawProviderFacts: safeArray(rawSupplyTruth.rawProviderFacts).map((fact) => ({
+      ...safeObject(fact),
+      sourceBoundary: safeArray(fact?.sourceBoundary),
+    })),
+    canonicalFacts,
+    maxSupplySemantics: {
+      ...safeObject(rawSupplyTruth.maxSupplySemantics),
+      evidenceBasis: safeArray(rawSupplyTruth.maxSupplySemantics?.evidenceBasis),
+      reasoning: safeArray(rawSupplyTruth.maxSupplySemantics?.reasoning),
+    },
+    providerDisagreements: safeArray(rawSupplyTruth.providerDisagreements),
+    contradictions: safeArray(rawSupplyTruth.contradictions),
+    calculatedMetrics,
+    calculationTraces: safeArray(rawSupplyTruth.calculationTraces).map(normalizeFormula),
+    typedObservations: safeArray(rawSupplyTruth.typedObservations),
+    provenanceSummary: {
+      ...safeObject(rawSupplyTruth.provenanceSummary),
+      providers: safeArray(rawSupplyTruth.provenanceSummary?.providers),
+      sourceBoundary: safeArray(rawSupplyTruth.provenanceSummary?.sourceBoundary),
+    },
+    freshnessSummary: {
+      ...safeObject(rawSupplyTruth.freshnessSummary),
+      staleFactIds: safeArray(rawSupplyTruth.freshnessSummary?.staleFactIds),
+      unknownFreshnessFactIds: safeArray(rawSupplyTruth.freshnessSummary?.unknownFreshnessFactIds),
+    },
+    supportedConclusions: safeArray(rawSupplyTruth.supportedConclusions),
+    unsupportedConclusions: safeArray(rawSupplyTruth.unsupportedConclusions),
+    missingInputs: safeArray(rawSupplyTruth.missingInputs),
+    whatWouldChange: safeArray(rawSupplyTruth.whatWouldChange),
+  } : null;
+
   return {
     ...tokenomics,
+    supplyTruth,
+    legacyCompatibility: safeObject(tokenomics.legacyCompatibility),
     supplySummary: safeObject(tokenomics.supplySummary),
     sourceContradictions: safeArray(tokenomics.sourceContradictions),
     providerDisagreements: safeArray(tokenomics.providerDisagreements),
@@ -2972,13 +3033,7 @@ export function normalizeTokenomicsSupplyIntegrityPayload(responseLike) {
     })),
     coingeckoSupply: tokenomics.coingeckoSupply ? safeObject(tokenomics.coingeckoSupply) : null,
     coinmarketcapSupply: tokenomics.coinmarketcapSupply ? safeObject(tokenomics.coinmarketcapSupply) : null,
-    formulaOutputs: safeArray(tokenomics.formulaOutputs).map((formula) => ({
-      ...safeObject(formula),
-      inputs: safeArray(formula?.inputs),
-      missingInputs: safeArray(formula?.missingInputs),
-      sourceInputs: safeArray(formula?.sourceInputs),
-      sourceBoundary: safeArray(formula?.sourceBoundary),
-    })),
+    formulaOutputs: (calculatedMetrics.length ? calculatedMetrics : safeArray(tokenomics.formulaOutputs).map(normalizeFormula)),
     reviewedSources: safeArray(tokenomics.reviewedSources),
     sourceRequirements: safeArray(tokenomics.sourceRequirements),
     manualReviewTriggers: safeArray(tokenomics.manualReviewTriggers),
@@ -3217,6 +3272,15 @@ export function buildProtectedInvestorReportText({
       : normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const tokenomicsSupplyTruth = safeObject(tokenomicsSupplyIntegrity?.supplyTruth);
+  const protectedSupplyFactValue = (field, fallback = null) => {
+    const value = tokenomicsSupplyTruth?.canonicalFacts?.[field]?.value;
+    return value === null || value === undefined ? fallback : value;
+  };
+  const protectedSupplyFormulaDisplay = (formulaId, fallback = null) => {
+    const formula = safeArray(tokenomicsSupplyTruth?.calculatedMetrics).find((entry) => entry?.formulaId === formulaId);
+    return formula?.displayedValue || formula?.display || fallback;
+  };
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
     || normalizeFinalAnalystAnswerComposerPayload(safeData)
@@ -3417,11 +3481,16 @@ export function buildProtectedInvestorReportText({
     ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
     "",
     "4. Tokenomics / Supply Integrity",
-    reportLine("Tokenomics supply-integrity context", tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore !== undefined ? `${tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100` : "Not available yet."),
-    reportLine("Evidence confidence", tokenomicsSupplyIntegrity?.evidenceConfidence),
-    reportLine("Max supply status", tokenomicsSupplyIntegrity?.maxSupplyStatus),
+    reportLine("Supply Truth", tokenomicsSupplyTruth?.statusSummary || "Canonical supply facts were not available in this analysis."),
+    reportLine("Asset family / representation", `${tokenomicsSupplyTruth?.canonicalFamily || tokenomicsSupplyIntegrity?.canonicalFamily || "Not available yet"} / ${tokenomicsSupplyTruth?.representationContext?.representationType || "representation unavailable"}`),
+    reportLine("Price / market cap / FDV", `${formatUsd(protectedSupplyFactValue("currentPrice", tokenomicsSupplyIntegrity?.currentPrice))} / ${formatUsd(protectedSupplyFactValue("marketCap", tokenomicsSupplyIntegrity?.marketCap))} / ${formatUsd(protectedSupplyFactValue("fdv", tokenomicsSupplyIntegrity?.fdv))}`),
+    reportLine("Circulating / total / max supply", `${formatCompact(protectedSupplyFactValue("circulatingSupply", tokenomicsSupplyIntegrity?.circulatingSupply))} / ${formatCompact(protectedSupplyFactValue("totalSupply", tokenomicsSupplyIntegrity?.totalSupply))} / ${formatCompact(protectedSupplyFactValue("maxSupply", tokenomicsSupplyIntegrity?.maxSupplyValue))}`),
+    reportLine("FDV / market cap", protectedSupplyFormulaDisplay("fdv_market_cap_ratio", tokenomicsSupplyIntegrity?.fdvMarketCapRatio)),
+    reportLine("Circulating / max", protectedSupplyFormulaDisplay("circulating_percent_of_max", tokenomicsSupplyIntegrity?.circulatingPercentOfMax)),
+    reportLine("Max supply meaning", tokenomicsSupplyTruth?.maxSupplySemantics?.semanticClassification ? titleCase(tokenomicsSupplyTruth.maxSupplySemantics.semanticClassification) : titleCase(tokenomicsSupplyIntegrity?.maxSupplyStatus)),
+    reportLine("Supply-data freshness", tokenomicsSupplyTruth?.freshnessSummary?.overall ? titleCase(tokenomicsSupplyTruth.freshnessSummary.overall) : "Not available yet."),
     reportLine("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
-    reportLine("Primary tokenomics blocker", tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
+    reportLine("Primary open check", safeArray(tokenomicsSupplyTruth?.whatWouldChange)[0] || tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
     "",
     "5. Institutional Scoring Readiness",
     reportLine("Readiness status", scoringReadinessContract?.overallReadinessStatus ? titleCase(scoringReadinessContract.overallReadinessStatus) : "Not available yet."),
@@ -8025,6 +8094,7 @@ export function buildReviewBundleText({
   const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const tokenomicsSupplyTruth = safeObject(tokenomicsSupplyIntegrity?.supplyTruth);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
@@ -11107,6 +11177,42 @@ export function buildReviewBundleText({
     ]),
     bundleSection("6A. Tokenomics / Supply Integrity Tab Mirror", [
       bundleField("Dedicated tab visible", tokenomicsSupplyIntegrity ? "yes - Tokenomics tab mirrors this section" : "unknown"),
+      bundleField("Canonical Tokenomics owner", tokenomicsSupplyTruth.methodologyVersion ? "tokenomicsSupplyIntegrity" : "Supply Truth unavailable"),
+      bundleField("Supply Truth methodology", tokenomicsSupplyTruth.methodologyVersion),
+      bundleField("Canonical family", tokenomicsSupplyTruth.canonicalFamily || tokenomicsSupplyIntegrity?.canonicalFamily),
+      bundleField("Supply Truth status", `${bundleValue(tokenomicsSupplyTruth.status)} | ${bundleValue(tokenomicsSupplyTruth.statusSummary)}`),
+      bundleField("Canonical representation", `${bundleValue(tokenomicsSupplyTruth.representationContext?.representationType)} | selected=${bundleValue(tokenomicsSupplyTruth.representationContext?.selectedNetwork)}:${bundleValue(tokenomicsSupplyTruth.representationContext?.selectedContract)} | analyzed=${bundleValue(tokenomicsSupplyTruth.representationContext?.analyzedNetwork)}:${bundleValue(tokenomicsSupplyTruth.representationContext?.analyzedContract)}`),
+      bundleField("Family applicability", tokenomicsSupplyTruth.applicability?.familyPolicySummary),
+      "Primary family diligence questions:",
+      bundleList(tokenomicsSupplyTruth.applicability?.primaryDiligenceQuestions),
+      "Not-applicable redirects:",
+      bundleList(tokenomicsSupplyTruth.applicability?.notApplicableRedirects),
+      "Raw provider supply facts:",
+      bundleList(safeArray(tokenomicsSupplyTruth.rawProviderFacts).map((fact) => `${fact.factId}: provider=${fact.provider}; field=${fact.field}; rawPath=${fact.rawPath}; raw=${bundleValue(fact.rawValue)}; normalized=${bundleValue(fact.normalizedValue)}; unit=${bundleValue(fact.unit)}; denomination=${bundleValue(fact.tokenDenomination)}; providerTimestamp=${bundleValue(fact.providerTimestamp)}; retrievalTimestamp=${bundleValue(fact.retrievalTimestamp)}; freshness=${bundleValue(fact.freshnessStatus)}; validation=${bundleValue(fact.validationState)}; scope=${bundleValue(fact.scope)}; role=${bundleValue(fact.role)}; rejection=${bundleValue(fact.rejectionReason)}; scoringActive=${bundleValue(fact.scoringActive)}; reviewedEvidence=${bundleValue(fact.reviewedEvidence)}`)),
+      "Canonical supply facts:",
+      bundleList(Object.values(safeObject(tokenomicsSupplyTruth.canonicalFacts)).map((fact) => `${fact.field}: value=${bundleValue(fact.value)}; unit=${bundleValue(fact.unit)}; status=${bundleValue(fact.status)}; provider=${bundleValue(fact.selectedProvider)}; method=${bundleValue(fact.selectionMethod)}; reason=${bundleValue(fact.selectionReason)}; selectedFactId=${bundleValue(fact.selectedFactId)}; rejected=${safeArray(fact.rejectedFactIds).join(", ") || "none"}`)),
+      bundleField("Max supply raw status", tokenomicsSupplyTruth.maxSupplySemantics?.rawValueStatus),
+      bundleField("Max supply semantics", tokenomicsSupplyTruth.maxSupplySemantics?.semanticClassification),
+      bundleField("Max supply formula applicability", tokenomicsSupplyTruth.maxSupplySemantics?.formulaApplicability),
+      "Max supply reasoning:",
+      bundleList(tokenomicsSupplyTruth.maxSupplySemantics?.reasoning),
+      "Exact Supply Truth provider disagreements:",
+      bundleList(safeArray(tokenomicsSupplyTruth.providerDisagreements).map((entry) => `${entry.disagreementId}: ${entry.field}; ${entry.leftProvider}=${bundleValue(entry.leftValue)} vs ${entry.rightProvider}=${bundleValue(entry.rightValue)}; absolute=${bundleValue(entry.absoluteDifference)}; relative=${bundleValue(entry.relativeDifference)}; material=${bundleValue(entry.material)}; threshold=${bundleValue(entry.threshold)}; reconciliation=${bundleValue(entry.reconciliationStatus)}; selection=${bundleValue(entry.selectionReason)}`)),
+      "Supply Truth contradictions:",
+      bundleList(safeArray(tokenomicsSupplyTruth.contradictions).map((entry) => `${entry.contradictionId}: ${entry.type}; provider=${entry.provider}; values=${safeArray(entry.values).join(" / ")}; material=${bundleValue(entry.material)}; ${entry.explanation}`)),
+      "Canonical calculation traces:",
+      bundleList(safeArray(tokenomicsSupplyTruth.calculationTraces).map((formula) => `${formula.formulaId}: ${formula.displayedValue || formula.display || "Unavailable"}; expression=${formula.formula}; status=${formula.status}; applicability=${formula.applicability}; result=${bundleValue(formula.rawResult)} ${bundleValue(formula.resultUnit)}; denominator=${bundleValue(formula.denominatorStatus)}; inputs=${safeArray(formula.inputs).map((input) => `${input.name}=${bundleValue(input.rawValue ?? input.value)} ${bundleValue(input.unit)} [provider=${bundleValue(input.provider)}; timestamp=${bundleValue(input.providerTimestamp)}; freshness=${bundleValue(input.freshnessStatus)}; validation=${bundleValue(input.validationState)}; source=${bundleValue(input.sourcePath)}]`).join(" | ") || "none"}; missing=${safeArray(formula.missingInputs).join(", ") || "none"}; invalid=${safeArray(formula.invalidInputs).join(", ") || "none"}; rounding=${bundleValue(formula.roundingPolicy)}; requirement=${bundleValue(formula.sourceRequirement)}; limitations=${safeArray(formula.limitations).join("; ") || "none"}; scoringActive=${bundleValue(formula.scoringActive)}`)),
+      bundleField("Supply Truth provenance", `facts=${bundleValue(tokenomicsSupplyTruth.provenanceSummary?.providerFactCount)}; valid=${bundleValue(tokenomicsSupplyTruth.provenanceSummary?.validFactCount)}; selected=${bundleValue(tokenomicsSupplyTruth.provenanceSummary?.selectedFactCount)}; providers=${safeArray(tokenomicsSupplyTruth.provenanceSummary?.providers).join(", ") || "none"}`),
+      bundleField("Supply Truth freshness", `${bundleValue(tokenomicsSupplyTruth.freshnessSummary?.overall)}; freshest provider timestamp=${bundleValue(tokenomicsSupplyTruth.freshnessSummary?.freshestProviderTimestamp)}`),
+      "Supply Truth supported conclusions:",
+      bundleList(tokenomicsSupplyTruth.supportedConclusions),
+      "Supply Truth unsupported conclusions:",
+      bundleList(tokenomicsSupplyTruth.unsupportedConclusions),
+      "Supply Truth missing inputs:",
+      bundleList(tokenomicsSupplyTruth.missingInputs),
+      "Supply Truth what would change:",
+      bundleList(tokenomicsSupplyTruth.whatWouldChange),
+      bundleField("Legacy compatibility", tokenomicsSupplyIntegrity?.legacyCompatibility?.migrationBoundary),
       bundleField("Tab hierarchy", "Command Header -> Key Risk Summary -> Supply Snapshot -> Provider Comparison -> Formula Outputs -> Asset-Class Diligence/Q&A -> Score Logic -> Source Requirements -> Audit Boundary"),
       bundleField("Key risk summary", lens?.lensId === "STABLECOIN_SETTLEMENT" ? "reserves; redemption; issuer/custodian; mint/redeem controls; freeze/admin policy; supported networks" : "lens-specific supply, control, dilution, concentration, and value-capture diligence"),
       bundleField("Contract mapping summary", `${safeArray(assetIdentityResolution?.allKnownContracts).length || safeArray(tokenomicsSupplyIntegrity?.providerContracts).length || 0} mappings attached; primary tab shows selected/analyzed contract and top mappings first; full list remains in audit/bundle.`),

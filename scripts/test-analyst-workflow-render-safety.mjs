@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { createServer } from "vite";
@@ -128,6 +129,143 @@ try {
       `${name} must render with a workflow contract`,
     );
   }
+
+  const supplyFact = (field, value, unit) => ({
+    field,
+    status: "selected",
+    value,
+    unit,
+    selectedProvider: "coingecko",
+    selectedFactId: `fixture-${field}`,
+    sourcePath: `coingecko.market_data.${field}`,
+    selectionReason: "Existing primary CoinGecko precedence retained for canonical display.",
+    selectionMethod: "primary_provider",
+    method: "primary_provider",
+    rejectedFactIds: [],
+    sourceBoundary: ["provider_reported_not_reviewed_evidence"],
+  });
+  const supplyFormula = (formulaId, label, formula, rawResult, displayedValue, resultUnit = "ratio") => ({
+    formulaId,
+    label,
+    formula,
+    result: rawResult,
+    rawResult,
+    display: displayedValue,
+    displayedValue,
+    status: "computed",
+    method: "derived_provider_formula",
+    applicability: "applicable",
+    formulaPhase: "phase_1_canonical",
+    resultUnit,
+    canonicalOwner: "tokenomicsSupplyIntegrity",
+    denominatorStatus: "valid",
+    roundingPolicy: "Inputs are not rounded; display formatting only.",
+    inputs: [{ name: "fixture", rawValue: 2, value: 2, unit: "usd", sourcePath: "fixture.input", provider: "coingecko", freshnessStatus: "fresh", validationState: "valid", sourceBoundary: [] }],
+    missingInputs: [],
+    invalidInputs: [],
+    sourceInputs: ["fixture.input"],
+    sourceBoundary: ["calculated_metric_non_scoring"],
+    sourceRequirement: "No additional input required for this deterministic fixture.",
+    limitations: ["Does not prove future dilution, unlocks, backing, or value capture."],
+    scoringActive: false,
+  });
+  const supplyTruth = {
+    methodologyVersion: "supply-truth-formula-engine-consolidation-v1",
+    status: "available",
+    statusSummary: "Comparable provider supply facts and deterministic Phase 1 calculations are available within the selected representation boundary.",
+    canonicalFamily: "defi_governance_value_capture",
+    representationContext: { representationType: "evm_contract_asset", selectedNetwork: "ethereum", selectedContract: "0x1111111111111111111111111111111111111111", analyzedNetwork: "ethereum", analyzedContract: "0x1111111111111111111111111111111111111111" },
+    applicability: { familyPolicySummary: "Governance-token supply analysis covers float, cap, treasury, unlocks, and control.", primaryDiligenceQuestions: ["How much finite-cap dilution remains?"], notApplicableRedirects: [] },
+    providerCandidates: [{ provider: "coingecko", status: "available" }],
+    rawProviderFacts: [{ factId: "supply-coingecko-fixture-circulating", provider: "coingecko", field: "circulatingSupply", rawPath: "coingecko.market_data.circulating_supply", rawValue: 100, normalizedValue: 100, unit: "token", role: "primary", freshnessStatus: "fresh", validationState: "valid", scoringActive: false, reviewedEvidence: false, sourceBoundary: [] }],
+    canonicalFacts: {
+      currentPrice: supplyFact("currentPrice", 2, "usd_per_token"),
+      marketCap: supplyFact("marketCap", 200, "usd"),
+      fdv: supplyFact("fdv", 400, "usd"),
+      volume24h: supplyFact("volume24h", 20, "usd"),
+      circulatingSupply: supplyFact("circulatingSupply", 100, "token"),
+      totalSupply: supplyFact("totalSupply", 125, "token"),
+      maxSupply: supplyFact("maxSupply", 200, "token"),
+      selfReportedCirculatingSupply: { field: "selfReportedCirculatingSupply", status: "unavailable", value: null, rejectedFactIds: [] },
+      selfReportedMarketCap: { field: "selfReportedMarketCap", status: "unavailable", value: null, rejectedFactIds: [] },
+    },
+    maxSupplySemantics: { rawValueStatus: "reported_valid", semanticClassification: "finite_cap_reported", formulaApplicability: "applicable", evidenceBasis: [], reasoning: ["Finite positive provider maximum supply reported."], providerNullIsUncappedProof: false },
+    providerDisagreements: [{ disagreementId: "fixture-disagreement", field: "marketCap", leftProvider: "coingecko", leftValue: 200, rightProvider: "coinmarketcap", rightValue: 230, absoluteDifference: 30, relativeDifference: 0.1304, material: true, reconciliationStatus: "comparable", selectionReason: "CoinGecko retained." }],
+    contradictions: [{ contradictionId: "fixture-contradiction", type: "circulating_above_total", provider: "fixture", values: [120, 100], explanation: "Fixture contradiction remains visible without clamping." }],
+    calculatedMetrics: [
+      supplyFormula("market_cap_price_times_circulating", "Calculated Market Cap", "Price x Circulating Supply", 200, "$200", "usd"),
+      supplyFormula("fdv_market_cap_ratio", "FDV / Market Cap", "FDV / Market Cap", 2, "2x"),
+      supplyFormula("circulating_percent_of_max", "Circulating / Max Supply", "Circulating Supply / Max Supply", 0.5, "50%"),
+    ],
+    calculationTraces: [],
+    typedObservations: [],
+    provenanceSummary: { providerFactCount: 1, validFactCount: 1, selectedFactCount: 7, providers: ["coingecko"], sourceBoundary: [] },
+    freshnessSummary: { overall: "fresh", freshestProviderTimestamp: "2026-07-12T12:00:00.000Z", staleFactIds: [], unknownFreshnessFactIds: [] },
+    supportedConclusions: ["Current circulating supply is provider-reported."],
+    unsupportedConclusions: ["Supply arithmetic does not prove unlock timing."],
+    missingInputs: ["unlock schedule"],
+    whatWouldChange: ["Attach a reviewed unlock schedule."],
+    formulaOwner: "tokenomicsFormulaEngine.service.ts",
+    scoringActive: false,
+    reviewedEvidenceScoringActive: false,
+  };
+  supplyTruth.calculationTraces = supplyTruth.calculatedMetrics;
+  const tokenomicsModel = {
+    ...baseModel,
+    tokenomicsSupplyIntegrity: {
+      methodologyVersion: "supply-truth-formula-engine-consolidation-v1",
+      canonicalFamily: supplyTruth.canonicalFamily,
+      supplyTruth,
+      legacyCompatibility: { migrationBoundary: "Supply Truth is non-scoring in v1." },
+      supplySummary: { summary: "Legacy compatibility summary.", lensId: "DEFI_PROTOCOL_TOKEN" },
+      tokenomicsIntegrityScore: 60,
+      evidenceConfidence: "medium",
+      unlockScheduleStatus: "unknown",
+      sourceRequirements: ["Attach a reviewed unlock schedule."],
+      whatWouldChange: ["Attach a reviewed unlock schedule."],
+      sourceBoundary: ["diagnostic_only_not_scoring_active"],
+      hardBlockers: [], softBlockers: [], scoreCaps: [], confidenceCaps: [], manualReviewTriggers: [], positiveSignals: [], negativeSignals: [], neutralContextualSignals: [], institutionalQuestions: [],
+      providerContracts: [], providerPlatforms: [], providerMarketCaps: [], providerFdvs: [], providerVolumes: [], providerSupplyValues: [], providerTimestamps: [], providerScopeNotes: [], providerFieldAudit: [], sourceContradictions: [], providerDisagreements: [], formulaOutputs: supplyTruth.calculatedMetrics,
+    },
+  };
+  const normalizedSupply = researchUtils.normalizeTokenomicsSupplyIntegrityPayload(tokenomicsModel);
+  assert.equal(normalizedSupply.supplyTruth.canonicalFacts.marketCap.value, 200);
+  assert.equal(normalizedSupply.formulaOutputs.find((entry) => entry.formulaId === "fdv_market_cap_ratio").displayedValue, "2x");
+  const supplySurfaces = [
+    ["Decision", DecisionHeroCard, { asset: { symbol: "FIX" }, model: tokenomicsModel, showSupportSections: true }],
+    ["Right Rail", AnalysisRightRail, { model: tokenomicsModel }],
+    ["Evidence Map", EvidenceMapTab, { model: tokenomicsModel }],
+    ["Scoring Transparency", ScoringTransparencyTab, { model: tokenomicsModel, analysis: {} }],
+    ["Tokenomics", TokenomicsSupplyIntegrityTab, { asset: { symbol: "FIX" }, model: tokenomicsModel }],
+  ];
+  for (const [name, Component, props] of supplySurfaces) {
+    const html = renderToString(React.createElement(Component, { ...props, styles: {} }));
+    assert.match(html, /Supply Truth|supply facts|supply integrity/i, `${name} must surface canonical supply context`);
+    assert.doesNotMatch(html, /NaN|Infinity|undefined|\[object Object\]/, `${name} must render values safely`);
+  }
+  const supplyBundle = researchUtils.buildReviewBundleText({ asset: { symbol: "FIX" }, model: tokenomicsModel });
+  assert.match(supplyBundle, /6A\. Tokenomics \/ Supply Integrity Tab Mirror/);
+  assert.match(supplyBundle, /Canonical Tokenomics owner: tokenomicsSupplyIntegrity/);
+  assert.match(supplyBundle, /Raw provider supply facts:/);
+  assert.match(supplyBundle, /Canonical calculation traces:/);
+  assert.match(supplyBundle, /fixture-disagreement/);
+  const supplyProtected = researchUtils.buildProtectedInvestorReportText({ asset: { symbol: "FIX" }, model: tokenomicsModel });
+  assert.match(supplyProtected, /Comparable provider supply facts/);
+  assert.match(supplyProtected, /FDV \/ market cap: 2x/i);
+  assert.doesNotMatch(supplyProtected, /supply-coingecko-fixture|fixture-disagreement|formulaPhase|selectedFactId/);
+  const frontendTokenomicsSources = [
+    "../src/components/research/TokenomicsSupplyIntegrityTab.jsx",
+    "../src/components/research/TokenomicsSupplyIntegrityCard.jsx",
+    "../src/components/research/researchUtils.js",
+  ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n");
+  [
+    /currentPrice\s*\*\s*circulatingSupply/i,
+    /price\s*\*\s*maxSupply/i,
+    /circulatingSupply\s*\/\s*totalSupply/i,
+    /circulatingSupply\s*\/\s*maxSupply/i,
+    /fdv\s*\/\s*marketCap/i,
+    /marketCap\s*\/\s*fdv/i,
+  ].forEach((pattern) => assert.doesNotMatch(frontendTokenomicsSources, pattern));
 
   const presentBundle = researchUtils.buildReviewBundleText({
     asset: { symbol: "TEST" },

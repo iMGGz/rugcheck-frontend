@@ -143,11 +143,13 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
     {
       title: "Tokenomics Supply Integrity",
       value: readableValue(tokenomicsSupplyIntegrity.tokenomicsIntegrityScore),
-      source: hasAttachedValue(tokenomicsSupplyIntegrity) ? "tokenomicsSupplyIntegrity.tokenomicsIntegrityScore" : "Not attached",
-      rule: "Separate supply-integrity underwriting signal for dilution, unlocks, supply authority, and provider contradictions.",
+      source: hasAttachedValue(tokenomicsSupplyIntegrity) ? "tokenomicsSupplyIntegrity (legacy diagnostic score plus canonical Supply Truth)" : "Not attached",
+      rule: tokenomicsSupplyIntegrity.supplyTruth?.methodologyVersion
+        ? `${safeArray(tokenomicsSupplyIntegrity.supplyTruth.calculatedMetrics).length} backend-owned supply calculations are attached with provenance and applicability. They are deterministic explanatory facts, not inputs to the current score.`
+        : "Separate supply-integrity underwriting signal for dilution, unlocks, supply authority, and provider contradictions.",
       live: "Shown as explanatory context",
       reportOnly: "No, surfaced in live response but not integrated into current overall score",
-      caveat: "Does not change the existing overall score or verdict in this release.",
+      caveat: tokenomicsSupplyIntegrity.legacyCompatibility?.migrationBoundary || "Does not change the existing overall score or verdict in this release.",
       attached: hasAttachedValue(tokenomicsSupplyIntegrity),
     },
     {
