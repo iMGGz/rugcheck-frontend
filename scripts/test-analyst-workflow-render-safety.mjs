@@ -111,6 +111,7 @@ try {
   });
   assert.match(blockedProtectedReport, /Verdict: Not Allocation-Ready/);
   assert.match(blockedProtectedReport, /Score: Withheld/);
+  assert.match(blockedProtectedReport, /Canonical analyst narrative unavailable/);
   assert.doesNotMatch(blockedProtectedReport, /Score: 73\/100/);
   const blockedBundle = researchUtils.buildReviewBundleText({
     asset: { symbol: "CONTROL" },
@@ -121,6 +122,7 @@ try {
   assert.match(blockedBundle, /Final decision \/ verdictClass: not_allocation_ready/);
   assert.match(blockedBundle, /Overall score: Withheld/);
   assert.match(blockedBundle, /Legacy score \(audit only\): 73/);
+  assert.match(blockedBundle, /Canonical analyst narrative unavailable/);
 
   const visibleDecision = atomicDecision({
     displayable: true,
@@ -656,6 +658,296 @@ try {
   const adaUserMirror = adaBundle.split("2BD. Final Analyst Answer Composer v1")[1]?.split("\n=== 2BE.")[0] || "";
   assert.match(adaUserMirror, /Cardano transaction activity/);
   assert.doesNotMatch(adaUserMirror, /EIP-?1559|base-fee burn|L2\/blob|proposer-builder|post-Merge/i);
+
+  const canonicalComposer = ({
+    family,
+    questionGroup,
+    assetName,
+    assetDescription,
+    headline,
+    support,
+    strength,
+    weakness,
+    readiness,
+    question,
+    answer,
+    risk,
+    queue,
+    decision,
+  }) => ({
+    ...finalAnalystComposer,
+    canonicalFamily: family,
+    canonicalQuestionGroup: questionGroup,
+    assetSummary: {
+      ...finalAnalystComposer.assetSummary,
+      canonicalAsset: assetName,
+      canonicalIdentity: assetName.toLowerCase(),
+      representationBoundary: assetDescription,
+    },
+    analystView: {
+      headline,
+      whatTheAssetIs: assetDescription,
+      whatTheDataSupports: support,
+      strongestPartOfThesis: strength,
+      weakestPartOfAnalysis: weakness,
+      allocationReadinessExplanation: readiness,
+      missingForHigherConviction: [queue],
+    },
+    canonicalQuestionJudgments: [{
+      ...finalAnalystComposer.canonicalQuestionJudgments[0],
+      questionId: `${family}_control`,
+      question,
+      directAnswer: answer,
+      answer,
+      evidenceBehindIt: [support],
+      whatTheDataSupports: [support],
+      gap: [queue],
+      missingRequiredObservations: [queue],
+      whatWouldChangeTheView: queue,
+      familyApplicability: [family],
+    }],
+    familyBoundSourceQueue: [{
+      queueItemId: `${family}-control-queue`,
+      canonicalFamily: family,
+      questionId: `${family}_control`,
+      requirementId: `${family}_control_requirement`,
+      text: queue,
+      status: "needs_verification",
+    }],
+    sourceQueuePriorities: [queue],
+    riskSummary: [risk],
+    scoreExplanationBridge: {
+      ...finalAnalystComposer.scoreExplanationBridge,
+      verdictClass: decision.verdict.finalClass,
+      verdictLabel: decision.verdict.finalLabel,
+      scoreDisplayMode: decision.score.displayMode,
+      scoreDisplayLabel: decision.score.displayable ? "Score available with coverage caveat" : "Score withheld",
+      explanation: decision.verdict.explanation,
+      formulaChanged: false,
+      verdictChanged: false,
+      confidenceFormulaChanged: false,
+    },
+  });
+
+  const buildCanonicalControlModel = ({ asset, family, questionGroup, composer, decision, legacy = {} }) => researchUtils.buildDecisionTerminalModel({
+    analysis: {
+      ...legacy,
+      decisionLayer: decision,
+      finalAnalystAnswerComposerContract: composer,
+      canonicalProductRoute: {
+        primaryFamily: family,
+        primaryQuestionGroup: questionGroup,
+        primaryVisibleLabel: family,
+        primaryAssetFraming: composer.analystView.whatTheAssetIs,
+      },
+      primaryAnalysisRoute: {
+        assetFamily: family,
+        questionGroup,
+        visibleLabel: family,
+      },
+      scores: { overallScore: 73 },
+      confidence: { score: 64, level: "medium" },
+    },
+    scores: { overallScore: 73 },
+    confidence: { score: 64, level: "medium" },
+    asset,
+  });
+
+  const btcComposer = canonicalComposer({
+    family: "native_btc_pow_monetary",
+    questionGroup: "native_btc_pow_questions",
+    assetName: "Bitcoin",
+    assetDescription: "Bitcoin is the native proof-of-work monetary asset of the Bitcoin network.",
+    headline: "Bitcoin has a fixed-supply monetary thesis, while current fee-market and mining concentration evidence limits allocation readiness.",
+    support: "Canonical supply and proof-of-work observations support the monetary-asset framing.",
+    strength: "Fixed-supply monetary policy and native proof-of-work identity are clear.",
+    weakness: "Long-run fee-market security and mining-pool concentration remain underverified.",
+    readiness: "The final decision is Not Allocation-Ready until current security-budget and market-access evidence is attached.",
+    question: "Can the proof-of-work security budget remain durable?",
+    answer: "Current evidence supports the mechanism, but fee-market durability and mining concentration remain open checks.",
+    risk: "A weak fee market or concentrated mining could weaken long-run security.",
+    queue: "Verify current fee revenue, hashrate, mining-pool concentration, liquidity, and custody access.",
+    decision: blockedDecision,
+  });
+  const btcLegacyLeak = {
+    verdictSemantics: {
+      summary: "Not Allocation-Ready - Investable - Medium Confidence",
+      positiveCase: ["BTC clears the benchmark allocation threshold."],
+    },
+    summaryMemo: "BTC is directionally investable because ETH gas demand, EIP-1559, staking/validator security, L2/blob demand, and MEV relay economics are strong.",
+    dataFirstNarrativeContract: {
+      contractAttached: true,
+      generatedNarrativeFields: [{ fieldName: "headerSummary", display: "BTC clears the benchmark allocation threshold." }],
+    },
+    resolvedInstitutionalLens: {
+      lensId: "POS_SMART_CONTRACT_SETTLEMENT_GAS_ASSET",
+      questionGroupId: "native_eth_pos_questions",
+      displayLabel: "PoS Smart-Contract Settlement / Gas Asset",
+    },
+  };
+  const btcModel = buildCanonicalControlModel({
+    asset: { symbol: "BTC", name: "Bitcoin" },
+    family: "native_btc_pow_monetary",
+    questionGroup: "native_btc_pow_questions",
+    composer: btcComposer,
+    decision: blockedDecision,
+    legacy: btcLegacyLeak,
+  });
+  const btcPrimaryText = [
+    btcModel.verdictSemantics?.summary,
+    btcModel.summaryMemo,
+    btcModel.primaryStrength,
+    btcModel.primaryWeakness,
+    btcModel.tokenDemandTruth,
+    ...researchUtils.safeArray(btcModel.researchRequirements).map((item) => item?.reason || item?.title),
+  ].join(" ");
+  assert.doesNotMatch(btcPrimaryText, /Investable - Medium Confidence|directionally investable|clears the benchmark allocation threshold/i);
+  assert.doesNotMatch(btcPrimaryText, /ETH gas demand|EIP-?1559|staking\/validator|L2\/blob|MEV relay/i);
+  assert.match(btcPrimaryText, /proof-of-work|fee-market|mining/i);
+  const btcParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: btcModel });
+  assert.equal(btcParity.finalVerdictClass, "not_allocation_ready");
+  assert.equal(btcParity.candidateFinalContradictionAssertions.length, 0);
+  assert.equal(btcParity.wrongFamilyNarrativeAssertions.length, 0);
+  assert.equal(btcParity.primaryNarrativePass, true);
+  const btcDecisionHtml = renderDecision(btcModel);
+  assert.match(btcDecisionHtml, /Not Allocation-Ready/);
+  assert.doesNotMatch(btcDecisionHtml, /Investable - Medium Confidence|directionally investable|EIP-?1559|L2\/blob/i);
+  const btcProtected = researchUtils.buildProtectedInvestorReportText({ asset: { symbol: "BTC", name: "Bitcoin" }, model: btcModel });
+  assert.match(btcProtected, /fixed-supply monetary thesis/i);
+  assert.doesNotMatch(btcProtected, /directionally investable|clears the benchmark allocation threshold|EIP-?1559|L2\/blob/i);
+  const btcBundle = researchUtils.buildReviewBundleText({ asset: { symbol: "BTC", name: "Bitcoin" }, model: btcModel });
+  const btcBundlePrimary = btcBundle.split("2BD. Final Analyst Answer Composer v1")[1]?.split("\n=== 2BE.")[0] || "";
+  assert.match(btcBundlePrimary, /fixed-supply monetary thesis/i);
+  assert.doesNotMatch(btcBundlePrimary, /directionally investable|clears the benchmark allocation threshold|EIP-?1559|L2\/blob/i);
+  assert.match(btcBundle, /Candidate\/final contradiction findings: 0/);
+  assert.match(btcBundle, /Wrong-family narrative findings: 0/);
+
+  const injectedCandidateModel = {
+    ...btcModel,
+    decisionLayer: blockedDecision,
+    verdictClass: "not_allocation_ready",
+    summaryMemo: "BTC is directionally investable.",
+  };
+  const injectedCandidateParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: injectedCandidateModel });
+  assert.ok(injectedCandidateParity.candidateFinalContradictionAssertions.length > 0);
+  assert.equal(injectedCandidateParity.primaryNarrativePass, false);
+  const injectedWrongFamilyModel = {
+    ...btcModel,
+    decisionLayer: blockedDecision,
+    verdictClass: "not_allocation_ready",
+    summaryMemo: "EIP-1559 burn and L2/blob demand are the primary thesis.",
+  };
+  const injectedWrongFamilyParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: injectedWrongFamilyModel });
+  assert.ok(injectedWrongFamilyParity.wrongFamilyNarrativeAssertions.length > 0);
+  assert.equal(injectedWrongFamilyParity.primaryNarrativePass, false);
+
+  const positiveBtcDecision = atomicDecision({
+    displayable: true,
+    displayMode: "show_score_with_coverage_caveat",
+    eligibility: "partially_eligible",
+    finalClass: "investable_medium_confidence",
+    finalLabel: "Investable - Medium Confidence",
+  });
+  const positiveBtcComposer = canonicalComposer({
+    family: "native_btc_pow_monetary",
+    questionGroup: "native_btc_pow_questions",
+    assetName: "Bitcoin",
+    assetDescription: "Bitcoin is the native proof-of-work monetary asset of the Bitcoin network.",
+    headline: "Bitcoin is investable at medium confidence under the current final decision.",
+    support: "Current monetary, security, and liquidity observations support a bounded allocation case.",
+    strength: "The native monetary thesis is supported.",
+    weakness: "Fee-market durability remains a monitoring item.",
+    readiness: "The final decision permits a medium-confidence allocation posture.",
+    question: "Is the monetary thesis sufficiently supported?",
+    answer: "Yes, within the current evidence and confidence boundary.",
+    risk: "Fee-market and mining concentration still require monitoring.",
+    queue: "Refresh fee-market and mining concentration data.",
+    decision: positiveBtcDecision,
+  });
+  const positiveBtcModel = buildCanonicalControlModel({
+    asset: { symbol: "BTC", name: "Bitcoin" },
+    family: "native_btc_pow_monetary",
+    questionGroup: "native_btc_pow_questions",
+    composer: positiveBtcComposer,
+    decision: positiveBtcDecision,
+  });
+  const positiveBtcParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: positiveBtcModel });
+  assert.ok(positiveBtcParity.allocationLanguageAssertions.length > 0);
+  assert.equal(positiveBtcParity.candidateFinalContradictionAssertions.length, 0);
+  assert.equal(positiveBtcParity.primaryNarrativePass, true);
+
+  const ethComposer = canonicalComposer({
+    family: "native_eth_pos_gas_l2_fee_market",
+    questionGroup: "native_eth_pos_questions",
+    assetName: "Ethereum",
+    assetDescription: "Ether is Ethereum's native proof-of-stake gas and settlement asset.",
+    headline: "Ethereum's thesis depends on gas demand, EIP-1559 burn, staking security, and L2/blob settlement demand.",
+    support: "Fee-market, burn, staking, validator, and blob observations support a bounded network-economics assessment.",
+    strength: "Gas settlement and proof-of-stake security roles are established.",
+    weakness: "Validator/client diversity, MEV relay concentration, and liveness remain open checks.",
+    readiness: "Current final decision permits a medium-confidence posture with live-data caveats.",
+    question: "Are Ethereum fee, burn, staking, and L2 economics durable?",
+    answer: "Current evidence supports the mechanism, while net issuance and L2 value contribution require monitoring.",
+    risk: "Weak fees, concentrated validators, or MEV relay dependence could weaken the thesis.",
+    queue: "Refresh gas fees, EIP-1559 burn, staking, validator/client diversity, L2/blob, MEV, relay, and liveness data.",
+    decision: visibleDecision,
+  });
+  const ethModel = buildCanonicalControlModel({
+    asset: { symbol: "ETH", name: "Ethereum" },
+    family: "native_eth_pos_gas_l2_fee_market",
+    questionGroup: "native_eth_pos_questions",
+    composer: ethComposer,
+    decision: visibleDecision,
+  });
+  const ethCorpus = researchUtils.buildRenderedSurfaceParityViewModel({ model: ethModel });
+  assert.match(ethCorpus.primaryVisibleText.join(" "), /EIP-1559|staking|validator|L2\/blob|MEV|relay/i);
+  assert.equal(ethCorpus.wrongFamilyNarrativeAssertions.length, 0);
+
+  const usdcComposer = canonicalComposer({
+    family: "stablecoin_fiat_backed",
+    questionGroup: "stablecoin_fiat_backed_questions",
+    assetName: "USD Coin",
+    assetDescription: "USDC is an issuer-native fiat-backed stablecoin.",
+    headline: "USDC depends on reserve quality, redemption reliability, issuer controls, and peg liquidity.",
+    support: "Available reserve and redemption observations support only a bounded stablecoin trust assessment.",
+    strength: "Issuer-native mint and redeem mechanics are the correct analytical frame.",
+    weakness: "Current reserves, banking custody, freeze controls, and stress liquidity require verification.",
+    readiness: "The final decision remains constrained by reserve and redemption evidence.",
+    question: "Are reserves and redemption reliable?",
+    answer: "The mechanism is identifiable, but current reserves, issuer controls, and redemption access require verification.",
+    risk: "Reserve, banking, freeze, redemption, or peg stress could impair holders.",
+    queue: "Verify reserves, attestations, redemption terms, issuer/banking custody, freeze controls, supported networks, and peg liquidity.",
+    decision: blockedDecision,
+  });
+  const usdcModel = buildCanonicalControlModel({
+    asset: { symbol: "USDC", name: "USD Coin" },
+    family: "stablecoin_fiat_backed",
+    questionGroup: "stablecoin_fiat_backed_questions",
+    composer: usdcComposer,
+    decision: blockedDecision,
+  });
+  const usdcParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: usdcModel });
+  assert.match(usdcParity.primaryVisibleText.join(" "), /reserve|redemption|issuer|freeze|peg/i);
+  assert.equal(usdcParity.wrongFamilyNarrativeAssertions.length, 0);
+
+  const missingComposerParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: blockedTerminalModel });
+  assert.equal(missingComposerParity.missingComposerControl.composerAttached, false);
+  assert.equal(missingComposerParity.missingComposerControl.failClosed, true);
+  assert.equal(missingComposerParity.candidateFinalContradictionAssertions.length, 0);
+  assert.match(missingComposerParity.primaryVisibleText.join(" "), /canonical analyst narrative unavailable/i);
+
+  const researchUtilsSource = readFileSync(new URL("../src/components/research/researchUtils.js", import.meta.url), "utf8");
+  [
+    "BTC_NATIVE_DISPLAY_COPY",
+    "ETH_POS_SETTLEMENT_DISPLAY_COPY",
+    "buildNativeBtcDisplayOverlay",
+    "buildEthPosSettlementDisplayOverlay",
+    "buildLensAwareVerdictSemantics",
+    "buildLensAwareSecondaryCopy",
+  ].forEach((legacyOwner) => assert.doesNotMatch(researchUtilsSource, new RegExp(legacyOwner)));
+  assert.doesNotMatch(researchUtilsSource, /(?:symbol|assetSymbol)\s*={2,3}\s*["'](?:BTC|ETH|USDC)["']/i);
+  const bundleSectionCount = (text) => (text.match(/^===\s.+\s===$/gm) || []).length;
+  assert.equal(bundleSectionCount(btcBundle), bundleSectionCount(finalComposerBundle));
 
   console.log("Institutional Analyst Workflow render-safety smoke tests passed.");
 } finally {

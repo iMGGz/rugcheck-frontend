@@ -1744,6 +1744,9 @@ export function normalizeMarketWideAnalystPipelinePurityPayload(responseLike) {
 }
 
 const PRIMARY_FAMILY_INCOMPATIBLE_PATTERNS = {
+  native_btc_pow_monetary: [
+    /\b(?:eip-?1559|eth gas demand|gas asset|base-fee burn|staking participation|staking\/validator|validator\/client diversity|slashing|l2\/blob|blob fee|mev\/pbs\/relay|relay concentration)\b/i,
+  ],
   defi_governance_value_capture: [
     /\breserves? (?:attestation|composition|backing|audit|proof)s?\b|\breserve attestations?\b/i,
     /\bredemption (?:terms?|path|eligibility|docs?|rights?|process)\b/i,
@@ -5234,424 +5237,19 @@ const RESOLVED_LENS_DISPLAY_LABELS = {
   },
 };
 
-const LENS_PRIMARY_COPY = {
-  PAYMENTS_SETTLEMENT: {
-    positive: "Payment-ledger utility can be evaluated through verified settlement usage, fee/reserve mechanics, validator/finality design, and distribution evidence.",
-    blocked: "Allocation confidence depends on verified payment/settlement usage, reserve/fee/burn materiality, validator/finality assumptions, escrow/distribution overhang, and ecosystem dependency.",
-  },
-  GAMING_METAVERSE_CONSUMER: {
-    positive: "Gaming adoption can support the thesis only if gameplay activity creates durable token demand after rewards, emissions, and subsidies are reviewed.",
-    blocked: "Gaming activity must be separated from incentive-funded usage; active users, paying users, token sinks, emissions, mintability, and unlocks require reviewed evidence.",
-  },
-  RWA_HYBRID_INFRASTRUCTURE: {
-    positive: "RWA infrastructure relevance can be evaluated only after utility-token economics, fee/staking/gas demand, and canonical network/contract mapping are verified.",
-    blocked: "RWA infrastructure relevance does not prove tokenholder value capture. Utility-token economics, legal/RWA rights separation, fee/staking/gas demand, and canonical network/contract mapping require reviewed evidence.",
-  },
-  RWA_HYBRID_ASSET: {
-    positive: "Tokenized-asset classification can support review only if legal claim, redemption, issuer, custodian, collateral, and jurisdiction evidence is source-backed.",
-    blocked: "RWA/category metadata is not enforceable rights; legal claim, redemption enforceability, issuer/custodian/collateral, and jurisdiction evidence remain primary requirements.",
-  },
-  DEFI_PROTOCOL_TOKEN: {
-    positive: "Protocol success can support the token thesis only when fee routing, governance rights, buyback/burn, staking, treasury, or other accrual mechanics are source-backed.",
-    blocked: "Protocol success does not automatically accrue to tokenholders. Fee switch, fee routing, buyback/burn, treasury, staking, and governance durability must be source-backed.",
-  },
-  STABLECOIN_SETTLEMENT: {
-    positive: "Stablecoin utility is a trust thesis, not an upside thesis; reserve quality, redemption rights, issuer/custodian dependency, peg stress, and controls determine support.",
-    blocked: "Reserve quality, redemption rights, issuer/custodian dependency, peg stress, and admin/freeze controls determine trust.",
-  },
-  WRAPPED_ASSET: {
-    positive: "Wrapped exposure can be evaluated only through backing, custodian/merchant model, mint/burn controls, redemption path, and proof-of-reserves.",
-    blocked: "Backing, custodian/merchant model, mint/burn, redemption path, and proof-of-reserves determine whether the representation is safe.",
-  },
-  LST_STAKING_DERIVATIVE: {
-    positive: "Liquid staking exposure depends on verified withdrawal/redemption mechanics, slashing/operator risk, depeg/liquidity depth, scanner review, and admin controls.",
-    blocked: "Withdrawal queue, slashing/operator risk, depeg/liquidity risk, and protocol/admin controls determine the thesis.",
-  },
-  ORACLE_INFRASTRUCTURE: {
-    positive: "Oracle infrastructure relevance must be tied to token-required service payment, staking, collateral, security, or service-operation mechanics.",
-    blocked: "Infrastructure adoption is not tokenholder demand by itself; oracle usage, payment/staking/security mechanics, and durable token necessity require source-backed evidence.",
-  },
-  DEPIN_COMPUTE_STORAGE: {
-    positive: "Resource-network relevance can support the thesis only if payer demand, provider incentives, and token settlement/payment role are durable and source-backed.",
-    blocked: "Resource demand, payer mapping, provider incentives, subsidy dependency, and compute/storage usage must be verified before stronger conviction.",
-  },
-  MEME_NARRATIVE: {
-    positive: "Liquidity and narrative can explain tradability, but allocation support requires durable non-narrative utility or enforceable economic rights.",
-    blocked: "Narrative and liquidity are tradability context, not durable allocation-thesis support without non-narrative utility or rights.",
-  },
-  BASE_LAYER_SETTLEMENT: {
-    positive: "Base-layer support depends on settlement/gas demand, validator/security economics, issuance/burn/staking mechanics, liveness, and network survivability.",
-    blocked: "Settlement/gas demand, validator/security role, issuance/burn/staking economics, liveness, and protocol-upgrade risk require direct evidence.",
-  },
-  NATIVE_MONETARY_BENCHMARK: {
-    positive: "BTC has canonical native monetary-asset identity, source-backed proof-of-work and issuance/halving mechanism context, and benchmark market relevance. Allocation support depends on current transaction-fee/blockspace demand, fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
-    blocked: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF-flow, regulatory-access, and liveness evidence require direct live review.",
-  },
-};
-
-const BTC_NATIVE_DISPLAY_COPY = {
-  assetClassLabel: "Native PoW Monetary / Settlement Asset",
-  assetFramingLabel: "Native Monetary Benchmark / PoW Settlement Thesis",
-  whyAllocationCouldMakeSense: "BTC has canonical native monetary-asset identity, source-backed proof-of-work and issuance/halving mechanism context, and benchmark market relevance. Allocation support depends on current transaction-fee/blockspace demand, fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
-  whyAllocationIsCapped: "Confidence remains capped because current fee-market durability, miner economics, hashrate/security-budget resilience, mining-pool concentration, liquidity/depth, custody/ETF-flow, regulatory-access, and liveness evidence require direct live review.",
-  verdictInterpretation: "Investable - Medium Confidence means BTC clears the benchmark allocation threshold, while live market/security/liquidity evidence gaps keep confidence capped.",
-  primaryBlocker: "Current fee-market durability, miner economics, hashrate/security-budget resilience, and liquidity/depth evidence remain source-required.",
-  rightRailPrimaryBlocker: "Current fee-market, miner economics, security-budget, liquidity, custody/access, and liveness evidence remain source-required.",
-  weakestLink: "The weakest BTC assumption is whether current live fee-market, miner economics, hashrate/security budget, and liquidity evidence are strong enough to support the allocation thesis.",
-  decisionMemo: "BTC is directionally investable as a native PoW monetary benchmark, but confidence remains medium because current security-budget, fee-market, miner economics, liquidity, custody/access, and liveness evidence are not fully source-backed in the current live response.",
-  allocationThesis: "BTC thesis depends on canonical native monetary identity, proof-of-work settlement/security, fixed issuance/halving mechanism, current transaction-fee/blockspace demand, fee-market security-budget durability, miner economics, hashrate resilience, mining-pool decentralization, liveness, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
-  falsePositiveBoundary: "Bitcoin protocol evidence supports mechanism and monetary design. It does not prove current fee-market durability, miner economics, hashrate quality, mining-pool decentralization, market depth, ETF/custody flows, regulatory access, liveness, or allocation suitability.",
-  evidenceNeeded: [
-    "Current transaction-fee and blockspace demand evidence.",
-    "Fee-market durability and miner revenue mix: subsidy versus transaction fees.",
-    "Hashrate/security-budget resilience evidence.",
-    "Miner economics/profitability evidence.",
-    "Mining-pool concentration and liveness/congestion evidence.",
-    "Market depth, liquidity, slippage, and venue concentration evidence.",
-    "Custody/access, ETF-flow, and regulatory-access context.",
-  ],
-  whatWouldChange: [
-    "Stronger source-backed current transaction-fee/blockspace demand and fee-market sustainability.",
-    "Evidence that transaction fees and miner economics can sustain security budget as subsidy declines.",
-    "Stronger hashrate/security-budget resilience and lower mining-pool concentration.",
-    "Deeper liquidity, lower venue concentration, stronger custody/access and ETF-flow evidence.",
-    "Better liveness/congestion and regulatory-access context.",
-  ],
-  rightRailWhatWouldChange: [
-    "Stronger current transaction-fee/blockspace demand and fee-market durability evidence.",
-    "Evidence that miner economics and transaction fees can sustain security budget as subsidy declines.",
-    "Stronger hashrate/security-budget resilience, lower mining-pool concentration, and healthier liveness/liquidity conditions.",
-  ],
-  whatMustBeTrue: [
-    "Bitcoin's native PoW monetary mechanism remains credible.",
-    "Current fee market and blockspace demand are strong enough to support the security-budget thesis.",
-    "Miner economics and hashrate resilience remain healthy.",
-    "Mining-pool concentration does not create unacceptable centralization risk.",
-    "Liquidity/depth and institutional access remain sufficient for allocation use.",
-    "Custody/regulatory access and liveness risks do not materially deteriorate.",
-  ],
-  whatCouldBreak: [
-    "Weak transaction-fee/blockspace demand.",
-    "Deteriorating fee-market security budget.",
-    "Miner economics stress.",
-    "Falling hashrate/security resilience.",
-    "High mining-pool concentration.",
-    "Liveness/congestion failure.",
-    "Liquidity/depth deterioration.",
-    "Custody/access or regulatory-access deterioration.",
-    "Major dormant/founder-era supply movement or whale-flow shock once future on-chain monitoring exists.",
-  ],
-};
-
-const ETH_POS_SETTLEMENT_DISPLAY_COPY = {
-  assetClassLabel: "PoS Smart-Contract Settlement / Gas Asset",
-  assetFramingLabel: "PoS Settlement / Gas / Burn / Staking / L2 Fee-Market Thesis",
-  whyAllocationCouldMakeSense: "ETH has native smart-contract settlement and gas-asset relevance, with protocol mechanics tied to transaction fees, EIP-1559 base-fee burn, staking/validator security, and L2 settlement/blob demand. Allocation support depends on current gas demand, fee-market durability, net issuance, staking participation, validator/client diversity, slashing/liveness history, L2/blob fee contribution, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
-  whyAllocationIsCapped: "Confidence remains capped because current gas demand, fee-market durability, base-fee burn/net issuance, staking/validator distribution, client diversity, slashing/liveness history, L2/blob fee-market contribution, liquidity/depth, custody/access, and regulatory-access evidence require direct live review.",
-  verdictInterpretation: "ETH can clear a smart-contract settlement benchmark while live fee-market, validator/security, L2/blob, liquidity, and access evidence gaps keep confidence capped.",
-  primaryBlocker: "Current gas demand, fee-market durability, validator/security distribution, L2/blob fee contribution, liquidity/depth, custody/access, and liveness evidence remain source-required.",
-  rightRailPrimaryBlocker: "Current gas demand, base-fee burn/net issuance, validator/client diversity, L2/blob fees, liquidity, custody/access, and liveness evidence remain source-required.",
-  weakestLink: "The weakest ETH assumption is whether current live gas demand, base-fee burn/net issuance, validator/client diversity, L2/blob fee contribution, and liquidity evidence are strong enough to support the allocation thesis.",
-  decisionMemo: "ETH is directionally investable as a native PoS smart-contract settlement and gas asset, but confidence remains capped because current fee-market durability, validator/security distribution, L2/blob economics, liquidity, custody/access, and liveness evidence are not fully source-backed in the current live response.",
-  allocationThesis: "ETH thesis depends on native smart-contract settlement demand, gas fee demand, EIP-1559 base-fee burn/net issuance mechanics, staking/validator security, validator and client diversity, liveness, L2 settlement and blob/data-availability fee contribution, liquidity/depth, custody/access, ETF-flow, and regulatory-access evidence.",
-  falsePositiveBoundary: "Ethereum protocol/mechanism evidence can support staking, fee mechanics, base-fee burn, and settlement architecture. It does not prove current durable gas demand, net issuance quality, validator/client decentralization, L2/blob fee durability, market depth, ETF/custody flows, regulatory access, liveness, or allocation suitability without live/source-backed evidence.",
-  tokenDemandTruth: "ETH demand support is a native smart-contract settlement, gas, and L2/blob fee-market thesis. Provider and protocol mechanism context do not prove current fee-market durability, net issuance quality, validator/client decentralization, L2/blob fee durability, liquidity/depth, custody/access, ETF-flow, regulatory-access, or allocation suitability.",
-  tokenomicsSummary: "ETH native supply mechanics depend on issuance, staking rewards/penalties, base-fee burn, and protocol upgrades. Mechanism evidence can support the design, but current net issuance, burn materiality, staking participation, and fee-market durability require live/source-backed evidence.",
-  evidenceNeeded: [
-    "Current gas demand, transaction count, fee revenue, base fee, and priority fee evidence.",
-    "EIP-1559 base-fee burn, burn materiality, net issuance, and monetary-policy evidence.",
-    "Staking participation, validator count, validator distribution/concentration, and validator reward/penalty evidence.",
-    "Client diversity, slashing, liveness/outage, congestion, and protocol-security evidence.",
-    "L2 settlement activity, blob/data-availability fees, rollup demand, and L2 fee-market contribution evidence.",
-    "Evidence whether L2 growth strengthens or cannibalizes L1 fee-market/value-capture assumptions.",
-    "MEV, proposer-builder, relay centralization, protocol upgrade, and governance roadmap risk evidence.",
-    "Market depth, liquidity, slippage, venue concentration, custody/access, ETF-flow, and regulatory-access context.",
-  ],
-  whatWouldChange: [
-    "Stronger source-backed current gas demand, transaction-fee revenue, base-fee burn, and net issuance evidence.",
-    "Stronger staking participation, validator distribution, client diversity, slashing/liveness, and protocol-security evidence.",
-    "Clearer L2 settlement, blob fee, rollup economics, and L2 support-versus-cannibalization evidence.",
-    "Deeper liquidity, lower venue concentration, stronger custody/access and ETF-flow evidence.",
-    "Better MEV/proposer-builder/relay, protocol-upgrade, liveness, and regulatory-access context.",
-  ],
-  whatMustBeTrue: [
-    "Ethereum's native PoS smart-contract settlement role remains durable.",
-    "Current gas demand and transaction-fee demand are strong enough to support the fee-market thesis.",
-    "Base-fee burn and net issuance mechanics remain economically material under current conditions.",
-    "Staking participation, validator distribution, and client diversity remain resilient.",
-    "L2 settlement and blob/data-availability demand support rather than structurally cannibalize L1 economics.",
-    "Liquidity/depth, custody/access, ETF-flow, and regulatory access remain institutionally usable.",
-  ],
-  whatCouldBreak: [
-    "Weak current gas demand or transaction-fee demand.",
-    "Base-fee burn becoming immaterial relative to issuance.",
-    "Validator concentration, client concentration, slashing, or liveness deterioration.",
-    "L2/blob fee contribution failing to support L1 economics or materially cannibalizing L1 fee capture.",
-    "MEV, proposer-builder, or relay centralization risk worsening.",
-    "Liquidity/depth deterioration, venue concentration, custody/access friction, ETF-flow weakness, or regulatory-access deterioration.",
-    "Protocol upgrade or governance roadmap risk undermining fee-market, issuance, or security assumptions.",
-  ],
-};
-
-const DATA_FIRST_CONTRACT_MISSING_COPY = {
-  summary: "Data-first narrative contract missing. Current live analysis should regenerate the contract before primary QA.",
-  boundary: "Current primary analysis requires dataFirstNarrativeContract. Legacy fallback narrative is not current product truth.",
+const CANONICAL_COMPOSER_MISSING_COPY = {
+  summary: "Canonical analyst narrative unavailable. A fresh analysis is required before narrative conclusions can be shown.",
+  boundary: "The final decision remains visible, but primary narrative is withheld because finalAnalystAnswerComposerContract is missing. Legacy candidate, report, DataFirst, and raw-lens copy are audit-only.",
   evidence: [
-    "Use only the current live analyze response for Decision, Thesis, Checklist, Score Explanation, Source Queue, Manual Review, and Copy Live QA Bundle.",
+    "No canonical Composer narrative is attached to the current analysis object.",
   ],
   whatWouldChange: [
-    "A fresh live analysis with dataFirstNarrativeContract, generated narrative fields, Asset Interpretation Contract data-first gate, and Review Bundle 2AB attached.",
+    "Run a fresh live analysis that attaches finalAnalystAnswerComposerContract from the final decision and canonical family route.",
   ],
 };
 
-function isNativeBtcDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
-  const assetText = [
-    asset?.symbol,
-    asset?.name,
-    asset?.id,
-    asset?.coingeckoId,
-    asset?.coinmarketcapId,
-    reviewedEvidencePacket?.packetId,
-    assetIdentityResolution?.canonicalAssetName,
-    assetIdentityResolution?.canonicalAssetSymbol,
-    assetIdentityResolution?.canonicalProviderIds?.coingeckoId,
-    assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId,
-    assetIdentityResolution?.nativeNetworkCandidate,
-    assetIdentityResolution?.canonicalNetworkCandidate,
-    assetIdentityResolution?.representationType,
-    assetIdentityResolution?.bridgedOrWrappedStatus,
-    lens?.lensId,
-    lens?.questionGroupId,
-  ].filter(Boolean).join(" ").toLowerCase();
-  const looksLikeNativeBtc = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(assetText);
-  const isWrappedOrDerivative = /\b(wbtc|wrapped|bridged|bridge|liquid staking|lst|steth|staking derivative)\b/i.test(assetText);
-  return looksLikeNativeBtc && !isWrappedOrDerivative;
-}
-
-function isEthPosSettlementDisplayContext({ asset, lens, assetIdentityResolution, reviewedEvidencePacket } = {}) {
-  const lensId = String(lens?.lensId || "").toUpperCase();
-  const questionGroupId = String(lens?.questionGroupId || "").toLowerCase();
-  const isEthCompatibleLens = lensId === "BASE_LAYER_SETTLEMENT"
-    && /base_layer|settlement|gas|native/.test(questionGroupId || "base_layer_settlement");
-  if (!isEthCompatibleLens) return false;
-
-  const representationType = String(assetIdentityResolution?.representationType || "").toLowerCase();
-  const isNativeRepresentation = assetIdentityResolution?.isNativeAsset === true
-    || representationType === "native_asset"
-    || representationType === "native";
-  if (!isNativeRepresentation) return false;
-
-  if (
-    assetIdentityResolution?.isContractRepresentation === true
-    || assetIdentityResolution?.selectedContract
-    || assetIdentityResolution?.analyzedContract
-    || asset?.contractAddress
-  ) {
-    return false;
-  }
-
-  const assetText = [
-    asset?.symbol,
-    asset?.name,
-    asset?.id,
-    asset?.coingeckoId,
-    asset?.coinmarketcapId,
-    reviewedEvidencePacket?.packetId,
-    assetIdentityResolution?.canonicalAssetName,
-    assetIdentityResolution?.canonicalAssetSymbol,
-    assetIdentityResolution?.canonicalProviderIds?.coingeckoId,
-    assetIdentityResolution?.canonicalProviderIds?.coinmarketcapId,
-  ].filter(Boolean).join(" ").toLowerCase();
-  const looksLikeNativeEth = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(assetText);
-  const isWrappedOrDerivative = /\b(weth|wrapped|bridged|bridge|liquid staking|lst|steth|reth|cbeth|wsteth|staking derivative)\b/i.test(assetText);
-  return looksLikeNativeEth && !isWrappedOrDerivative;
-}
-
-function buildNativeBtcDisplayOverlay(baseModel) {
-  const copy = BTC_NATIVE_DISPLAY_COPY;
-  const verdictSemantics = {
-    ...(baseModel.verdictSemantics || {}),
-    positiveCase: [copy.whyAllocationCouldMakeSense],
-    blockedCase: [copy.whyAllocationIsCapped],
-    summary: copy.verdictInterpretation,
-    missingEvidence: copy.evidenceNeeded,
-    whatWouldChange: copy.whatWouldChange,
-    boundary: "Primary BTC display copy is native PoW monetary benchmark wording; raw generic base-layer fields remain available only in Audit / Raw.",
-  };
-
-  return {
-    ...baseModel,
-    assetClassLabel: copy.assetClassLabel,
-    assetFramingLabel: copy.assetFramingLabel,
-    resolvedInstitutionalLens: {
-      ...(baseModel.resolvedInstitutionalLens || {}),
-      label: copy.assetClassLabel,
-      displayLabel: copy.assetClassLabel,
-      displayFraming: copy.assetFramingLabel,
-      visibleLabelOverride: copy.assetClassLabel,
-      visibleLabelSource: "native_btc_rendered_surface_overlay",
-    },
-    verdictSemantics,
-    allocationCase: {
-      ...(baseModel.allocationCase || {}),
-      forAllocation: [copy.whyAllocationCouldMakeSense],
-      againstAllocation: [copy.whyAllocationIsCapped],
-      missingEvidence: copy.evidenceNeeded,
-      whatWouldChange: copy.whatWouldChange,
-    },
-    missingCritical: copy.evidenceNeeded,
-    requiredConditions: copy.evidenceNeeded,
-    blockers: [copy.rightRailPrimaryBlocker],
-    decisionDrivers: [
-      copy.whyAllocationCouldMakeSense,
-      copy.primaryBlocker,
-      copy.falsePositiveBoundary,
-    ],
-    primaryStrength: copy.whyAllocationCouldMakeSense,
-    primaryWeakness: copy.whyAllocationIsCapped,
-    summaryMemo: copy.decisionMemo,
-    structuredThesisSummary: copy.allocationThesis,
-    tokenDemandTruth: "BTC demand support is a native monetary/blockspace thesis. Provider and protocol mechanism context do not prove current fee-market durability, miner economics, liquidity/depth, custody/access, ETF-flow, regulatory-access, or allocation suitability.",
-    failureMode: {
-      ...(baseModel.failureMode || {}),
-      primary: copy.falsePositiveBoundary,
-      trigger: copy.whatCouldBreak[0],
-    },
-    primaryBlocker: {
-      ...(baseModel.primaryBlocker || {}),
-      label: copy.primaryBlocker,
-      explanation: copy.rightRailPrimaryBlocker,
-      badge: "BTC-native source requirement",
-    },
-    weakestLink: {
-      ...(baseModel.weakestLink || {}),
-      label: copy.weakestLink,
-      explanation: copy.weakestLink,
-      badge: "BTC-native weakest link",
-    },
-    whatWouldChangeDecision: {
-      ...(baseModel.whatWouldChangeDecision || {}),
-      items: copy.rightRailWhatWouldChange,
-      badge: "BTC-native live requirements",
-      explanation: "Display wording is scoped to native Bitcoin proof-of-work monetary benchmark review; scoring and verdicts are unchanged.",
-    },
-    whyNow: copy.whyAllocationCouldMakeSense,
-    whyNotNow: copy.whyAllocationIsCapped,
-    whatMustBeTrue: copy.whatMustBeTrue,
-    whatCouldBreak: copy.whatCouldBreak,
-    nextCheckpoints: copy.whatWouldChange,
-    topPositiveDrivers: [copy.whyAllocationCouldMakeSense],
-    topNegativeDrivers: [copy.primaryBlocker, copy.weakestLink],
-    topNeutralDrivers: copy.whatWouldChange,
-    researchRequirements: copy.evidenceNeeded.map((requirement, index) => ({
-      id: `btc-native-final-surface-${index}`,
-      title: requirement,
-      assetClassLens: "NATIVE_MONETARY_BENCHMARK",
-      reason: "BTC-native PoW monetary benchmark source requirement. Source requirements are not reviewed evidence and do not change scoring.",
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["official_docs", "network_dashboard", "market_data", "custody_access_report", "manual_review"],
-      priority: index < 4 ? "high" : "medium",
-      verdictImpact: "Could clarify BTC benchmark thesis confidence if independently reviewed.",
-      currentStatus: "review_required",
-      canChangeVerdict: true,
-    })),
-  };
-}
-
-function buildEthPosSettlementDisplayOverlay(baseModel) {
-  const copy = ETH_POS_SETTLEMENT_DISPLAY_COPY;
-  const verdictSemantics = {
-    ...(baseModel.verdictSemantics || {}),
-    positiveCase: [copy.whyAllocationCouldMakeSense],
-    blockedCase: [copy.whyAllocationIsCapped],
-    summary: copy.verdictInterpretation,
-    missingEvidence: copy.evidenceNeeded,
-    whatWouldChange: copy.whatWouldChange,
-    boundary: "Primary ETH display copy is native PoS smart-contract settlement / gas / burn / staking / L2 fee-market wording; raw generic base-layer fields remain available only in Audit / Raw.",
-  };
-
-  return {
-    ...baseModel,
-    assetClassLabel: copy.assetClassLabel,
-    assetFramingLabel: copy.assetFramingLabel,
-    resolvedInstitutionalLens: {
-      ...(baseModel.resolvedInstitutionalLens || {}),
-      label: copy.assetClassLabel,
-      displayLabel: copy.assetClassLabel,
-      displayFraming: copy.assetFramingLabel,
-      visibleLabelOverride: copy.assetClassLabel,
-      visibleLabelSource: "native_eth_pos_settlement_rendered_surface_overlay",
-    },
-    verdictSemantics,
-    allocationCase: {
-      ...(baseModel.allocationCase || {}),
-      forAllocation: [copy.whyAllocationCouldMakeSense],
-      againstAllocation: [copy.whyAllocationIsCapped],
-      missingEvidence: copy.evidenceNeeded,
-      whatWouldChange: copy.whatWouldChange,
-    },
-    missingCritical: copy.evidenceNeeded,
-    requiredConditions: copy.evidenceNeeded,
-    blockers: [copy.rightRailPrimaryBlocker],
-    decisionDrivers: [
-      copy.whyAllocationCouldMakeSense,
-      copy.primaryBlocker,
-      copy.falsePositiveBoundary,
-    ],
-    primaryStrength: copy.whyAllocationCouldMakeSense,
-    primaryWeakness: copy.whyAllocationIsCapped,
-    summaryMemo: copy.decisionMemo,
-    structuredThesisSummary: copy.allocationThesis,
-    tokenDemandTruth: copy.tokenDemandTruth,
-    tokenomicsSummary: copy.tokenomicsSummary,
-    failureMode: {
-      ...(baseModel.failureMode || {}),
-      primary: copy.falsePositiveBoundary,
-      trigger: copy.whatCouldBreak[0],
-    },
-    primaryBlocker: {
-      ...(baseModel.primaryBlocker || {}),
-      label: copy.primaryBlocker,
-      explanation: copy.rightRailPrimaryBlocker,
-      badge: "ETH PoS settlement source requirement",
-    },
-    weakestLink: {
-      ...(baseModel.weakestLink || {}),
-      label: copy.weakestLink,
-      explanation: copy.weakestLink,
-      badge: "ETH PoS settlement weakest link",
-    },
-    whatWouldChangeDecision: {
-      ...(baseModel.whatWouldChangeDecision || {}),
-      items: copy.whatWouldChange.slice(0, 4),
-      badge: "ETH live requirements",
-      explanation: "Display wording is scoped to native ETH PoS smart-contract settlement and L2/blob fee-market review; scoring and verdicts are unchanged.",
-    },
-    whyNow: copy.whyAllocationCouldMakeSense,
-    whyNotNow: copy.whyAllocationIsCapped,
-    whatMustBeTrue: copy.whatMustBeTrue,
-    whatCouldBreak: copy.whatCouldBreak,
-    nextCheckpoints: copy.whatWouldChange,
-    topPositiveDrivers: [copy.whyAllocationCouldMakeSense],
-    topNegativeDrivers: [copy.primaryBlocker, copy.weakestLink],
-    topNeutralDrivers: copy.whatWouldChange,
-    researchRequirements: copy.evidenceNeeded.map((requirement, index) => ({
-      id: `eth-pos-settlement-final-surface-${index}`,
-      title: requirement,
-      assetClassLens: "BASE_LAYER_SETTLEMENT",
-      reason: "ETH-native PoS smart-contract settlement source requirement. Source requirements are not reviewed evidence and do not change scoring.",
-      evidenceNeeded: [requirement],
-      preferredSourceTypes: ["official_docs", "network_dashboard", "market_data", "l2_dashboard", "custody_access_report", "manual_review"],
-      priority: index < 5 ? "high" : "medium",
-      verdictImpact: "Could clarify ETH settlement/gas/staking/burn/L2 fee-market thesis confidence if independently reviewed.",
-      currentStatus: "review_required",
-      canChangeVerdict: true,
-    })),
-  };
-}
-
-function buildDataFirstContractMissingDisplayModel(baseModel) {
-  const copy = DATA_FIRST_CONTRACT_MISSING_COPY;
+function buildCanonicalComposerMissingDisplayModel(baseModel) {
+  const copy = CANONICAL_COMPOSER_MISSING_COPY;
   return {
     ...baseModel,
     verdictSemantics: {
@@ -5710,10 +5308,10 @@ function buildDataFirstContractMissingDisplayModel(baseModel) {
     topNegativeDrivers: [copy.summary],
     topNeutralDrivers: copy.whatWouldChange,
     researchRequirements: copy.whatWouldChange.map((requirement, index) => ({
-      id: `data-first-contract-missing-${index}`,
+      id: `canonical-composer-missing-${index}`,
       title: requirement,
       assetClassLens: baseModel?.resolvedInstitutionalLens?.lensId || "unknown",
-      reason: "Current product surfaces require a data-first narrative contract. This is a recompute requirement, not asset evidence.",
+      reason: "Current product surfaces require the canonical Final Analyst Answer Composer. This is a render-safety requirement, not asset evidence.",
       evidenceNeeded: [requirement],
       preferredSourceTypes: ["fresh_live_analysis"],
       priority: "critical",
@@ -5726,9 +5324,9 @@ function buildDataFirstContractMissingDisplayModel(baseModel) {
       freshQaEligible: false,
       qaEligibilityLabel: "Full recompute required",
       qaEligibilityWarning: copy.boundary,
-      bundleMode: "data_first_contract_missing_recompute_required",
-      fullRecomputeRequiredReason: "dataFirstNarrativeContract missing or stale",
-      freshQaEligibleBlockedByMissingDataFirstContract: true,
+      bundleMode: "canonical_composer_missing_recompute_required",
+      fullRecomputeRequiredReason: "finalAnalystAnswerComposerContract missing or stale",
+      freshQaEligibleBlockedByMissingFinalComposer: true,
     },
   };
 }
@@ -5752,66 +5350,6 @@ function displayLabelsForResolvedLens(lens, assetInterpretationContract = null) 
     };
   }
   return resolvedLensIsDisplayAuthoritative(lens) ? RESOLVED_LENS_DISPLAY_LABELS[lens.lensId] || null : null;
-}
-
-function buildLensAwareVerdictSemantics(baseSemantics, lens, lensAware) {
-  if (!resolvedLensIsDisplayAuthoritative(lens) || !lensAware) return baseSemantics;
-  const copy = LENS_PRIMARY_COPY[lens.lensId] || {};
-  const positiveCase = dedupeCaseInsensitive([
-    copy.positive,
-    ...(baseSemantics.positiveCase || []),
-  ]).slice(0, 5);
-  const blockedCase = dedupeCaseInsensitive([
-    copy.blocked,
-    lensAware.primaryBlocker,
-    ...(baseSemantics.blockedCase || []),
-  ]).slice(0, 5);
-
-  return {
-    ...baseSemantics,
-    positiveCase,
-    blockedCase,
-    summary: copy.blocked || baseSemantics.summary,
-    boundary: "Primary display copy is lens-aware and derived from resolvedInstitutionalLens; raw fallback fields remain available in Audit / Raw.",
-  };
-}
-
-function buildLensAwareSecondaryCopy(lens, lensAware, fallback = {}) {
-  if (!resolvedLensIsDisplayAuthoritative(lens) || !lensAware) return fallback;
-  const copy = LENS_PRIMARY_COPY[lens.lensId] || {};
-  const evidenceNeeded = normalizeRenderableList(lensAware.evidenceNeeded);
-  const whatWouldChange = normalizeRenderableList(lensAware.whatWouldChange);
-  const requiredConditions = normalizeRenderableList(lensAware.requiredConditions);
-  const primaryBlocker = extractRenderableText(lensAware.primaryBlocker, null) || copy.blocked || evidenceNeeded[0] || fallback.primaryWeakness;
-  const positive = copy.positive || requiredConditions[0] || fallback.primaryStrength;
-  const blocked = copy.blocked || primaryBlocker;
-  const driverPool = dedupeCaseInsensitive([
-    positive,
-    primaryBlocker,
-    ...requiredConditions,
-    ...evidenceNeeded,
-    ...whatWouldChange,
-  ]).filter(Boolean);
-  return {
-    ...fallback,
-    whyNow: positive || fallback.whyNow,
-    whyNotNow: blocked || fallback.whyNotNow,
-    summaryMemo: blocked || fallback.summaryMemo,
-    structuredThesisSummary: blocked || fallback.summaryMemo,
-    primaryStrength: positive || fallback.primaryStrength,
-    primaryWeakness: primaryBlocker || fallback.primaryWeakness,
-    failurePrimary: primaryBlocker || fallback.failurePrimary,
-    failureTrigger: whatWouldChange[0] || blocked || fallback.failureTrigger,
-    tokenDemandTruth: positive
-      ? `${positive} Provider metadata and live model outputs remain classification/display context until source-backed evidence confirms the thesis.`
-      : fallback.tokenDemandTruth,
-    decisionDrivers: driverPool.slice(0, 3),
-    blockers: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded]).filter(Boolean).slice(0, 4),
-    whatCouldBreak: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded, ...whatWouldChange]).filter(Boolean).slice(0, 4),
-    topPositiveDrivers: positive ? [positive] : fallback.topPositiveDrivers,
-    topNegativeDrivers: dedupeCaseInsensitive([primaryBlocker, ...evidenceNeeded]).filter(Boolean).slice(0, 4),
-    topNeutralDrivers: whatWouldChange.length ? whatWouldChange.slice(0, 4) : fallback.topNeutralDrivers,
-  };
 }
 
 export function buildLensSpecificResearchDomains(model = {}, displayIdentity = null) {
@@ -6612,32 +6150,9 @@ export function buildDecisionTerminalModel({
     assetSubtype: assetClassification.subtype || null,
     primarySector: sectorClassification.primarySector || null,
   });
-  const verdictSemantics = buildLensAwareVerdictSemantics(rawVerdictSemantics, resolvedInstitutionalLens, lensAwareExplanations);
+  const verdictSemantics = rawVerdictSemantics;
   const institutionalQuestionPayload = normalizeInstitutionalQuestionsPayload(safeAnalysis);
   const canonicalPrimaryFamily = primaryAnalysisRoute?.primaryFamily || primaryAnalysisRoute?.assetFamily || null;
-  const rawDisplayEvidenceNeeded = lensAwareExplanations?.evidenceNeeded?.length
-    ? lensAwareExplanations.evidenceNeeded
-    : missingCritical;
-  const displayEvidenceNeeded = filterPrimaryFamilyCompatibleItems(rawDisplayEvidenceNeeded, canonicalPrimaryFamily);
-  const rawDisplayRequiredConditions = lensAwareExplanations?.requiredConditions?.length
-    ? lensAwareExplanations.requiredConditions
-    : requiredConditions;
-  const displayRequiredConditions = filterPrimaryFamilyCompatibleItems(rawDisplayRequiredConditions, canonicalPrimaryFamily);
-  const displayWhatWouldChangeDecision = lensAwareExplanations?.whatWouldChange?.length
-    ? {
-      items: filterPrimaryFamilyCompatibleItems(lensAwareExplanations.whatWouldChange, canonicalPrimaryFamily),
-      badge: "Lens-aware requirements",
-      explanation: "Display wording from resolvedInstitutionalLens; scoring and verdicts are unchanged.",
-    }
-    : whatWouldChangeDecision;
-  const displayPrimaryBlocker = lensAwareExplanations?.primaryBlocker
-    ? {
-      ...primaryBlocker,
-      label: lensAwareExplanations.primaryBlocker,
-      explanation: "Lens-aware display wording from resolvedInstitutionalLens. Raw decision-layer blockers remain available in audit context.",
-      badge: "Lens-aware requirement",
-    }
-    : primaryBlocker;
   const composerResearchRequirements = safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue)
     .map((item, index) => ({
       id: item.queueItemId || `canonical-composer-queue-${index}`,
@@ -6676,75 +6191,54 @@ export function buildDecisionTerminalModel({
     contractWarnings: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.contractWarnings, canonicalPrimaryFamily),
     sourceRequirements: filterPrimaryFamilyCompatibleItems(assetIdentityResolution.sourceRequirements, canonicalPrimaryFamily),
   } : assetIdentityResolution;
-  const displayVerdictSemantics = lensAwareExplanations ? {
+  const composerAvailable = finalAnalystAnswerComposerContract?.contractAttached === true;
+  const composerView = safeObject(finalAnalystAnswerComposerContract?.analystView);
+  const composerQuestions = safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments);
+  const composerQueue = safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue).length
+    ? safeArray(finalAnalystAnswerComposerContract.familyBoundSourceQueue).map((item) => item?.text).filter(Boolean)
+    : safeArray(finalAnalystAnswerComposerContract?.sourceQueuePriorities);
+  const composerRisks = safeArray(finalAnalystAnswerComposerContract?.riskSummary);
+  const composerMissingEvidence = dedupeCaseInsensitive([
+    ...safeArray(composerView.missingForHigherConviction),
+    ...composerQuestions.flatMap((answer) => safeArray(answer?.gap || answer?.missingData)),
+  ]).slice(0, 8);
+  const composerDirectAnswers = composerQuestions
+    .map((answer) => answer?.directAnswer || answer?.answer)
+    .filter(Boolean)
+    .slice(0, 6);
+  const composerVerdictSemantics = composerAvailable ? {
     ...verdictSemantics,
-    missingEvidence: displayEvidenceNeeded,
-    whatWouldChange: displayWhatWouldChangeDecision.items,
-  } : verdictSemantics;
-  const lensSecondaryCopy = buildLensAwareSecondaryCopy(resolvedInstitutionalLens, lensAwareExplanations, {
-    whyNow: sanitizedWhyNow,
-    whyNotNow: sanitizedWhyNotNow,
-    summaryMemo,
-    primaryStrength,
-    primaryWeakness,
-    failurePrimary,
-    failureTrigger,
-    tokenDemandTruth,
-    decisionDrivers: dedupedDrivers,
-    blockers,
-    topPositiveDrivers: cleanUserFacingList(contributors.positives, { limit: 4 }),
-    topNegativeDrivers: cleanUserFacingList(contributors.negatives, { limit: 4 }),
-    topNeutralDrivers: cleanUserFacingList(contributors.neutralOrMissing, {
-      limit: 4,
-      suppressGenericEpistemic: isBenchmark,
-      replacePlaceholders: true,
-    }),
-  });
-  const dataFirstDecisionHeader = dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader");
-  const dataFirstFinalDecision = dataFirstGeneratedText(dataFirstNarrativeContract, "finalDecisionExplanation");
-  const dataFirstPositive = dataFirstGeneratedText(dataFirstNarrativeContract, "whyAllocationCouldMakeSense");
-  const dataFirstBlocked = dataFirstGeneratedText(dataFirstNarrativeContract, "whyAllocationIsBlockedOrCapped");
-  const dataFirstVerdictInterpretation = dataFirstGeneratedText(dataFirstNarrativeContract, "verdictInterpretation");
-  const dataFirstMemo = dataFirstGeneratedText(dataFirstNarrativeContract, "decisionMemo");
-  const dataFirstThesis = dataFirstGeneratedText(dataFirstNarrativeContract, "thesisFalsificationSummary");
-  const dataFirstWeakestLink = dataFirstGeneratedText(dataFirstNarrativeContract, "rightRailWeakestLink");
-  const dataFirstWhatWouldChange = dataFirstGeneratedText(dataFirstNarrativeContract, "whatWouldChange");
-  const dataFirstGeneratedAvailable = Boolean(dataFirstNarrativeContract?.generatedNarrativeFields?.length);
-  const dataFirstVerdictSemantics = dataFirstGeneratedAvailable ? {
-    ...displayVerdictSemantics,
-    summary: dataFirstDecisionHeader || dataFirstFinalDecision || displayVerdictSemantics.summary,
-    boundary: "Primary display copy is data-first and bound to the current asset lens, representation, Source Matrix gaps, and evidence boundaries. Raw fallbacks remain audit-only.",
+    summary: composerView.allocationReadinessExplanation || verdictSemantics.summary,
+    boundary: "Primary narrative mirrors the Final Analyst Answer Composer and final decision. Legacy candidate, DataFirst, report, and raw-lens text remain audit-only.",
     positiveCase: dedupeCaseInsensitive([
-      dataFirstPositive,
-      ...(displayVerdictSemantics.positiveCase || []),
-    ]).slice(0, 5),
+      composerView.whatTheDataSupports,
+      composerView.strongestPartOfThesis,
+    ]).filter(Boolean),
     blockedCase: dedupeCaseInsensitive([
-      dataFirstBlocked,
-      dataFirstFinalDecision,
-      ...(displayVerdictSemantics.blockedCase || []),
-    ]).slice(0, 5),
-    missingEvidence: displayEvidenceNeeded,
-    whatWouldChange: dataFirstWhatWouldChange
-      ? dedupeCaseInsensitive([dataFirstWhatWouldChange, ...(displayWhatWouldChangeDecision.items || [])]).slice(0, 5)
-      : displayWhatWouldChangeDecision.items,
-  } : displayVerdictSemantics;
-  const dataFirstWhatWouldChangeDecision = dataFirstWhatWouldChange ? {
-    items: dedupeCaseInsensitive([dataFirstWhatWouldChange, ...(displayWhatWouldChangeDecision.items || [])]).slice(0, 5),
-    badge: "Data-first requirements",
-    explanation: "Display wording is generated from dataFirstNarrativeContract; scoring and verdicts are unchanged.",
-  } : displayWhatWouldChangeDecision;
-  const dataFirstPrimaryBlocker = dataFirstBlocked ? {
-    ...displayPrimaryBlocker,
-    label: dataFirstBlocked,
-    explanation: "Data-first display wording from the current asset lens, representation, facts, and source gaps. Raw decision-layer blockers remain audit-only.",
-    badge: "Data-first requirement",
-  } : displayPrimaryBlocker;
-  const dataFirstWeakestLinkCard = dataFirstWeakestLink ? {
+      composerView.allocationReadinessExplanation,
+      composerView.weakestPartOfAnalysis,
+      composerRisks[0],
+    ]).filter(Boolean),
+    missingEvidence: composerMissingEvidence,
+    whatWouldChange: composerQueue,
+  } : verdictSemantics;
+  const composerWhatWouldChangeDecision = {
+    items: composerQueue,
+    badge: "Canonical diligence requirements",
+    explanation: "Mirrored from finalAnalystAnswerComposerContract.familyBoundSourceQueue.",
+  };
+  const composerPrimaryBlocker = {
+    ...primaryBlocker,
+    label: composerView.weakestPartOfAnalysis || composerRisks[0] || primaryBlocker?.label,
+    explanation: composerView.allocationReadinessExplanation || composerView.weakestPartOfAnalysis || primaryBlocker?.explanation,
+    badge: "Canonical analyst constraint",
+  };
+  const composerWeakestLinkCard = {
     ...weakestLink,
-    label: dataFirstWeakestLink,
-    explanation: "Derived from dataFirstNarrativeContract missing-evidence gaps.",
-    badge: "Data-first weakest link",
-  } : weakestLink;
+    label: composerView.weakestPartOfAnalysis || composerRisks[0] || weakestLink?.label,
+    explanation: composerView.weakestPartOfAnalysis || weakestLink?.explanation,
+    badge: "Canonical weakest link",
+  };
 
   const baseDisplayModel = {
     assetName: asset?.name || asset?.symbol || "Asset",
@@ -6758,13 +6252,13 @@ export function buildDecisionTerminalModel({
       : finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || null,
     allocationOutcome,
     decisionLayer,
-    verdictSemantics: dataFirstVerdictSemantics,
-    verdictClass: dataFirstVerdictSemantics.verdictClass || null,
-    allocationCase: dataFirstVerdictSemantics.hasVerdictClass ? {
-      forAllocation: dataFirstVerdictSemantics.positiveCase,
-      againstAllocation: dataFirstVerdictSemantics.blockedCase,
-      missingEvidence: displayEvidenceNeeded,
-      whatWouldChange: dataFirstWhatWouldChangeDecision.items,
+    verdictSemantics: composerVerdictSemantics,
+    verdictClass: composerVerdictSemantics.verdictClass || null,
+    allocationCase: composerVerdictSemantics.hasVerdictClass ? {
+      forAllocation: composerVerdictSemantics.positiveCase,
+      againstAllocation: composerVerdictSemantics.blockedCase,
+      missingEvidence: composerMissingEvidence,
+      whatWouldChange: composerQueue,
     } : null,
     institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
     institutionalQuestionsProvenance: institutionalQuestionPayload.institutionalQuestionsProvenance,
@@ -6855,12 +6349,12 @@ export function buildDecisionTerminalModel({
     analysisFreshness,
     calibrationWarnings,
     researchRequirements: displayResearchRequirements,
-    verdictReasons: dataFirstVerdictSemantics.verdictReasons,
-    primaryStrength: dataFirstPositive || lensSecondaryCopy.primaryStrength || primaryStrength,
-    primaryWeakness: dataFirstBlocked || lensSecondaryCopy.primaryWeakness || primaryWeakness,
+    verdictReasons: composerVerdictSemantics.verdictReasons,
+    primaryStrength: composerView.strongestPartOfThesis || composerView.whatTheDataSupports || null,
+    primaryWeakness: composerView.weakestPartOfAnalysis || composerRisks[0] || null,
     failureMode: {
-      primary: dataFirstThesis || lensSecondaryCopy.failurePrimary || failurePrimary,
-      trigger: dataFirstWhatWouldChange || lensSecondaryCopy.failureTrigger || failureTrigger,
+      primary: composerRisks[0] || composerView.weakestPartOfAnalysis || null,
+      trigger: composerQueue[0] || null,
       earlySignals,
     },
     investabilityStatus: investability.status || null,
@@ -6868,14 +6362,18 @@ export function buildDecisionTerminalModel({
     posture: describePosture(extractDecisionLabel(decisionLayer.posture), assetClassification.assetClass || null),
     evidenceStrength: evidenceQuality.strength || null,
     evidenceConflicts,
-    missingCritical: displayEvidenceNeeded,
-    blockers: dataFirstBlocked ? dedupeCaseInsensitive([dataFirstBlocked, ...(lensSecondaryCopy.blockers || blockers)]).slice(0, 4) : lensSecondaryCopy.blockers || blockers,
-    requiredConditions: displayRequiredConditions,
-    decisionDrivers: lensSecondaryCopy.decisionDrivers || dedupedDrivers,
+    missingCritical: composerMissingEvidence,
+    blockers: composerRisks,
+    requiredConditions: composerDirectAnswers,
+    decisionDrivers: dedupeCaseInsensitive([
+      composerView.whatTheDataSupports,
+      composerView.strongestPartOfThesis,
+      composerView.weakestPartOfAnalysis,
+    ]).filter(Boolean),
     contradictionNote,
-    summaryMemo: dataFirstMemo || lensSecondaryCopy.summaryMemo || summaryMemo,
-    structuredThesisSummary: dataFirstThesis || lensSecondaryCopy.structuredThesisSummary || lensSecondaryCopy.summaryMemo || summaryMemo,
-    tokenDemandTruth: dataFirstVerdictInterpretation || lensSecondaryCopy.tokenDemandTruth || tokenDemandTruth,
+    summaryMemo: composerView.headline || null,
+    structuredThesisSummary: composerView.headline || null,
+    tokenDemandTruth: composerView.whatTheDataSupports || null,
     policySignals,
     warnings: userFacingWarnings,
     auditAlerts,
@@ -6887,62 +6385,27 @@ export function buildDecisionTerminalModel({
     primarySector: sectorClassification.primarySector || null,
     secondarySectors: dedupedSecondarySectors,
     assetBadges,
-    primaryBlocker: dataFirstPrimaryBlocker,
-    weakestLink: dataFirstWeakestLinkCard,
-    whatWouldChangeDecision: dataFirstWhatWouldChangeDecision,
+    primaryBlocker: composerPrimaryBlocker,
+    weakestLink: composerWeakestLinkCard,
+    whatWouldChangeDecision: composerWhatWouldChangeDecision,
     manualReviewStatus,
-    whyNow: dataFirstPositive || lensSecondaryCopy.whyNow || sanitizedWhyNow,
-    whyNotNow: dataFirstBlocked || lensSecondaryCopy.whyNotNow || sanitizedWhyNotNow,
-    whatMustBeTrue: lensAwareExplanations?.requiredConditions?.length
-      ? displayRequiredConditions
-      : cleanUserFacingList(decisionFrame.whatMustBeTrue, {
-        limit: 4,
-        suppressGenericEpistemic: isBenchmark,
-        replacePlaceholders: true,
-      }),
-    whatCouldBreak: lensSecondaryCopy.whatCouldBreak || cleanUserFacingList(decisionFrame.whatCouldBreak, {
-      limit: 4,
-      suppressGenericEpistemic: isBenchmark,
-      replacePlaceholders: true,
-    }),
-    nextCheckpoints: dataFirstWhatWouldChangeDecision.items?.length
-      ? dataFirstWhatWouldChangeDecision.items
-      : cleanUserFacingList(decisionFrame.nextCheckpoints, {
-        limit: 4,
-        suppressGenericEpistemic: isBenchmark,
-        replacePlaceholders: true,
-      }),
-    topPositiveDrivers: lensSecondaryCopy.topPositiveDrivers || cleanUserFacingList(contributors.positives, { limit: 4 }),
-    topNegativeDrivers: lensSecondaryCopy.topNegativeDrivers || cleanUserFacingList(contributors.negatives, { limit: 4 }),
-    topNeutralDrivers: lensSecondaryCopy.topNeutralDrivers || cleanUserFacingList(contributors.neutralOrMissing, {
-      limit: 4,
-      suppressGenericEpistemic: isBenchmark,
-      replacePlaceholders: true,
-    }),
+    whyNow: composerView.whatTheDataSupports || null,
+    whyNotNow: composerView.allocationReadinessExplanation || composerView.weakestPartOfAnalysis || null,
+    whatMustBeTrue: composerDirectAnswers,
+    whatCouldBreak: composerRisks,
+    nextCheckpoints: composerQueue,
+    topPositiveDrivers: dedupeCaseInsensitive([
+      composerView.whatTheDataSupports,
+      composerView.strongestPartOfThesis,
+    ]).filter(Boolean),
+    topNegativeDrivers: composerRisks,
+    topNeutralDrivers: composerMissingEvidence,
     keyAlerts: filterUserFacingItems(fundamentals?.risks?.keyAlerts, 4),
   };
 
-  if (resolvedLensIsDisplayAuthoritative(resolvedInstitutionalLens) && !dataFirstNarrativeContract) {
-    return buildDataFirstContractMissingDisplayModel(baseDisplayModel);
-  }
-
-  if (isNativeBtcDisplayContext({
-    asset,
-    lens: resolvedInstitutionalLens,
-    assetIdentityResolution,
-    reviewedEvidencePacket,
-  })) {
-    return buildNativeBtcDisplayOverlay(baseDisplayModel);
-  }
-  if (isEthPosSettlementDisplayContext({
-    asset,
-    lens: resolvedInstitutionalLens,
-    assetIdentityResolution,
-    reviewedEvidencePacket,
-  })) {
-    return buildEthPosSettlementDisplayOverlay(baseDisplayModel);
-  }
-  return baseDisplayModel;
+  return composerAvailable
+    ? baseDisplayModel
+    : buildCanonicalComposerMissingDisplayModel(baseDisplayModel);
 }
 
 function bundleValue(value, fallback = "Unavailable in current frontend model") {
@@ -7010,7 +6473,7 @@ function bundleProviderEvidence(evidence = []) {
 function renderedSurfaceList(...groups) {
   return dedupeCaseInsensitive(
     groups
-      .flatMap((group) => normalizeRenderableList(group))
+      .flatMap((group) => normalizeRenderableList(Array.isArray(group) ? group : [group]))
       .map((entry) => extractRenderableText(entry, null))
       .filter(Boolean),
   );
@@ -7036,6 +6499,15 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const sourceMatrixSummary = safeObject(safeModel.engineLearningBackbone?.sourceDataRequirementMatrix);
   const verdictSemantics = safeObject(safeModel.verdictSemantics);
   const allocationCase = safeObject(safeModel.allocationCase);
+  const decisionLayer = safeObject(safeModel.decisionLayer);
+  const finalComposer = safeObject(safeModel.finalAnalystAnswerComposerContract);
+  const composerAvailable = finalComposer.contractAttached === true;
+  const composerView = safeObject(finalComposer.analystView);
+  const composerQuestions = safeArray(finalComposer.canonicalQuestionJudgments);
+  const composerQueue = safeArray(finalComposer.familyBoundSourceQueue).length
+    ? safeArray(finalComposer.familyBoundSourceQueue).map((item) => item?.text).filter(Boolean)
+    : safeArray(finalComposer.sourceQueuePriorities);
+  const composerRisks = safeArray(finalComposer.riskSummary);
   const dataFirstNarrativeContract = safeObject(safeModel.dataFirstNarrativeContract);
   const dataFirstFields = safeArray(dataFirstNarrativeContract.generatedNarrativeFields);
   const primaryBlocker = safeObject(safeModel.primaryBlocker);
@@ -7057,10 +6529,18 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const visibleLensLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || displayIdentity?.displayAssetClass || lens.label || assetClassLabel;
   const effectiveVisibleLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || lens.label || visibleDisplayContract.primaryVisibleLabel || categoryDrivenAssetFamilyContract.primaryVisibleLabel || visibleLensLabel;
   const lensIdentityRailLabel = canonicalProductRoute.primaryVisibleLabel || canonicalProductRoute.visibleLabel || visibleDisplayContract.primaryVisibleLabel || lens.visibleLabelOverride || lens.displayLabel || lens.label || displayIdentity?.displayFraming || "Resolved lens unavailable";
+  const canonicalQuestionGroup = canonicalProductRoute.primaryQuestionGroup
+    || canonicalProductRoute.questionGroup
+    || finalComposer.canonicalQuestionGroup
+    || lens.questionGroupId
+    || null;
   const rawEffectiveDivergenceWarning = lens.rawEffectiveLensDivergenceWarning || contractEffectiveLens.rawEffectiveLensDivergenceWarning || null;
 
   const decisionHeader = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "decisionCommandHeader"),
+    composerView.headline,
+    composerView.whatTheDataSupports,
+    composerView.weakestPartOfAnalysis,
+    composerView.allocationReadinessExplanation,
     safeModel.allocationOutcome?.label,
     safeModel.allocationOutcome?.description,
     safeModel.verdictClass,
@@ -7087,8 +6567,11 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const decisionTab = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "finalDecisionExplanation"),
-    dataFirstGeneratedText(dataFirstNarrativeContract, "decisionMemo"),
+    composerView.headline,
+    composerView.whatTheDataSupports,
+    composerView.strongestPartOfThesis,
+    composerView.weakestPartOfAnalysis,
+    composerView.allocationReadinessExplanation,
     verdictSemantics.label,
     verdictSemantics.summary,
     verdictSemantics.boundary,
@@ -7111,7 +6594,11 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const thesisFalsification = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "thesisFalsificationSummary"),
+    composerView.headline,
+    composerQuestions.map((answer) => answer?.directAnswer || answer?.answer),
+    composerRisks,
+    composerView.missingForHigherConviction,
+    composerQueue,
     safeModel.summaryMemo,
     safeModel.tokenDemandTruth,
     safeModel.primaryStrength,
@@ -7138,14 +6625,17 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const rightRail = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "rightRailWeakestLink"),
+    composerView.strongestPartOfThesis,
+    composerView.weakestPartOfAnalysis,
+    composerView.missingForHigherConviction?.[0],
+    composerQueue[0],
     safeModel.allocationOutcome?.label,
     assetFramingLabel,
     assetClassLabel,
     identityChip,
     safeModel.confidenceLabel,
     lensIdentityRailLabel,
-    lens.questionGroupId,
+    canonicalQuestionGroup,
     primaryBlocker.label,
     primaryBlocker.explanation,
     weakestLink.label,
@@ -7154,18 +6644,14 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const sourceQueue = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "sourceQueueSummary"),
-    safeModel.researchRequirements?.map((requirement) => [
-      requirement?.title,
-      requirement?.reason,
-      requirement?.evidenceNeeded,
-      requirement?.verdictImpact,
-    ]),
-    familyDataRequirementMatrixContract.sourceQueueItems,
+    composerAvailable ? composerQueue : [],
   );
 
   const manualReview = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "manualReviewSummary"),
+    composerView.allocationReadinessExplanation,
+    composerView.weakestPartOfAnalysis,
+    composerView.missingForHigherConviction,
+    composerQueue,
     safeModel.manualReviewStatus?.label,
     safeModel.manualReviewStatus?.detail,
     safeModel.researchRequirements?.map((requirement) => [
@@ -7220,7 +6706,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const scoringTransparency = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "scoreExplanation"),
+    finalComposer.scoreExplanationBridge?.explanation,
     safeModel.allocationOutcome?.label,
     safeModel.verdictSemantics?.label,
     safeModel.verdictSemantics?.boundary,
@@ -7235,25 +6721,17 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   );
 
   const institutionalChecklist = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "institutionalChecklistSummary"),
     visibleLensLabel,
-    safeModel.institutionalQuestions?.flatMap((question) => [
-      question?.questionText,
-      question?.shortAnswer,
-      question?.answerSummary,
-      question?.synthesizedAnswer?.directAnswer,
-      question?.synthesizedAnswer?.analystAnswerCard?.directAnswer,
-      question?.missingEvidence,
-      question?.whatWouldChange,
-      question?.synthesizedAnswer?.missingEvidence,
-      question?.synthesizedAnswer?.whatWouldChange,
-      question?.synthesizedAnswer?.analystAnswerCard?.missingEvidence,
-      question?.synthesizedAnswer?.analystAnswerCard?.whatWouldChange,
-    ]),
+    composerAvailable ? composerQuestions.flatMap((question) => [
+      question?.question,
+      question?.directAnswer || question?.answer,
+      question?.evidenceBehindIt,
+      question?.gap,
+      question?.whatWouldChangeTheView,
+    ]) : [],
   );
 
   const tokenomics = renderedSurfaceList(
-    dataFirstGeneratedText(dataFirstNarrativeContract, "tokenomicsSummary"),
     safeModel.tokenomicsSupplyIntegrity?.explanationSummary,
     safeModel.tokenomicsSupplyIntegrity?.sourceRequirements,
     safeModel.tokenomicsSupplyIntegrity?.manualReviewTriggers,
@@ -7282,13 +6760,9 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       visibleDisplayContract.assetFramingLabel,
       visibleDisplayContract.labelFamily,
       effectiveVisibleLabel,
-      lens.assetClassGroup ? `Effective family: ${lens.assetClassGroup}` : null,
+      canonicalProductRoute.primaryFamily ? `Effective family: ${canonicalProductRoute.primaryFamily}` : null,
       lensIdentityRailLabel,
-      lens.lensId ? `Lens ID: ${lens.lensId}` : null,
-      lens.questionGroupId ? `Question group: ${lens.questionGroupId}` : null,
-      rawLens.lensId ? `Raw resolved lens: ${rawLens.lensId}` : null,
-      rawLens.questionGroupId ? `Raw resolved question group: ${rawLens.questionGroupId}` : null,
-      rawEffectiveDivergenceWarning,
+      canonicalQuestionGroup ? `Question group: ${canonicalQuestionGroup}` : null,
     ),
     institutionalChecklist,
     tokenomics,
@@ -7296,6 +6770,35 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     scoringTransparency,
     sourceQueue,
     manualReview,
+    copyBundlePrimaryMirror: renderedSurfaceList(
+      composerView.headline,
+      composerView.whatTheAssetIs,
+      composerView.whatTheDataSupports,
+      composerView.strongestPartOfThesis,
+      composerView.weakestPartOfAnalysis,
+      composerView.allocationReadinessExplanation,
+      composerQuestions.flatMap((answer) => [
+        answer?.question,
+        answer?.directAnswer || answer?.answer,
+        answer?.evidenceBehindIt,
+        answer?.gap,
+        answer?.whatWouldChangeTheView,
+      ]),
+      finalComposer.scoreExplanationBridge?.explanation,
+      composerQueue,
+    ),
+    protectedReportPrimaryMirror: renderedSurfaceList(
+      composerView.whatTheAssetIs,
+      composerView.headline,
+      composerView.whatTheDataSupports,
+      composerView.strongestPartOfThesis,
+      composerView.weakestPartOfAnalysis,
+      composerView.allocationReadinessExplanation,
+      composerRisks,
+      composerQueue,
+      decisionLayer.verdict?.finalLabel || decisionLayer.verdictLabel,
+      decisionLayer.verdict?.explanation,
+    ),
     auditRaw: renderedSurfaceList(
       dataFirstFields.map((field) => [
         field?.fieldName,
@@ -7307,6 +6810,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       lens.questionGroupId,
       rawLens.lensId ? `Raw resolved lens: ${rawLens.lensId}` : null,
       rawLens.questionGroupId ? `Raw resolved question group: ${rawLens.questionGroupId}` : null,
+      rawEffectiveDivergenceWarning,
       safeModel.assetIdentityResolution?.sourceBoundary,
       familyDataRequirementMatrixContract.copyBundleRows,
       familyDataRequirementMatrixContract.auditDiagnostics,
@@ -7355,6 +6859,66 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const missingMirroredSurfaces = tabMirrorCoverage
     .filter((entry) => !entry.mirroredInBundle)
     .map((entry) => entry.surface);
+  const primaryNarrativeSurfaces = [
+    "decisionHeader",
+    "decisionTab",
+    "thesisFalsification",
+    "rightRail",
+    "whatWouldChangeRail",
+    "visibleLensLabel",
+    "institutionalChecklist",
+    "tokenomics",
+    "sourceQueue",
+    "manualReview",
+    "copyBundlePrimaryMirror",
+    "protectedReportPrimaryMirror",
+  ];
+  const primaryVisibleText = primaryNarrativeSurfaces.flatMap((surface) =>
+    safeArray(surfaces[surface]).map((value) => `${surface}: ${value}`)
+  );
+  const finalVerdictClass = String(
+    decisionLayer.verdict?.finalClass || decisionLayer.verdictClass || safeModel.verdictClass || ""
+  ).toLowerCase();
+  const finalVerdictLabel = String(
+    decisionLayer.verdict?.finalLabel || decisionLayer.verdictLabel || verdictSemantics.label || ""
+  );
+  const constrainedFinalDecision = /not_allocation_ready|evidence_blocked|manual_review|required|avoid|tradable_only|do_not_allocate|unassessable/.test(finalVerdictClass)
+    || /not allocation-ready|evidence blocked|manual review|avoid|tradable-only|do not allocate/i.test(finalVerdictLabel);
+  const positiveAllocationPatterns = [
+    { assertionId: "directionally_investable", pattern: /\bdirectionally investable\b/i },
+    { assertionId: "clears_allocation_threshold", pattern: /\bclear(?:s|ed)?\b[^.]{0,100}\ballocation threshold\b/i },
+    { assertionId: "positive_investable_posture", pattern: /\b(?:is|remains|appears)\s+(?:currently\s+)?investable\b/i },
+    { assertionId: "candidate_verdict_label", pattern: /\binvestable\s*[-:]\s*(?:high|medium|low) confidence\b/i },
+    { assertionId: "can_clear_benchmark", pattern: /\bcan clear\b[^.]{0,100}\bbenchmark\b/i },
+  ];
+  const allocationLanguageAssertions = primaryVisibleText.flatMap((entry) =>
+    positiveAllocationPatterns.flatMap(({ assertionId, pattern }) => pattern.test(entry)
+      ? [{ assertionId, renderedText: entry }]
+      : [])
+  );
+  const candidateFinalContradictionAssertions = constrainedFinalDecision
+    ? allocationLanguageAssertions
+    : [];
+  const canonicalFamily = canonicalProductRoute.primaryFamily
+    || canonicalProductRoute.assetFamily
+    || finalComposer.canonicalFamily
+    || safeModel.primaryAnalysisRoute?.assetFamily
+    || null;
+  const wrongFamilyNarrativeAssertions = canonicalFamily
+    ? primaryVisibleText
+      .filter((entry) => !isPrimaryFamilyCompatibleText(entry, canonicalFamily))
+      .map((renderedText) => ({ canonicalFamily, renderedText }))
+    : [];
+  const missingComposerControl = {
+    composerAttached: composerAvailable,
+    failClosed: composerAvailable || (
+      allocationLanguageAssertions.length === 0
+      && primaryVisibleText.some((entry) => /canonical analyst narrative unavailable/i.test(entry))
+    ),
+  };
+  const primaryNarrativePass = candidateFinalContradictionAssertions.length === 0
+    && wrongFamilyNarrativeAssertions.length === 0
+    && missingComposerControl.failClosed;
 
   return {
     artifactVersion: "rendered-surface-parity-view-model-v2-live-tab-mirror",
@@ -7364,6 +6928,15 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     missingMirroredSurfaces,
     allRequiredSurfacesMirrored: missingMirroredSurfaces.length === 0,
     decisionHeaderRenderedItemCount: decisionHeader.length,
+    finalVerdictClass,
+    finalVerdictLabel,
+    canonicalFamily,
+    constrainedFinalDecision,
+    allocationLanguageAssertions,
+    candidateFinalContradictionAssertions,
+    wrongFamilyNarrativeAssertions,
+    missingComposerControl,
+    primaryNarrativePass,
     componentConsumption: {
       decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and primaryAnalysisRoute label/question group in the guardrail; raw resolvedInstitutionalLens remains audit context.",
       decisionTab: "App.jsx Decision tab plus DecisionHeroSupportSections read verdictSemantics, primaryBlocker, weakestLink, whatWouldChangeDecision, and secondary display fields.",
@@ -7374,11 +6947,9 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       sourceQueue: "SourceQueuePanel.jsx reads researchRequirements and lens-aware source requirements from the normalized model.",
       manualReview: "ManualReviewPanel.jsx reads manualReviewStatus, auditAlerts, warnings, and diagnostic/manual-review fields.",
       auditRaw: "Audit / Raw surfaces preserve raw and technical context only; primary hard gates exclude this surface.",
-      bundle: "buildReviewBundleText mirrors this rendered-surface view model and runs BTC hard-gate checks against it.",
+      bundle: "buildReviewBundleText mirrors this rendered-surface view model and runs final-decision, canonical-family, and benchmark-family hard-gate checks against it.",
     },
-    primaryVisibleText: Object.entries(surfaces)
-      .filter(([surface]) => !["auditRaw"].includes(surface))
-      .flatMap(([surface, values]) => values.map((value) => `${surface}: ${value}`)),
+    primaryVisibleText,
   };
 }
 
@@ -7683,6 +7254,8 @@ const BTC_RENDERED_PRIMARY_SURFACES = [
   "tokenomics",
   "sourceQueue",
   "manualReview",
+  "copyBundlePrimaryMirror",
+  "protectedReportPrimaryMirror",
 ];
 
 const BTC_RENDERED_SECONDARY_SURFACES = [
@@ -7812,18 +7385,9 @@ function buildBtcBenchmarkForbiddenStringChecks({
   primaryText,
   corpusRows,
   bundleText,
-  asset,
-  lens,
-  assetIdentityResolution,
-  reviewedEvidencePacket,
+  canonicalFamily,
 }) {
-  const assetText = `${asset?.symbol || ""} ${asset?.name || ""} ${asset?.id || ""} ${asset?.coingeckoId || ""} ${reviewedEvidencePacket?.packetId || ""}`;
-  const identityText = `${assetIdentityResolution?.canonicalAssetName || ""} ${assetIdentityResolution?.canonicalAssetSymbol || ""} ${assetIdentityResolution?.canonicalProviderIds?.coingeckoId || ""} ${assetIdentityResolution?.nativeNetworkCandidate || ""} ${assetIdentityResolution?.canonicalNetworkCandidate || ""} ${assetIdentityResolution?.representationType || ""} ${assetIdentityResolution?.bridgedOrWrappedStatus || ""}`;
-  const lensText = `${lens?.lensId || ""} ${lens?.questionGroupId || ""}`;
-  const contextText = `${assetText} ${identityText} ${lensText}`.toLowerCase();
-  const isNativeBtcContext = /\b(bitcoin|btc|reviewed-demo-btc-v1|native_monetary_benchmark)\b/i.test(contextText)
-    && !/\b(wrapped|bridged|wbtc|liquid staking|steth)\b/i.test(contextText);
-  if (!isNativeBtcContext) return [];
+  if (canonicalFamily !== "native_btc_pow_monetary") return [];
 
   const normalizedRows = normalizeBtcRenderedGateRows(corpusRows);
   const rowsToCheck = normalizedRows.length ? normalizedRows : [{
@@ -7838,7 +7402,7 @@ function buildBtcBenchmarkForbiddenStringChecks({
   const definitions = [
     {
       checkId: "btc_eth_mechanism_copy_leak",
-      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|base-fee burn|\bstaking\b|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking|base_layer_security_validator_role|base_layer_issuance_burn_staking/i,
+      pattern: /Reviewed Ethereum sources|ETH staking|staking rewards?|post-Merge|EIP-?1559|base-fee burn|\bstaking\b|staking mechanics|staking\/validator|validator rewards?|slashing mechanics|validator\/security|validator decentralization|validator concentration|issuance\/burn\/staking|issuance, burn, staking|burn\/staking|L2\/blob|blob fee|MEV\/PBS\/relay|relay concentration|base_layer_security_validator_role|base_layer_issuance_burn_staking/i,
       forbidden: "Native BTC primary copy shows ETH/PoS/staking/slashing/base-fee wording.",
     },
     {
@@ -7949,19 +7513,9 @@ function buildEthBenchmarkForbiddenStringChecks({
   primaryText,
   corpusRows,
   bundleText,
-  asset,
-  lens,
-  assetIdentityResolution,
-  reviewedEvidencePacket,
+  canonicalFamily,
 }) {
-  const assetText = `${asset?.symbol || ""} ${asset?.name || ""} ${asset?.id || ""} ${asset?.coingeckoId || ""} ${reviewedEvidencePacket?.packetId || ""}`;
-  const identityText = `${assetIdentityResolution?.canonicalAssetName || ""} ${assetIdentityResolution?.canonicalAssetSymbol || ""} ${assetIdentityResolution?.canonicalProviderIds?.coingeckoId || ""} ${assetIdentityResolution?.nativeNetworkCandidate || ""} ${assetIdentityResolution?.canonicalNetworkCandidate || ""} ${assetIdentityResolution?.representationType || ""} ${assetIdentityResolution?.bridgedOrWrappedStatus || ""}`;
-  const lensText = `${lens?.lensId || ""} ${lens?.questionGroupId || ""}`;
-  const contextText = `${assetText} ${identityText} ${lensText}`.toLowerCase();
-  const isNativeEthContext = /\b(ethereum|ether|eth|reviewed-demo-eth-v1)\b/i.test(contextText)
-    && /\b(base_layer_settlement|base-layer|settlement|ethereum)\b/i.test(contextText)
-    && !/\b(weth|wrapped|bridged|liquid staking|steth|reth|cbeth|wsteth)\b/i.test(contextText);
-  if (!isNativeEthContext) return [];
+  if (canonicalFamily !== "native_eth_pos_gas_l2_fee_market") return [];
 
   const normalizedRows = normalizeBtcRenderedGateRows(corpusRows);
   const rowsToCheck = normalizedRows.length ? normalizedRows : [{
@@ -8865,18 +8419,12 @@ export function buildReviewBundleText({
   const renderedBtcForbiddenStringChecks = buildBtcBenchmarkForbiddenStringChecks({
     corpusRows: btcRenderedGateCorpusRows,
     bundleText: "",
-    asset: safeAsset,
-    lens,
-    assetIdentityResolution,
-    reviewedEvidencePacket,
+    canonicalFamily: renderedSurfaceParityViewModel.canonicalFamily,
   });
   const renderedEthForbiddenStringChecks = buildEthBenchmarkForbiddenStringChecks({
     corpusRows: btcRenderedGateCorpusRows,
     bundleText: "",
-    asset: safeAsset,
-    lens,
-    assetIdentityResolution,
-    reviewedEvidencePacket,
+    canonicalFamily: renderedSurfaceParityViewModel.canonicalFamily,
   });
   const renderedBtcFailures = renderedBtcForbiddenStringChecks.filter((check) => !check.passed);
   const renderedEthFailures = renderedEthForbiddenStringChecks.filter((check) => !check.passed);
@@ -8909,6 +8457,8 @@ export function buildReviewBundleText({
       : "PASS";
   const renderedSurfaceOverallGateStatus = mirrorCoverageGateStatus === "FAIL"
     ? "FAIL"
+    : renderedSurfaceParityViewModel.primaryNarrativePass === false
+      ? "FAIL"
     : renderedSpecificGateStatus === "FAIL"
       ? "FAIL"
       : "PASS";
@@ -8921,6 +8471,9 @@ export function buildReviewBundleText({
   const renderedEthFailureReason = renderedEthFailures.length
     ? "ETH primary visible rendered-intended text contains forbidden BTC/wrapped/stablecoin/RWA/DePIN/gaming/ERC-20/generic copy. This is a blocking product-surface parity failure."
     : "No ETH forbidden strings found in primary visible rendered-intended text.";
+  const primaryNarrativeFailureReason = renderedSurfaceParityViewModel.primaryNarrativePass === false
+    ? `Primary narrative parity failed: candidate/final contradictions=${renderedSurfaceParityViewModel.candidateFinalContradictionAssertions.length}; wrong-family findings=${renderedSurfaceParityViewModel.wrongFamilyNarrativeAssertions.length}; missing Composer fail-closed=${renderedSurfaceParityViewModel.missingComposerControl?.failClosed ? "yes" : "no"}.`
+    : "Final decision, Composer narrative, and canonical-family copy are aligned across the rendered primary corpus.";
 
   const sections = [
     bundleSection("0. Analysis Freshness / Live Current QA", [
@@ -9366,6 +8919,20 @@ export function buildReviewBundleText({
       bundleField("Source Queue family mismatch findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.sourceQueueFamilyMismatchFindings ?? "missing"),
       bundleField("Legacy primary consumer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.legacyPrimaryConsumerFindings ?? "missing"),
       bundleField("Duplicate live producer findings", marketWideAnalystPipelinePurityContract?.requiredCounters?.duplicateLiveProducerFindings ?? "missing"),
+      bundleField("Rendered primary narrative pass", yesNoUnknown(renderedSurfaceParityViewModel.primaryNarrativePass)),
+      bundleField("Candidate/final contradiction findings", renderedSurfaceParityViewModel.candidateFinalContradictionAssertions.length),
+      bundleField("Allocation-language findings", renderedSurfaceParityViewModel.allocationLanguageAssertions.length),
+      bundleField("Wrong-family narrative findings", renderedSurfaceParityViewModel.wrongFamilyNarrativeAssertions.length),
+      bundleField("Composer attached", yesNoUnknown(renderedSurfaceParityViewModel.missingComposerControl?.composerAttached)),
+      bundleField("Missing Composer fails closed", yesNoUnknown(renderedSurfaceParityViewModel.missingComposerControl?.failClosed)),
+      "Candidate/final contradiction details:",
+      bundleList(renderedSurfaceParityViewModel.candidateFinalContradictionAssertions.map((finding) =>
+        `${finding.assertionId}: ${finding.renderedText}`
+      ), "No candidate/final contradiction found in the rendered primary corpus.", 40),
+      "Wrong-family narrative details:",
+      bundleList(renderedSurfaceParityViewModel.wrongFamilyNarrativeAssertions.map((finding) =>
+        `${finding.canonicalFamily}: ${finding.renderedText}`
+      ), "No wrong-family narrative found in the rendered primary corpus.", 40),
       bundleField("Family mismatch corpus item count", marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchCorpusItemCount ?? "missing"),
       bundleField("Family mismatch corpus complete", yesNoUnknown(marketWideAnalystPipelinePurityContract?.sourceQueueFamilyMismatchCorpusComplete)),
       "Family mismatch corpus paths:",
@@ -11070,7 +10637,19 @@ export function buildReviewBundleText({
       bundleField("Mirror coverage gate status", mirrorCoverageGateStatus),
       bundleField("Lens-specific text gate status", renderedSpecificGateStatus),
       bundleField("Blocking", "true"),
-      bundleField("Failure reason", mirrorCoverageGateStatus === "FAIL" ? mirrorCoverageFailureReason : renderedBtcForbiddenStringChecks.length ? renderedBtcFailureReason : renderedEthForbiddenStringChecks.length ? renderedEthFailureReason : "All required live-tab mirror surfaces are represented; no native-BTC or native-ETH rendered hard gate was applicable."),
+      bundleField("Failure reason", mirrorCoverageGateStatus === "FAIL"
+        ? mirrorCoverageFailureReason
+        : renderedSurfaceParityViewModel.primaryNarrativePass === false
+          ? primaryNarrativeFailureReason
+          : renderedBtcForbiddenStringChecks.length
+            ? renderedBtcFailureReason
+            : renderedEthForbiddenStringChecks.length
+              ? renderedEthFailureReason
+              : "All required live-tab mirror surfaces are represented; final-decision/Composer parity passed; no native-BTC or native-ETH rendered hard gate was applicable."),
+      bundleField("Primary narrative pass", yesNoUnknown(renderedSurfaceParityViewModel.primaryNarrativePass)),
+      bundleField("Candidate/final contradiction count", renderedSurfaceParityViewModel.candidateFinalContradictionAssertions.length),
+      bundleField("Wrong-family narrative count", renderedSurfaceParityViewModel.wrongFamilyNarrativeAssertions.length),
+      bundleField("Missing Composer fails closed", yesNoUnknown(renderedSurfaceParityViewModel.missingComposerControl?.failClosed)),
       bundleField("Required primary zero-count surfaces", requiredPrimaryZeroSurfaces.join("; ") || "none"),
       bundleField("Primary visible forbidden failure count", renderedBtcPrimaryVisibleFailures.length + renderedEthPrimaryVisibleFailures.length),
       bundleField("Primary visible forbidden failures", [...renderedBtcPrimaryVisibleFailures, ...renderedEthPrimaryVisibleFailures].map((failure) =>
