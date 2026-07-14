@@ -3256,8 +3256,16 @@ export function buildProtectedInvestorReportText({
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
   const safeModel = safeObject(model);
+  const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
+  const finalDecisionScore = safeObject(decisionLayer.score);
+  const finalDecisionCoverage = safeObject(decisionLayer.coverage);
+  const finalDecisionEligibility = safeObject(decisionLayer.eligibility);
+  const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
   const safeAsset = safeObject(asset || safeData.asset);
   const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
+  const protectedScore = hasAtomicFinalDecision
+    ? (finalDecisionScore.displayable ? `${finalDecisionScore.displayValue}/100` : "Withheld")
+    : (safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore);
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
   const safeMeta = safeObject(meta || safeData.meta);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
@@ -3470,12 +3478,14 @@ export function buildProtectedInvestorReportText({
     reportLine("Analyzed contract", assetIdentityResolution?.analyzedContract || assetIdentityResolution?.selectedContract || "Not applicable or unavailable"),
     "",
     "2. Decision Snapshot",
-    reportLine("Verdict", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdictLabel || safeModel.verdictLabel || safeAnalysis.verdict || safeScores.verdict),
+    reportLine("Verdict", hasAtomicFinalDecision
+      ? decisionLayer.verdict?.finalLabel || decisionLayer.verdictLabel || "Decision unavailable"
+      : finalAnalystAnswerComposerContract?.scoreExplanationBridge?.verdictLabel || safeModel.verdictLabel || safeAnalysis.verdict || safeScores.verdict),
     reportLine("Confidence", safeModel.confidenceLabel || safeConfidence.label || safeConfidence.level),
-    reportLine("Score", safeModel.overallScore !== null && safeModel.overallScore !== undefined ? `${safeModel.overallScore}/100` : safeScores.overallScore),
+    reportLine("Score", protectedScore),
     reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
-    reportLine("Interpretation", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation || safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
-    reportLine("Score caveat", evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness || "Existing score remains subject to evidence-readiness caveats."),
+    reportLine("Interpretation", decisionLayer.verdict?.explanation || finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation || safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
+    reportLine("Score caveat", finalDecisionScore.withholdingReason || evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness || "Existing score remains subject to evidence-readiness caveats."),
     "",
     "3. Key Institutional Questions",
     ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
@@ -3503,11 +3513,11 @@ export function buildProtectedInvestorReportText({
     ),
     "",
     "6. Coverage Tier / Score Eligibility",
-    reportLine("Coverage tier", coverageScoreEligibilityContract?.coverageTierLabel || "Not available yet."),
+    reportLine("Coverage tier", finalDecisionCoverage.label || finalDecisionCoverage.tier || coverageScoreEligibilityContract?.coverageTierLabel || "Not available yet."),
     reportLine("Analysis depth", coverageScoreEligibilityContract?.analysisDepthLabel || "Not available yet."),
-    reportLine("Score eligibility", coverageScoreEligibilityContract?.scoreEligibility || "Not available yet."),
-    reportLine("Score display", finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || "Not available yet."),
-    reportLine("Coverage meaning", coverageScoreEligibilityContract?.primaryUserMessage || "Coverage gate was not attached."),
+    reportLine("Score eligibility", finalDecisionEligibility.status || coverageScoreEligibilityContract?.scoreEligibility || "Not available yet."),
+    reportLine("Score display", hasAtomicFinalDecision ? (finalDecisionScore.displayable ? "Available" : "Withheld") : finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || "Not available yet."),
+    reportLine("Coverage meaning", finalDecisionCoverage.limitations?.[0] || coverageScoreEligibilityContract?.primaryUserMessage || "Coverage gate was not attached."),
     ...formatReportList(
       normalizeRenderableList(coverageScoreEligibilityContract?.criticalBlockers?.map((blocker) => blocker.label)).slice(0, 5),
       "No critical coverage blocker was surfaced in the protected report model.",
@@ -4355,6 +4365,8 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
     const safeAiReport = safeObject(aiReport);
     const finalVerdict = safeObject(safeAiReport.finalVerdict);
     const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+    const canonicalDecisionScore = safeObject(decisionLayer.score);
+    const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
     const thesisCore = safeObject(safeAnalysis.thesisCore);
     const decisionFrame = safeObject(decisionLayer.decisionFrame);
     const investability = safeObject(thesisCore.investability);
@@ -4388,7 +4400,9 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
 
     return {
       recommendation:
-        verdictSemantics.summary
+        hasAtomicFinalDecision
+          ? verdictSemantics.summary || decisionLayer.verdict?.explanation || "Final decision unavailable from the current response."
+          : verdictSemantics.summary
         || finalVerdict.recommendation
         || decisionFrame.whyNow
         || (
@@ -4401,7 +4415,9 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
                 : null
         ),
       summary:
-        verdictSemantics.boundary
+        hasAtomicFinalDecision
+          ? decisionLayer.verdict?.explanation || verdictSemantics.boundary || "Final decision explanation unavailable from the current response."
+          : verdictSemantics.boundary
         || finalVerdict.summary
         || primaryWeakness
         || decisionFrame.whyNotNow
@@ -4423,15 +4439,17 @@ export function buildVerdictDisplayData({ aiReport, analysis, asset }) {
         || couldBreak[0]
         || null,
       rating:
-        verdictSemantics.label
+        hasAtomicFinalDecision
+          ? verdictSemantics.label || decisionLayer.verdict?.finalLabel || "Decision unavailable"
+          : verdictSemantics.label
         || finalVerdict.rating
         || posture
         || currentState
         || null,
       score:
-        finalVerdict.score
-        ?? safeAnalysis?.scores?.overallScore
-        ?? null,
+        hasAtomicFinalDecision
+          ? (canonicalDecisionScore.displayable ? canonicalDecisionScore.displayValue ?? null : null)
+          : finalVerdict.score ?? safeAnalysis?.scores?.overallScore ?? null,
     };
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -4813,6 +4831,7 @@ export function hasRealStructuralInvalidator(primaryWeakness) {
 export function deriveAllocationOutcome(analysis, scores) {
   const safeAnalysis = safeObject(analysis);
   const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
   const verdictSemantics = buildVerdictSemanticsDisplay(decisionLayer, safeAnalysis.thesisCore, safeAnalysis);
   if (verdictSemantics?.hasVerdictClass) {
     return {
@@ -4820,6 +4839,14 @@ export function deriveAllocationOutcome(analysis, scores) {
       label: verdictSemantics.label,
       tone: verdictSemantics.tone,
       shortLabel: verdictSemantics.shortLabel,
+    };
+  }
+  if (hasAtomicFinalDecision) {
+    return {
+      key: null,
+      label: "Decision unavailable",
+      tone: "neutral",
+      shortLabel: "Unavailable",
     };
   }
   const thesisCore = safeObject(safeAnalysis.thesisCore);
@@ -5037,7 +5064,7 @@ export function buildVerdictSemanticsDisplay(decisionLayer, thesisCore, analysis
     label: cleanPrimaryAnswerText(safeDecisionLayer.verdictLabel) || base.label,
     shortLabel: base.shortLabel,
     tone: base.tone,
-    summary: base.summary,
+    summary: cleanPrimaryAnswerText(safeDecisionLayer.verdict?.explanation) || base.summary,
     boundary: base.boundary,
     finalVerdictRating: safeAnalysis.aiReport?.finalVerdict?.rating || null,
     positiveCase,
@@ -6340,6 +6367,11 @@ export function buildDecisionTerminalModel({
   const safeAnalysis = safeObject(analysis);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const canonicalDecisionScore = safeObject(decisionLayer.score);
+  const canonicalDecisionCoverage = safeObject(decisionLayer.coverage);
+  const canonicalDecisionEligibility = safeObject(decisionLayer.eligibility);
+  const canonicalDecisionManualReview = safeObject(decisionLayer.manualReview);
+  const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
   const decisionFrame = safeObject(decisionLayer.decisionFrame);
   const investability = safeObject(thesisCore.investability);
   const failureMode = safeObject(thesisCore.failureMode);
@@ -6452,7 +6484,10 @@ export function buildDecisionTerminalModel({
     assetClass: assetClassification.assetClass || null,
   });
   const allocationOutcome = deriveAllocationOutcome(safeAnalysis, scores);
-  const overallScore = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
+  const internalOverallScoreAuditOnly = scores?.overallScore ?? safeAnalysis?.scores?.overallScore ?? null;
+  const overallScore = hasAtomicFinalDecision
+    ? (canonicalDecisionScore.displayable ? canonicalDecisionScore.displayValue ?? null : null)
+    : internalOverallScoreAuditOnly;
   const confidenceScore = confidenceModel?.score ?? null;
   const confidenceLabelText = buildConfidenceSupportLabel(confidenceModel);
   const prioritySignals = cleanUserFacingList(decisionLayer.prioritySignals, {
@@ -6544,7 +6579,17 @@ export function buildDecisionTerminalModel({
     missingCritical,
     whyNotNow: sanitizedWhyNotNow,
   });
-  const manualReviewStatus = deriveManualReviewStatus({
+  const manualReviewStatus = hasAtomicFinalDecision ? {
+    label: canonicalDecisionManualReview.blocking
+      ? "Blocking review"
+      : canonicalDecisionManualReview.required
+        ? "Additional verification"
+        : "No blocking review",
+    detail: canonicalDecisionManualReview.productLanguage
+      || safeArray(canonicalDecisionManualReview.reasons)[0]
+      || "The final decision has no blocking manual-review requirement.",
+    blocking: Boolean(canonicalDecisionManualReview.blocking),
+  } : deriveManualReviewStatus({
     missingCritical,
     evidenceConflicts,
     auditAlerts,
@@ -6704,10 +6749,15 @@ export function buildDecisionTerminalModel({
   const baseDisplayModel = {
     assetName: asset?.name || asset?.symbol || "Asset",
     overallScore,
+    internalOverallScoreAuditOnly,
+    scoreDisplayable: hasAtomicFinalDecision ? Boolean(canonicalDecisionScore.displayable) : overallScore !== null,
     confidenceScore,
     confidenceLabel: confidenceLabelText,
-    scoreDisplayLabel: finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || null,
+    scoreDisplayLabel: hasAtomicFinalDecision
+      ? (canonicalDecisionScore.displayable ? "Score available" : "Score withheld")
+      : finalAnalystAnswerComposerContract?.scoreExplanationBridge?.scoreDisplayLabel || null,
     allocationOutcome,
+    decisionLayer,
     verdictSemantics: dataFirstVerdictSemantics,
     verdictClass: dataFirstVerdictSemantics.verdictClass || null,
     allocationCase: dataFirstVerdictSemantics.hasVerdictClass ? {
@@ -6764,10 +6814,10 @@ export function buildDecisionTerminalModel({
     canonicalSourceProfile: familyCanonicalRoutingContract?.canonicalSourceProfile || primaryAnalysisRoute?.sourceProfile || null,
     canonicalSourceMatrixEntries: safeArray(familyCanonicalRoutingContract?.canonicalSourceMatrixEntries || primaryAnalysisRoute?.sourceMatrixEntries),
     canonicalCoverageBlockerNamespace: familyCanonicalRoutingContract?.canonicalCoverageBlockerNamespace || null,
-    coverageTier: coverageScoreEligibilityContract?.coverageTier || null,
-    coverageTierLabel: coverageScoreEligibilityContract?.coverageTierLabel || null,
-    scoreEligibility: coverageScoreEligibilityContract?.scoreEligibility || null,
-    scoreDisplayMode: coverageScoreEligibilityContract?.scoreDisplayMode || null,
+    coverageTier: hasAtomicFinalDecision ? canonicalDecisionCoverage.tier || null : coverageScoreEligibilityContract?.coverageTier || null,
+    coverageTierLabel: hasAtomicFinalDecision ? canonicalDecisionCoverage.label || null : coverageScoreEligibilityContract?.coverageTierLabel || null,
+    scoreEligibility: hasAtomicFinalDecision ? canonicalDecisionEligibility.status || null : coverageScoreEligibilityContract?.scoreEligibility || null,
+    scoreDisplayMode: hasAtomicFinalDecision ? canonicalDecisionScore.displayMode || null : coverageScoreEligibilityContract?.scoreDisplayMode || null,
     analysisDepthAllowed: coverageScoreEligibilityContract?.analysisDepthAllowed || null,
     analysisDepthLabel: coverageScoreEligibilityContract?.analysisDepthLabel || null,
     scoringReadinessContract,
@@ -8079,7 +8129,12 @@ export function buildReviewBundleText({
   const safeMeta = safeObject(meta || safeData.meta);
   const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
-  const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
+  const finalDecisionScore = safeObject(decisionLayer.score);
+  const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
+  const bundlePrimaryScore = hasAtomicFinalDecision
+    ? (finalDecisionScore.displayable ? finalDecisionScore.displayValue : "Withheld")
+    : safeModel.overallScore ?? safeScores.overallScore;
   const decisionFrame = safeObject(decisionLayer.decisionFrame);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const verdictReasons = safeObject(decisionLayer.verdictReasons || safeModel.verdictReasons);
@@ -8749,8 +8804,12 @@ export function buildReviewBundleText({
   const questionMatchStatus = questionGroupMatchesLens(questions, lens);
   const identityWarnings = safeArray(calibrationWarnings).filter((warning) => /identity|variant|wrapped|bridged/i.test(String(warning?.id || warning?.issue || "")));
   const lastAnalyzed = safeData.lastAnalyzed || safeData.generatedAt || snapshot?.generatedAt || safeData.snapshot?.generatedAt || safeMeta.generatedAt;
-  const verdictLabel = safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.finalVerdictLabel || decisionLayer.currentState?.label;
-  const verdictClass = safeModel.verdictClass || decisionLayer.verdictClass;
+  const verdictLabel = hasAtomicFinalDecision
+    ? decisionLayer.verdict?.finalLabel || decisionLayer.verdictLabel || "Decision unavailable"
+    : safeModel.allocationOutcome?.label || safeModel.verdictSemantics?.label || decisionLayer.currentState?.label;
+  const verdictClass = hasAtomicFinalDecision
+    ? decisionLayer.verdict?.finalClass || decisionLayer.verdictClass || null
+    : safeModel.verdictClass || decisionLayer.verdictClass;
   const boundary = "Research support only. Not financial advice. No price prediction. Provider metadata is not reviewed evidence; source candidates and report-only overlays are not live scoring input.";
   const assetInterpretationContractMissing = Boolean(lens?.lensId) && !assetInterpretationContract;
   const dataFirstNarrativeMissing = resolvedLensIsDisplayAuthoritative(lens) && !dataFirstNarrativeContract;
@@ -8945,7 +9004,7 @@ export function buildReviewBundleText({
       bundleField("Primary analysis path", analysisFreshness.primaryAnalysisPath),
       bundleField("Final decision / verdictClass", verdictClass),
       bundleField("Verdict label", verdictLabel),
-      bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
+      bundleField("Overall score", bundlePrimaryScore),
       bundleField("Confidence", `${safeModel.confidenceLabel || safeConfidence.level || "Unavailable"}${safeModel.confidenceScore !== null && safeModel.confidenceScore !== undefined ? ` (${safeModel.confidenceScore})` : ""}`),
       bundleField("Asset framing", visibleBundleFramingLabel),
       bundleField("Asset class label", visibleBundleLensLabel || safeModel.assetClass),
@@ -9619,6 +9678,17 @@ export function buildReviewBundleText({
     ]),
     bundleSection("2AO. Coverage Tier + Score Eligibility Gate v1", [
       bundleField("Contract attached", coverageScoreEligibilityContract ? "yes" : "missing"),
+      bundleField("Final decision owner", decisionLayer.audit?.inputOwners?.finalDecision || "decisionLayer unavailable"),
+      bundleField("Final decision consistency", decisionLayer.consistency?.status),
+      bundleField("Final verdict class", decisionLayer.verdict?.finalClass || decisionLayer.verdictClass),
+      bundleField("Final verdict label", decisionLayer.verdict?.finalLabel || decisionLayer.verdictLabel),
+      bundleField("Final score displayable", hasAtomicFinalDecision ? yesNoUnknown(finalDecisionScore.displayable) : "atomic decision unavailable"),
+      bundleField("Final score display mode", finalDecisionScore.displayMode),
+      bundleField("Final score display value", finalDecisionScore.displayValue ?? "withheld"),
+      bundleField("Final score withholding reason", finalDecisionScore.withholdingReason),
+      bundleField("Legacy score (audit only)", finalDecisionScore.internalValue ?? safeScores.overallScore),
+      bundleField("Legacy verdict candidate (audit only)", decisionLayer.audit?.legacyCandidate ? `${decisionLayer.audit.legacyCandidate.verdictClass} | ${decisionLayer.audit.legacyCandidate.verdictLabel}` : "unchanged or unavailable"),
+      bundleField("Verdict reconciliation reason", decisionLayer.verdict?.reconciliationReason || "none"),
       bundleField("Artifact version", coverageScoreEligibilityContract?.artifactVersion),
       bundleField("Coverage tier", coverageScoreEligibilityContract?.coverageTier),
       bundleField("Coverage tier label", coverageScoreEligibilityContract?.coverageTierLabel),
@@ -11067,7 +11137,7 @@ export function buildReviewBundleText({
       bundleField("Weakest link detail", safeModel.weakestLink?.explanation),
       "What Would Change The Decision:",
       bundleList(safeModel.whatWouldChangeDecision?.items),
-      bundleField("Structural quality", safeModel.overallScore),
+      bundleField("Structural quality", bundlePrimaryScore),
       bundleField("Evidence support", safeModel.confidenceScore),
       bundleField("Confidence", safeModel.confidenceLabel),
       bundleField("Manual review signal", `${safeModel.manualReviewStatus?.label || "Unavailable"} - ${safeModel.manualReviewStatus?.detail || "Unavailable"}`),
@@ -11349,8 +11419,8 @@ export function buildReviewBundleText({
       bundleField("Freshness/source boundary", `${analysisFreshness.freshnessLabel}. Missing or stale provider sections are not negative evidence; they require verification before strong conclusions.`),
     ]),
     bundleSection("8. Scoring Transparency", [
-      bundleField("Overall score", safeModel.overallScore ?? safeScores.overallScore),
-      bundleField("Structural quality", safeModel.overallScore),
+      bundleField("Overall score", bundlePrimaryScore),
+      bundleField("Structural quality", bundlePrimaryScore),
       bundleField("Evidence support/confidence proxy", `${safeModel.confidenceScore ?? safeConfidence.score ?? "Unavailable"} / ${safeModel.confidenceLabel || safeConfidence.level || "Unavailable"}`),
       "Scores:",
       bundleObjectRows(safeScores),

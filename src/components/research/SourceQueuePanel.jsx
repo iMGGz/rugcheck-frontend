@@ -131,6 +131,10 @@ export default function SourceQueuePanel({
   const reviewedEvidence = model?.reviewedEvidencePacket || {};
   const assetFraming = displayIdentity?.displayFraming || displayIdentity?.displayAssetClass || extractRenderableText(model?.assetFramingLabel, "Digital asset allocation thesis");
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const finalDecision = model?.decisionLayer || {};
+  const finalCoverage = finalDecision.coverage || {};
+  const finalEligibility = finalDecision.eligibility || {};
+  const finalScore = finalDecision.score || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
@@ -153,6 +157,8 @@ export default function SourceQueuePanel({
         badges={[
           { label: `${reviewLeads.length} review leads`, tone: reviewLeads.length ? "#f9d976" : "#d5dcec" },
           { label: `${researchRequirements.length} research requirements`, tone: researchRequirements.length ? "#7dd3fc" : "#d5dcec" },
+          { label: finalEligibility.status || coverageGate.scoreEligibility || "Eligibility unavailable", tone: finalEligibility.blocked ? "#ffb020" : "#7dd3fc" },
+          { label: finalScore.displayable ? "Score available" : finalScore.displayMode || "Score policy unavailable", tone: finalScore.displayable ? "#a6f3c2" : "#f9d976" },
           { label: "Needs review", tone: "#d5dcec" },
           { label: model?.analysisFreshness?.freshQaEligible ? "Current QA eligible" : "Run fresh analysis for QA", tone: model?.analysisFreshness?.freshQaEligible ? "#a6f3c2" : "#f9d976" },
         ]}
@@ -294,11 +300,11 @@ export default function SourceQueuePanel({
         </Card>
       ) : null}
 
-      {!composerAvailable && coverageGate.artifactVersion ? (
+      {!composerAvailable && (finalCoverage.tier || coverageGate.artifactVersion) ? (
         <Card title="Coverage Upgrade Priorities" subtitle="Sources that would improve analysis depth or score display eligibility." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
-            {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
-            {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
+            {boundaryChip(styles, finalCoverage.label || finalCoverage.tier || coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
+            {boundaryChip(styles, finalEligibility.status || coverageGate.scoreEligibility || "Score eligibility")}
             {boundaryChip(styles, "Does not change current score formula")}
           </div>
           <ListBlock
@@ -310,7 +316,7 @@ export default function SourceQueuePanel({
           />
           <ListBlock
             title="What would make score eligible"
-            items={coverageGate.whatWouldMakeScoreEligible}
+            items={finalEligibility.reasons?.length ? finalEligibility.reasons : coverageGate.whatWouldMakeScoreEligible}
             emptyText="No score-eligibility requirements were attached."
             color="#f9d976"
             styles={styles}

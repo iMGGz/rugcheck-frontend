@@ -378,6 +378,11 @@ export default function ManualReviewPanel({
   const signals = buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evidenceStatusProxy });
   const verifyItems = analystVerificationItems(model);
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const finalDecision = model?.decisionLayer || {};
+  const finalCoverage = finalDecision.coverage || {};
+  const finalEligibility = finalDecision.eligibility || {};
+  const finalScore = finalDecision.score || {};
+  const finalManualReview = finalDecision.manualReview || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
@@ -512,28 +517,28 @@ export default function ManualReviewPanel({
         </Card>
       ) : null}
 
-      {!composerAvailable && coverageGate.artifactVersion ? (
+      {!composerAvailable && (finalCoverage.tier || coverageGate.artifactVersion) ? (
         <Card title="Coverage / Score Eligibility Review" subtitle="Critical blockers before fundamental score interpretation." styles={styles}>
           <div style={styles.sourceBoundaryStrip}>
-            {boundaryChip(styles, coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
-            {boundaryChip(styles, coverageGate.scoreEligibility || "Score eligibility")}
-            {boundaryChip(styles, finalComposer?.scoreExplanationBridge?.scoreDisplayLabel || "Score display policy")}
+            {boundaryChip(styles, finalCoverage.label || finalCoverage.tier || coverageGate.coverageTierLabel || coverageGate.coverageTier || "Coverage tier")}
+            {boundaryChip(styles, finalEligibility.status || coverageGate.scoreEligibility || "Score eligibility")}
+            {boundaryChip(styles, finalScore.displayable ? "Score available" : finalScore.displayMode || finalComposer?.scoreExplanationBridge?.scoreDisplayLabel || "Score display policy")}
           </div>
           <SectionRow
             label="Coverage message"
-            value={coverageGate.primaryUserMessage || coverageGate.scoreEligibilityReason || "Coverage gate attached."}
+            value={finalScore.withholdingReason || finalManualReview.productLanguage || finalCoverage.limitations?.[0] || coverageGate.primaryUserMessage || coverageGate.scoreEligibilityReason || "Coverage gate attached."}
             styles={styles}
           />
           <ListBlock
             title="Critical blockers"
-            items={safeArray(coverageGate.criticalBlockers).map((blocker) => blocker.label)}
+            items={safeArray(finalEligibility.blockers).length ? finalEligibility.blockers : safeArray(coverageGate.criticalBlockers).map((blocker) => blocker.label)}
             emptyText="No critical coverage blockers were attached."
             color="#ffb020"
             styles={styles}
           />
           <ListBlock
             title="Manual review triggers"
-            items={coverageGate.manualReviewTriggers}
+            items={safeArray(finalManualReview.reasons).length ? finalManualReview.reasons : coverageGate.manualReviewTriggers}
             emptyText="No coverage-specific manual review trigger was attached."
             color="#f9d976"
             styles={styles}

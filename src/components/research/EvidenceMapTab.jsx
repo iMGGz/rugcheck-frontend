@@ -542,6 +542,10 @@ export default function EvidenceMapTab({
   const firstCoverageSignal = coverageSignals[0] ? normalizeEvidenceProxyDisplayLabel(coverageSignals[0]) : null;
   const aggregationSummary = model?.evidenceStatusAggregationContract?.assetAggregation?.plainLanguageSummary || null;
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const finalDecision = model?.decisionLayer || {};
+  const finalCoverage = finalDecision.coverage || {};
+  const finalEligibility = finalDecision.eligibility || {};
+  const finalScore = finalDecision.score || {};
   const canonicalRoute = model?.familyCanonicalRoutingContract || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
@@ -716,10 +720,10 @@ export default function EvidenceMapTab({
         />
         <QuestionPromptCard
           question="What coverage level is allowed?"
-          answer={coverageGate.primaryUserMessage || "Coverage Tier + Score Eligibility Gate was not attached."}
-          status={coverageGate.coverageTierLabel || "Coverage unavailable"}
-          impact={coverageGate.scoreEligibility || "Score eligibility unavailable"}
-          sourceState={coverageGate.analysisDepthLabel || "Analysis depth unavailable"}
+          answer={finalScore.withholdingReason || finalCoverage.limitations?.[0] || coverageGate.primaryUserMessage || "Coverage Tier + Score Eligibility Gate was not attached."}
+          status={finalCoverage.label || finalCoverage.tier || coverageGate.coverageTierLabel || "Coverage unavailable"}
+          impact={finalEligibility.status || coverageGate.scoreEligibility || "Score eligibility unavailable"}
+          sourceState={finalDecision.audit?.calculationVersion ? "Final decision owner" : coverageGate.analysisDepthLabel || "Analysis depth unavailable"}
           styles={styles}
         />
         <QuestionPromptCard

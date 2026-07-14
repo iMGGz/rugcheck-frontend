@@ -58,6 +58,11 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence);
   const safeModel = safeObject(model);
   const decisionLayer = safeObject(safeAnalysis.decisionLayer);
+  const finalDecisionScore = safeObject(decisionLayer.score);
+  const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
+  const displayedOverallScore = hasAtomicFinalDecision
+    ? (finalDecisionScore.displayable ? finalDecisionScore.displayValue : null)
+    : firstAttached(safeScores.overallScore, safeModel.overallScore);
   const thesisCore = safeObject(safeAnalysis.thesisCore);
   const evidenceDirectness = safeObject(safeAnalysis.evidenceDirectness);
   const tokenDemandQuality = firstAttached(
@@ -82,8 +87,8 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   const structuralScore = firstAttached(
     safeScores.structuralQuality,
     safeScores.structuralQualityScore,
-    safeScores.overallScore,
-    safeModel.overallScore,
+    hasAtomicFinalDecision && !finalDecisionScore.displayable ? null : safeScores.overallScore,
+    hasAtomicFinalDecision && !finalDecisionScore.displayable ? null : safeModel.overallScore,
   );
   const structuralIsProxy = !hasAttachedValue(safeScores.structuralQuality) && !hasAttachedValue(safeScores.structuralQualityScore);
   const tokenomicsSupplyIntegrity = safeObject(safeModel.tokenomicsSupplyIntegrity);
@@ -96,13 +101,15 @@ function buildLiveModules({ analysis, scores, confidence, model }) {
   return [
     {
       title: "Overall Score",
-      value: readableValue(firstAttached(safeScores.overallScore, safeModel.overallScore)),
-      source: "analysis.scores.overallScore",
-      rule: "Live aggregate output. Score is secondary to decision and thesis context.",
+      value: hasAtomicFinalDecision && !finalDecisionScore.displayable ? "Withheld" : readableValue(displayedOverallScore),
+      source: hasAtomicFinalDecision ? "analysis.decisionLayer.score" : "analysis.scores.overallScore",
+      rule: hasAtomicFinalDecision && !finalDecisionScore.displayable
+        ? "The final decision withholds institutional score interpretation; the legacy numeric value remains available in Audit / Raw."
+        : "Live aggregate output. Score is secondary to decision and thesis context.",
       live: "Yes",
       reportOnly: "No",
-      caveat: "Does not replace analyst verification.",
-      attached: hasAttachedValue(firstAttached(safeScores.overallScore, safeModel.overallScore)),
+      caveat: finalDecisionScore.withholdingReason || "Does not replace analyst verification.",
+      attached: hasAtomicFinalDecision || hasAttachedValue(displayedOverallScore),
     },
     {
       title: "Structural Quality",

@@ -115,6 +115,10 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
   const tokenomics = model?.tokenomicsSupplyIntegrity || {};
   const scoringReadiness = model?.scoringReadinessContract || {};
   const coverageGate = model?.coverageScoreEligibilityContract || {};
+  const finalDecision = model?.decisionLayer || {};
+  const finalCoverage = finalDecision.coverage || {};
+  const finalEligibility = finalDecision.eligibility || {};
+  const finalScore = finalDecision.score || {};
   const composerScore = model?.finalAnalystAnswerComposerContract?.scoreExplanationBridge || {};
   const provenance = model?.evidenceProvenanceSemanticsContract || {};
   const familyMatrix = model?.familyDataRequirementMatrixContract || {};
@@ -231,12 +235,12 @@ function IdentityAndLensGuardrail({ asset, model, styles, onSelectSection }) {
             styles={styles}
           />
         ) : null}
-        {coverageGate.artifactVersion ? (
+        {finalCoverage.tier || coverageGate.artifactVersion ? (
           <LayerLegendItem
-            title={`Coverage tier: ${coverageGate.coverageTierLabel || coverageGate.coverageTier || "Unavailable"}`}
-            detail={`${coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${composerScore.scoreDisplayLabel || "unavailable"}.`}
-            badge={coverageGate.scoreEligibility ? `Score eligibility: ${coverageGate.scoreEligibility}` : "Score eligibility"}
-            tone={coverageGate.scoreEligibility === "eligible" || coverageGate.scoreEligibility === "partially_eligible" ? "#2fd67b" : "#ffb020"}
+            title={`Coverage tier: ${finalCoverage.label || finalCoverage.tier || coverageGate.coverageTierLabel || coverageGate.coverageTier || "Unavailable"}`}
+            detail={`${finalCoverage.limitations?.[0] || coverageGate.primaryUserMessage || coverageGate.coverageTierReason || "Coverage gate attached."} Score display: ${finalScore.displayable ? "available" : finalScore.displayMode || composerScore.scoreDisplayLabel || "unavailable"}.`}
+            badge={(finalEligibility.status || coverageGate.scoreEligibility) ? `Score eligibility: ${finalEligibility.status || coverageGate.scoreEligibility}` : "Score eligibility"}
+            tone={["eligible", "partially_eligible"].includes(finalEligibility.status || coverageGate.scoreEligibility) ? "#2fd67b" : "#ffb020"}
             styles={styles}
           />
         ) : null}
@@ -359,10 +363,10 @@ export function DecisionHeroSupportSections({ model, styles, onSelectSection = n
       </div>
 
       <div style={styles.decisionScoreStrip}>
-        <ScoreTile label="Structural Quality" value={formatScoreValue(model?.overallScore)} detail="Live score bundle" styles={styles} />
+        <ScoreTile label="Structural Quality" value={model?.scoreDisplayable === false ? "Withheld" : formatScoreValue(model?.overallScore)} detail={model?.scoreDisplayable === false ? "Legacy value remains in Audit / Raw" : "Live score bundle"} styles={styles} />
         <ScoreTile label="Evidence Support" value={formatScoreValue(model?.confidenceScore)} detail="Confidence proxy, not completeness" styles={styles} />
         <ScoreTile label="Confidence" value={model?.confidenceLabel || "Unavailable"} detail={model?.evidenceStrength ? `Evidence strength: ${sanitizeSemanticLabel(model.evidenceStrength, "Unavailable")}` : null} styles={styles} />
-        <ScoreTile label="Overall Score" value={formatScoreValue(model?.overallScore)} detail="Secondary signal" styles={styles} />
+        <ScoreTile label="Overall Score" value={model?.scoreDisplayable === false ? "Withheld" : formatScoreValue(model?.overallScore)} detail={model?.scoreDisplayLabel || "Secondary signal"} styles={styles} />
         <ScoreTile
           label="Tokenomics Integrity"
           value={model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || model?.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? "Unavailable" : `${model.tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`}

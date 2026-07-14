@@ -229,20 +229,26 @@ function ScoringReadinessRailSection({ model, styles }) {
 
 function CoverageScoreEligibilityRailSection({ model, styles }) {
   const coverage = model?.coverageScoreEligibilityContract || {};
-  if (!coverage.artifactVersion) return null;
-  const blockers = safeArray(coverage.criticalBlockers).length
-    ? safeArray(coverage.criticalBlockers)
-    : safeArray(coverage.coverageBlockers);
+  const finalDecision = model?.decisionLayer || {};
+  const finalCoverage = finalDecision.coverage || {};
+  const finalEligibility = finalDecision.eligibility || {};
+  const finalScore = finalDecision.score || {};
+  if (!coverage.artifactVersion && !finalCoverage.tier) return null;
+  const blockers = safeArray(finalEligibility.blockers).length
+    ? safeArray(finalEligibility.blockers).map((label) => ({ label, severity: "blocking", scoreEligibilityImpact: "final decision" }))
+    : safeArray(coverage.criticalBlockers).length
+      ? safeArray(coverage.criticalBlockers)
+      : safeArray(coverage.coverageBlockers);
 
   return (
-    <RailSection title="Coverage / Score Eligibility" badge={coverage.scoreEligibility || "Coverage gate"} styles={styles}>
+    <RailSection title="Coverage / Score Eligibility" badge={finalEligibility.status || coverage.scoreEligibility || "Coverage gate"} styles={styles}>
       <div style={styles.railMiniCard}>
         <div style={styles.railMiniLabel}>Analysis depth</div>
-        <div style={styles.railMiniValue}>{coverage.analysisDepthLabel || coverage.coverageTierLabel || "Coverage tier unavailable"}</div>
+        <div style={styles.railMiniValue}>{coverage.analysisDepthLabel || finalCoverage.label || coverage.coverageTierLabel || "Coverage tier unavailable"}</div>
       </div>
       <div style={styles.railBoundaryGrid}>
-        <div style={styles.railBoundaryPill}>Tier: {coverage.coverageTierLabel || coverage.coverageTier || "unknown"}</div>
-        <div style={styles.railBoundaryPill}>Score: {model?.scoreDisplayLabel || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Tier: {finalCoverage.label || finalCoverage.tier || coverage.coverageTierLabel || coverage.coverageTier || "unknown"}</div>
+        <div style={styles.railBoundaryPill}>Score: {finalScore.displayable ? "available" : finalScore.displayMode || model?.scoreDisplayLabel || "unknown"}</div>
         <div style={styles.railBoundaryPill}>Route: {coverage.familyRouteSafety || "unknown"}</div>
       </div>
       {blockers.slice(0, 3).map((blocker, index) => (
@@ -255,7 +261,7 @@ function CoverageScoreEligibilityRailSection({ model, styles }) {
         </div>
       ))}
       <div style={styles.railBoundaryText}>
-        {coverage.primaryUserMessage || "Coverage gate controls score display eligibility only; current score and verdict formulas are unchanged."}
+        {finalScore.withholdingReason || finalCoverage.limitations?.[0] || coverage.primaryUserMessage || "Coverage gates constrain score interpretation without changing the legacy numeric formula."}
       </div>
     </RailSection>
   );

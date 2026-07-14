@@ -48,6 +48,96 @@ try {
     verdictSemantics: { summary: "Current evidence is incomplete." },
     assetBadges: [],
   };
+  const atomicDecision = ({ displayable, displayMode, eligibility, finalClass, finalLabel }) => ({
+    audit: {
+      calculationVersion: "final-decision-atomic-v1",
+      inputOwners: { finalDecision: "decisionLayer" },
+      legacyCandidate: finalClass === "not_allocation_ready"
+        ? { verdictClass: "investable_medium_confidence", verdictLabel: "Investable - Medium Confidence", posture: "constructive_but_needs_confirmation" }
+        : null,
+    },
+    score: {
+      internalValue: 73,
+      displayable,
+      displayMode,
+      displayValue: displayable ? 73 : null,
+      withholdingReason: displayable ? null : "Final coverage and eligibility do not permit institutional score display.",
+    },
+    coverage: { tier: "tier_2_family_checklist_partial", label: "Family checklist partial", limitations: ["Current evidence remains incomplete."] },
+    eligibility: { status: eligibility, blocked: !["eligible", "partially_eligible"].includes(eligibility), blockers: ["Current evidence remains incomplete."], reasons: ["Attach current evidence."] },
+    manualReview: { required: !displayable, blocking: !displayable, reasons: displayable ? [] : ["Review current evidence."], productLanguage: displayable ? "No blocking review." : "Critical requirements must be resolved before an allocation-ready conclusion is permitted." },
+    verdict: { candidateClass: "investable_medium_confidence", candidateLabel: "Investable - Medium Confidence", finalClass, finalLabel, posture: displayable ? "constructive_but_needs_confirmation" : "watchlist", explanation: displayable ? "Final inputs permit the existing allocation-ready candidate." : "The final state is not allocation-ready because the score is withheld.", reconciliationReason: displayable ? null : "score_not_displayable" },
+    verdictClass: finalClass,
+    verdictLabel: finalLabel,
+    posture: { label: displayable ? "constructive_but_needs_confirmation" : "watchlist", summary: "Final posture.", reasonCodes: [], blockerTypes: [], supportReasonCodes: [] },
+    currentState: { label: "underverified", secondaryLabels: [], summary: "Final state.", reasonCodes: [] },
+    verdictReasons: { positiveThesisEvidence: [], realBlockers: [], evidenceGaps: [], reviewOnlyCautions: [], notApplicableItems: [], whatWouldChangeDecision: [] },
+    allocationCase: { forAllocation: [], againstAllocation: [], missingEvidence: [], whatWouldChange: [] },
+    prioritySignals: { support: [], risk: [], unknown: [], trigger: [] },
+    decisionFrame: { whyNow: [], whyNotNow: [], whatMustBeTrue: [], whatCouldBreak: [], nextCheckpoints: [] },
+    researchRequirements: [],
+  });
+  const blockedDecision = atomicDecision({
+    displayable: false,
+    displayMode: "manual_review_no_score",
+    eligibility: "blocked_manual_review",
+    finalClass: "not_allocation_ready",
+    finalLabel: "Not Allocation-Ready",
+  });
+  const blockedTerminalModel = researchUtils.buildDecisionTerminalModel({
+    analysis: { decisionLayer: blockedDecision, scores: { overallScore: 73 }, confidence: { score: 64, level: "medium" } },
+    scores: { overallScore: 73 },
+    confidence: { score: 64, level: "medium" },
+    asset: { symbol: "CONTROL", name: "Control Asset" },
+  });
+  assert.equal(blockedTerminalModel.overallScore, null);
+  assert.equal(blockedTerminalModel.internalOverallScoreAuditOnly, 73);
+  assert.equal(blockedTerminalModel.scoreDisplayable, false);
+  assert.equal(blockedTerminalModel.allocationOutcome.key, "not_allocation_ready");
+  assert.equal(blockedTerminalModel.scoreEligibility, "blocked_manual_review");
+  const blockedDecisionHtml = renderToString(React.createElement(DecisionHeroCard, {
+    asset: { symbol: "CONTROL" },
+    model: blockedTerminalModel,
+    styles: {},
+    showSupportSections: true,
+  }));
+  assert.match(blockedDecisionHtml, /Not Allocation-Ready/);
+  assert.match(blockedDecisionHtml, /Withheld/);
+  const blockedProtectedReport = researchUtils.buildProtectedInvestorReportText({
+    asset: { symbol: "CONTROL" },
+    analysis: { decisionLayer: blockedDecision, scores: { overallScore: 73 } },
+    model: blockedTerminalModel,
+    scores: { overallScore: 73 },
+  });
+  assert.match(blockedProtectedReport, /Verdict: Not Allocation-Ready/);
+  assert.match(blockedProtectedReport, /Score: Withheld/);
+  assert.doesNotMatch(blockedProtectedReport, /Score: 73\/100/);
+  const blockedBundle = researchUtils.buildReviewBundleText({
+    asset: { symbol: "CONTROL" },
+    analysis: { decisionLayer: blockedDecision, scores: { overallScore: 73 } },
+    model: blockedTerminalModel,
+    scores: { overallScore: 73 },
+  });
+  assert.match(blockedBundle, /Final decision \/ verdictClass: not_allocation_ready/);
+  assert.match(blockedBundle, /Overall score: Withheld/);
+  assert.match(blockedBundle, /Legacy score \(audit only\): 73/);
+
+  const visibleDecision = atomicDecision({
+    displayable: true,
+    displayMode: "show_score_with_coverage_caveat",
+    eligibility: "partially_eligible",
+    finalClass: "investable_medium_confidence",
+    finalLabel: "Investable - Medium Confidence",
+  });
+  const visibleTerminalModel = researchUtils.buildDecisionTerminalModel({
+    analysis: { decisionLayer: visibleDecision, scores: { overallScore: 73 }, confidence: { score: 64, level: "medium" } },
+    scores: { overallScore: 73 },
+    confidence: { score: 64, level: "medium" },
+    asset: { symbol: "CONTROL", name: "Control Asset" },
+  });
+  assert.equal(visibleTerminalModel.overallScore, 73);
+  assert.equal(visibleTerminalModel.scoreDisplayable, true);
+  assert.equal(visibleTerminalModel.allocationOutcome.key, "investable_medium_confidence");
   const renderDecision = (model) => renderToString(React.createElement(DecisionHeroCard, {
     asset: { symbol: "TEST" },
     model,
