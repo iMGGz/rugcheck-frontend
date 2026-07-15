@@ -6510,6 +6510,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const composerRisks = safeArray(finalComposer.riskSummary);
   const dataFirstNarrativeContract = safeObject(safeModel.dataFirstNarrativeContract);
   const dataFirstFields = safeArray(dataFirstNarrativeContract.generatedNarrativeFields);
+  const lensAwareExplanations = safeObject(safeModel.lensAwareExplanations);
   const primaryBlocker = safeObject(safeModel.primaryBlocker);
   const weakestLink = safeObject(safeModel.weakestLink);
   const whatWouldChange = safeModel.whatWouldChangeDecision?.items?.length
@@ -6533,6 +6534,11 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     || canonicalProductRoute.questionGroup
     || finalComposer.canonicalQuestionGroup
     || lens.questionGroupId
+    || null;
+  const canonicalFamily = canonicalProductRoute.primaryFamily
+    || canonicalProductRoute.assetFamily
+    || finalComposer.canonicalFamily
+    || safeModel.primaryAnalysisRoute?.assetFamily
     || null;
   const rawEffectiveDivergenceWarning = lens.rawEffectiveLensDivergenceWarning || contractEffectiveLens.rawEffectiveLensDivergenceWarning || null;
 
@@ -6566,32 +6572,115 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     ["View final verdict logic", "Inspect blocker", "Trace evidence", "View requirements"],
   );
 
-  const decisionTab = renderedSurfaceList(
-    composerView.headline,
-    composerView.whatTheDataSupports,
-    composerView.strongestPartOfThesis,
-    composerView.weakestPartOfAnalysis,
-    composerView.allocationReadinessExplanation,
-    verdictSemantics.label,
-    verdictSemantics.summary,
-    verdictSemantics.boundary,
-    verdictSemantics.missingEvidence,
-    primaryBlocker.label,
-    primaryBlocker.explanation,
-    weakestLink.label,
-    weakestLink.explanation,
-    whatWouldChange,
-    safeModel.whyNow,
-    safeModel.whyNotNow,
-    safeModel.summaryMemo,
-    safeModel.primaryWeakness,
-    safeModel.failureMode?.primary,
-    safeModel.structuredThesisSummary,
-    safeModel.missingCritical,
-    safeModel.requiredConditions,
-    safeModel.blockers,
-    safeModel.decisionDrivers,
+  const decisionTabSurfaceRows = [];
+  const addDecisionTabField = ({
+    fieldPath,
+    value,
+    component,
+    sourceObjectPath = fieldPath,
+    classification = "primary",
+    visibilityStatus = "primary_visible",
+    narrativeOwner = "normalizedDecisionModel",
+    inclusionReason = "Consumed by the live Decision Tab component tree.",
+  }) => {
+    const values = sanitizeRenderedSurfaceValues(renderedSurfaceList(value));
+    values.forEach((renderedText, index) => {
+      decisionTabSurfaceRows.push({
+        surface: "decisionTab",
+        fieldPath: values.length > 1 ? `${fieldPath}[${index}]` : fieldPath,
+        sourceObjectPath,
+        renderedText,
+        classification,
+        renderedStatus: "rendered",
+        visibilityStatus,
+        canonicalFamily,
+        narrativeOwner,
+        componentConsumer: component,
+        inclusionReason,
+        exclusionReason: null,
+      });
+    });
+  };
+  const analystAnswerLeads = safeArray(safeModel.institutionalQuestions)
+    .map((question) => getAnalystAnswerCard(question))
+    .filter((card) => card?.directAnswer)
+    .slice(0, 3);
+  const primaryAnalystGap = analystAnswerLeads.find((card) =>
+    safeArray(card?.missingEvidence).length || /source|live data|review/i.test(String(card?.headlineStatus || ""))
   );
+  const noDominantWeakness = safeModel.primaryWeakness === "No dominant structural weakness identified.";
+  const allocationWhyNotNow = safeModel.whyNotNow
+    || (noDominantWeakness ? safeModel.evidenceConstraintNote : safeModel.primaryWeakness)
+    || "No explicit constraint was surfaced.";
+
+  if (verdictSemantics.hasVerdictClass) {
+    addDecisionTabField({ fieldPath: "model.verdictSemantics.label", value: verdictSemantics.label, component: "App.jsx:Verdict Semantics" });
+    addDecisionTabField({ fieldPath: "model.verdictSemantics.summary", value: verdictSemantics.summary, component: "App.jsx:Verdict Semantics" });
+    addDecisionTabField({ fieldPath: "model.verdictSemantics.boundary", value: verdictSemantics.boundary, component: "App.jsx:Verdict Semantics" });
+    addDecisionTabField({ fieldPath: "model.verdictSemantics.missingEvidence", value: verdictSemantics.missingEvidence, component: "App.jsx:Verdict Semantics" });
+  }
+  addDecisionTabField({ fieldPath: "model.verdictSemantics.boundary", value: verdictSemantics.boundary, component: "DecisionHeroSupportSections:verdict boundary" });
+  addDecisionTabField({ fieldPath: "model.contradictionNote", value: safeModel.contradictionNote, component: "DecisionHeroSupportSections:override explanation" });
+  addDecisionTabField({ fieldPath: "model.evidenceConstraintNote", value: safeModel.evidenceConstraintNote, component: "DecisionHeroSupportSections:evidence constraint" });
+  addDecisionTabField({
+    fieldPath: verdictSemantics.summary ? "model.verdictSemantics.summary" : "model.summaryMemo",
+    value: verdictSemantics.summary || safeModel.summaryMemo || "The live decision layer did not attach a structured verdict explanation.",
+    component: "DecisionHeroSupportSections:Why this verdict",
+    narrativeOwner: verdictSemantics.summary ? "decisionLayer" : "normalizedDecisionModel",
+  });
+  addDecisionTabField({ fieldPath: "model.allocationOutcome.label", value: safeModel.allocationOutcome?.label, component: "DecisionHeroSupportSections:Why this verdict" });
+  addDecisionTabField({
+    fieldPath: primaryBlocker.label ? "model.primaryBlocker.label" : "model.primaryBlocker.explanation",
+    value: primaryBlocker.label || primaryBlocker.explanation || "Primary blocker not explicitly available in the live response.",
+    component: "DecisionHeroSupportSections:stronger-verdict blocker",
+  });
+  addDecisionTabField({ fieldPath: "model.primaryBlocker.explanation", value: primaryBlocker.explanation, component: "DecisionHeroSupportSections:blocker detail" });
+  addDecisionTabField({ fieldPath: "model.primaryBlocker.badge", value: primaryBlocker.badge, component: "DecisionHeroSupportSections:blocker status" });
+  addDecisionTabField({
+    fieldPath: primaryAnalystGap?.directAnswer ? "model.institutionalQuestions[].analystAnswerCard.directAnswer" : "model.whatWouldChangeDecision.items[0]",
+    value: primaryAnalystGap?.directAnswer || whatWouldChange[0] || "Additional verified evidence is required before a stronger view.",
+    component: "DecisionHeroSupportSections:missing evidence answer",
+  });
+  addDecisionTabField({ fieldPath: "model.institutionalQuestions[].analystAnswerCard.headlineStatus", value: primaryAnalystGap?.headlineStatus, component: "DecisionHeroSupportSections:missing evidence status" });
+  addDecisionTabField({ fieldPath: "model.institutionalQuestions[].analystAnswerCard.missingEvidence", value: primaryAnalystGap?.missingEvidence, component: "DecisionHeroSupportSections:missing evidence detail" });
+  addDecisionTabField({ fieldPath: "model.institutionalQuestions[].analystAnswerCard.decisionImpact", value: primaryAnalystGap?.decisionImpact, component: "DecisionHeroSupportSections:missing evidence impact" });
+  addDecisionTabField({ fieldPath: "model.institutionalQuestions[].analystAnswerCard.sourceBoundaryPlainEnglish[0]", value: safeArray(primaryAnalystGap?.sourceBoundaryPlainEnglish)[0], component: "DecisionHeroSupportSections:missing evidence boundary" });
+  addDecisionTabField({ fieldPath: "model.whatWouldChangeDecision.items", value: whatWouldChange, component: "DecisionHeroSupportSections:What Would Change" });
+  addDecisionTabField({ fieldPath: "model.overallScore", value: safeModel.scoreDisplayable === false ? "Withheld" : formatScoreValue(safeModel.overallScore), component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.confidenceScore", value: formatScoreValue(safeModel.confidenceScore), component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.confidenceLabel", value: safeModel.confidenceLabel, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.evidenceStrength", value: safeModel.evidenceStrength, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.scoreDisplayLabel", value: safeModel.scoreDisplayLabel, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.tokenomicsSupplyIntegrity.tokenomicsIntegrityScore", value: safeModel.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === null || safeModel.tokenomicsSupplyIntegrity?.tokenomicsIntegrityScore === undefined ? null : `${safeModel.tokenomicsSupplyIntegrity.tokenomicsIntegrityScore}/100`, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.tokenomicsSupplyIntegrity.supplyTruth.status", value: safeModel.tokenomicsSupplyIntegrity?.supplyTruth?.status, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.scoringReadinessContract.overallReadinessStatus", value: safeModel.scoringReadinessContract?.overallReadinessStatus, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.manualReviewStatus.label", value: safeModel.manualReviewStatus?.label, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.manualReviewStatus.detail", value: safeModel.manualReviewStatus?.detail, component: "DecisionHeroSupportSections:score strip" });
+  addDecisionTabField({ fieldPath: "model.weakestLink.label", value: weakestLink.label, component: "DecisionHeroSupportSections:Decision Details", classification: "secondary", visibilityStatus: "expandable_detail" });
+  addDecisionTabField({ fieldPath: "model.weakestLink.explanation", value: weakestLink.explanation, component: "DecisionHeroSupportSections:Decision Details", classification: "secondary", visibilityStatus: "expandable_detail" });
+  addDecisionTabField({ fieldPath: "model.weakestLink.badge", value: weakestLink.badge, component: "DecisionHeroSupportSections:Decision Details", classification: "secondary", visibilityStatus: "expandable_detail" });
+  addDecisionTabField({ fieldPath: "model.auditAlerts", value: safeModel.auditAlerts, component: "App.jsx:RiskFlagsStrip" });
+  addDecisionTabField({ fieldPath: "model.posture", value: safeModel.posture, component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: "model.allocationOutcome.label", value: safeModel.allocationOutcome?.label, component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: "model.investabilityStatus", value: safeModel.investabilityStatus, component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: "model.currentState", value: safeModel.currentState, component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: safeModel.whyNow ? "model.whyNow" : "model.primaryStrength", value: safeModel.whyNow || safeModel.primaryStrength || "No immediate support case is strong enough to stand alone.", component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: safeModel.whyNotNow ? "model.whyNotNow" : noDominantWeakness ? "model.evidenceConstraintNote" : "model.primaryWeakness", value: allocationWhyNotNow, component: "AllocationOutcomeCard" });
+  addDecisionTabField({ fieldPath: "model.primaryWeakness", value: safeModel.primaryWeakness, component: "App.jsx:Decision Memo" });
+  addDecisionTabField({ fieldPath: "model.failureMode.primary", value: safeModel.failureMode?.primary || "Unavailable", component: "App.jsx:Decision Memo" });
+  if (safeModel.whyNotNow && safeModel.whyNotNow !== safeModel.summaryMemo) {
+    addDecisionTabField({ fieldPath: "model.whyNotNow", value: safeModel.whyNotNow, component: "App.jsx:Decision Memo" });
+  }
+  addDecisionTabField({ fieldPath: "model.summaryMemo", value: safeModel.summaryMemo, component: "App.jsx:Decision Memo" });
+  addDecisionTabField({ fieldPath: "model.evidenceStrength", value: safeModel.evidenceStrength, component: "EvidenceConfidenceCard" });
+  addDecisionTabField({ fieldPath: "model.confidenceLabel", value: safeModel.confidenceLabel, component: "EvidenceConfidenceCard" });
+  addDecisionTabField({ fieldPath: "model.missingCritical", value: safeModel.missingCritical, component: "EvidenceConfidenceCard" });
+  addDecisionTabField({ fieldPath: "model.requiredConditions", value: safeModel.requiredConditions, component: "EvidenceConfidenceCard" });
+  addDecisionTabField({ fieldPath: "model.decisionDrivers", value: safeModel.decisionDrivers, component: "App.jsx:Structural Signals" });
+  addDecisionTabField({ fieldPath: "model.blockers", value: safeModel.blockers, component: "App.jsx:Constraint Summary" });
+  addDecisionTabField({ fieldPath: "model.requiredConditions", value: safeModel.requiredConditions, component: "App.jsx:Constraint Summary" });
+
+  const decisionTab = renderedSurfaceList(decisionTabSurfaceRows.map((row) => row.renderedText));
 
   const thesisFalsification = renderedSurfaceList(
     composerView.headline,
@@ -6746,6 +6835,24 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     familyDataRequirementMatrixContract.protectedReportSummary,
   );
 
+  const nonRenderedAuditFields = [
+    {
+      fieldPath: "model.lensAwareExplanations",
+      sourceObjectPath: "analysis.lensAwareExplanations",
+      values: renderedSurfaceList(
+        lensAwareExplanations.primaryBlocker,
+        lensAwareExplanations.evidenceNeeded,
+        lensAwareExplanations.whatWouldChange,
+        lensAwareExplanations.requiredConditions,
+      ),
+      renderedStatus: "not_rendered_by_live_decision_tab",
+      visibilityStatus: "audit_only",
+      disposition: "audit_only_not_rendered",
+      componentConsumptionProof: "App.jsx Decision Tab and its DecisionHeroSupportSections, AllocationOutcomeCard, EvidenceConfidenceCard, and RiskFlagsStrip descendants do not read model.lensAwareExplanations.",
+      exclusionReason: "Compatibility narrative is not consumed by the live Decision Tab and cannot be classified as primary product truth when Composer/final decision fields exist.",
+    },
+  ];
+
   const rawSurfaces = {
     decisionHeader,
     decisionTab,
@@ -6816,6 +6923,11 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
       familyDataRequirementMatrixContract.auditDiagnostics,
       safeModel.analysisFreshness?.bundleMode,
       safeModel.engineLearningBackbone?.knownLimitations,
+      nonRenderedAuditFields.flatMap((entry) => [
+        `${entry.fieldPath}: ${entry.disposition}`,
+        entry.componentConsumptionProof,
+        entry.values,
+      ]),
     ),
   };
   const surfaces = Object.fromEntries(
@@ -6899,11 +7011,6 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const candidateFinalContradictionAssertions = constrainedFinalDecision
     ? allocationLanguageAssertions
     : [];
-  const canonicalFamily = canonicalProductRoute.primaryFamily
-    || canonicalProductRoute.assetFamily
-    || finalComposer.canonicalFamily
-    || safeModel.primaryAnalysisRoute?.assetFamily
-    || null;
   const wrongFamilyNarrativeAssertions = canonicalFamily
     ? primaryVisibleText
       .filter((entry) => !isPrimaryFamilyCompatibleText(entry, canonicalFamily))
@@ -6919,11 +7026,48 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
   const primaryNarrativePass = candidateFinalContradictionAssertions.length === 0
     && wrongFamilyNarrativeAssertions.length === 0
     && missingComposerControl.failClosed;
+  const classifiedDecisionTabSurfaceRows = decisionTabSurfaceRows.map((row) => {
+    const candidateContradiction = constrainedFinalDecision
+      && positiveAllocationPatterns.some(({ pattern }) => pattern.test(row.renderedText));
+    const wrongFamily = canonicalFamily
+      && !isPrimaryFamilyCompatibleText(`decisionTab: ${row.renderedText}`, canonicalFamily);
+    return {
+      ...row,
+      matchedForbiddenConcepts: wrongFamily ? ["canonical_family_incompatible_copy"] : [],
+      candidateFinalContradictionStatus: candidateContradiction ? "contradicted" : "none",
+    };
+  });
+  const decisionTabCorpusId = `${"rendered-surface-parity-view-model-v2-live-tab-mirror"}/decisionTab`;
 
   return {
     artifactVersion: "rendered-surface-parity-view-model-v2-live-tab-mirror",
     doctrine: "Rendered-intended text mirrors the exact frontend normalized fields consumed by primary tabs, right rail, and Copy Review Bundle.",
     surfaces,
+    surfaceRows: {
+      decisionTab: classifiedDecisionTabSurfaceRows,
+    },
+    corpusProvenance: {
+      owner: "buildRenderedSurfaceParityViewModel",
+      decisionTabCorpusId,
+      decisionTabViewModelOwner: "App.jsx overview component tree",
+      copyBundleMirrorOwner: "buildReviewBundleText via surfaceRows.decisionTab",
+      twoCSource: "buildRenderedSurfaceParityViewModel.primaryVisibleText",
+      twelveCSource: "buildBtcRenderedGateCorpusRows using the same rendered-surface view model",
+      twelveDSource: "buildBtcRenderedGateCorpusRows using the same rendered-surface view model",
+      scalarStringsPreserved: true,
+    },
+    nonRenderedAuditFields,
+    decisionTabFieldInventory: classifiedDecisionTabSurfaceRows.map((row) => ({
+      fieldPath: row.fieldPath,
+      sourceObjectPath: row.sourceObjectPath,
+      componentConsumer: row.componentConsumer,
+      classification: row.classification,
+      renderedStatus: row.renderedStatus,
+      visibilityStatus: row.visibilityStatus,
+      narrativeOwner: row.narrativeOwner,
+      inclusionReason: row.inclusionReason,
+      exclusionReason: row.exclusionReason,
+    })),
     tabMirrorCoverage,
     missingMirroredSurfaces,
     allRequiredSurfacesMirrored: missingMirroredSurfaces.length === 0,
@@ -6939,7 +7083,7 @@ export function buildRenderedSurfaceParityViewModel({ model, displayIdentity } =
     primaryNarrativePass,
     componentConsumption: {
       decisionHeader: "DecisionHeroCard.jsx reads verdictSemantics, displayIdentity, model asset labels, and primaryAnalysisRoute label/question group in the guardrail; raw resolvedInstitutionalLens remains audit context.",
-      decisionTab: "App.jsx Decision tab plus DecisionHeroSupportSections read verdictSemantics, primaryBlocker, weakestLink, whatWouldChangeDecision, and secondary display fields.",
+      decisionTab: "App.jsx overview plus DecisionHeroSupportSections, AllocationOutcomeCard, EvidenceConfidenceCard, and RiskFlagsStrip consume the exact fields inventoried in surfaceRows.decisionTab; none consumes lensAwareExplanations.",
       thesisFalsification: "ThesisFalsificationTab.jsx reads summaryMemo, tokenDemandTruth, whatMustBeTrue, whatCouldBreak, allocationCase, blockers, and whatWouldChangeDecision.",
       rightRail: "AnalysisRightRail.jsx reads displayIdentity labels, primaryAnalysisRoute label/question group, primaryBlocker, weakestLink, and whatWouldChangeDecision.",
       evidenceMap: "EvidenceMapTab.jsx reads source/evidence boundary, reviewed evidence mapping, and Engine Learning output QA diagnostics.",
@@ -7265,7 +7409,9 @@ const BTC_RENDERED_SECONDARY_SURFACES = [
 
 function normalizeBtcRenderedGateRows(rows = []) {
   return safeArray(rows)
-    .flatMap((row) => normalizeRenderableList(row?.text).map((text) => ({
+    .flatMap((row) => {
+      const sourceText = row?.text ?? row?.renderedText;
+      return normalizeRenderableList(Array.isArray(sourceText) ? sourceText : [sourceText]).map((text) => ({
       failureId: row?.failureId || `${row?.surface || "unknown"}:${row?.fieldPath || "field"}`,
       surface: row?.surface || "unknown",
       fieldPath: row?.fieldPath || "unknown",
@@ -7274,7 +7420,8 @@ function normalizeBtcRenderedGateRows(rows = []) {
       classification: row?.classification || "primary-visible",
       appearsInRenderedViewModel: row?.appearsInRenderedViewModel !== false,
       reason: row?.reason || null,
-    })))
+      }));
+    })
     .filter((row) => row.renderedText);
 }
 
@@ -7294,6 +7441,23 @@ function buildBtcRenderedGateCorpusRows({
   const rows = [];
   const surfaces = safeObject(renderedSurfaceParityViewModel?.surfaces);
   Object.entries(surfaces).forEach(([surface, values]) => {
+    const canonicalRows = surface === "decisionTab"
+      ? safeArray(renderedSurfaceParityViewModel?.surfaceRows?.decisionTab)
+      : [];
+    if (canonicalRows.length) {
+      canonicalRows.forEach((row) => {
+        rows.push({
+          surface,
+          fieldPath: row.fieldPath,
+          sourceObjectPath: row.sourceObjectPath,
+          text: row.renderedText,
+          classification: row.classification === "audit" ? "audit-only" : "primary-visible",
+          appearsInRenderedViewModel: row.renderedStatus === "rendered",
+          reason: row.inclusionReason,
+        });
+      });
+      return;
+    }
     const classification = BTC_RENDERED_PRIMARY_SURFACES.includes(surface)
       ? "primary-visible"
       : BTC_RENDERED_SECONDARY_SURFACES.includes(surface)
@@ -10682,6 +10846,12 @@ export function buildReviewBundleText({
       bundleField("Product rule", "Backend artifacts are insufficient; user-facing changes must pass backend response, frontend normalization, component/view-model consumption, visible tab output, right rail when applicable, and Copy Review Bundle mirror."),
       bundleField("Frontend normalized model present", yesNoUnknown(Boolean(Object.keys(safeModel).length))),
       bundleField("Rendered component view model present", yesNoUnknown(Boolean(renderedSurfaceParityViewModel.primaryVisibleText.length))),
+      bundleField("Decision Tab rendered-corpus owner", renderedSurfaceParityViewModel.corpusProvenance?.owner),
+      bundleField("Decision Tab corpus ID", renderedSurfaceParityViewModel.corpusProvenance?.decisionTabCorpusId),
+      bundleField("Decision Tab corpus source", renderedSurfaceParityViewModel.corpusProvenance?.twoCSource),
+      bundleField("Decision Tab canonical row count", safeArray(renderedSurfaceParityViewModel.surfaceRows?.decisionTab).length),
+      bundleField("Decision Tab scalar strings preserved", yesNoUnknown(renderedSurfaceParityViewModel.corpusProvenance?.scalarStringsPreserved)),
+      bundleField("Decision Tab audit-only exclusions", safeArray(renderedSurfaceParityViewModel.nonRenderedAuditFields).map((entry) => `${entry.fieldPath}=${entry.disposition}`).join("; ") || "none"),
       bundleField("Decision Header rendered item count", renderedSurfaceParityViewModel.decisionHeaderRenderedItemCount),
       bundleField("All required live tabs mirrored", yesNoUnknown(renderedSurfaceParityViewModel.allRequiredSurfacesMirrored)),
       bundleField("Missing mirrored live-tab surfaces", safeArray(renderedSurfaceParityViewModel.missingMirroredSurfaces).join("; ") || "none"),
@@ -10694,6 +10864,10 @@ export function buildReviewBundleText({
       )),
       "Primary visible rendered-intended text:",
       bundleList(renderedSurfaceParityViewModel.primaryVisibleText, "No rendered-intended primary text available.", 40),
+      "Decision Tab component-consumption proof:",
+      bundleList(safeArray(renderedSurfaceParityViewModel.surfaceRows?.decisionTab).map((row) =>
+        `${row.fieldPath} | source=${row.sourceObjectPath} | component=${row.componentConsumer} | ${row.classification} | ${row.renderedStatus}`
+      ), "No Decision Tab component-consumption rows available.", 80),
       "Surface coverage:",
       bundleList(Object.entries(renderedSurfaceParityViewModel.surfaces).map(([surface, values]) => `${surface}: ${safeArray(values).length} rendered-intended text item(s)`)),
     ]),
@@ -10707,50 +10881,15 @@ export function buildReviewBundleText({
       bundleList(["View final verdict logic", "Inspect blocker", "Trace evidence", "View requirements"]),
     ]),
     bundleSection("4. Decision Tab / Decision Snapshot", [
-      bundleField("Verdict semantics", `${safeModel.verdictSemantics?.label || "Unavailable"} - ${safeModel.verdictSemantics?.summary || "Unavailable"}`),
-      "Evidence still needed:",
-      bundleList(safeModel.verdictSemantics?.missingEvidence || safeModel.missingCritical),
-      bundleField("Primary blocker", safeModel.primaryBlocker?.label),
-      bundleField("Primary blocker detail", safeModel.primaryBlocker?.explanation),
-      bundleField("Weakest link", safeModel.weakestLink?.label),
-      bundleField("Weakest link detail", safeModel.weakestLink?.explanation),
-      "What Would Change The Decision:",
-      bundleList(safeModel.whatWouldChangeDecision?.items),
-      bundleField("Structural quality", bundlePrimaryScore),
-      bundleField("Evidence support", safeModel.confidenceScore),
-      bundleField("Confidence", safeModel.confidenceLabel),
-      bundleField("Manual review signal", `${safeModel.manualReviewStatus?.label || "Unavailable"} - ${safeModel.manualReviewStatus?.detail || "Unavailable"}`),
-      bundleField("Allocation Decision", safeModel.allocationOutcome?.label),
-      bundleField("Current state", safeModel.currentState),
-      bundleField("Why Now", safeModel.whyNow || decisionFrame.whyNow),
-      bundleField("Why Not Now", safeModel.whyNotNow || decisionFrame.whyNotNow),
-      bundleField("Decision Memo", safeModel.summaryMemo),
-      bundleField("Primary Weakness", safeModel.primaryWeakness),
-      bundleField("Failure Mode", safeModel.failureMode?.primary),
-      bundleField("Structured Thesis Summary", safeModel.structuredThesisSummary || safeModel.summaryMemo),
-      "Missing critical evidence:",
-      bundleList(safeModel.missingCritical),
-      "Required conditions:",
-      bundleList(safeModel.requiredConditions),
-      "Constraint Summary / blockers:",
-      bundleList(safeModel.blockers),
-      "Top decision drivers:",
-      bundleList(safeModel.decisionDrivers),
-      "Lens-aware display text:",
-      bundleList([
-        lensAware?.primaryBlocker,
-        ...(lensAware?.evidenceNeeded || []),
-        ...(lensAware?.whatWouldChange || []),
-        ...(lensAware?.requiredConditions || []),
-      ]),
-      "Raw/fallback audit text still present in backend fields:",
-      bundleList([
-        ...(decisionFrame.whatMustBeTrue || []),
-        ...(decisionFrame.nextCheckpoints || []),
-        ...safeArray(decisionLayer.researchRequirements).map((requirement) => requirement?.title),
-      ]),
-      bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
-      bundleField("Raw generic copy present in audit/backend fields", yesNoUnknown(rawGenericAudit)),
+      bundleField("Rendered-corpus owner", renderedSurfaceParityViewModel.corpusProvenance?.owner),
+      bundleField("Corpus ID", renderedSurfaceParityViewModel.corpusProvenance?.decisionTabCorpusId),
+      bundleField("Mirror policy", "Exact text mirror of the live Decision Tab component-consumption view model; no independent narrative recomputation."),
+      "Rendered Decision Tab text:",
+      bundleList(
+        safeArray(renderedSurfaceParityViewModel.surfaceRows?.decisionTab).map((row) => row.renderedText),
+        "No rendered Decision Tab text available.",
+        120,
+      ),
     ]),
     bundleSection("5. Thesis Falsification Tab", [
       bundleField("Allocation thesis", safeModel.summaryMemo),
@@ -11139,6 +11278,24 @@ export function buildReviewBundleText({
         `institutionalQuestions: ${safeArray(questions).length}`,
         `calibrationWarnings: ${safeArray(calibrationWarnings).length}`,
       ]),
+      "Non-rendered compatibility narrative (Audit / Raw only):",
+      bundleList([
+        "fieldPath: model.lensAwareExplanations",
+        "sourceObjectPath: analysis.lensAwareExplanations",
+        "disposition: audit_only_not_rendered",
+        "renderedStatus: not_rendered_by_live_decision_tab",
+        "componentConsumptionProof: App.jsx Decision Tab and its descendants do not consume lensAwareExplanations.",
+        ...safeArray(renderedSurfaceParityViewModel.nonRenderedAuditFields)
+          .flatMap((entry) => safeArray(entry.values).map((value) => `${entry.fieldPath}: ${value}`)),
+      ]),
+      "Raw/fallback decision diagnostics (Audit / Raw only):",
+      bundleList([
+        ...(decisionFrame.whatMustBeTrue || []),
+        ...(decisionFrame.nextCheckpoints || []),
+        ...safeArray(decisionLayer.researchRequirements).map((requirement) => requirement?.title),
+      ]),
+      bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
+      bundleField("Raw generic copy present in audit/backend fields", yesNoUnknown(rawGenericAudit)),
       "Failed/skipped provider list with reasons:",
       bundleProviderDiagnostics(providerDiagnosticsList.filter((entry) => entry?.status !== "success" || ["failed", "skipped", "unavailable", "partial"].includes(entry?.coverage || ""))),
       bundleField("Anthropic fallback status if visible", aiReport?.providerStatus || aiReport?.fallbackReason || safeMeta.aiFallbackStatus),
@@ -11651,6 +11808,9 @@ export function buildReviewBundleText({
     ]),
   ]);
   const btcBenchmarkQaSection = bundleSection("12C. BTC Benchmark Answer / Native Base-Layer Text QA", [
+    bundleField("Rendered corpus owner", renderedSurfaceParityViewModel.corpusProvenance?.owner),
+    bundleField("Decision Tab corpus ID", renderedSurfaceParityViewModel.corpusProvenance?.decisionTabCorpusId),
+    bundleField("Corpus source", renderedSurfaceParityViewModel.corpusProvenance?.twelveCSource),
     bundleField("BTC-native forbidden-string checks run", btcBenchmarkForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
     bundleField("BTC-native forbidden-string failures", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []).length),
     bundleField("Checked fields", btcBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),
@@ -11673,6 +11833,9 @@ export function buildReviewBundleText({
     ]),
   ]);
   const ethBenchmarkQaSection = bundleSection("12D. ETH Benchmark Answer / PoS Settlement Text QA", [
+    bundleField("Rendered corpus owner", renderedSurfaceParityViewModel.corpusProvenance?.owner),
+    bundleField("Decision Tab corpus ID", renderedSurfaceParityViewModel.corpusProvenance?.decisionTabCorpusId),
+    bundleField("Corpus source", renderedSurfaceParityViewModel.corpusProvenance?.twelveDSource),
     bundleField("ETH-native forbidden-string checks run", ethBenchmarkForbiddenStringChecks.length ? "yes" : "not applicable for this asset/lens"),
     bundleField("ETH-native forbidden-string failures", ethBenchmarkForbiddenStringChecks.flatMap((check) => check.primaryVisibleFailures || []).length),
     bundleField("Checked fields", ethBenchmarkForbiddenStringChecks.flatMap((check) => check.checkedFields).filter((entry, index, all) => all.indexOf(entry) === index).join("; ")),

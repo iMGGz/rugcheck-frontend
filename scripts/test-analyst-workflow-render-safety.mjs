@@ -784,6 +784,14 @@ try {
       questionGroupId: "native_eth_pos_questions",
       displayLabel: "PoS Smart-Contract Settlement / Gas Asset",
     },
+    lensAwareExplanations: {
+      source: "resolvedInstitutionalLens",
+      lensId: "POS_SMART_CONTRACT_SETTLEMENT_GAS_ASSET",
+      primaryBlocker: "ETH gas demand, EIP-1559 burn, staking security, L2/blob demand, and MEV relay concentration require review.",
+      evidenceNeeded: ["Attach current validator and staking evidence."],
+      whatWouldChange: ["Verify current L2/blob fee-market contribution."],
+      requiredConditions: ["Confirm Ethereum fee-market durability."],
+    },
   };
   const btcModel = buildCanonicalControlModel({
     asset: { symbol: "BTC", name: "Bitcoin" },
@@ -809,6 +817,23 @@ try {
   assert.equal(btcParity.candidateFinalContradictionAssertions.length, 0);
   assert.equal(btcParity.wrongFamilyNarrativeAssertions.length, 0);
   assert.equal(btcParity.primaryNarrativePass, true);
+  assert.equal(btcParity.corpusProvenance.owner, "buildRenderedSurfaceParityViewModel");
+  assert.equal(btcParity.corpusProvenance.scalarStringsPreserved, true);
+  assert.ok(btcParity.surfaceRows.decisionTab.length > 0);
+  btcParity.surfaceRows.decisionTab.forEach((row) => {
+    assert.equal(row.surface, "decisionTab");
+    assert.equal(row.renderedStatus, "rendered");
+    assert.ok(row.fieldPath);
+    assert.ok(row.sourceObjectPath);
+    assert.ok(row.componentConsumer);
+    assert.ok(row.inclusionReason);
+    assert.ok(btcParity.surfaces.decisionTab.includes(row.renderedText));
+  });
+  const lensAwareAuditField = btcParity.nonRenderedAuditFields.find((entry) => entry.fieldPath === "model.lensAwareExplanations");
+  assert.equal(lensAwareAuditField?.disposition, "audit_only_not_rendered");
+  assert.equal(lensAwareAuditField?.renderedStatus, "not_rendered_by_live_decision_tab");
+  assert.match(lensAwareAuditField?.componentConsumptionProof || "", /do not (?:read|consume)|do not consume/i);
+  assert.doesNotMatch(btcParity.surfaces.decisionTab.join(" "), /EIP-?1559|staking security|L2\/blob|MEV relay/i);
   const btcDecisionHtml = renderDecision(btcModel);
   assert.match(btcDecisionHtml, /Not Allocation-Ready/);
   assert.doesNotMatch(btcDecisionHtml, /Investable - Medium Confidence|directionally investable|EIP-?1559|L2\/blob/i);
@@ -816,6 +841,21 @@ try {
   assert.match(btcProtected, /fixed-supply monetary thesis/i);
   assert.doesNotMatch(btcProtected, /directionally investable|clears the benchmark allocation threshold|EIP-?1559|L2\/blob/i);
   const btcBundle = researchUtils.buildReviewBundleText({ asset: { symbol: "BTC", name: "Bitcoin" }, model: btcModel });
+  const bundleSlice = (bundle, start, end) => bundle.split(start)[1]?.split(end)[0] || "";
+  const btcDecisionTabBundle = bundleSlice(btcBundle, "=== 4. Decision Tab / Decision Snapshot ===", "=== 5. Thesis Falsification Tab ===");
+  const btcAuditBundle = bundleSlice(btcBundle, "=== 11. Audit / Raw Key Fields ===", "=== 12. Engine Learning Backbone v1 ===");
+  const btcTwoCBundle = bundleSlice(btcBundle, "=== 2C. Backend-to-Frontend Rendered Surface Parity Gate ===", "=== 2D.");
+  const btcTwelveCBundle = bundleSlice(btcBundle, "=== 12C. BTC Benchmark Answer / Native Base-Layer Text QA ===", "=== 12D.");
+  assert.match(btcDecisionTabBundle, /Exact text mirror of the live Decision Tab component-consumption view model/i);
+  assert.doesNotMatch(btcDecisionTabBundle, /Lens-aware display text|not_rendered_by_ui|not_rendered_by_live_decision_tab/i);
+  assert.doesNotMatch(btcDecisionTabBundle, /EIP-?1559|staking security|L2\/blob|MEV relay/i);
+  assert.match(btcAuditBundle, /model\.lensAwareExplanations/);
+  assert.match(btcAuditBundle, /analysis\.lensAwareExplanations/);
+  assert.match(btcAuditBundle, /audit_only_not_rendered/);
+  assert.match(btcAuditBundle, /not_rendered_by_live_decision_tab/);
+  assert.match(btcAuditBundle, /EIP-?1559|staking security|L2\/blob|MEV relay/i);
+  assert.match(btcTwoCBundle, new RegExp(btcParity.corpusProvenance.decisionTabCorpusId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(btcTwelveCBundle, new RegExp(btcParity.corpusProvenance.decisionTabCorpusId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const btcBundlePrimary = btcBundle.split("2BD. Final Analyst Answer Composer v1")[1]?.split("\n=== 2BE.")[0] || "";
   assert.match(btcBundlePrimary, /fixed-supply monetary thesis/i);
   assert.doesNotMatch(btcBundlePrimary, /directionally investable|clears the benchmark allocation threshold|EIP-?1559|L2\/blob/i);
@@ -840,6 +880,12 @@ try {
   const injectedWrongFamilyParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: injectedWrongFamilyModel });
   assert.ok(injectedWrongFamilyParity.wrongFamilyNarrativeAssertions.length > 0);
   assert.equal(injectedWrongFamilyParity.primaryNarrativePass, false);
+  const injectedWrongFamilyBundle = researchUtils.buildReviewBundleText({ asset: { symbol: "CONTROL", name: "Injected Control" }, model: injectedWrongFamilyModel });
+  const injectedTwoCBundle = bundleSlice(injectedWrongFamilyBundle, "=== 2C. Backend-to-Frontend Rendered Surface Parity Gate ===", "=== 2D.");
+  const injectedTwelveCBundle = bundleSlice(injectedWrongFamilyBundle, "=== 12C. BTC Benchmark Answer / Native Base-Layer Text QA ===", "=== 12D.");
+  assert.match(injectedTwoCBundle, /Gate status: FAIL/);
+  assert.match(injectedTwoCBundle, /Wrong-family narrative count: [1-9]/);
+  assert.match(injectedTwelveCBundle, /BTC-native forbidden-string failures: [1-9]/);
 
   const positiveBtcDecision = atomicDecision({
     displayable: true,
@@ -930,6 +976,68 @@ try {
   assert.match(usdcParity.primaryVisibleText.join(" "), /reserve|redemption|issuer|freeze|peg/i);
   assert.equal(usdcParity.wrongFamilyNarrativeAssertions.length, 0);
 
+  const xrpComposer = canonicalComposer({
+    family: "payments_settlement_network",
+    questionGroup: "payments_settlement_questions",
+    assetName: "XRP",
+    assetDescription: "XRP is the native settlement asset of the XRP Ledger payments network.",
+    headline: "XRP depends on durable payment and settlement usage, ledger security, liquidity, and regulatory access.",
+    support: "Available network observations support a bounded payments and settlement assessment.",
+    strength: "Native settlement identity and market access are established.",
+    weakness: "Current settlement usage, validator structure, and token value capture remain open checks.",
+    readiness: "The final decision remains constrained by usage, regulatory, and liquidity evidence.",
+    question: "Is settlement usage durable and economically relevant to XRP?",
+    answer: "The settlement role is identifiable, while current usage and value capture require verification.",
+    risk: "Weak usage, concentrated trust assumptions, regulatory constraints, or thin liquidity could weaken the thesis.",
+    queue: "Verify settlement usage, validator structure, liquidity, access, regulatory context, and token economic role.",
+    decision: blockedDecision,
+  });
+  const xrpModel = buildCanonicalControlModel({
+    asset: { symbol: "XRP", name: "XRP" },
+    family: "payments_settlement_network",
+    questionGroup: "payments_settlement_questions",
+    composer: xrpComposer,
+    decision: blockedDecision,
+  });
+  const xrpParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: xrpModel });
+  assert.match(xrpParity.primaryVisibleText.join(" "), /payment|settlement|validator|liquidity|regulatory/i);
+  assert.doesNotMatch(xrpParity.surfaces.decisionTab.join(" "), /EIP-?1559|L2\/blob|stablecoin reserve attestation/i);
+  assert.equal(xrpParity.wrongFamilyNarrativeAssertions.length, 0);
+
+  const buildNonEthL1Control = ({ symbol, name, network }) => {
+    const composer = canonicalComposer({
+      family: "non_eth_l1_smart_contract_platform",
+      questionGroup: "non_eth_l1_questions",
+      assetName: name,
+      assetDescription: `${name} is the native asset of the ${network} base-layer network.`,
+      headline: `${name}'s thesis depends on network usage, fees, validator security, liveness, and native token economics.`,
+      support: `Available ${network} observations support a bounded non-Ethereum base-layer assessment.`,
+      strength: "Native network identity and smart-contract platform role are established.",
+      weakness: "Current usage, validator distribution, liveness, and inflation data remain open checks.",
+      readiness: "The final decision remains constrained by current network-economics and security evidence.",
+      question: "Are usage, security, and token economics durable?",
+      answer: "The native platform role is clear, while current demand and security conditions require verification.",
+      risk: "Weak usage, validator concentration, inflation, or liveness failures could weaken the thesis.",
+      queue: `Verify ${network} usage, fees, validator distribution, liveness, inflation, liquidity, and access.`,
+      decision: blockedDecision,
+    });
+    return buildCanonicalControlModel({
+      asset: { symbol, name },
+      family: "non_eth_l1_smart_contract_platform",
+      questionGroup: "non_eth_l1_questions",
+      composer,
+      decision: blockedDecision,
+    });
+  };
+  const adaNonEthModel = buildNonEthL1Control({ symbol: "ADA", name: "Cardano", network: "Cardano" });
+  const avaxNonEthModel = buildNonEthL1Control({ symbol: "AVAX", name: "Avalanche", network: "Avalanche" });
+  [adaNonEthModel, avaxNonEthModel].forEach((model) => {
+    const parity = researchUtils.buildRenderedSurfaceParityViewModel({ model });
+    assert.match(parity.primaryVisibleText.join(" "), /network usage|fees|validator|liveness|inflation/i);
+    assert.doesNotMatch(parity.surfaces.decisionTab.join(" "), /EIP-?1559|ETH gas demand|L2\/blob|MEV relay/i);
+    assert.equal(parity.wrongFamilyNarrativeAssertions.length, 0);
+  });
+
   const missingComposerParity = researchUtils.buildRenderedSurfaceParityViewModel({ model: blockedTerminalModel });
   assert.equal(missingComposerParity.missingComposerControl.composerAttached, false);
   assert.equal(missingComposerParity.missingComposerControl.failClosed, true);
@@ -946,6 +1054,11 @@ try {
     "buildLensAwareSecondaryCopy",
   ].forEach((legacyOwner) => assert.doesNotMatch(researchUtilsSource, new RegExp(legacyOwner)));
   assert.doesNotMatch(researchUtilsSource, /(?:symbol|assetSymbol)\s*={2,3}\s*["'](?:BTC|ETH|USDC)["']/i);
+  const decisionSectionSource = researchUtilsSource.split('bundleSection("4. Decision Tab / Decision Snapshot"')[1]?.split('bundleSection("5. Thesis Falsification Tab"')[0] || "";
+  assert.match(decisionSectionSource, /surfaceRows\?\.decisionTab/);
+  assert.doesNotMatch(decisionSectionSource, /lensAware|decisionFrame\.whatMustBeTrue|not_rendered_by_ui/i);
+  assert.match(researchUtilsSource, /disposition: "audit_only_not_rendered"/);
+  assert.match(researchUtilsSource, /componentConsumptionProof/);
   const bundleSectionCount = (text) => (text.match(/^===\s.+\s===$/gm) || []).length;
   assert.equal(bundleSectionCount(btcBundle), bundleSectionCount(finalComposerBundle));
 
