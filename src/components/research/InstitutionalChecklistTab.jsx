@@ -989,9 +989,11 @@ function ProductAnswerCards({ composer, styles }) {
   }
   return (
     <Card title="Institutional Answers" subtitle="Backend-composed answers, attached data, limits, and next diligence." styles={styles}>
-      {cards.map((card) => (
-        <CollapsibleDetail key={card.answerId || card.cardId} title={card.question} subtitle={card.answer || card.shortAnswer} styles={styles} tone="#9bd7ff">
+      {cards.map((card) => {
+        const isNotApplicable = card.applicabilityStatus === "not_applicable";
+        return <CollapsibleDetail key={card.answerId || card.cardId} title={card.question} subtitle={card.answer || card.shortAnswer} styles={styles} tone="#9bd7ff">
           <SectionRow label="Answer state" value={labelize(card.answerState || card.semanticStatusLabel || card.statusLabel || "missing_key_data")} styles={styles} />
+          <SectionRow label="Applicability" value={isNotApplicable ? card.applicabilityReason || "Not relevant for this asset." : "Applicable to the canonical asset family and representation."} styles={styles} />
           <SectionRow label="Answer" value={card.answer || card.fundamentalAnalysis} styles={styles} />
           <ListBlock
             title="Data used"
@@ -1012,10 +1014,14 @@ function ProductAnswerCards({ composer, styles }) {
           {card.boundary || card.contextBoundary ? <SectionRow label="Boundary" value={card.boundary || card.contextBoundary} styles={styles} /> : null}
           <ListBlock title="What the data supports" items={card.whatTheDataSupports || card.whatDataSupports || card.whatThisSupports} emptyText="No bounded conclusion attached." color="#a6f3c2" styles={styles} />
           <ListBlock title="What the data does not prove" items={card.whatTheDataDoesNotProve || card.whatDataDoesNotProve || card.whatThisDoesNotProve} emptyText="No unsupported inference attached." color="#f9d976" styles={styles} />
-          <ListBlock title="Missing data / limits" items={card.missingData || card.missingObservations} emptyText="No material missing observations attached." color="#ffb6b6" styles={styles} />
-          <SectionRow label="Analyst next step" value={card.analystNextStep || "No next diligence action attached."} styles={styles} />
+          <ListBlock title="Missing data / limits" items={isNotApplicable ? [] : card.missingData || card.missingObservations} emptyText={isNotApplicable ? "No missing evidence is created by a non-applicable question." : "No material missing observations attached."} color="#ffb6b6" styles={styles} />
+          {isNotApplicable ? (
+            card.applicabilityRedirect ? <SectionRow label="Relevant alternative" value={card.applicabilityRedirect} styles={styles} /> : null
+          ) : (
+            <SectionRow label="Analyst next step" value={card.analystNextStep || "No next diligence action attached."} styles={styles} />
+          )}
         </CollapsibleDetail>
-      ))}
+      })}
     </Card>
   );
 }

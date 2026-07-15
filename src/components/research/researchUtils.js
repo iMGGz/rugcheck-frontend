@@ -552,6 +552,10 @@ function normalizeSynthesizedAnswerPayload(value) {
 }
 
 export function getAnalystAnswerCard(question) {
+  const synthesized = safeObject(question?.synthesizedAnswer);
+  const explicitNotApplicable = synthesized.applicabilityStatus === "not_applicable"
+    || question?.applicability?.status === "not_applicable"
+    || question?.answerStatus === "not_applicable";
   const surfaceCard = safeObject(question?.institutionalUserAnswerCard);
   if (Object.keys(surfaceCard).length) return {
     questionId: question?.questionId || surfaceCard.cardId || "question_unavailable",
@@ -565,17 +569,18 @@ export function getAnalystAnswerCard(question) {
     formulaContextUsed: [],
     liveDataUsed: safeArray(surfaceCard.keyMetrics).map(cleanPrimaryAnswerText),
     whatEvidenceDoesNotProve: safeArray(surfaceCard.whatThisDoesNotProve || surfaceCard.notApplicableNotes).map(cleanPrimaryAnswerText),
-    missingEvidence: safeArray(surfaceCard.missingObservations || surfaceCard.missingAnalysis || surfaceCard.openChecks).map(cleanPrimaryAnswerText),
+    missingEvidence: explicitNotApplicable ? [] : safeArray(surfaceCard.missingObservations || surfaceCard.missingAnalysis || surfaceCard.openChecks).map(cleanPrimaryAnswerText),
     decisionImpact: cleanPrimaryAnswerText(surfaceCard.riskImpact || surfaceCard.impactLabel || "Confidence depends on the unresolved checks."),
-    whatWouldChange: safeArray(surfaceCard.nextDiligenceActions || surfaceCard.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
+    whatWouldChange: explicitNotApplicable ? [] : safeArray(surfaceCard.nextDiligenceActions || surfaceCard.whatWouldImproveConfidence).map(cleanPrimaryAnswerText),
     sourceBoundaryPlainEnglish: [cleanPrimaryAnswerText(surfaceCard.methodologyLinkLabel || "See Methodology for how evidence status is interpreted.")],
     confidenceBoundary: cleanPrimaryAnswerText(surfaceCard.scoreImpactPlainEnglish || "These checks explain confidence before any future scoring integration."),
-    manualReviewImplication: cleanPrimaryAnswerText(surfaceCard.analystNextStep || safeArray(surfaceCard.openChecks)[0] || "Review the open checks before relying on stronger conclusions."),
+    manualReviewImplication: explicitNotApplicable
+      ? "No diligence requirement is created by a question that is not applicable to this asset."
+      : cleanPrimaryAnswerText(surfaceCard.analystNextStep || safeArray(surfaceCard.openChecks)[0] || "Review the open checks before relying on stronger conclusions."),
     assetClassSpecificKeyIssue: cleanPrimaryAnswerText(safeArray(surfaceCard.availableContextSummary)[0] || surfaceCard.answer || surfaceCard.shortAnswer),
     primaryBadges: [cleanPrimaryAnswerText(surfaceCard.statusLabel || "Needs verification")],
     auditFields: surfaceCard.auditDetailAvailable ? ["Clean primary card attached; raw diagnostic detail remains in Audit / Raw."] : [],
   };
-  const synthesized = safeObject(question?.synthesizedAnswer);
   const card = safeObject(synthesized.analystAnswerCard);
   if (Object.keys(card).length) return {
     ...card,
@@ -585,8 +590,8 @@ export function getAnalystAnswerCard(question) {
     formulaContextUsed: safeArray(card.formulaContextUsed),
     liveDataUsed: safeArray(card.liveDataUsed),
     whatEvidenceDoesNotProve: safeArray(card.whatEvidenceDoesNotProve),
-    missingEvidence: safeArray(card.missingEvidence),
-    whatWouldChange: safeArray(card.whatWouldChange),
+    missingEvidence: explicitNotApplicable ? [] : safeArray(card.missingEvidence),
+    whatWouldChange: explicitNotApplicable ? [] : safeArray(card.whatWouldChange),
     sourceBoundaryPlainEnglish: safeArray(card.sourceBoundaryPlainEnglish),
     primaryBadges: safeArray(card.primaryBadges),
     auditFields: safeArray(card.auditFields),
@@ -594,8 +599,12 @@ export function getAnalystAnswerCard(question) {
   return {
     questionId: question?.questionId || synthesized.questionId || "question_unavailable",
     questionText: question?.questionText || synthesized.questionText || "Institutional question",
-    directAnswer: synthesized.directAnswer || question?.shortAnswer || question?.answerSummary || "Source review required; direct evidence is not yet attached.",
-    headlineStatus: cleanPrimaryAnswerText(synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required")),
+    directAnswer: explicitNotApplicable
+      ? synthesized.applicabilityReason || question?.applicability?.reason || synthesized.directAnswer || question?.shortAnswer || "Not relevant for this asset."
+      : synthesized.directAnswer || question?.shortAnswer || question?.answerSummary || "Source review required; direct evidence is not yet attached.",
+    headlineStatus: explicitNotApplicable
+      ? "Not applicable"
+      : cleanPrimaryAnswerText(synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required")),
     evidenceBasis: safeArray(synthesized.evidenceUsed).length ? safeArray(synthesized.evidenceUsed) : safeArray(question?.supportingSignals),
     evidenceStatus: synthesized.evidenceStatus || question?.reviewedEvidenceStatus || question?.answerStatus || "source_required",
     reviewedEvidenceUsed: [
@@ -606,14 +615,20 @@ export function getAnalystAnswerCard(question) {
     formulaContextUsed: safeArray(synthesized.formulaOutputsUsed),
     liveDataUsed: safeArray(synthesized.liveDataUsed),
     whatEvidenceDoesNotProve: safeArray(synthesized.whatEvidenceDoesNotProve),
-    missingEvidence: safeArray(synthesized.missingEvidence).length ? safeArray(synthesized.missingEvidence) : safeArray(question?.missingEvidence),
+    missingEvidence: explicitNotApplicable
+      ? []
+      : safeArray(synthesized.missingEvidence).length ? safeArray(synthesized.missingEvidence) : safeArray(question?.missingEvidence),
     decisionImpact: synthesized.impact || question?.impactOnScoreOrConfidence || "Confidence remains source-boundary constrained until direct evidence is reviewed.",
-    whatWouldChange: safeArray(synthesized.whatWouldChange).length ? safeArray(synthesized.whatWouldChange) : safeArray(question?.whatWouldChange),
+    whatWouldChange: explicitNotApplicable
+      ? []
+      : safeArray(synthesized.whatWouldChange).length ? safeArray(synthesized.whatWouldChange) : safeArray(question?.whatWouldChange),
     sourceBoundaryPlainEnglish: safeArray(synthesized.sourceBoundary).length
       ? safeArray(synthesized.sourceBoundary).map((entry) => cleanPrimaryAnswerText(String(entry).replace(/_/g, " ")))
       : ["Provider context helps identify what still needs source review."],
     confidenceBoundary: "This answer explains confidence; numerical score integration requires a calibrated release.",
-    manualReviewImplication: safeArray(synthesized.missingEvidence).length ? "Manual/source review remains useful because material evidence is still missing." : "No separate manual-review implication beyond the current source boundary.",
+    manualReviewImplication: explicitNotApplicable
+      ? "No diligence requirement is created by a question that is not applicable to this asset."
+      : safeArray(synthesized.missingEvidence).length ? "Manual/source review remains useful because material evidence is still missing." : "No separate manual-review implication beyond the current source boundary.",
     assetClassSpecificKeyIssue: "Answer the precise institutional question without overclaiming source support.",
     primaryBadges: [cleanPrimaryAnswerText(synthesized.evidenceStatus ? titleCase(synthesized.evidenceStatus) : titleCase(question?.answerStatus || "source_required"))],
     auditFields: [
@@ -1581,32 +1596,68 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
     safeArray(contract.canonicalQuestionJudgments).length
       ? contract.canonicalQuestionJudgments
       : contract.fundamentalQuestionAnswers
-  ).map((answer) => ({
-    ...safeObject(answer),
-    question: cleanPrimaryAnswerText(answer?.question || answer?.questionText),
-    questionText: cleanPrimaryAnswerText(answer?.questionText || answer?.question),
-    directAnswer: cleanPrimaryAnswerText(answer?.directAnswer || answer?.answer),
-    answer: cleanPrimaryAnswerText(answer?.answer || answer?.directAnswer),
-    dataUsed: safeArray(answer?.dataUsed),
-    eligibleObservations: safeArray(answer?.eligibleObservations),
-    contextOnlyObservations: safeArray(answer?.contextOnlyObservations),
-    forbiddenForQuestionObservations: safeArray(answer?.forbiddenForQuestionObservations),
-    unsupportedInferences: safeArray(answer?.unsupportedInferences || answer?.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
-    missingRequiredObservations: safeArray(answer?.missingRequiredObservations || answer?.gap || answer?.missingData).map(cleanPrimaryAnswerText),
-    evidenceBehindIt: safeArray(answer?.evidenceBehindIt || answer?.whatTheDataSupports).map(cleanPrimaryAnswerText),
-    whatTheDataSupports: safeArray(answer?.whatTheDataSupports || answer?.evidenceBehindIt).map(cleanPrimaryAnswerText),
-    gap: safeArray(answer?.gap || answer?.missingRequiredObservations || answer?.missingData).map(cleanPrimaryAnswerText),
-    whatTheDataDoesNotProve: safeArray(answer?.whatTheDataDoesNotProve || answer?.unsupportedInferences).map(cleanPrimaryAnswerText),
-    missingData: safeArray(answer?.missingData || answer?.missingRequiredObservations).map(cleanPrimaryAnswerText),
-    whatWouldChangeTheView: cleanPrimaryAnswerText(answer?.whatWouldChangeTheView || answer?.analystNextStep),
-    analystNextStep: cleanPrimaryAnswerText(answer?.analystNextStep || answer?.whatWouldChangeTheView),
-    observationTypesUsed: safeArray(answer?.observationTypesUsed),
-    observationTypesMissing: safeArray(answer?.observationTypesMissing),
-    familyApplicability: safeArray(answer?.familyApplicability),
-    sourceTrace: safeArray(answer?.sourceTrace),
-    auditDiagnostics: safeObject(answer?.auditDiagnostics),
-    boundary: cleanPrimaryAnswerText(answer?.boundary),
-  }));
+  ).map((answer) => {
+    const rawAnswer = safeObject(answer);
+    const isNotApplicable = rawAnswer.applicabilityStatus === "not_applicable"
+      || rawAnswer.answerStatus === "not_applicable";
+    return {
+      ...rawAnswer,
+      question: cleanPrimaryAnswerText(rawAnswer.question || rawAnswer.questionText),
+      questionText: cleanPrimaryAnswerText(rawAnswer.questionText || rawAnswer.question),
+      applicabilityStatus: rawAnswer.applicabilityStatus || "applicability_unknown",
+      applicabilityReason: cleanPrimaryAnswerText(rawAnswer.applicabilityReason),
+      applicabilityBasis: safeArray(rawAnswer.applicabilityBasis).map(cleanPrimaryAnswerText),
+      applicabilityRedirect: cleanPrimaryAnswerText(rawAnswer.applicabilityRedirect),
+      noScoreOrCoveragePenalty: rawAnswer.noScoreOrCoveragePenalty === true,
+      directAnswer: cleanPrimaryAnswerText(rawAnswer.directAnswer || rawAnswer.answer),
+      answer: cleanPrimaryAnswerText(rawAnswer.answer || rawAnswer.directAnswer),
+      dataUsed: safeArray(rawAnswer.dataUsed),
+      eligibleObservations: safeArray(rawAnswer.eligibleObservations),
+      contextOnlyObservations: safeArray(rawAnswer.contextOnlyObservations),
+      forbiddenForQuestionObservations: safeArray(rawAnswer.forbiddenForQuestionObservations),
+      unsupportedInferences: safeArray(rawAnswer.unsupportedInferences || rawAnswer.whatTheDataDoesNotProve).map(cleanPrimaryAnswerText),
+      missingRequiredObservations: isNotApplicable
+        ? []
+        : safeArray(rawAnswer.missingRequiredObservations || rawAnswer.gap || rawAnswer.missingData).map(cleanPrimaryAnswerText),
+      evidenceBehindIt: safeArray(rawAnswer.evidenceBehindIt || rawAnswer.whatTheDataSupports).map(cleanPrimaryAnswerText),
+      whatTheDataSupports: safeArray(rawAnswer.whatTheDataSupports || rawAnswer.evidenceBehindIt).map(cleanPrimaryAnswerText),
+      gap: isNotApplicable
+        ? []
+        : safeArray(rawAnswer.gap || rawAnswer.missingRequiredObservations || rawAnswer.missingData).map(cleanPrimaryAnswerText),
+      whatTheDataDoesNotProve: safeArray(rawAnswer.whatTheDataDoesNotProve || rawAnswer.unsupportedInferences).map(cleanPrimaryAnswerText),
+      missingData: isNotApplicable
+        ? []
+        : safeArray(rawAnswer.missingData || rawAnswer.missingRequiredObservations).map(cleanPrimaryAnswerText),
+      whatWouldChangeTheView: isNotApplicable
+        ? ""
+        : cleanPrimaryAnswerText(
+          Object.prototype.hasOwnProperty.call(rawAnswer, "whatWouldChangeTheView")
+            ? rawAnswer.whatWouldChangeTheView
+            : rawAnswer.analystNextStep
+        ),
+      analystNextStep: isNotApplicable
+        ? ""
+        : cleanPrimaryAnswerText(
+          Object.prototype.hasOwnProperty.call(rawAnswer, "analystNextStep")
+            ? rawAnswer.analystNextStep
+            : rawAnswer.whatWouldChangeTheView
+        ),
+      observationTypesUsed: safeArray(rawAnswer.observationTypesUsed),
+      observationTypesMissing: isNotApplicable ? [] : safeArray(rawAnswer.observationTypesMissing),
+      familyApplicability: safeArray(rawAnswer.familyApplicability),
+      sourceTrace: safeArray(rawAnswer.sourceTrace),
+      excludedEvidenceIds: safeArray(rawAnswer.excludedEvidenceIds),
+      exclusionReasons: safeArray(rawAnswer.exclusionReasons).map(cleanPrimaryAnswerText),
+      auditDiagnostics: safeObject(rawAnswer.auditDiagnostics),
+      boundary: cleanPrimaryAnswerText(rawAnswer.boundary),
+    };
+  });
+  const notApplicableQuestionIds = new Set(
+    canonicalQuestionJudgments
+      .filter((answer) => answer.applicabilityStatus === "not_applicable")
+      .map((answer) => answer.questionId)
+      .filter(Boolean),
+  );
   const rawScoreExplanationBridge = safeObject(contract.scoreExplanationBridge);
   const normalizedVerdictLabel = cleanPrimaryAnswerText(
     rawScoreExplanationBridge.verdictLabel || rawScoreExplanationBridge.verdict
@@ -1621,8 +1672,8 @@ export function normalizeFinalAnalystAnswerComposerPayload(responseLike) {
     questionId: item?.questionId || null,
     requirementId: item?.requirementId || item?.queueItemId || `canonical-queue-${index}`,
     text: cleanPrimaryAnswerText(item?.text || item?.label || item),
-  })).filter((item) => item.text);
-  const sourceQueuePriorities = familyBoundSourceQueue.length
+  })).filter((item) => item.text && !notApplicableQuestionIds.has(item.questionId));
+  const sourceQueuePriorities = Array.isArray(contract.familyBoundSourceQueue)
     ? familyBoundSourceQueue.map((item) => item.text)
     : safeArray(contract.sourceQueuePriorities).map(cleanPrimaryAnswerText);
   return {
@@ -3293,7 +3344,7 @@ export function buildProtectedInvestorReportText({
     return formula?.displayedValue || formula?.display || fallback;
   };
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
-  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
+  const finalAnalystAnswerComposerContract = normalizeFinalAnalystAnswerComposerPayload(safeModel)
     || normalizeFinalAnalystAnswerComposerPayload(safeData)
     || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const marketWideAnalystPipelinePurityContract = safeModel.marketWideAnalystPipelinePurityContract
@@ -3363,21 +3414,25 @@ export function buildProtectedInvestorReportText({
   const selectedQuestions = composerCards.slice(0, 8);
   const questionLines = selectedQuestions.flatMap((question, index) => {
     if (composerCards.length) {
+      const isNotApplicable = question.applicabilityStatus === "not_applicable";
       const dataUsed = safeArray(question.dataUsed)
         .slice(0, 4)
         .map((item) => cleanPrimaryAnswerText(`${item?.label || "Data"}: ${item?.displayValue || item?.value || item}`));
       const support = normalizeRenderableList(question.evidenceBehindIt || question.whatTheDataSupports || question.whatDataSupports || question.whatThisSupports).slice(0, 3).map(cleanPrimaryAnswerText);
       const limits = normalizeRenderableList(question.whatTheDataDoesNotProve || question.whatDataDoesNotProve || question.whatThisDoesNotProve).slice(0, 3).map(cleanPrimaryAnswerText);
-      const missingEvidence = normalizeRenderableList(question.gap || question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
+      const missingEvidence = isNotApplicable
+        ? []
+        : normalizeRenderableList(question.gap || question.missingData || question.missingObservations || question.openChecks).slice(0, 3).map(cleanPrimaryAnswerText);
       return [
         `${index + 1}. ${cleanPrimaryAnswerText(question.question || "Institutional question")}`,
         `   Answer state: ${cleanPrimaryAnswerText(titleCase(question.answerState || question.statusLabel || question.sourceStateLabel || "Needs verification"))}`,
+        `   Applicability: ${isNotApplicable ? cleanPrimaryAnswerText(question.applicabilityReason || "Not relevant for this asset.") : "Applicable to the canonical asset family and representation."}`,
         `   Answer: ${cleanPrimaryAnswerText(question.directAnswer || question.answer || question.shortAnswer || question.fundamentalAnalysis || "Source review required before a stronger answer is shown.")}`,
         `   Data used: ${dataUsed.length ? dataUsed.join("; ") : "No question-specific data attached."}`,
         `   Support: ${support.length ? support.join("; ") : "No bounded support conclusion attached."}`,
         `   Limits: ${limits.length ? limits.join("; ") : "No additional limits attached."}`,
         `   Missing data: ${missingEvidence.length ? missingEvidence.join("; ") : "No material missing inputs attached."}`,
-        `   Next step: ${cleanPrimaryAnswerText(question.whatWouldChangeTheView || question.analystNextStep || safeArray(question.openChecks)[0] || "No additional diligence step attached.")}`,
+        ...(isNotApplicable ? [] : [`   Next step: ${cleanPrimaryAnswerText(question.whatWouldChangeTheView || question.analystNextStep || safeArray(question.openChecks)[0] || "No additional diligence step attached.")}`]),
         `   Boundary: ${cleanPrimaryAnswerText(question.boundary || question.contextBoundary || "Use only within the stated evidence scope.")}`,
       ];
     }
@@ -3386,7 +3441,9 @@ export function buildProtectedInvestorReportText({
   const missingEvidence = normalizeRenderableList(finalAnalystAnswerComposerContract?.contractAttached ? [
     finalAnalystAnswerComposerContract?.analystView?.missingForHigherConviction,
     finalAnalystAnswerComposerContract?.availableDataSummary?.missingSections,
-    composerCards.flatMap((question) => safeArray(question.gap || question.missingRequiredObservations)),
+    composerCards
+      .filter((question) => question.applicabilityStatus !== "not_applicable")
+      .flatMap((question) => safeArray(question.gap || question.missingRequiredObservations)),
     canonicalSourceQueueText,
     tokenomicsSupplyIntegrity?.sourceRequirements,
   ] : [
@@ -7871,7 +7928,7 @@ export function buildReviewBundleText({
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
   const institutionalAnswerSurfaceContract = safeModel.institutionalAnswerSurfaceContract || normalizeInstitutionalAnswerSurfacePayload(safeData) || normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
-  const finalAnalystAnswerComposerContract = safeModel.finalAnalystAnswerComposerContract
+  const finalAnalystAnswerComposerContract = normalizeFinalAnalystAnswerComposerPayload(safeModel)
     || normalizeFinalAnalystAnswerComposerPayload(safeData)
     || normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const marketWideAnalystPipelinePurityContract = safeModel.marketWideAnalystPipelinePurityContract
@@ -9025,12 +9082,13 @@ export function buildReviewBundleText({
         finalAnalystAnswerComposerContract?.analystView?.allocationReadinessExplanation,
       ].filter(Boolean)),
       "User-facing fundamental answers:",
-      bundleList(safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments).map((answer) =>
-        `${answer.question} | state=${answer.answerState || "missing_key_data"} | direct=${answer.directAnswer || answer.answer || "missing"} | evidence=${safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports).join(" / ") || "none"} | gap=${safeArray(answer.gap || answer.missingData).join(" / ") || "none"} | whatWouldChange=${answer.whatWouldChangeTheView || answer.analystNextStep || "none"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | boundary=${answer.boundary || "none"}`
-      ), "No final composer answers attached.", 20),
+      bundleList(safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments).map((answer) => {
+        const isNotApplicable = answer.applicabilityStatus === "not_applicable";
+        return `${answer.question} | state=${answer.answerState || "missing_key_data"} | applicability=${answer.applicabilityStatus || "unknown"} | applicabilityReason=${answer.applicabilityReason || "none"} | noPenalty=${yesNoUnknown(answer.noScoreOrCoveragePenalty)} | direct=${answer.directAnswer || answer.answer || "missing"} | evidence=${safeArray(answer.evidenceBehindIt || answer.whatTheDataSupports).join(" / ") || "none"} | gap=${isNotApplicable ? "none" : safeArray(answer.gap || answer.missingData).join(" / ") || "none"} | whatWouldChange=${isNotApplicable ? "none" : answer.whatWouldChangeTheView || answer.analystNextStep || "none"} | data=${safeArray(answer.dataUsed).map((item) => `${item.label}: ${item.displayValue || item.value}`).join("; ") || "none"} | limits=${safeArray(answer.whatTheDataDoesNotProve).join(" / ") || "none"} | boundary=${answer.boundary || "none"}`;
+      }), "No final composer answers attached.", 20),
       "Canonical judgment audit classifications:",
       bundleList(safeArray(finalAnalystAnswerComposerContract?.canonicalQuestionJudgments).map((answer) =>
-        `${answer.questionId} | claim=${answer.claimType || "unavailable"} | eligible=${safeArray(answer.eligibleObservations).length} | contextOnly=${safeArray(answer.contextOnlyObservations).length} | forbidden=${safeArray(answer.forbiddenForQuestionObservations).length} | missing=${safeArray(answer.missingRequiredObservations).join("; ") || "none"}`
+        `${answer.questionId} | claim=${answer.claimType || "unavailable"} | applicability=${answer.applicabilityStatus || "unknown"} | basis=${safeArray(answer.applicabilityBasis).join("; ") || "none"} | redirect=${answer.applicabilityRedirect || "none"} | eligible=${safeArray(answer.eligibleObservations).length} | eligibleIds=${safeArray(answer.eligibleObservations).map((item) => item.observationId).join("; ") || "none"} | sourceTrace=${safeArray(answer.sourceTrace).join("; ") || "none"} | contextOnly=${safeArray(answer.contextOnlyObservations).length} | contextIds=${safeArray(answer.contextOnlyObservations).map((item) => item.observationId).join("; ") || "none"} | excluded=${safeArray(answer.excludedEvidenceIds).join("; ") || "none"} | exclusionReasons=${safeArray(answer.exclusionReasons).join("; ") || "none"} | forbidden=${safeArray(answer.forbiddenForQuestionObservations).length} | missing=${safeArray(answer.missingRequiredObservations).join("; ") || "none"}`
       ), "No canonical judgment classifications attached.", 20),
       "Family-bound Source Queue:",
       bundleList(safeArray(finalAnalystAnswerComposerContract?.familyBoundSourceQueue).length

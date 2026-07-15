@@ -124,25 +124,29 @@ export function TokenomicsSupplyQuestionCard({ tokenomics, styles }) {
       styles={styles}
     >
       <div style={{ display: "grid", gap: "0.75rem" }}>
-        {questions.map((question) => (
-          <div key={question.questionId || question.questionText} style={{
+        {questions.map((question) => {
+          const analystCard = getAnalystAnswerCard(question);
+          const isNotApplicable = question.synthesizedAnswer?.applicabilityStatus === "not_applicable"
+            || question.applicability?.status === "not_applicable"
+            || question.answerStatus === "not_applicable";
+          return <div key={question.questionId || question.questionText} style={{
             border: "1px solid rgba(148, 163, 184, 0.18)",
             borderRadius: 14,
             padding: "0.85rem",
             background: "rgba(6, 12, 24, 0.38)",
           }}>
             <SectionRow label="Question" value={question.questionText} styles={styles} />
-            <SectionRow label="Status" value={getAnalystAnswerCard(question).headlineStatus || titleCase(question.answerStatus)} styles={styles} />
-            <SectionRow label="Direct answer" value={getAnalystAnswerCard(question).directAnswer || question.synthesizedAnswer?.directAnswer || question.shortAnswer || question.answerSummary || "Source required"} styles={styles} />
-            <SectionRow label="Confidence boundary" value={getAnalystAnswerCard(question).confidenceBoundary || "No scoring or verdict change is inferred from this display card."} styles={styles} />
+            <SectionRow label="Status" value={analystCard.headlineStatus || titleCase(question.answerStatus)} styles={styles} />
+            <SectionRow label="Direct answer" value={analystCard.directAnswer || question.synthesizedAnswer?.directAnswer || question.shortAnswer || question.answerSummary || "Source required"} styles={styles} />
+            <SectionRow label="Confidence boundary" value={analystCard.confidenceBoundary || "No scoring or verdict change is inferred from this display card."} styles={styles} />
             <ListBlock title="Data fields used" items={question.dataFieldsUsed} emptyText="No data fields were listed." color="#d5dcec" styles={styles} />
             <ListBlock title="Formula outputs used" items={question.formulaOutputsUsed} emptyText="No formula outputs were listed." color="#9bd7ff" styles={styles} />
-            <ListBlock title="Evidence basis" items={safeArray(getAnalystAnswerCard(question).evidenceBasis).length ? getAnalystAnswerCard(question).evidenceBasis : safeArray(question.synthesizedAnswer?.evidenceUsed).length ? question.synthesizedAnswer.evidenceUsed : question.evidenceUsed} emptyText="No reviewed evidence was attached." color="#a6f3c2" styles={styles} />
-            <ListBlock title="What evidence does not prove" items={safeArray(getAnalystAnswerCard(question).whatEvidenceDoesNotProve).length ? getAnalystAnswerCard(question).whatEvidenceDoesNotProve : question.synthesizedAnswer?.whatEvidenceDoesNotProve} emptyText="No non-proof boundary was attached." color="#f9d976" styles={styles} />
-            <ListBlock title="Missing evidence" items={safeArray(getAnalystAnswerCard(question).missingEvidence).length ? getAnalystAnswerCard(question).missingEvidence : safeArray(question.synthesizedAnswer?.missingEvidence).length ? question.synthesizedAnswer.missingEvidence : question.missingEvidence} emptyText="No missing evidence was attached." color="#f9d976" styles={styles} />
-            <ListBlock title="What would change" items={safeArray(getAnalystAnswerCard(question).whatWouldChange).length ? getAnalystAnswerCard(question).whatWouldChange : safeArray(question.synthesizedAnswer?.whatWouldChange).length ? question.synthesizedAnswer.whatWouldChange : question.whatWouldChange} emptyText="No change requirement was attached." color="#9bd7ff" styles={styles} />
+            <ListBlock title="Evidence basis" items={safeArray(analystCard.evidenceBasis).length ? analystCard.evidenceBasis : safeArray(question.synthesizedAnswer?.evidenceUsed).length ? question.synthesizedAnswer.evidenceUsed : question.evidenceUsed} emptyText="No reviewed evidence was attached." color="#a6f3c2" styles={styles} />
+            <ListBlock title="What evidence does not prove" items={safeArray(analystCard.whatEvidenceDoesNotProve).length ? analystCard.whatEvidenceDoesNotProve : question.synthesizedAnswer?.whatEvidenceDoesNotProve} emptyText="No non-proof boundary was attached." color="#f9d976" styles={styles} />
+            <ListBlock title="Missing evidence" items={isNotApplicable ? [] : safeArray(analystCard.missingEvidence).length ? analystCard.missingEvidence : safeArray(question.synthesizedAnswer?.missingEvidence).length ? question.synthesizedAnswer.missingEvidence : question.missingEvidence} emptyText={isNotApplicable ? "No missing evidence is created by a non-applicable question." : "No missing evidence was attached."} color="#f9d976" styles={styles} />
+            <ListBlock title="What would change" items={isNotApplicable ? [] : safeArray(analystCard.whatWouldChange).length ? analystCard.whatWouldChange : safeArray(question.synthesizedAnswer?.whatWouldChange).length ? question.synthesizedAnswer.whatWouldChange : question.whatWouldChange} emptyText={isNotApplicable ? "No diligence requirement is created by a non-applicable question." : "No change requirement was attached."} color="#9bd7ff" styles={styles} />
           </div>
-        ))}
+        })}
       </div>
     </Card>
   );

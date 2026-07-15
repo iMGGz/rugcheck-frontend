@@ -519,6 +519,151 @@ try {
   assert.match(finalComposerBundle, /Current network observations support a preliminary security-budget assessment/);
   assert.doesNotMatch(finalComposerBundle, /NO_MATCHING_QUESTION_EVIDENCE_CONTRACT/);
 
+  const notApplicableQuestion = {
+    ...finalAnalystComposer.canonicalQuestionJudgments[0],
+    questionId: "btc_protocol_revenue_not_applicable",
+    question: "Does protocol revenue accrue to BTC holders?",
+    answerState: "not_applicable_for_family",
+    answerStatus: "not_applicable",
+    applicabilityStatus: "not_applicable",
+    applicabilityReason: "Protocol revenue is not the applicable diligence frame for a native proof-of-work monetary asset.",
+    applicabilityBasis: ["Canonical family: native_btc_pow_monetary"],
+    applicabilityRedirect: "Assess fee-market security, miner economics, liquidity, and custody access instead.",
+    noScoreOrCoveragePenalty: true,
+    directAnswer: "Not relevant for this asset; use the native monetary security-budget frame.",
+    answer: "Not relevant for this asset; use the native monetary security-budget frame.",
+    gap: ["STALE_NA_GAP_MUST_NOT_RENDER"],
+    missingData: ["STALE_NA_GAP_MUST_NOT_RENDER"],
+    missingRequiredObservations: ["STALE_NA_GAP_MUST_NOT_RENDER"],
+    observationTypesMissing: ["STALE_NA_OBSERVATION_MUST_NOT_RENDER"],
+    whatWouldChangeTheView: "STALE_NA_NEXT_STEP_MUST_NOT_RENDER",
+    analystNextStep: "STALE_NA_NEXT_STEP_MUST_NOT_RENDER",
+    excludedEvidenceIds: ["foreign-asset-evidence-audit-id"],
+    exclusionReasons: ["wrong_asset_rejected: evidence belongs to a different canonical asset"],
+  };
+  const notApplicableComposer = {
+    ...finalAnalystComposer,
+    canonicalQuestionJudgments: [notApplicableQuestion],
+    fundamentalQuestionAnswers: [notApplicableQuestion],
+    familyBoundSourceQueue: [{
+      queueItemId: "stale-na-queue-item",
+      canonicalFamily: "native_btc_pow_monetary",
+      questionId: notApplicableQuestion.questionId,
+      text: "STALE_NA_QUEUE_MUST_NOT_RENDER",
+    }],
+    sourceQueuePriorities: ["STALE_NA_QUEUE_MUST_NOT_RENDER"],
+  };
+  const normalizedNotApplicable = researchUtils.normalizeFinalAnalystAnswerComposerPayload({
+    finalAnalystAnswerComposerContract: notApplicableComposer,
+  });
+  const normalizedNotApplicableQuestion = normalizedNotApplicable.canonicalQuestionJudgments[0];
+  assert.equal(normalizedNotApplicableQuestion.applicabilityStatus, "not_applicable");
+  assert.deepEqual(normalizedNotApplicableQuestion.gap, []);
+  assert.deepEqual(normalizedNotApplicableQuestion.missingData, []);
+  assert.deepEqual(normalizedNotApplicableQuestion.missingRequiredObservations, []);
+  assert.deepEqual(normalizedNotApplicableQuestion.observationTypesMissing, []);
+  assert.equal(normalizedNotApplicableQuestion.whatWouldChangeTheView, "");
+  assert.equal(normalizedNotApplicableQuestion.analystNextStep, "");
+  assert.equal(normalizedNotApplicable.familyBoundSourceQueue.length, 0);
+  assert.equal(normalizedNotApplicable.sourceQueuePriorities.length, 0);
+
+  const notApplicableModel = {
+    ...baseModel,
+    finalAnalystAnswerComposerContract: notApplicableComposer,
+    canonicalProductRoute: {
+      primaryFamily: "native_btc_pow_monetary",
+      primaryQuestionGroup: "native_btc_pow_questions",
+    },
+  };
+  const notApplicableChecklist = renderToString(React.createElement(InstitutionalChecklistTab, {
+    model: notApplicableModel,
+    analysis: {},
+    styles: {},
+  }));
+  assert.match(notApplicableChecklist, /Not relevant|Protocol revenue is not the applicable diligence frame/i);
+  assert.doesNotMatch(notApplicableChecklist, /STALE_NA_(?:GAP|NEXT_STEP|OBSERVATION|QUEUE)_MUST_NOT_RENDER/);
+  const notApplicableProtected = researchUtils.buildProtectedInvestorReportText({
+    asset: { symbol: "BTC", name: "Bitcoin" },
+    model: notApplicableModel,
+  });
+  assert.match(notApplicableProtected, /Protocol revenue is not the applicable diligence frame/i);
+  assert.doesNotMatch(notApplicableProtected, /STALE_NA_(?:GAP|NEXT_STEP|OBSERVATION|QUEUE)_MUST_NOT_RENDER/);
+  const notApplicableBundle = researchUtils.buildReviewBundleText({
+    asset: { symbol: "BTC", name: "Bitcoin" },
+    model: notApplicableModel,
+  });
+  const notApplicableTwoBd = notApplicableBundle.split("2BD. Final Analyst Answer Composer v1")[1]?.split("\n=== 2BE.")[0] || "";
+  assert.match(notApplicableTwoBd, /applicability=not_applicable/);
+  assert.match(notApplicableTwoBd, /noPenalty=yes/);
+  assert.match(notApplicableTwoBd, /foreign-asset-evidence-audit-id/);
+  assert.match(notApplicableTwoBd, /wrong_asset_rejected/);
+  assert.doesNotMatch(notApplicableTwoBd, /STALE_NA_(?:GAP|NEXT_STEP|OBSERVATION|QUEUE)_MUST_NOT_RENDER/);
+  assert.doesNotMatch(notApplicableBundle, /^=== 2B[FG]\./m);
+
+  const isolationComposer = (assetName, assetId, evidenceId) => {
+    const answer = {
+      ...finalAnalystComposer.canonicalQuestionJudgments[0],
+      questionId: `${assetId}_isolation_question`,
+      question: `What supports ${assetName}?`,
+      directAnswer: `${assetName} uses only ${evidenceId}.`,
+      answer: `${assetName} uses only ${evidenceId}.`,
+      evidenceBehindIt: [`${evidenceId} supports only ${assetName}.`],
+      whatTheDataSupports: [`${evidenceId} supports only ${assetName}.`],
+      gap: [],
+      missingData: [],
+      missingRequiredObservations: [],
+      whatWouldChangeTheView: "",
+      analystNextStep: "",
+      excludedEvidenceIds: [`excluded-${evidenceId}`],
+      exclusionReasons: ["wrong_asset_rejected"],
+    };
+    return {
+      ...finalAnalystComposer,
+      assetSummary: {
+        ...finalAnalystComposer.assetSummary,
+        canonicalAsset: assetName,
+        canonicalIdentity: assetId,
+      },
+      analystView: {
+        ...finalAnalystComposer.analystView,
+        headline: `${assetName} canonical isolation headline.`,
+        whatTheDataSupports: `${evidenceId} is scoped to ${assetName}.`,
+      },
+      canonicalQuestionJudgments: [answer],
+      fundamentalQuestionAnswers: [answer],
+      familyBoundSourceQueue: [],
+      sourceQueuePriorities: [],
+    };
+  };
+  const composerA = isolationComposer("Asset Alpha", "asset-alpha", "ALPHA_EVIDENCE_ONLY");
+  const composerB = isolationComposer("Asset Beta", "asset-beta", "BETA_EVIDENCE_ONLY");
+  const sequentialA = researchUtils.normalizeFinalAnalystAnswerComposerPayload({ finalAnalystAnswerComposerContract: composerA });
+  const sequentialB = researchUtils.normalizeFinalAnalystAnswerComposerPayload({ finalAnalystAnswerComposerContract: composerB });
+  assert.notEqual(sequentialA, sequentialB);
+  assert.notEqual(sequentialA.canonicalQuestionJudgments, sequentialB.canonicalQuestionJudgments);
+  assert.notEqual(sequentialA.canonicalQuestionJudgments[0], sequentialB.canonicalQuestionJudgments[0]);
+  assert.doesNotMatch(JSON.stringify(sequentialB), /ALPHA_EVIDENCE_ONLY|Asset Alpha/);
+  const [concurrentA, concurrentB] = await Promise.all([
+    Promise.resolve().then(() => researchUtils.normalizeFinalAnalystAnswerComposerPayload({ finalAnalystAnswerComposerContract: composerA })),
+    Promise.resolve().then(() => researchUtils.normalizeFinalAnalystAnswerComposerPayload({ finalAnalystAnswerComposerContract: composerB })),
+  ]);
+  assert.doesNotMatch(JSON.stringify(concurrentA), /BETA_EVIDENCE_ONLY|Asset Beta/);
+  assert.doesNotMatch(JSON.stringify(concurrentB), /ALPHA_EVIDENCE_ONLY|Asset Alpha/);
+  const betaModel = {
+    ...baseModel,
+    finalAnalystAnswerComposerContract: composerB,
+    canonicalProductRoute: {
+      primaryFamily: composerB.canonicalFamily,
+      primaryQuestionGroup: composerB.canonicalQuestionGroup,
+    },
+  };
+  const betaBundle = researchUtils.buildReviewBundleText({ asset: { symbol: "BETA", name: "Asset Beta" }, model: betaModel });
+  const betaProtected = researchUtils.buildProtectedInvestorReportText({ asset: { symbol: "BETA", name: "Asset Beta" }, model: betaModel });
+  assert.match(betaBundle, /BETA_EVIDENCE_ONLY/);
+  assert.match(betaProtected, /BETA_EVIDENCE_ONLY/);
+  assert.doesNotMatch(betaBundle, /ALPHA_EVIDENCE_ONLY|Asset Alpha/);
+  assert.doesNotMatch(betaProtected, /ALPHA_EVIDENCE_ONLY|Asset Alpha/);
+
   const aliasProtectedReport = researchUtils.buildProtectedInvestorReportText({
     asset: { symbol: "TEST" },
     model: canonicalRouteModel,

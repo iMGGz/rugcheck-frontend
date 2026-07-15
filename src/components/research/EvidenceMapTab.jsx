@@ -570,7 +570,9 @@ export default function EvidenceMapTab({
     rejectedFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) =>
       safeArray(answer.forbiddenForQuestionObservations).map((item) => `${item.label}: ${item.boundary}`)
     ).slice(0, 6),
-    missingFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) => safeArray(answer.missingRequiredObservations)).slice(0, 8),
+    missingFacts: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) =>
+      answer.applicabilityStatus === "not_applicable" ? [] : safeArray(answer.missingRequiredObservations)
+    ).slice(0, 8),
     unsupportedInferences: safeArray(finalComposer.canonicalQuestionJudgments).flatMap((answer) => safeArray(answer.unsupportedInferences)).slice(0, 6),
   } : {};
   const productEvidence = composerEvidence;

@@ -447,6 +447,9 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
   const renderQuestion = (question, index) => {
     const questionKey = question.questionId || question.questionText || `question-${index}`;
     const synthesized = safeObject(question.synthesizedAnswer);
+    const isNotApplicable = synthesized.applicabilityStatus === "not_applicable"
+      || question.applicability?.status === "not_applicable"
+      || question.answerStatus === "not_applicable";
     const analystCard = getAnalystAnswerCard(question);
     const linkedFormulas = formulas.filter((formula) => safeArray(question.formulaOutputsUsed).includes(formula.formulaId));
     const isOpen = openQuestions.has(questionKey);
@@ -469,7 +472,7 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
       : [
           synthesized.synthesisTemplateId
             ? `Backend rule-based answer: ${question.ruleUsed || tokenomics.supplyTruth?.applicability?.familyPolicySummary || "family methodology attached"}.`
-            : question.answerStatus === "not_applicable"
+            : isNotApplicable
               ? `Not applicable for this asset class. ${displayQuestionAnswer(question) || tokenomics.supplyTruth?.applicability?.notApplicableRedirects?.[0] || "Use the family-specific alternative."}`
               : `Backend rule-based answer. ${question.ruleUsed || tokenomics.supplyTruth?.applicability?.familyPolicySummary || "No formula applies to this question."}`,
         ];
@@ -535,10 +538,10 @@ function TokenomicsQuestionPanel({ tokenomics, styles }) {
             />
             <ListBlock title="Reviewed sources used" items={reviewedSourceRows} emptyText="No reviewed evidence packet source mapped to this question." color="#a6f3c2" styles={styles} />
             <ListBlock title="Evidence mapping cautions" items={evidenceMappingWarningRows} emptyText="No evidence mapping caution attached." color="#f9d976" styles={styles} />
-            <ListBlock title="F. Missing evidence" items={safeArray(analystCard.missingEvidence).length ? analystCard.missingEvidence : safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText="No missing evidence listed." color="#f9d976" styles={styles} />
+            <ListBlock title="F. Missing evidence" items={isNotApplicable ? [] : safeArray(analystCard.missingEvidence).length ? analystCard.missingEvidence : safeArray(synthesized.missingEvidence).length ? synthesized.missingEvidence : question.missingEvidence} emptyText={isNotApplicable ? "No missing evidence is created by a non-applicable question." : "No missing evidence listed."} color="#f9d976" styles={styles} />
             <SectionRow label="G. Decision / confidence impact" value={cleanPrimaryAnswerText(analystCard.decisionImpact || synthesized.impact || question.impactOnScoreOrConfidence || "Review/source requirement only; no new verdict impact inferred.")} styles={styles} />
             <SectionRow label="Confidence boundary" value={cleanPrimaryAnswerText(analystCard.confidenceBoundary || "This display explains confidence; numerical score integration requires a calibrated release.")} styles={styles} />
-            <ListBlock title="H. What would change" items={safeArray(analystCard.whatWouldChange).length ? analystCard.whatWouldChange : safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText="No change requirement listed." color="#a6f3c2" styles={styles} />
+            <ListBlock title="H. What would change" items={isNotApplicable ? [] : safeArray(analystCard.whatWouldChange).length ? analystCard.whatWouldChange : safeArray(synthesized.whatWouldChange).length ? synthesized.whatWouldChange : question.whatWouldChange} emptyText={isNotApplicable ? "No diligence requirement is created by a non-applicable question." : "No change requirement listed."} color="#a6f3c2" styles={styles} />
           </div>
         ) : null}
       </div>

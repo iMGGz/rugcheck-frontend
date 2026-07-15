@@ -157,7 +157,10 @@ function buildLiveReviewSignals({ model, sourceStatus, providerDiagnostics, evid
     ...safeArray(model?.institutionalQuestions),
     ...safeArray(model?.tokenomicsSupplyIntegrity?.institutionalQuestions),
   ]
-    .filter((question) => question?.synthesizedAnswer)
+    .filter((question) => question?.synthesizedAnswer
+      && question.synthesizedAnswer.applicabilityStatus !== "not_applicable"
+      && question.applicability?.status !== "not_applicable"
+      && question.answerStatus !== "not_applicable")
     .flatMap((question) => [
       ...safeArray(getAnalystAnswerCard(question).missingEvidence).slice(0, 1).map((entry) => `Missing evidence: ${entry}`),
       ...safeArray(question.synthesizedAnswer.warnings),
