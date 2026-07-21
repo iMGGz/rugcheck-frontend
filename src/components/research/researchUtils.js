@@ -3334,12 +3334,30 @@ export function buildProtectedInvestorReportText({
       : normalizeRepresentationFamilyEvidenceGatesPayload(safeAnalysis, representationFamilyDecision);
   const lens = safeModel.resolvedInstitutionalLens || normalizeResolvedInstitutionalLensPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const assetResearchResultV2 = normalizeAssetResearchResultV2Payload(safeData)
+    || normalizeAssetResearchResultV2Payload(safeAnalysis)
+    || normalizeAssetResearchResultV2Payload(safeModel);
+  const tokenomicsQuality = safeObject(assetResearchResultV2?.tokenomics?.data);
+  const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
+  const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
+  const thesisFundamentalsAttached = String(thesisFundamentals.schemaVersion || "").startsWith("thesis-fundamentals-engine-v1");
+  const currentReality = safeObject(assetResearchResultV2?.currentReality?.data);
+  const currentRealityAttached = String(currentReality.schemaVersion || "").startsWith("current-reality-engine-v1");
+  const currentRealityMostMaterial = safeObject(currentReality.mostMaterialEvent);
+  const currentRealityRiskChange = safeObject(currentReality.mostImportantRiskChange || currentReality.mostImportantNegativeDevelopment);
   const tokenomicsSupplyTruth = safeObject(tokenomicsSupplyIntegrity?.supplyTruth);
+  const tokenomicsQualitySupplyTruth = safeObject(tokenomicsQuality.supplyTruth);
+  const tokenomicsQualitySupplyData = safeObject(tokenomicsQualitySupplyTruth.data);
+  const tokenomicsQualitySupplyStructure = safeObject(tokenomicsQuality.supplyStructure?.data);
   const protectedSupplyFactValue = (field, fallback = null) => {
+    const qualityValue = tokenomicsQualitySupplyData?.canonicalFacts?.[field]?.value;
+    if (qualityValue !== null && qualityValue !== undefined) return qualityValue;
     const value = tokenomicsSupplyTruth?.canonicalFacts?.[field]?.value;
     return value === null || value === undefined ? fallback : value;
   };
   const protectedSupplyFormulaDisplay = (formulaId, fallback = null) => {
+    const qualityFormula = safeArray(tokenomicsQuality.formulaOutputs).find((entry) => entry?.formulaId === formulaId);
+    if (qualityFormula) return qualityFormula.displayedValue || qualityFormula.display || fallback;
     const formula = safeArray(tokenomicsSupplyTruth?.calculatedMetrics).find((entry) => entry?.formulaId === formulaId);
     return formula?.displayedValue || formula?.display || fallback;
   };
@@ -3546,21 +3564,44 @@ export function buildProtectedInvestorReportText({
     reportLine("Primary blocker", safeModel.primaryBlocker?.label || safeModel.primaryWeakness),
     reportLine("Interpretation", decisionLayer.verdict?.explanation || finalAnalystAnswerComposerContract?.scoreExplanationBridge?.explanation || safeModel.summaryMemo || safeModel.headerSummary || safeAnalysis.summary),
     reportLine("Score caveat", finalDecisionScore.withholdingReason || evidenceProvenanceSemanticsContract?.coverageScoreEligibilitySemantics?.scoringActivationReadiness || "Existing score remains subject to evidence-readiness caveats."),
+    reportLine("Current Reality", currentRealityAttached ? `${titleCase(currentReality.status)}; ${currentReality.coverage?.summary || "current event coverage is limited"}` : "Canonical Current Reality was not attached."),
+    reportLine("Most material current development", currentRealityMostMaterial.title || "No verified material event is available in the current source window."),
+    reportLine("Current thesis impact", currentRealityMostMaterial.impactSummary || "No verified event changes the current thesis interpretation."),
+    reportLine("Current risk change", currentRealityRiskChange.impactSummary || "No verified material risk change is attached."),
+    reportLine("Current-event freshness", currentRealityAttached ? `${titleCase(currentReality.freshness?.status)}; last verified ${currentReality.freshness?.lastVerifiedAt || "not established"}` : null),
+    reportLine("Current open check", safeArray(currentReality.nextDiligence)[0]),
     "",
     "3. Key Institutional Questions",
+    reportLine("Thesis & Fundamentals synthesis", thesisFundamentalsAttached ? `${titleCase(thesisFundamentals.status)}; confidence ${titleCase(thesisFundamentals.confidence?.label)}; freshness ${titleCase(thesisFundamentals.freshness?.status)}` : "Canonical V2 fundamentals synthesis was not attached."),
+    reportLine("Product reality", thesisFundamentalsAttached ? thesisFundamentals.productRealityDetails?.conciseSummary || thesisFundamentals.productReality?.conciseAnswer : null),
+    reportLine("Core thesis", thesisFundamentalsAttached ? thesisFundamentals.thesisDetails?.thesisSummary : null),
+    reportLine("Strongest support", thesisFundamentalsAttached ? thesisFundamentals.strongestSupportedArea : null),
+    reportLine("Primary weakness", thesisFundamentalsAttached ? thesisFundamentals.weakestArea : null),
+    reportLine("Protocol versus token", thesisFundamentalsAttached ? thesisFundamentals.protocolTokenTransferDetails?.conciseSummary : null),
+    ...(thesisFundamentalsAttached ? [
+      "Thesis conditions:",
+      ...formatReportList(thesisFundamentals.thesisDetails?.thesisConditions, "No thesis condition was attached.", 4),
+      "Fundamentals open checks:",
+      ...formatReportList(thesisFundamentals.nextDiligence, "No additional fundamentals diligence item was attached.", 5),
+    ] : []),
     ...(questionLines.length ? questionLines : ["- Source-backed institutional questions were not available in this run."]),
     "",
     "4. Tokenomics / Supply Integrity",
-    reportLine("Supply Truth", tokenomicsSupplyTruth?.statusSummary || "Canonical supply facts were not available in this analysis."),
-    reportLine("Asset family / representation", `${tokenomicsSupplyTruth?.canonicalFamily || tokenomicsSupplyIntegrity?.canonicalFamily || "Not available yet"} / ${tokenomicsSupplyTruth?.representationContext?.representationType || "representation unavailable"}`),
+    reportLine("Tokenomics coverage", tokenomicsQualityAttached ? titleCase(tokenomicsQuality.status) : "Legacy supply-integrity view"),
+    reportLine("Supply Truth", safeArray(tokenomicsQualitySupplyTruth.whatIsSupported)[0] || tokenomicsSupplyTruth?.statusSummary || "Canonical supply facts were not available in this analysis."),
+    reportLine("Asset family / representation", `${tokenomicsQuality.representationScope?.assetFamily || tokenomicsSupplyTruth?.canonicalFamily || tokenomicsSupplyIntegrity?.canonicalFamily || "Not available yet"} / ${tokenomicsQuality.representationScope?.representationType || tokenomicsSupplyTruth?.representationContext?.representationType || "representation unavailable"}`),
     reportLine("Price / market cap / FDV", `${formatUsd(protectedSupplyFactValue("currentPrice", tokenomicsSupplyIntegrity?.currentPrice))} / ${formatUsd(protectedSupplyFactValue("marketCap", tokenomicsSupplyIntegrity?.marketCap))} / ${formatUsd(protectedSupplyFactValue("fdv", tokenomicsSupplyIntegrity?.fdv))}`),
-    reportLine("Circulating / total / max supply", `${formatCompact(protectedSupplyFactValue("circulatingSupply", tokenomicsSupplyIntegrity?.circulatingSupply))} / ${formatCompact(protectedSupplyFactValue("totalSupply", tokenomicsSupplyIntegrity?.totalSupply))} / ${formatCompact(protectedSupplyFactValue("maxSupply", tokenomicsSupplyIntegrity?.maxSupplyValue))}`),
+    reportLine("Circulating / total / max supply", `${formatCompact(tokenomicsQualitySupplyStructure.circulatingSupply ?? protectedSupplyFactValue("circulatingSupply", tokenomicsSupplyIntegrity?.circulatingSupply))} / ${formatCompact(tokenomicsQualitySupplyStructure.totalSupply ?? protectedSupplyFactValue("totalSupply", tokenomicsSupplyIntegrity?.totalSupply))} / ${formatCompact(tokenomicsQualitySupplyStructure.maximumSupply ?? protectedSupplyFactValue("maxSupply", tokenomicsSupplyIntegrity?.maxSupplyValue))}`),
     reportLine("FDV / market cap", protectedSupplyFormulaDisplay("fdv_market_cap_ratio", tokenomicsSupplyIntegrity?.fdvMarketCapRatio)),
     reportLine("Circulating / max", protectedSupplyFormulaDisplay("circulating_percent_of_max", tokenomicsSupplyIntegrity?.circulatingPercentOfMax)),
-    reportLine("Max supply meaning", tokenomicsSupplyTruth?.maxSupplySemantics?.semanticClassification ? titleCase(tokenomicsSupplyTruth.maxSupplySemantics.semanticClassification) : titleCase(tokenomicsSupplyIntegrity?.maxSupplyStatus)),
-    reportLine("Supply-data freshness", tokenomicsSupplyTruth?.freshnessSummary?.overall ? titleCase(tokenomicsSupplyTruth.freshnessSummary.overall) : "Not available yet."),
-    reportLine("Unlock schedule status", tokenomicsSupplyIntegrity?.unlockScheduleStatus),
-    reportLine("Primary open check", safeArray(tokenomicsSupplyTruth?.whatWouldChange)[0] || tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
+    reportLine("Max supply meaning", tokenomicsQualitySupplyData?.maxSupplySemantics?.semanticClassification ? titleCase(tokenomicsQualitySupplyData.maxSupplySemantics.semanticClassification) : tokenomicsSupplyTruth?.maxSupplySemantics?.semanticClassification ? titleCase(tokenomicsSupplyTruth.maxSupplySemantics.semanticClassification) : titleCase(tokenomicsSupplyIntegrity?.maxSupplyStatus)),
+    reportLine("Supply-data freshness", tokenomicsQualityAttached ? titleCase(tokenomicsQuality.freshness?.status) : tokenomicsSupplyTruth?.freshnessSummary?.overall ? titleCase(tokenomicsSupplyTruth.freshnessSummary.overall) : "Not available yet."),
+    reportLine("Issuance / burns / net supply", tokenomicsQualityAttached ? `${titleCase(tokenomicsQuality.issuance?.data?.policyStatus)} / ${titleCase(tokenomicsQuality.burns?.data?.mechanismStatus)} / ${tokenomicsQuality.netSupplyChange?.data?.netIssuanceAfterBurn ?? "not available"}` : "Detailed mechanism coverage was not attached."),
+    reportLine("Unlocks / vesting", tokenomicsQualityAttached ? `${titleCase(tokenomicsQuality.unlocks?.data?.coverageStatus)} / ${titleCase(tokenomicsQuality.vesting?.data?.scheduleType)}` : tokenomicsSupplyIntegrity?.unlockScheduleStatus),
+    reportLine("Allocations / concentration", tokenomicsQualityAttached ? `${tokenomicsQuality.allocations?.data?.reportedCategoryCount ?? 0} reported allocation categories; holder concentration ${titleCase(tokenomicsQuality.holderConcentration?.data?.concentrationRisk)}` : "Not available yet."),
+    reportLine("Protocol versus token", tokenomicsQualityAttached ? `${tokenomicsQuality.protocolSuccess?.data?.summary || "Protocol activity coverage is limited."} ${tokenomicsQuality.tokenSuccess?.data?.valueCaptureStatus ? `Token value capture: ${titleCase(tokenomicsQuality.tokenSuccess.data.valueCaptureStatus)}.` : ""}` : "Not available yet."),
+    reportLine("Primary risk", safeArray(tokenomicsQuality.risks)[0] || tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker),
+    reportLine("Primary open check", safeArray(tokenomicsQuality.nextDiligence)[0] || safeArray(tokenomicsSupplyTruth?.whatWouldChange)[0] || tokenomicsSupplyIntegrity?.primaryTokenomicsBlocker || tokenomicsSupplyIntegrity?.explanationSummary),
     "",
     "5. Institutional Scoring Readiness",
     reportLine("Readiness status", scoringReadinessContract?.overallReadinessStatus ? titleCase(scoringReadinessContract.overallReadinessStatus) : "Not available yet."),
@@ -5914,6 +5955,33 @@ function buildConfidenceSupportLabel(confidenceModel) {
   return "Evidence support unavailable";
 }
 
+export function normalizeAssetResearchResultV2Payload(responseLike) {
+  const root = safeObject(responseLike);
+  const nestedAnalysis = safeObject(root.analysis);
+  const directResult = safeObject(root.assetResearchResultV2);
+  const nestedResult = safeObject(nestedAnalysis.assetResearchResultV2);
+  const directIsValid = String(directResult.schemaVersion || "").startsWith("2.")
+    && Boolean(directResult.resultId)
+    && Boolean(safeObject(directResult.tokenomics).data);
+  const nestedIsValid = String(nestedResult.schemaVersion || "").startsWith("2.")
+    && Boolean(nestedResult.resultId)
+    && Boolean(safeObject(nestedResult.tokenomics).data);
+
+  if (directIsValid && nestedIsValid) {
+    const rootIdentity = `${directResult.resultId}|${directResult.generatedAt || ""}`;
+    const nestedIdentity = `${nestedResult.resultId}|${nestedResult.generatedAt || ""}`;
+    if (rootIdentity !== nestedIdentity) return null;
+  }
+
+  if (directIsValid) return directResult;
+  if (nestedIsValid) return nestedResult;
+
+  const selfIsValid = String(root.schemaVersion || "").startsWith("2.")
+    && Boolean(root.resultId)
+    && Boolean(safeObject(root.tokenomics).data);
+  return selfIsValid ? root : null;
+}
+
 export function resolveQaRepresentationType({
   assetIdentityResolution,
   representationFamilyDecision,
@@ -7924,6 +7992,17 @@ export function buildReviewBundleText({
   const lensAware = safeModel.lensAwareExplanations || normalizeLensAwareExplanationsPayload(safeAnalysis);
   const assetIdentityResolution = safeModel.assetIdentityResolution || normalizeAssetIdentityResolutionPayload(safeData) || normalizeAssetIdentityResolutionPayload(safeAnalysis);
   const tokenomicsSupplyIntegrity = safeModel.tokenomicsSupplyIntegrity || normalizeTokenomicsSupplyIntegrityPayload(safeData) || normalizeTokenomicsSupplyIntegrityPayload(safeAnalysis);
+  const assetResearchResultV2 = normalizeAssetResearchResultV2Payload(safeData)
+    || normalizeAssetResearchResultV2Payload(safeAnalysis)
+    || normalizeAssetResearchResultV2Payload(safeModel);
+  const tokenomicsQuality = safeObject(assetResearchResultV2?.tokenomics?.data);
+  const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
+  const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
+  const thesisFundamentalsAttached = String(thesisFundamentals.schemaVersion || "").startsWith("thesis-fundamentals-engine-v1");
+  const currentReality = safeObject(assetResearchResultV2?.currentReality?.data);
+  const currentRealityAttached = String(currentReality.schemaVersion || "").startsWith("current-reality-engine-v1");
+  const currentRealityMostMaterial = safeObject(currentReality.mostMaterialEvent);
+  const currentRealityRiskChange = safeObject(currentReality.mostImportantRiskChange || currentReality.mostImportantNegativeDevelopment);
   const tokenomicsSupplyTruth = safeObject(tokenomicsSupplyIntegrity?.supplyTruth);
   const reviewedEvidencePacket = safeModel.reviewedEvidencePacket || normalizeReviewedEvidencePacketPayload(safeData) || normalizeReviewedEvidencePacketPayload(safeAnalysis);
   const benchmarkInstitutionalAnswerPack = safeModel.benchmarkInstitutionalAnswerPack || normalizeBenchmarkInstitutionalAnswerPackPayload(safeData) || normalizeBenchmarkInstitutionalAnswerPackPayload(safeAnalysis);
@@ -8182,7 +8261,9 @@ export function buildReviewBundleText({
     && tokenomicsSupplyIntegrity.circulatingSupply !== undefined
     && tokenomicsSupplyIntegrity.maxSupplyValue
     && (tokenomicsSupplyIntegrity.remainingDilutionPercent === null || tokenomicsSupplyIntegrity.remainingDilutionPercent === undefined);
-  const tokenomicsFormulaOutputs = safeArray(tokenomicsSupplyIntegrity?.formulaOutputs);
+  const tokenomicsFormulaOutputs = safeArray(tokenomicsQuality?.formulaOutputs).length
+    ? safeArray(tokenomicsQuality.formulaOutputs)
+    : safeArray(tokenomicsSupplyIntegrity?.formulaOutputs);
   const tokenomicsFormulaOutputsMissing = tokenomicsSupplyIntegrity
     && [tokenomicsSupplyIntegrity.marketCap, tokenomicsSupplyIntegrity.fdv, tokenomicsSupplyIntegrity.circulatingSupply, tokenomicsSupplyIntegrity.maxSupplyValue].some((value) => value !== null && value !== undefined)
     && !tokenomicsFormulaOutputs.length;
@@ -10948,8 +11029,40 @@ export function buildReviewBundleText({
         "No rendered Decision Tab text available.",
         120,
       ),
+      bundleField("AssetResearchResultV2 Current Reality attached", yesNoUnknown(currentRealityAttached)),
+      bundleField("Current Reality status", currentRealityAttached ? `${titleCase(currentReality.status)} | confidence=${titleCase(currentReality.confidence?.level)} | freshness=${titleCase(currentReality.freshness?.status)}` : "Canonical Current Reality unavailable"),
+      bundleField("Current Reality coverage", currentReality.coverage?.summary),
+      bundleField("Most material current development", currentRealityMostMaterial.title),
+      bundleField("Most material thesis impact", currentRealityMostMaterial.impactSummary),
+      bundleField("Most important risk change", currentRealityRiskChange.impactSummary),
+      "Verified material-event timeline:",
+      bundleList(safeArray(currentReality.activeMaterialEvents).map((event) => `${event.title} | entity=${event.subject?.subjectName || "not established"} | impact=${titleCase(event.primaryImpact)} | verification=${titleCase(event.verificationState)} | materiality=${titleCase(event.materiality?.state)} | freshness=${titleCase(event.freshness)} | ${event.impactSummary || "No impact summary attached."}`), "No verified material event is available in the current source window.", 40),
+      "Current Reality verification queue:",
+      bundleList(safeArray(currentReality.verificationRequiredEvents).map((event) => `${event.title} | entity=${event.subject?.subjectName || "not established"} | ${event.impactSummary || "Verification required."}`), "No event-specific verification item is attached.", 40),
+      "Current Reality open checks:",
+      bundleList(currentReality.nextDiligence, "No event-specific next diligence item is attached.", 20),
     ]),
     bundleSection("5. Thesis Falsification Tab", [
+      bundleField("AssetResearchResultV2 Thesis & Fundamentals attached", yesNoUnknown(thesisFundamentalsAttached)),
+      bundleField("Canonical V2 ownership", thesisFundamentalsAttached ? "AssetResearchResultV2.fundamentals.data is the bounded canonical synthesis; AssetResearchResultV2.thesis.data is its projection." : "Canonical V2 fundamentals unavailable"),
+      bundleField("Fundamentals status", thesisFundamentalsAttached ? `${bundleValue(thesisFundamentals.status)} | confidence=${bundleValue(thesisFundamentals.confidence?.label)} | freshness=${bundleValue(thesisFundamentals.freshness?.status)}` : null),
+      bundleField("Product reality", thesisFundamentalsAttached ? thesisFundamentals.productRealityDetails?.conciseSummary || thesisFundamentals.productReality?.conciseAnswer : null),
+      bundleField("Strongest supported area", thesisFundamentalsAttached ? thesisFundamentals.strongestSupportedArea : null),
+      bundleField("Weakest area", thesisFundamentalsAttached ? thesisFundamentals.weakestArea : null),
+      bundleField("Adoption / usage", thesisFundamentalsAttached ? `${bundleValue(thesisFundamentals.adoptionDetails?.classification)} | ${bundleValue(thesisFundamentals.adoptionDetails?.conciseSummary)}` : null),
+      bundleField("Protocol economics", thesisFundamentalsAttached ? `${bundleValue(thesisFundamentals.protocolEconomicsDetails?.mappingStatus)} | ${bundleValue(thesisFundamentals.protocolEconomicsDetails?.conciseSummary)}` : null),
+      bundleField("Revenue quality", thesisFundamentalsAttached ? `${bundleValue(thesisFundamentals.revenueQualityDetails?.state)} | ${bundleValue(thesisFundamentals.revenueQualityDetails?.conciseSummary)}` : null),
+      bundleField("Protocol versus token", thesisFundamentalsAttached ? `${bundleValue(thesisFundamentals.protocolTokenTransferDetails?.transferStatus)} | ${bundleValue(thesisFundamentals.protocolTokenTransferDetails?.conciseSummary)}` : null),
+      bundleField("Canonical thesis", thesisFundamentalsAttached ? thesisFundamentals.thesisDetails?.thesisSummary : null),
+      bundleField("Canonical anti-thesis", thesisFundamentalsAttached ? thesisFundamentals.thesisDetails?.antiThesisSummary : null),
+      "Canonical thesis conditions:",
+      bundleList(thesisFundamentalsAttached ? thesisFundamentals.thesisDetails?.thesisConditions : []),
+      "Canonical falsification signals:",
+      bundleList(thesisFundamentalsAttached ? thesisFundamentals.thesisDetails?.falsificationSignals : []),
+      "Canonical fundamentals missing evidence:",
+      bundleList(thesisFundamentalsAttached ? thesisFundamentals.missingCriticalEvidence : []),
+      "Canonical fundamentals next diligence:",
+      bundleList(thesisFundamentalsAttached ? thesisFundamentals.nextDiligence : []),
       bundleField("Allocation thesis", safeModel.summaryMemo),
       bundleField("Asset framing", visibleBundleFramingLabel),
       bundleField("Why allocation could make sense", allocationCase.forAllocation?.[0] || safeModel.primaryStrength),
@@ -11023,6 +11136,32 @@ export function buildReviewBundleText({
     ]),
     bundleSection("6A. Tokenomics / Supply Integrity Tab Mirror", [
       bundleField("Dedicated tab visible", tokenomicsSupplyIntegrity ? "yes - Tokenomics tab mirrors this section" : "unknown"),
+      bundleField("AssetResearchResultV2 Tokenomics Quality attached", yesNoUnknown(tokenomicsQualityAttached)),
+      bundleField("Tokenomics Quality status", tokenomicsQualityAttached ? `${bundleValue(tokenomicsQuality.status)} | confidence=${bundleValue(tokenomicsQuality.confidence?.label)} | freshness=${bundleValue(tokenomicsQuality.freshness?.status)}` : "unavailable - legacy Supply Integrity mirror preserved below"),
+      bundleField("Canonical V2 ownership", tokenomicsQualityAttached ? "AssetResearchResultV2.tokenomics.data is bounded synthesis; Supply Truth owns supply facts and Formula Engine owns calculations." : "V2 Tokenomics Quality unavailable"),
+      bundleField("V2 representation scope", tokenomicsQualityAttached ? `family=${bundleValue(tokenomicsQuality.representationScope?.assetFamily)}; representation=${bundleValue(tokenomicsQuality.representationScope?.representationType)}; canonicalNetwork=${bundleValue(tokenomicsQuality.representationScope?.canonicalNetwork)}; analyzed=${bundleValue(tokenomicsQuality.representationScope?.analyzedNetwork)}:${bundleValue(tokenomicsQuality.representationScope?.analyzedContract)}; routeSafety=${bundleValue(tokenomicsQuality.representationScope?.routeSafety)}` : null),
+      bundleField("V2 supply structure", tokenomicsQualityAttached ? `circulating=${bundleValue(tokenomicsQuality.supplyStructure?.data?.circulatingSupply)}; total=${bundleValue(tokenomicsQuality.supplyStructure?.data?.totalSupply)}; max=${bundleValue(tokenomicsQuality.supplyStructure?.data?.maximumSupply)}; issued=${bundleValue(tokenomicsQuality.supplyStructure?.data?.currentIssuedSupply)}; freeFloat=${bundleValue(tokenomicsQuality.supplyStructure?.data?.freeFloat)}; locked=${bundleValue(tokenomicsQuality.supplyStructure?.data?.lockedSupply)}; unlocked=${bundleValue(tokenomicsQuality.supplyStructure?.data?.unlockedSupply)}` : null),
+      bundleField("V2 max-supply semantics", tokenomicsQualityAttached ? `raw=${bundleValue(tokenomicsQuality.supplyTruth?.data?.maxSupplySemantics?.rawValueStatus)}; semantic=${bundleValue(tokenomicsQuality.supplyTruth?.data?.maxSupplySemantics?.semanticClassification)}; formulaApplicability=${bundleValue(tokenomicsQuality.supplyTruth?.data?.maxSupplySemantics?.formulaApplicability)}` : null),
+      bundleField("V2 supply-history boundary", tokenomicsQualityAttached ? `status=${bundleValue(tokenomicsQuality.supplyHistory?.status)}; observations=${safeArray(tokenomicsQuality.supplyHistory?.data?.observations).length}; syntheticHistoryCreated=${bundleValue(tokenomicsQuality.supplyHistory?.data?.syntheticHistoryCreated)}` : null),
+      bundleField("V2 issuance / circulating change", tokenomicsQualityAttached ? `policy=${bundleValue(tokenomicsQuality.issuance?.data?.policyStatus)}; annualInflation=${bundleValue(tokenomicsQuality.issuance?.data?.annualInflationEstimate)}; emissions=${bundleValue(tokenomicsQuality.issuance?.data?.annualizedEmissions)}; observedChange=${bundleValue(tokenomicsQuality.circulatingSupplyChange?.data?.observedChange)}; window=${bundleValue(tokenomicsQuality.circulatingSupplyChange?.data?.observationWindow)}` : null),
+      bundleField("V2 burns / buybacks / net supply", tokenomicsQualityAttached ? `burn=${bundleValue(tokenomicsQuality.burns?.data?.mechanismStatus)}; burnMateriality=${bundleValue(tokenomicsQuality.burns?.data?.materiality)}; projected=${bundleValue(tokenomicsQuality.burns?.data?.projectionApplied)}; buyback=${bundleValue(tokenomicsQuality.buybacks?.data?.mechanismStatus)}; executedUsd=${bundleValue(tokenomicsQuality.buybacks?.data?.executedValueUsd)}; retired=${bundleValue(tokenomicsQuality.buybacks?.data?.retiredFromSupply)}; netIssuance=${bundleValue(tokenomicsQuality.netSupplyChange?.data?.netIssuanceAfterBurn)}` : null),
+      bundleField("V2 unlocks / vesting", tokenomicsQualityAttached ? `coverage=${bundleValue(tokenomicsQuality.unlocks?.data?.coverageStatus)}; precision=${bundleValue(tokenomicsQuality.unlocks?.data?.schedulePrecision)}; agreement=${bundleValue(tokenomicsQuality.unlocks?.data?.scheduleAgreement)}; events30d=${bundleValue(tokenomicsQuality.unlocks?.data?.eventCount30d)}; events90d=${bundleValue(tokenomicsQuality.unlocks?.data?.eventCount90d)}; unlockIsNotSale=${bundleValue(tokenomicsQuality.unlocks?.data?.unlockIsNotSale)}; vestingType=${bundleValue(tokenomicsQuality.vesting?.data?.scheduleType)}; claimsSeparated=${bundleValue(tokenomicsQuality.vesting?.data?.claimsSeparatedFromUnlocks)}` : null),
+      bundleField("V2 allocations / insider exposure", tokenomicsQualityAttached ? `categories=${safeArray(tokenomicsQuality.allocations?.data?.categories).length}; totalPercent=${bundleValue(tokenomicsQuality.allocations?.data?.allocationTotalPercent)}; reconciled=${bundleValue(tokenomicsQuality.allocations?.data?.allocationTotalReconciled)}; insiderPercent=${bundleValue(tokenomicsQuality.insiderExposure?.data?.reportedInsiderAllocationPercent)}; insiderRisk=${bundleValue(tokenomicsQuality.insiderExposure?.data?.risk)}` : null),
+      bundleField("V2 treasury / holder concentration", tokenomicsQualityAttached ? `treasuryPercent=${bundleValue(tokenomicsQuality.treasury?.data?.supplyConcentrationPercent)}; treasuryRisk=${bundleValue(tokenomicsQuality.treasury?.data?.risk)}; topWallet=${bundleValue(tokenomicsQuality.holderConcentration?.data?.topWalletConcentrationPercent)}; top10=${bundleValue(tokenomicsQuality.holderConcentration?.data?.top10HolderRatePercent)}; beneficialOwnerAdjusted=${bundleValue(tokenomicsQuality.holderConcentration?.data?.beneficialOwnerAdjusted)}` : null),
+      bundleField("V2 utility / demand", tokenomicsQualityAttached ? `utility=${bundleValue(tokenomicsQuality.utilityMechanisms?.data?.clarity)}; utilityMechanisms=${safeArray(tokenomicsQuality.utilityMechanisms?.data?.mechanisms).length}; demandMechanisms=${safeArray(tokenomicsQuality.demandMechanisms?.data?.mechanisms).length}; mandatoryUseProven=${bundleValue(tokenomicsQuality.demandMechanisms?.data?.mandatoryUseProven)}` : null),
+      bundleField("V2 protocol success / token success", tokenomicsQualityAttached ? `protocolAvailability=${bundleValue(tokenomicsQuality.protocolSuccess?.data?.availability)}; usageStrength=${bundleValue(tokenomicsQuality.protocolSuccess?.data?.usageStrength)}; tokenNecessity=${bundleValue(tokenomicsQuality.tokenSuccess?.data?.tokenNecessityStatus)}; valueCapture=${bundleValue(tokenomicsQuality.tokenSuccess?.data?.valueCaptureStatus)}; protocolSuccessDoesNotProveTokenSuccess=${bundleValue(tokenomicsQuality.tokenSuccess?.data?.protocolSuccessDoesNotProveTokenSuccess)}` : null),
+      "V2 Tokenomics strengths:",
+      bundleList(tokenomicsQualityAttached ? tokenomicsQuality.strengths : []),
+      "V2 Tokenomics risks:",
+      bundleList(tokenomicsQualityAttached ? tokenomicsQuality.risks : []),
+      "V2 Tokenomics contradictions:",
+      bundleList(tokenomicsQualityAttached ? tokenomicsQuality.contradictions : []),
+      "V2 Tokenomics missing critical data:",
+      bundleList(tokenomicsQualityAttached ? tokenomicsQuality.missingCriticalData : []),
+      "V2 Tokenomics next diligence:",
+      bundleList(tokenomicsQualityAttached ? tokenomicsQuality.nextDiligence : []),
+      "V2 canonical Formula Engine outputs:",
+      bundleList(tokenomicsQualityAttached ? safeArray(tokenomicsQuality.formulaOutputs).map((formula) => `${formula.formulaId}: ${formula.displayedValue || "Unavailable"} | status=${formula.status || "unknown"} | formula=${formula.formula || "Unavailable"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"} | requirement=${formula.sourceRequirement || "Unavailable"} | boundary=${safeArray(formula.sourceBoundary).join(", ") || "Unavailable"}`) : []),
       bundleField("Canonical Tokenomics owner", tokenomicsSupplyTruth.methodologyVersion ? "tokenomicsSupplyIntegrity" : "Supply Truth unavailable"),
       bundleField("Supply Truth methodology", tokenomicsSupplyTruth.methodologyVersion),
       bundleField("Canonical family", tokenomicsSupplyTruth.canonicalFamily || tokenomicsSupplyIntegrity?.canonicalFamily),
@@ -11137,7 +11276,7 @@ export function buildReviewBundleText({
       "Provider field audit:",
       bundleList(safeArray(tokenomicsSupplyIntegrity?.providerFieldAudit).map((entry) => `${entry.provider}: available=${safeArray(entry.fieldsAvailable).join(", ") || "none"}; missing=${safeArray(entry.fieldsMissing).join(", ") || "none"}; boundary=${safeArray(entry.sourceBoundary).join(", ") || "provider reported"}`)),
       "Formula outputs:",
-      bundleList(tokenomicsFormulaOutputs.map((formula) => `${formula.formulaId}: ${formula.display || "Unavailable"} | status=${formula.status || "unknown"} | formula=${formula.formula || "Unavailable"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"} | requirement=${formula.sourceRequirement || "Unavailable"} | boundary=${safeArray(formula.sourceBoundary).join(", ") || "Unavailable"}`)),
+      bundleList(tokenomicsFormulaOutputs.map((formula) => `${formula.formulaId}: ${formula.displayedValue || formula.display || "Unavailable"} | status=${formula.status || "unknown"} | formula=${formula.formula || "Unavailable"} | missing=${safeArray(formula.missingInputs).join(", ") || "none"} | requirement=${formula.sourceRequirement || "Unavailable"} | boundary=${safeArray(formula.sourceBoundary).join(", ") || "Unavailable"}`)),
       "Tokenomics Question-First Q&A Mirror:",
       bundleTokenomicsQuestionFirstMirror(tokenomicsSupplyIntegrity),
       "Source requirements:",
@@ -11322,6 +11461,7 @@ export function buildReviewBundleText({
         `assetIdentityResolution: ${assetIdentityResolution ? "present" : "missing"}`,
         `lensAwareExplanations: ${lensAware ? "present" : "missing"}`,
         `tokenomicsSupplyIntegrity: ${tokenomicsSupplyIntegrity ? "present" : "missing"}`,
+        `assetResearchResultV2.currentReality: ${currentRealityAttached ? "present" : "missing"}`,
         `benchmarkInstitutionalAnswerPack: ${benchmarkInstitutionalAnswerPack ? "present" : "missing"}`,
         `assetInterpretationContract: ${assetInterpretationContract ? "present" : "missing"}`,
         `engineLearningBackbone: ${engineLearningBackbone ? "present" : "missing"}`,
@@ -11352,6 +11492,15 @@ export function buildReviewBundleText({
         ...(decisionFrame.nextCheckpoints || []),
         ...safeArray(decisionLayer.researchRequirements).map((requirement) => requirement?.title),
       ]),
+      "Current Reality canonical event diagnostics (Audit / Raw only):",
+      bundleList(safeArray(currentReality.events).map((event) => `${event.eventId} | fingerprint=${event.eventFingerprint} | category=${event.primaryCategory} | dimensions=${safeArray(event.dimensions).join(", ") || "none"} | subject=${event.subject?.subjectType}:${event.subject?.subjectId} | relation=${event.subject?.relationshipToAsset} | verification=${event.verificationState} | lifecycle=${event.lifecycleStatus} | materiality=${event.materiality?.state} | impact=${event.primaryImpact} | riskDirection=${event.riskDirection} | duplicateState=${event.duplicateState} | source=${event.sourceSummary?.primarySource?.sourceType}:${event.sourceSummary?.primarySource?.sourceId}`), "No canonical Current Reality event diagnostics attached.", 160),
+      "Current Reality rejected / ambiguous event diagnostics (Audit / Raw only):",
+      bundleList([
+        ...safeArray(currentReality.audit?.rejectedEvents).map((entry) => `${entry.observationId}: rejected | ${entry.reason}`),
+        ...safeArray(currentReality.audit?.ambiguousMappings).map((entry) => `${entry.observationId}: ambiguous | ${entry.reason}`),
+        ...safeArray(currentReality.audit?.eventLineage).map((entry) => `${entry.observationId}: event=${entry.eventId}; relation=${entry.relationship}; original=${entry.originalClaim}; correction=${entry.correctionClaim || "none"}`),
+      ], "No rejected, ambiguous, or corrected Current Reality observation attached.", 200),
+      bundleField("Current Reality request-local mutation guard", currentRealityAttached ? `scoreMutationAttempted=${bundleValue(currentReality.audit?.scoreMutationAttempted)}; confidenceMutationAttempted=${bundleValue(currentReality.audit?.confidenceMutationAttempted)}; verdictMutationAttempted=${bundleValue(currentReality.audit?.verdictMutationAttempted)}` : null),
       bundleField("Raw generic copy still visible in primary areas", yesNoUnknown(rawGenericVisible)),
       bundleField("Raw generic copy present in audit/backend fields", yesNoUnknown(rawGenericAudit)),
       "Failed/skipped provider list with reasons:",
