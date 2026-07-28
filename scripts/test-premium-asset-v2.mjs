@@ -33,6 +33,7 @@ try {
     normalizer,
     navigation,
     { default: PremiumAssetPageV2 },
+    { default: V2AssetContextBar },
     { default: V2AssetHero },
     { default: V2MarketSupplyDashboard },
     tabs,
@@ -42,6 +43,7 @@ try {
     server.ssrLoadModule('/src/v2/assetResearchResultV2.js'),
     server.ssrLoadModule('/src/v2/assetResearchV2Navigation.js'),
     server.ssrLoadModule('/src/v2/PremiumAssetPageV2.jsx'),
+    server.ssrLoadModule('/src/v2/components/V2AssetContextBar.jsx'),
     server.ssrLoadModule('/src/v2/components/V2AssetHero.jsx'),
     server.ssrLoadModule('/src/v2/components/V2MarketSupplyDashboard.jsx'),
     server.ssrLoadModule('/src/v2/components/V2ResearchTabs.jsx'),
@@ -132,6 +134,7 @@ try {
   for (const symbol of REPRESENTATIVE_V2_ASSETS) {
     const result = buildV2Fixture(symbol)
     const parts = [
+      render(V2AssetContextBar, { result, activeSection: 'overview', onSelectSection: () => {} }),
       render(V2AssetHero, { result }),
       render(V2MarketSupplyDashboard, { result }),
       render(tabs.TokenomicsPanel, { result }),
@@ -211,8 +214,8 @@ try {
   const renderThenLink = [buildV2Fixture('RENDER'), buildV2Fixture('LINK')]
   assert.equal(renderThenLink[0].classification.data.canonicalFamilyId, 'depin_resource_network')
   assert.notEqual(renderThenLink[1].classification.data.canonicalFamilyId, 'depin_resource_network')
-  assert.match(render(V2AssetHero, { result: renderThenLink[0] }), /DePIN resource network/)
-  assert.match(render(V2AssetHero, { result: renderThenLink[1] }), /Oracle and interoperability network/)
+  assert.match(render(V2AssetContextBar, { result: renderThenLink[0], activeSection: 'overview', onSelectSection: () => {} }), /DePIN resource network/)
+  assert.match(render(V2AssetContextBar, { result: renderThenLink[1], activeSection: 'overview', onSelectSection: () => {} }), /Oracle and interoperability network/)
 
   const disagreementHtml = render(V2MarketSupplyDashboard, { result: buildV2Fixture('BTC') })
   assert.match(disagreementHtml, /Data sources disagree/)
@@ -318,16 +321,18 @@ try {
   assert.doesNotMatch(v2SourceCorpus, /displayedScore\s*\?\?\s*auditScore|auditScore\s*\?\?\s*displayedScore/, 'Audit score cannot fill customer score')
   assert.match(source('src/v2/assetResearchV2Api.js'), /mode:\s*'full'/)
   assert.doesNotMatch(source('src/v2/assetResearchV2Api.js'), /mode:\s*'quick'|partial/i)
-  assert.match(source('src/main.jsx'), /lazy\(\(\) => import\('\.\/v2\/PremiumAssetPageV2\.jsx'\)\)/)
-  assert.match(source('src/main.jsx'), /pathname\.startsWith\('\/terminal-v2\/'\)/)
+  assert.match(source('src/main.jsx'), /lazy\(\(\) => import\('\.\/v2\/PremiumV2Router\.jsx'\)\)/)
+  assert.match(source('src/main.jsx'), /isV2Path\(pathname\)/)
+  assert.match(source('src/v2/PremiumV2Router.jsx'), /lazy\(\(\) => import\('\.\/PremiumAssetPageV2\.jsx'\)\)/)
 
   const css = source('src/v2/PremiumAssetPageV2.css')
+  const shellCss = source('src/v2/styles/v2-shell.css')
   assert.match(css, /@media \(max-width: 1180px\)/)
   assert.match(css, /@media \(max-width: 900px\)/)
   assert.match(css, /@media \(max-width: 390px\)/)
-  assert.match(css, /prefers-reduced-motion/)
-  assert.match(css, /overflow-x: clip/)
-  assert.match(css, /:focus-visible/)
+  assert.match(shellCss, /prefers-reduced-motion/)
+  assert.match(shellCss, /overflow-x: clip/)
+  assert.match(shellCss, /:focus-visible/)
   assert.match(css, /\.v2-fundamentals-command/)
   assert.match(css, /\.v2-product-reality-hero/)
   assert.match(css, /\.v2-protocol-transfer-grid/)

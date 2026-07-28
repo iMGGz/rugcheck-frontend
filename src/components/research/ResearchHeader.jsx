@@ -31,6 +31,32 @@ function ProductViewButton({ active, children, onClick, styles }) {
   );
 }
 
+function ProductViewLink({ children, href, styles }) {
+  const [interactiveState, setInteractiveState] = React.useState({ hover: false, focus: false, pressed: false });
+  return (
+    <a
+      href={href}
+      onMouseEnter={() => setInteractiveState((state) => ({ ...state, hover: true }))}
+      onMouseLeave={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      onMouseDown={() => setInteractiveState((state) => ({ ...state, pressed: true }))}
+      onMouseUp={() => setInteractiveState((state) => ({ ...state, pressed: false }))}
+      onFocus={() => setInteractiveState((state) => ({ ...state, focus: true }))}
+      onBlur={() => setInteractiveState({ hover: false, focus: false, pressed: false })}
+      style={{
+        ...styles.productViewButton,
+        display: "inline-flex",
+        alignItems: "center",
+        textDecoration: "none",
+        ...(interactiveState.hover ? styles.productViewButtonHover : null),
+        ...(interactiveState.focus ? styles.productViewButtonFocus : null),
+        ...(interactiveState.pressed ? styles.productViewButtonPressed : null),
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 function HeaderActionButton({ children, onClick, styles, variant = "quick" }) {
   const [interactiveState, setInteractiveState] = React.useState({
     hover: false,
@@ -86,6 +112,7 @@ export default function ResearchHeader({
           <h2 style={styles.brandTitle}>Research Terminal</h2>
         </div>
         <nav style={styles.productViewNav} aria-label="Product view navigation">
+          <ProductViewLink href="/terminal-v2" styles={styles}>Open ThesisCore V2</ProductViewLink>
           <ProductViewButton
             active={isOverviewView}
             onClick={onOpenOverview}

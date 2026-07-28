@@ -28,6 +28,7 @@ import { TokenomicsSupplyIntegrityCard } from "./components/research/TokenomicsS
 import { Card, ListBlock, SectionRow, TabButton } from "./components/research/researchPrimitives";
 import { buildResponsiveStyles } from "./components/research/researchStyles";
 import { buildInstitutionalAssetIdentity } from "./components/research/institutionalChecklistLensRegistry";
+import { PREMIUM_V2_SHELL_QA } from "./v2/v2RouteConfig";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -1114,6 +1115,10 @@ export default function App() {
       aiReport,
       fundamentals,
       security,
+      premiumV2ShellQa: {
+        ...PREMIUM_V2_SHELL_QA,
+        activeRoute: typeof window === "undefined" ? "unavailable" : window.location.pathname,
+      },
     });
     return [
       INTERNAL_EXPORT_HEADER,

@@ -1,18 +1,3 @@
-.v2-discover-shell {
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-.v2-discover-topbar {
-  border-bottom-color: rgba(173, 203, 184, 0.14);
-}
-
-.v2-discover-frame {
-  width: min(1480px, calc(100% - 48px));
-  margin: 0 auto;
-  padding: 42px 0 96px;
-}
-
 .v2-discover-overview,
 .v2-universe-detail {
   display: grid;
@@ -964,11 +949,6 @@
 }
 
 @media (max-width: 780px) {
-  .v2-discover-frame {
-    width: min(100% - 28px, 1480px);
-    padding-top: 22px;
-  }
-
   .v2-discover-hero,
   .v2-universe-hero,
   .v2-universe-grid {
@@ -1003,11 +983,6 @@
 }
 
 @media (max-width: 520px) {
-  .v2-discover-frame {
-    width: min(100% - 20px, 1480px);
-    padding-bottom: 64px;
-  }
-
   .v2-discover-overview,
   .v2-universe-detail {
     gap: 34px;

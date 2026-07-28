@@ -17,7 +17,7 @@ import {
 } from './V2Primitives'
 import V2TechnicalScenariosPanel from './V2TechnicalScenariosPanel'
 
-const TABS = [
+export const V2_RESEARCH_TABS = [
   { id: 'tokenomics', label: 'Tokenomics' },
   { id: 'fundamentals', label: 'Thesis & Fundamentals' },
   { id: 'reality', label: 'Current Reality' },
@@ -690,24 +690,29 @@ export function CurrentRealityPanel({ result }) {
   )
 }
 
-export default function V2ResearchTabs({ result }) {
-  const [activeTab, setActiveTab] = useState('tokenomics')
+export default function V2ResearchTabs({ result, activeTab: controlledActiveTab, onActiveTabChange }) {
+  const [localActiveTab, setLocalActiveTab] = useState('tokenomics')
+  const activeTab = controlledActiveTab || localActiveTab
+  const setActiveTab = (nextTab) => {
+    setLocalActiveTab(nextTab)
+    onActiveTabChange?.(nextTab)
+  }
   const tabsetId = useId()
   const handleKeyDown = (event) => {
-    const currentIndex = TABS.findIndex((tab) => tab.id === activeTab)
+    const currentIndex = V2_RESEARCH_TABS.findIndex((tab) => tab.id === activeTab)
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
     const nextIndex = event.key === 'Home' ? 0
-      : event.key === 'End' ? TABS.length - 1
-        : event.key === 'ArrowRight' ? (currentIndex + 1) % TABS.length
-          : (currentIndex - 1 + TABS.length) % TABS.length
-    setActiveTab(TABS[nextIndex].id)
-    document.getElementById(`${tabsetId}-${TABS[nextIndex].id}-tab`)?.focus()
+      : event.key === 'End' ? V2_RESEARCH_TABS.length - 1
+        : event.key === 'ArrowRight' ? (currentIndex + 1) % V2_RESEARCH_TABS.length
+          : (currentIndex - 1 + V2_RESEARCH_TABS.length) % V2_RESEARCH_TABS.length
+    setActiveTab(V2_RESEARCH_TABS[nextIndex].id)
+    document.getElementById(`${tabsetId}-${V2_RESEARCH_TABS[nextIndex].id}-tab`)?.focus()
   }
   return (
     <section className="v2-research-tabs">
       <div className="v2-tab-list" role="tablist" aria-label="Asset research sections" onKeyDown={handleKeyDown}>
-        {TABS.map((tab) => (
+        {V2_RESEARCH_TABS.map((tab) => (
           <button
             key={tab.id}
             id={`${tabsetId}-${tab.id}-tab`}

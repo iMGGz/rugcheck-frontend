@@ -12,7 +12,8 @@
     "test:premium-asset-v2": "node scripts/test-premium-asset-v2.mjs",
     "test:universe-discovery-v2": "node scripts/test-universe-discovery-v2.mjs",
     "test:technical-structure-v2": "node scripts/test-technical-structure-v2.mjs",
-    "test:institutional-ranking-v2": "node scripts/test-institutional-ranking-v2.mjs"
+    "test:institutional-ranking-v2": "node scripts/test-institutional-ranking-v2.mjs",
+    "test:premium-v2-shell": "node scripts/test-premium-v2-shell.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",

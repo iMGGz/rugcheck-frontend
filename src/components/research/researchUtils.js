@@ -7964,6 +7964,7 @@ export function buildReviewBundleText({
   aiReport,
   fundamentals,
   security,
+  premiumV2ShellQa,
 } = {}) {
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
@@ -7972,6 +7973,7 @@ export function buildReviewBundleText({
   const safeMeta = safeObject(meta || safeData.meta);
   const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
+  const safePremiumV2ShellQa = safeObject(premiumV2ShellQa);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9274,6 +9276,36 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(marketWideAnalystPipelinePurityContract?.knownLimitations),
       bundleField("Next resume pointer", marketWideAnalystPipelinePurityContract?.nextResumePointer),
+    ]),
+    bundleSection("Premium V2 Product Shell / Navigation QA", [
+      bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),
+      bundleField("Shell version", safePremiumV2ShellQa.shellVersion),
+      bundleField("Canonical V2 entry route", safePremiumV2ShellQa.canonicalV2EntryRoute),
+      bundleField("Active route", safePremiumV2ShellQa.activeRoute),
+      bundleField("Route map status", safePremiumV2ShellQa.routeMapStatus),
+      bundleField("Global header attached", yesNoUnknown(safePremiumV2ShellQa.globalHeaderAttached)),
+      bundleField("Global search attached", yesNoUnknown(safePremiumV2ShellQa.globalSearchAttached)),
+      bundleField("Desktop navigation attached", yesNoUnknown(safePremiumV2ShellQa.desktopNavigationAttached)),
+      bundleField("Tablet/mobile navigation attached", yesNoUnknown(safePremiumV2ShellQa.compactNavigationAttached)),
+      bundleField("Asset context navigation attached", yesNoUnknown(safePremiumV2ShellQa.assetContextNavigationAttached)),
+      bundleField("Discover context attached", yesNoUnknown(safePremiumV2ShellQa.discoverContextAttached)),
+      bundleField("Active universe navigation attached", yesNoUnknown(safePremiumV2ShellQa.activeUniverseNavigationAttached)),
+      bundleField("Internal QA separated from customer navigation", yesNoUnknown(safePremiumV2ShellQa.internalQaSeparated)),
+      bundleField("Legacy route preserved", yesNoUnknown(safePremiumV2ShellQa.legacyRoutePreserved)),
+      bundleField("Browser visual QA status", safePremiumV2ShellQa.browserVisualQaStatus),
+      bundleField("Tested viewports", safeArray(safePremiumV2ShellQa.testedViewports).join(", ") || "not run"),
+      bundleField("Screenshot evidence available", yesNoUnknown(safePremiumV2ShellQa.screenshotEvidenceAvailable)),
+      bundleField("Frontend analytical calculation count", safePremiumV2ShellQa.frontendAnalyticalCalculationCount),
+      "Known limitations:",
+      bundleList(safePremiumV2ShellQa.knownLimitations),
+      "Guardrails:",
+      bundleList([
+        `score changed=${yesNoUnknown(safePremiumV2ShellQa.scoreChanged)}`,
+        `confidence changed=${yesNoUnknown(safePremiumV2ShellQa.confidenceChanged)}`,
+        `verdict changed=${yesNoUnknown(safePremiumV2ShellQa.verdictChanged)}`,
+        `provider behavior changed=${yesNoUnknown(safePremiumV2ShellQa.providerBehaviorChanged)}`,
+        `customer navigation contains Internal QA=${yesNoUnknown(safePremiumV2ShellQa.customerPrimaryNavContainsInternalQaTabs)}`,
+      ]),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

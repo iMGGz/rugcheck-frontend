@@ -275,6 +275,7 @@ try {
   const componentSource = source('src/v2/components/V2InstitutionalRankings.jsx')
   const discoverSource = source('src/v2/PremiumDiscoverV2.jsx')
   const cssSource = source('src/v2/PremiumDiscoverV2.css')
+  const shellCssSource = source('src/v2/styles/v2-shell.css')
   const packageSource = source('package.json')
   const combinedRankingSource = `${normalizerSource}\n${componentSource}\n${discoverSource}`
   assert.doesNotMatch(combinedRankingSource, /\.sort\s*\(/)
@@ -297,7 +298,7 @@ try {
   assert.match(cssSource, /@media \(max-width: 1100px\)/)
   assert.match(cssSource, /@media \(max-width: 780px\)/)
   assert.match(cssSource, /@media \(max-width: 520px\)/)
-  assert.match(cssSource, /overflow-x:\s*hidden/)
+  assert.match(shellCssSource, /overflow-x:\s*(?:clip|hidden)/)
   assert.match(packageSource, /test:institutional-ranking-v2/)
 
   console.log('PASS V2 institutional ranking renderer-only regressions')

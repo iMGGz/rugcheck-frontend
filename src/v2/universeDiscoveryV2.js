@@ -1,5 +1,6 @@
 import { fetchV2Json, V2ApiError } from './assetResearchV2Api'
 import { buildV2AssetPath } from './assetResearchV2Navigation'
+import { matchV2DiscoverRoute } from './v2RouteConfig'
 
 const STATUS_LABELS = Object.freeze({
   active_discovery: 'Active discovery',
@@ -257,25 +258,16 @@ export function normalizeUniverseDiscoveryResponse(payload) {
 }
 
 export function parseDiscoverV2Location(locationLike) {
-  const pathname = locationLike?.pathname || '/'
-  if (pathname === '/terminal-v2/discover' || pathname === '/terminal-v2/discover/') return { kind: 'overview', slug: null }
-  const match = pathname.match(/^\/terminal-v2\/discover\/([^/]+)\/?$/)
-  if (!match) return { kind: 'not_found', slug: null }
-  try {
-    const slug = decodeURIComponent(match[1]).trim()
-    return slug && slug.length <= 120 ? { kind: 'universe', slug } : { kind: 'invalid', slug: null }
-  } catch {
-    return { kind: 'invalid', slug: null }
-  }
+  return matchV2DiscoverRoute(locationLike)
 }
 
 export function buildUniverseV2Path(definition) {
   return definition?.slug ? `/terminal-v2/discover/${encodeURIComponent(definition.slug)}` : null
 }
 
-export function buildUniverseCandidateAssetPath(candidate) {
+export function buildUniverseCandidateAssetPath(candidate, sourceUniverseSlug = null) {
   if (!candidate?.displayIdentity?.canonicalDeepLinkId || candidate?.canonicalIdentity?.canonicalProductId) return null
-  return buildV2AssetPath({
+  const path = buildV2AssetPath({
     coingeckoId: candidate.canonicalIdentity.coingeckoId,
     coinmarketcapId: candidate.canonicalIdentity.coinmarketcapId,
     chain: candidate.representation?.network,
@@ -284,6 +276,8 @@ export function buildUniverseCandidateAssetPath(candidate) {
     name: candidate.canonicalIdentity.canonicalName,
     identitySummary: { representationType: candidate.representation?.representationType },
   })
+  if (!path || !sourceUniverseSlug) return path
+  return `${path}${path.includes('?') ? '&' : '?'}from=${encodeURIComponent(sourceUniverseSlug)}`
 }
 
 export function universeErrorMessage(error) {

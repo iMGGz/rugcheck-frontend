@@ -13,12 +13,14 @@ import {
   v2ResultMatchesRoute,
 } from './assetResearchV2Navigation'
 import V2AssetSearch from './components/V2AssetSearch'
+import V2AssetContextBar from './components/V2AssetContextBar'
 import V2AssetHero from './components/V2AssetHero'
 import V2MarketSupplyDashboard from './components/V2MarketSupplyDashboard'
 import V2ResearchRail from './components/V2ResearchRail'
 import V2ResearchTabs from './components/V2ResearchTabs'
 import V2SourcesPanel from './components/V2SourcesPanel'
 import { V2CompactState, V2Icon, V2StatusPill } from './components/V2Primitives'
+import { useV2RouteContext } from './shell/V2RouteContext'
 import './PremiumAssetPageV2.css'
 
 const EMPTY_RESEARCH_STATE = Object.freeze({
@@ -29,27 +31,6 @@ const EMPTY_RESEARCH_STATE = Object.freeze({
   parityStatus: null,
   error: null,
 })
-
-function currentBrowserLocation() {
-  if (typeof window === 'undefined') return { pathname: '/terminal-v2', search: '' }
-  return { pathname: window.location.pathname, search: window.location.search }
-}
-
-function useV2Location() {
-  const [location, setLocation] = useState(currentBrowserLocation)
-  useEffect(() => {
-    const handlePopState = () => setLocation(currentBrowserLocation())
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-  const navigate = useCallback((path, options = {}) => {
-    if (!path) return
-    window.history[options.replace ? 'replaceState' : 'pushState']({}, '', path)
-    setLocation(currentBrowserLocation())
-    window.scrollTo({ top: 0, behavior: options.instant ? 'auto' : 'smooth' })
-  }, [])
-  return { location, navigate }
-}
 
 function deriveSuccessStatus(result) {
   const criticalStatuses = [result.identity.status, result.market.status, result.decision.status]
@@ -74,7 +55,7 @@ function LoadingSurface({ stage }) {
 
 function V2Entry({ onSelect }) {
   return (
-    <main className="v2-entry">
+    <div className="v2-entry">
       <div className="v2-entry__ambient" aria-hidden="true" />
       <section className="v2-entry__content">
         <p className="v2-eyebrow">ThesisCore V2 / Asset deep dive</p>
@@ -92,7 +73,7 @@ function V2Entry({ onSelect }) {
         <div><span>02</span><strong>Fundamental thesis</strong><p>Direct answers, supporting evidence, missing analysis, and invalidation.</p></div>
         <div><span>03</span><strong>Decision boundary</strong><p>Verdict, confidence, score visibility, and the next diligence step.</p></div>
       </section>
-    </main>
+    </div>
   )
 }
 
@@ -104,7 +85,7 @@ function ErrorSurface({ status, error, onRetry, onSelect }) {
     data_integrity_error: ['Data integrity check failed', 'The canonical V2 result was inconsistent, so this page failed closed.'],
   }[status] || ['Research unavailable', 'The current asset view could not be completed.']
   return (
-    <main className="v2-error-layout">
+    <div className="v2-error-layout">
       <V2CompactState icon={status === 'data_integrity_error' ? 'shield' : 'compass'} title={copy[0]} message={error?.message || copy[1]}>
         <div className="v2-error-actions">
           {onRetry ? <button type="button" className="v2-primary-button" onClick={onRetry}>Try live analysis again</button> : null}
@@ -112,17 +93,18 @@ function ErrorSurface({ status, error, onRetry, onSelect }) {
         </div>
       </V2CompactState>
       <section className="v2-error-search"><h2>Resolve a different canonical asset</h2><V2AssetSearch onSelect={onSelect} /></section>
-    </main>
+    </div>
   )
 }
 
 export default function PremiumAssetPageV2() {
-  const { location, navigate } = useV2Location()
+  const { location, navigate, setPageContext } = useV2RouteContext()
   const route = useMemo(() => parseV2Location(location), [location.pathname, location.search])
   const coordinatorRef = useRef(null)
   if (!coordinatorRef.current) coordinatorRef.current = createV2RequestCoordinator()
   const [researchState, setResearchState] = useState(EMPTY_RESEARCH_STATE)
   const [retryKey, setRetryKey] = useState(0)
+  const [activeSection, setActiveSection] = useState('overview')
 
   const selectCandidate = useCallback((candidate) => {
     const path = buildV2AssetPath(candidate)
@@ -187,58 +169,70 @@ export default function PremiumAssetPageV2() {
     document.title = assetName ? `${assetName} Research / ThesisCore V2` : 'ThesisCore V2 / Institutional Asset Research'
   }, [researchState.result])
 
+  useEffect(() => {
+    const identity = researchState.result?.identity?.data
+    setPageContext({
+      assetName: identity?.name || route.identityScope?.name || null,
+      assetSymbol: identity?.symbol || route.identityScope?.symbol || null,
+      sourceUniverseSlug: route.identityScope?.sourceUniverseSlug || null,
+      analysisStatus: researchState.status,
+    })
+  }, [researchState.result, researchState.status, route.identityScope, setPageContext])
+
+  const selectSection = useCallback((section) => {
+    setActiveSection(section.id)
+    const targetId = section.kind === 'tab' ? 'research-sections' : section.id
+    if (section.kind === 'tab') {
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}#${section.id}`)
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [])
+
   const showResult = researchState.result && ['success', 'degraded'].includes(researchState.status)
   return (
-    <div className="v2-app-shell">
-      <a className="v2-skip-link" href="#v2-main-content">Skip to research</a>
-      <header className="v2-topbar">
-        <a href="/terminal-v2" className="v2-brand" aria-label="ThesisCore V2 home">
-          <span className="v2-brand__mark">TC</span>
-          <span><strong>ThesisCore</strong><small>Institutional Research / V2</small></span>
-        </a>
-        {route.kind === 'asset' ? <div className="v2-topbar__search"><V2AssetSearch compact onSelect={selectCandidate} /></div> : null}
-        <nav className="v2-topbar__nav" aria-label="Product navigation">
-          {showResult ? <span className="v2-breadcrumb">Asset deep dive / {researchState.result.identity.data.symbol || researchState.result.identity.data.name}</span> : null}
-          <a href="/terminal-v2/discover">Discover</a>
-          <a href="/">Legacy terminal</a>
-        </nav>
-      </header>
-
-      <div id="v2-main-content" className="v2-page-frame">
-        {route.kind === 'entry' ? <V2Entry onSelect={selectCandidate} /> : null}
-        {['resolving_asset', 'analyzing'].includes(researchState.status) ? <LoadingSurface stage={researchState.stage} /> : null}
-        {['not_found', 'invalid_identity', 'backend_error', 'data_integrity_error'].includes(researchState.status) ? (
-          <ErrorSurface
-            status={researchState.status}
-            error={researchState.error}
-            onRetry={route.kind === 'asset' ? () => setRetryKey((current) => current + 1) : null}
-            onSelect={selectCandidate}
-          />
-        ) : null}
-        {showResult ? (
-          <main className="v2-asset-page">
-            {researchState.status === 'degraded' ? (
-              <div className="v2-degraded-banner">
-                <V2StatusPill status="degraded" />
-                <p>Some source-backed sections have limited coverage. Available facts remain visible without filling gaps with assumptions.</p>
-              </div>
-            ) : null}
-            <V2AssetHero result={researchState.result} />
-            <div className="v2-research-layout">
-              <div className="v2-research-main">
-                <V2MarketSupplyDashboard result={researchState.result} />
-                <V2ResearchTabs result={researchState.result} />
-                <V2SourcesPanel result={researchState.result} />
-              </div>
-              <V2ResearchRail result={researchState.result} />
+    <>
+      {route.kind === 'entry' ? <V2Entry onSelect={selectCandidate} /> : null}
+      {['resolving_asset', 'analyzing'].includes(researchState.status) ? <LoadingSurface stage={researchState.stage} /> : null}
+      {['not_found', 'invalid_identity', 'backend_error', 'data_integrity_error'].includes(researchState.status) ? (
+        <ErrorSurface
+          status={researchState.status}
+          error={researchState.error}
+          onRetry={route.kind === 'asset' ? () => setRetryKey((current) => current + 1) : null}
+          onSelect={selectCandidate}
+        />
+      ) : null}
+      {showResult ? (
+        <div className="v2-asset-page">
+          <V2AssetContextBar result={researchState.result} activeSection={activeSection} onSelectSection={selectSection} />
+          {researchState.status === 'degraded' ? (
+            <div className="v2-degraded-banner">
+              <V2StatusPill status="degraded" />
+              <p>Some source-backed sections have limited coverage. Available facts remain visible without filling gaps with assumptions.</p>
             </div>
-            <footer className="v2-page-footer">
-              <p>Research support only. ThesisCore separates current provider facts, deterministic calculations, bounded judgments, and missing evidence.</p>
-              <span>Generated {researchState.result.generatedAt ? new Date(researchState.result.generatedAt).toLocaleString() : 'time unavailable'}</span>
-            </footer>
-          </main>
-        ) : null}
-      </div>
-    </div>
+          ) : null}
+          <div id="overview"><V2AssetHero result={researchState.result} /></div>
+          <div className="v2-research-layout">
+            <div className="v2-research-main">
+              <div id="market-supply"><V2MarketSupplyDashboard result={researchState.result} /></div>
+              <div id="research-sections">
+                <V2ResearchTabs
+                  result={researchState.result}
+                  activeTab={['tokenomics', 'fundamentals', 'reality', 'technical'].includes(activeSection) ? activeSection : 'tokenomics'}
+                  onActiveTabChange={setActiveSection}
+                />
+              </div>
+              <V2SourcesPanel result={researchState.result} />
+            </div>
+            <V2ResearchRail result={researchState.result} />
+          </div>
+          <footer className="v2-page-footer">
+            <p>Research support only. ThesisCore separates current provider facts, deterministic calculations, bounded judgments, and missing evidence.</p>
+            <span>Generated {researchState.result.generatedAt ? new Date(researchState.result.generatedAt).toLocaleString() : 'time unavailable'}</span>
+          </footer>
+        </div>
+      ) : null}
+    </>
   )
 }

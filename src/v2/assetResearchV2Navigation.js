@@ -1,3 +1,5 @@
+import { matchV2AssetRoute } from './v2RouteConfig'
+
 function clean(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -36,34 +38,7 @@ export function buildV2AssetPath(candidate) {
 }
 
 export function parseV2Location(locationLike) {
-  const pathname = locationLike?.pathname || '/'
-  const assetMatch = pathname.match(/^\/terminal-v2\/asset\/([^/]+)\/?$/)
-  if (!assetMatch) {
-    return pathname === '/terminal-v2' || pathname === '/terminal-v2/'
-      ? { kind: 'entry', canonicalAssetId: null, identityScope: {} }
-      : { kind: 'not_found', canonicalAssetId: null, identityScope: {} }
-  }
-  let canonicalAssetId = ''
-  try {
-    canonicalAssetId = decodeURIComponent(assetMatch[1]).trim()
-  } catch {
-    return { kind: 'invalid', canonicalAssetId: null, identityScope: {} }
-  }
-  if (!canonicalAssetId || canonicalAssetId.length > 160) return { kind: 'invalid', canonicalAssetId: null, identityScope: {} }
-  const params = new URLSearchParams(locationLike?.search || '')
-  return {
-    kind: 'asset',
-    canonicalAssetId,
-    identityScope: {
-      coingeckoId: params.get('cg'),
-      coinmarketcapId: params.get('cmc'),
-      network: params.get('network'),
-      contractAddress: params.get('contract'),
-      symbol: params.get('symbol'),
-      name: params.get('name'),
-      representationType: params.get('representation'),
-    },
-  }
+  return matchV2AssetRoute(locationLike)
 }
 
 function candidateMatchesRoute(candidate, route) {

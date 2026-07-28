@@ -14,61 +14,29 @@ import {
 import { formatV2Date, formatV2Usd } from './assetResearchResultV2'
 import { fetchInstitutionalRankingsV2, rankingErrorMessage } from './institutionalRankingV2'
 import V2InstitutionalRankings from './components/V2InstitutionalRankings'
+import { useV2RouteContext } from './shell/V2RouteContext'
 import './PremiumAssetPageV2.css'
 import './PremiumDiscoverV2.css'
 
-function useBrowserLocation() {
-  const [location, setLocation] = useState(() => typeof window === 'undefined'
-    ? { pathname: '/terminal-v2/discover', search: '' }
-    : { pathname: window.location.pathname, search: window.location.search })
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-    const update = () => setLocation({ pathname: window.location.pathname, search: window.location.search })
-    window.addEventListener('popstate', update)
-    return () => window.removeEventListener('popstate', update)
-  }, [])
-  return location
-}
-
-function Shell({ children }) {
-  return (
-    <div className="v2-app-shell v2-discover-shell">
-      <a className="v2-skip-link" href="#discover-main">Skip to Discover</a>
-      <header className="v2-topbar v2-discover-topbar">
-        <a href="/terminal-v2" className="v2-brand" aria-label="ThesisCore V2 home">
-          <span className="v2-brand__mark">TC</span>
-          <span><strong>ThesisCore</strong><small>Institutional Research / V2</small></span>
-        </a>
-        <nav className="v2-topbar__nav" aria-label="Product navigation">
-          <a aria-current="page" href="/terminal-v2/discover">Discover</a>
-          <a href="/terminal-v2">Asset research</a>
-          <a href="/">Legacy terminal</a>
-        </nav>
-      </header>
-      <div id="discover-main" className="v2-page-frame v2-discover-frame">{children}</div>
-    </div>
-  )
-}
-
 function Loading({ detail = false }) {
   return (
-    <main className="v2-discover-loading" role="status" aria-live="polite">
+    <section className="v2-discover-loading" role="status" aria-live="polite">
       <span className="v2-discover-loading__line" />
       <p className="v2-eyebrow">Live institutional discovery</p>
       <h1>{detail ? 'Resolving candidates and running bounded analysis' : 'Opening the universe registry'}</h1>
       <p>{detail ? 'Canonical identity, representation, relevance, coverage, liquidity, and fresh analysis are evaluated in order.' : 'Loading active and planned research universes.'}</p>
-    </main>
+    </section>
   )
 }
 
 function ErrorState({ error }) {
   return (
-    <main className="v2-discover-state">
+    <section className="v2-discover-state">
       <p className="v2-eyebrow">Discover unavailable</p>
       <h1>We could not complete this research view.</h1>
       <p>{universeErrorMessage(error)}</p>
       <div className="v2-discover-actions"><a className="v2-primary-button" href="/terminal-v2/discover">Return to Discover</a><a href="/terminal-v2">Open asset research</a></div>
-    </main>
+    </section>
   )
 }
 
@@ -90,7 +58,7 @@ export function UniverseCard({ universe }) {
 
 export function Overview({ registry }) {
   return (
-    <main className="v2-discover-overview">
+    <div className="v2-discover-overview">
       <section className="v2-discover-hero">
         <div>
           <p className="v2-eyebrow">ThesisCore Discover</p>
@@ -113,7 +81,7 @@ export function Overview({ registry }) {
         <header><p className="v2-eyebrow">Registry roadmap</p><h2 id="planned-universes">Planned research universes</h2></header>
         <div>{registry.plannedUniverses.map((universe) => <article key={universe.universeId}><span>Planned</span><h3>{universe.displayName}</h3><p>{universe.shortDescription}</p></article>)}</div>
       </section>
-    </main>
+    </div>
   )
 }
 
@@ -129,8 +97,8 @@ const FUNNEL_ITEMS = [
   ['Manual review', 'manualReviewCount'],
 ]
 
-export function CandidateCard({ candidate, compact = false }) {
-  const deepLink = buildUniverseCandidateAssetPath(candidate)
+export function CandidateCard({ candidate, compact = false, universeSlug = null }) {
+  const deepLink = buildUniverseCandidateAssetPath(candidate, universeSlug)
   const reasons = candidate.membership.membershipReasons?.length ? candidate.membership.membershipReasons : candidate.membership.blockingReasons
   const relevantSubtheme = candidate.relevance.coreSubtheme || candidate.relevance.adjacentSubthemes?.[0]
   return (
@@ -158,12 +126,12 @@ export function CandidateCard({ candidate, compact = false }) {
   )
 }
 
-function CandidateSection({ eyebrow, title, description, candidates, compact = false }) {
+function CandidateSection({ eyebrow, title, description, candidates, compact = false, universeSlug = null }) {
   if (!candidates.length) return null
   return (
     <section className="v2-discover-section v2-candidate-section">
       <header><p className="v2-eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p></header>
-      <div className="v2-candidate-grid">{candidates.map((candidate) => <CandidateCard key={candidate.candidateId} candidate={candidate} compact={compact} />)}</div>
+      <div className="v2-candidate-grid">{candidates.map((candidate) => <CandidateCard key={candidate.candidateId} candidate={candidate} compact={compact} universeSlug={universeSlug} />)}</div>
     </section>
   )
 }
@@ -171,8 +139,7 @@ function CandidateSection({ eyebrow, title, description, candidates, compact = f
 export function UniverseDetail({ result, rankings = null, rankingError = null }) {
   const universe = result.universeDefinition
   return (
-    <main className="v2-universe-detail">
-      <nav className="v2-discover-breadcrumb" aria-label="Breadcrumb"><a href="/terminal-v2/discover">Discover</a><span>/</span><strong>{universe.displayName}</strong></nav>
+    <div className="v2-universe-detail">
       <section className="v2-universe-hero">
         <div>
           <p className="v2-eyebrow">Institutional universe</p>
@@ -196,23 +163,23 @@ export function UniverseDetail({ result, rankings = null, rankingError = null })
 
       {!result.candidates.length ? <section className="v2-discover-empty" role="status"><p className="v2-eyebrow">No canonical candidates yet</p><h2>This discovery run returned no candidates.</h2><p>Source coverage may be incomplete. No asset is treated as ineligible solely because a provider returned no candidates.</p></section> : null}
 
-      <CandidateSection eyebrow="Passed all current gates" title="Eligible members" description="Freshly analyzed assets that meet the current universe policy." candidates={result.eligibleMembers} />
-      <CandidateSection eyebrow="Qualified with boundaries" title="Eligible with caveats" description="Relevant candidates with explicit coverage, liquidity, or adjacent-scope caveats." candidates={result.caveatedMembers} />
-      <CandidateSection eyebrow="Pipeline in progress" title="Analysis pending" description="Canonical candidates awaiting identity, representation, coverage, liquidity, or bounded analysis capacity." candidates={result.pendingCandidates} compact />
-      <CandidateSection eyebrow="Human verification" title="Manual review" description="Products or ambiguous representations that cannot safely pass automated asset eligibility." candidates={result.manualReviewCandidates} compact />
+      <CandidateSection eyebrow="Passed all current gates" title="Eligible members" description="Freshly analyzed assets that meet the current universe policy." candidates={result.eligibleMembers} universeSlug={universe.slug} />
+      <CandidateSection eyebrow="Qualified with boundaries" title="Eligible with caveats" description="Relevant candidates with explicit coverage, liquidity, or adjacent-scope caveats." candidates={result.caveatedMembers} universeSlug={universe.slug} />
+      <CandidateSection eyebrow="Pipeline in progress" title="Analysis pending" description="Canonical candidates awaiting identity, representation, coverage, liquidity, or bounded analysis capacity." candidates={result.pendingCandidates} compact universeSlug={universe.slug} />
+      <CandidateSection eyebrow="Human verification" title="Manual review" description="Products or ambiguous representations that cannot safely pass automated asset eligibility." candidates={result.manualReviewCandidates} compact universeSlug={universe.slug} />
 
-      {result.ineligibleCandidates.length ? <details className="v2-ineligible-drawer"><summary>View candidates that do not currently meet this universe's criteria <span>{result.ineligibleCount}</span></summary><div className="v2-candidate-grid">{result.ineligibleCandidates.map((candidate) => <CandidateCard key={candidate.candidateId} candidate={candidate} compact />)}</div></details> : null}
+      {result.ineligibleCandidates.length ? <details className="v2-ineligible-drawer"><summary>View candidates that do not currently meet this universe's criteria <span>{result.ineligibleCount}</span></summary><div className="v2-candidate-grid">{result.ineligibleCandidates.map((candidate) => <CandidateCard key={candidate.candidateId} candidate={candidate} compact universeSlug={universe.slug} />)}</div></details> : null}
 
       <details className="v2-methodology-drawer">
         <summary>How universe discovery works</summary>
         <div><p>Candidates come from curated research seeds and existing provider discovery methods. Neither source is evidence or membership by itself, and source coverage may be incomplete.</p><p>Eligible asset membership requires canonical identity, compatible representation, family relevance, current coverage, liquidity eligibility, and a fresh full AssetResearchResultV2 analysis.</p><p>Membership is not ranking, endorsement, or investment advice. Ranking is a separate request-local comparison among eligible members and does not alter membership, the canonical asset score, confidence, verdict, or full analysis.</p></div>
       </details>
-    </main>
+    </div>
   )
 }
 
 export default function PremiumDiscoverV2() {
-  const location = useBrowserLocation()
+  const { location, setPageContext } = useV2RouteContext()
   const route = useMemo(() => parseDiscoverV2Location(location), [location.pathname, location.search])
   const coordinatorRef = useRef(null)
   if (!coordinatorRef.current) coordinatorRef.current = createV2RequestCoordinator()
@@ -257,5 +224,20 @@ export default function PremiumDiscoverV2() {
     document.title = state.result ? `${state.result.universeDefinition.displayName} / ThesisCore Discover` : 'ThesisCore Discover / V2'
   }, [state.result])
 
-  return <Shell>{state.status === 'loading' || state.status === 'discovering' ? <Loading detail={route.kind === 'universe'} /> : null}{state.status === 'error' ? <ErrorState error={state.error} /> : null}{state.status === 'ready' && state.registry ? <Overview registry={state.registry} /> : null}{state.status === 'ready' && state.result ? <UniverseDetail result={state.result} rankings={state.rankings} rankingError={state.rankingError} /> : null}</Shell>
+  useEffect(() => {
+    setPageContext({
+      universeName: state.result?.universeDefinition?.displayName || state.definition?.universeDefinition?.displayName || null,
+      universeSlug: route.slug,
+      analysisStatus: state.status,
+    })
+  }, [route.slug, setPageContext, state.definition, state.result, state.status])
+
+  return (
+    <>
+      {state.status === 'loading' || state.status === 'discovering' ? <Loading detail={route.kind === 'universe'} /> : null}
+      {state.status === 'error' ? <ErrorState error={state.error} /> : null}
+      {state.status === 'ready' && state.registry ? <Overview registry={state.registry} /> : null}
+      {state.status === 'ready' && state.result ? <UniverseDetail result={state.result} rankings={state.rankings} rankingError={state.rankingError} /> : null}
+    </>
+  )
 }
