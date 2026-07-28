@@ -29,6 +29,7 @@ import { Card, ListBlock, SectionRow, TabButton } from "./components/research/re
 import { buildResponsiveStyles } from "./components/research/researchStyles";
 import { buildInstitutionalAssetIdentity } from "./components/research/institutionalChecklistLensRegistry";
 import { PREMIUM_V2_SHELL_QA } from "./v2/v2RouteConfig";
+import { PREMIUM_V2_DECISION_COMMAND_CENTER_QA } from "./v2/assetDecisionCommandCenterV2";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -1119,6 +1120,7 @@ export default function App() {
         ...PREMIUM_V2_SHELL_QA,
         activeRoute: typeof window === "undefined" ? "unavailable" : window.location.pathname,
       },
+      premiumV2DecisionCommandCenterQa: PREMIUM_V2_DECISION_COMMAND_CENTER_QA,
     });
     return [
       INTERNAL_EXPORT_HEADER,

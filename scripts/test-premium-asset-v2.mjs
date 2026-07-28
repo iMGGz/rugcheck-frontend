@@ -31,20 +31,20 @@ function render(Component, props) {
 try {
   const [
     normalizer,
+    commandCenterNormalizer,
     navigation,
     { default: PremiumAssetPageV2 },
-    { default: V2AssetContextBar },
-    { default: V2AssetHero },
+    { default: V2AssetDecisionCommandCenter },
     { default: V2MarketSupplyDashboard },
     tabs,
     { default: V2ResearchRail },
     { default: V2SourcesPanel },
   ] = await Promise.all([
     server.ssrLoadModule('/src/v2/assetResearchResultV2.js'),
+    server.ssrLoadModule('/src/v2/assetDecisionCommandCenterV2.js'),
     server.ssrLoadModule('/src/v2/assetResearchV2Navigation.js'),
     server.ssrLoadModule('/src/v2/PremiumAssetPageV2.jsx'),
-    server.ssrLoadModule('/src/v2/components/V2AssetContextBar.jsx'),
-    server.ssrLoadModule('/src/v2/components/V2AssetHero.jsx'),
+    server.ssrLoadModule('/src/v2/components/V2AssetDecisionCommandCenter.jsx'),
     server.ssrLoadModule('/src/v2/components/V2MarketSupplyDashboard.jsx'),
     server.ssrLoadModule('/src/v2/components/V2ResearchTabs.jsx'),
     server.ssrLoadModule('/src/v2/components/V2ResearchRail.jsx'),
@@ -134,8 +134,7 @@ try {
   for (const symbol of REPRESENTATIVE_V2_ASSETS) {
     const result = buildV2Fixture(symbol)
     const parts = [
-      render(V2AssetContextBar, { result, activeSection: 'overview', onSelectSection: () => {} }),
-      render(V2AssetHero, { result }),
+      render(V2AssetDecisionCommandCenter, { result, activeSection: 'overview', onSelectSection: () => {} }),
       render(V2MarketSupplyDashboard, { result }),
       render(tabs.TokenomicsPanel, { result }),
       render(tabs.FundamentalsPanel, { result }),
@@ -214,8 +213,8 @@ try {
   const renderThenLink = [buildV2Fixture('RENDER'), buildV2Fixture('LINK')]
   assert.equal(renderThenLink[0].classification.data.canonicalFamilyId, 'depin_resource_network')
   assert.notEqual(renderThenLink[1].classification.data.canonicalFamilyId, 'depin_resource_network')
-  assert.match(render(V2AssetContextBar, { result: renderThenLink[0], activeSection: 'overview', onSelectSection: () => {} }), /DePIN resource network/)
-  assert.match(render(V2AssetContextBar, { result: renderThenLink[1], activeSection: 'overview', onSelectSection: () => {} }), /Oracle and interoperability network/)
+  assert.match(render(V2AssetDecisionCommandCenter, { result: renderThenLink[0], activeSection: 'overview', onSelectSection: () => {} }), /DePIN resource network/)
+  assert.match(render(V2AssetDecisionCommandCenter, { result: renderThenLink[1], activeSection: 'overview', onSelectSection: () => {} }), /Oracle and interoperability network/)
 
   const disagreementHtml = render(V2MarketSupplyDashboard, { result: buildV2Fixture('BTC') })
   assert.match(disagreementHtml, /Data sources disagree/)
@@ -287,6 +286,11 @@ try {
   const v2SourceCorpus = v2SourceFiles.map((file) => readFileSync(file, 'utf8')).join('\n')
   const normalizerDefinitionCount = (v2SourceCorpus.match(/function normalizeAssetResearchResultV2\s*\(/g) || []).length
   assert.equal(normalizerDefinitionCount, 1, 'Exactly one V2 normalizer must exist')
+  assert.equal((v2SourceCorpus.match(/function normalizeAssetDecisionCommandCenterV2\s*\(/g) || []).length, 1, 'Exactly one Decision Command Center normalizer must exist')
+  assert.equal(commandCenterNormalizer.normalizeAssetDecisionCommandCenterV2(buildV2Fixture('ETH')).identity.canonicalAssetId, 'ethereum')
+  assert.doesNotMatch(source('src/v2/PremiumAssetPageV2.jsx'), /V2AssetHero|V2AssetContextBar/, 'Retired V2 headers must not remain in the primary render path')
+  assert.equal(readdirSync(path.join(root, 'src', 'v2', 'components')).includes('V2AssetHero.jsx'), false)
+  assert.equal(readdirSync(path.join(root, 'src', 'v2', 'components')).includes('V2AssetContextBar.jsx'), false)
   assert.doesNotMatch(v2SourceCorpus, /\b(?:RENDER|RNDR)\b/, 'V2 production code must not contain asset-specific RENDER family overrides')
   assert.doesNotMatch(v2SourceCorpus, /components\/research|researchUtils|buildDecisionTerminalModel|primaryAnalysisRoute\?\.|finalAnalystAnswerComposerContract\?\./, 'V2 must not import or fall back to legacy analytical contracts')
   assert.doesNotMatch(v2SourceCorpus, /localStorage\.(?:getItem|setItem)|sessionStorage\.(?:getItem|setItem)/, 'V2 must not persist analysis snapshots')
@@ -330,6 +334,10 @@ try {
   assert.match(css, /@media \(max-width: 1180px\)/)
   assert.match(css, /@media \(max-width: 900px\)/)
   assert.match(css, /@media \(max-width: 390px\)/)
+  assert.match(css, /\.v2-command-center/)
+  assert.match(css, /\.v2-command-center__body/)
+  assert.match(css, /\.v2-command-nav/)
+  assert.doesNotMatch(css, /\.v2-asset-context|\.v2-hero(?:\s|\{|_)/, 'Retired V2 header styles must be removed')
   assert.match(shellCss, /prefers-reduced-motion/)
   assert.match(shellCss, /overflow-x: clip/)
   assert.match(shellCss, /:focus-visible/)

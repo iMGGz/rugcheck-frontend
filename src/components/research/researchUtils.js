@@ -7965,6 +7965,7 @@ export function buildReviewBundleText({
   fundamentals,
   security,
   premiumV2ShellQa,
+  premiumV2DecisionCommandCenterQa,
 } = {}) {
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
@@ -7974,6 +7975,7 @@ export function buildReviewBundleText({
   const safeScores = safeObject(scores || safeData.scores || safeAnalysis.scores);
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
   const safePremiumV2ShellQa = safeObject(premiumV2ShellQa);
+  const safePremiumV2DecisionCommandCenterQa = safeObject(premiumV2DecisionCommandCenterQa);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9324,6 +9326,58 @@ export function buildReviewBundleText({
         `provider behavior changed=${yesNoUnknown(safePremiumV2ShellQa.providerBehaviorChanged)}`,
         `customer navigation contains Internal QA=${yesNoUnknown(safePremiumV2ShellQa.customerPrimaryNavContainsInternalQaTabs)}`,
       ]),
+    ]),
+    bundleSection("Premium V2 Asset Decision Command Center QA", [
+      bundleField("Command center attached", assetResearchResultV2 && safePremiumV2DecisionCommandCenterQa.commandCenterAttached ? "yes" : "no"),
+      bundleField("Command center version", safePremiumV2DecisionCommandCenterQa.commandCenterVersion),
+      bundleField("Canonical asset", assetResearchResultV2?.identity?.data?.canonicalAssetId),
+      bundleField("Canonical representation", assetResearchResultV2?.representation?.data?.representationType),
+      bundleField("Canonical family", assetResearchResultV2?.classification?.data?.canonicalFamilyId),
+      bundleField("Identity source", "AssetResearchResultV2.identity"),
+      bundleField("Market snapshot source", "AssetResearchResultV2.market"),
+      bundleField("Decision source", "AssetResearchResultV2.decision / existing final decision owner"),
+      bundleField("Confidence source", "AssetResearchResultV2.decision.data.confidence"),
+      bundleField("Evidence coverage source", "AssetResearchResultV2.evidenceSummary"),
+      bundleField("Freshness source", "AssetResearchResultV2.freshness"),
+      bundleField("Thesis source", "AssetResearchResultV2.decision.data.institutionalThesis"),
+      bundleField("Strongest conclusion source", "AssetResearchResultV2.decision.data.strongestSupport"),
+      bundleField("Primary risk source", "AssetResearchResultV2.decision.data.primarySupportedRisk"),
+      bundleField("Critical unknown source", "AssetResearchResultV2.decision.data.criticalUnknown"),
+      bundleField("What changes the view source", "AssetResearchResultV2.decision.data.whatWouldChangeTheView"),
+      bundleField("Universe context source", "AssetResearchResultV2.universeContext"),
+      bundleField("Frontend normalizer", safePremiumV2DecisionCommandCenterQa.frontendNormalizer),
+      bundleField("Frontend primary component", safePremiumV2DecisionCommandCenterQa.frontendPrimaryComponent),
+      bundleField("Old V2 header primary", yesNoUnknown(safePremiumV2DecisionCommandCenterQa.oldV2HeaderPrimary)),
+      bundleField("Old Decision Header primary", yesNoUnknown(safePremiumV2DecisionCommandCenterQa.oldDecisionHeaderPrimary)),
+      bundleField("Duplicate identity finding count", safePremiumV2DecisionCommandCenterQa.duplicateIdentityFindingCount),
+      bundleField("Duplicate price finding count", safePremiumV2DecisionCommandCenterQa.duplicatePriceFindingCount),
+      bundleField("Duplicate verdict finding count", safePremiumV2DecisionCommandCenterQa.duplicateVerdictFindingCount),
+      bundleField("Duplicate confidence finding count", safePremiumV2DecisionCommandCenterQa.duplicateConfidenceFindingCount),
+      bundleField("Customer internal-enum leakage count", safePremiumV2DecisionCommandCenterQa.customerInternalEnumLeakageCount),
+      bundleField("Frontend analytical calculation count", safePremiumV2DecisionCommandCenterQa.frontendAnalyticalCalculationCount),
+      bundleField("Browser visual QA status", safePremiumV2DecisionCommandCenterQa.browserVisualQaStatus),
+      bundleField("Tested routes", safeArray(safePremiumV2DecisionCommandCenterQa.testedRoutes).join(", ") || "not run"),
+      bundleField("Tested viewports", safeArray(safePremiumV2DecisionCommandCenterQa.testedViewports).join(", ") || "not run"),
+      bundleField("Screenshot evidence", safeArray(safePremiumV2DecisionCommandCenterQa.screenshotEvidence).join(", ") || "not available"),
+      "Current canonical synthesis:",
+      bundleList([
+        `thesis=${assetResearchResultV2?.decision?.data?.institutionalThesis || "unavailable"}`,
+        `strongest=${assetResearchResultV2?.decision?.data?.strongestSupport || "unavailable"}`,
+        `risk=${assetResearchResultV2?.decision?.data?.primarySupportedRisk || "unavailable"}`,
+        `unknown=${assetResearchResultV2?.decision?.data?.criticalUnknown || "unavailable"}`,
+        `what changes=${assetResearchResultV2?.decision?.data?.whatWouldChangeTheView || "unavailable"}`,
+      ]),
+      "Guardrails:",
+      bundleList([
+        `scoring changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.scoringChanged)}`,
+        `tokenomics score changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.tokenomicsScoreChanged)}`,
+        `confidence changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.confidenceChanged)}`,
+        `verdict changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.verdictChanged)}`,
+        `provider behavior changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.providerBehaviorChanged)}`,
+        `ranking changed=${yesNoUnknown(safePremiumV2DecisionCommandCenterQa.rankingChanged)}`,
+      ]),
+      "Known limitations:",
+      bundleList(safePremiumV2DecisionCommandCenterQa.knownLimitations),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

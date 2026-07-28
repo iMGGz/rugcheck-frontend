@@ -13,8 +13,7 @@ import {
   v2ResultMatchesRoute,
 } from './assetResearchV2Navigation'
 import V2AssetSearch from './components/V2AssetSearch'
-import V2AssetContextBar from './components/V2AssetContextBar'
-import V2AssetHero from './components/V2AssetHero'
+import V2AssetDecisionCommandCenter from './components/V2AssetDecisionCommandCenter'
 import V2MarketSupplyDashboard from './components/V2MarketSupplyDashboard'
 import V2ResearchRail from './components/V2ResearchRail'
 import V2ResearchTabs from './components/V2ResearchTabs'
@@ -205,14 +204,19 @@ export default function PremiumAssetPageV2() {
       ) : null}
       {showResult ? (
         <div className="v2-asset-page">
-          <V2AssetContextBar result={researchState.result} activeSection={activeSection} onSelectSection={selectSection} />
           {researchState.status === 'degraded' ? (
             <div className="v2-degraded-banner">
               <V2StatusPill status="degraded" />
               <p>Some source-backed sections have limited coverage. Available facts remain visible without filling gaps with assumptions.</p>
             </div>
           ) : null}
-          <div id="overview"><V2AssetHero result={researchState.result} /></div>
+          <div id="overview">
+            <V2AssetDecisionCommandCenter
+              result={researchState.result}
+              activeSection={activeSection}
+              onSelectSection={selectSection}
+            />
+          </div>
           <div className="v2-research-layout">
             <div className="v2-research-main">
               <div id="market-supply"><V2MarketSupplyDashboard result={researchState.result} /></div>

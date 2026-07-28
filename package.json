@@ -14,7 +14,8 @@
     "test:technical-structure-v2": "node scripts/test-technical-structure-v2.mjs",
     "test:institutional-ranking-v2": "node scripts/test-institutional-ranking-v2.mjs",
     "test:premium-v2-shell": "node scripts/test-premium-v2-shell.mjs",
-    "test:premium-v2-deployment-routing": "node scripts/test-premium-v2-deployment-routing.mjs"
+    "test:premium-v2-deployment-routing": "node scripts/test-premium-v2-deployment-routing.mjs",
+    "test:premium-v2-decision-command-center": "node scripts/test-premium-v2-decision-command-center.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",

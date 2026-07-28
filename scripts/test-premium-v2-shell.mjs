@@ -15,14 +15,16 @@ try {
     routes,
     routeContext,
     { default: PremiumV2AppShell },
-    { default: V2AssetContextBar, V2_ASSET_SECTIONS },
+    { default: V2AssetDecisionCommandCenter },
+    { V2_ASSET_SECTIONS },
     search,
     researchUtils,
   ] = await Promise.all([
     server.ssrLoadModule('/src/v2/v2RouteConfig.js'),
     server.ssrLoadModule('/src/v2/shell/V2RouteContext.jsx'),
     server.ssrLoadModule('/src/v2/shell/PremiumV2AppShell.jsx'),
-    server.ssrLoadModule('/src/v2/components/V2AssetContextBar.jsx'),
+    server.ssrLoadModule('/src/v2/components/V2AssetDecisionCommandCenter.jsx'),
+    server.ssrLoadModule('/src/v2/assetDecisionCommandCenterV2.js'),
     server.ssrLoadModule('/src/v2/components/V2AssetSearch.jsx'),
     server.ssrLoadModule('/src/components/research/researchUtils.js'),
   ])
@@ -91,14 +93,14 @@ try {
 
   const contextFixture = buildV2Fixture('ETH')
   contextFixture.identity.data.name = 'Ethereum Canonical Settlement Asset With A Deliberately Long Display Name'
-  const contextHtml = renderToString(React.createElement(V2AssetContextBar, {
+  const contextHtml = renderToString(React.createElement(V2AssetDecisionCommandCenter, {
     result: contextFixture,
     activeSection: 'fundamentals',
     onSelectSection: () => {},
   }))
   assert.match(contextHtml, /Ethereum Canonical Settlement Asset/)
-  assert.match(contextHtml, /Current decision/)
-  assert.match(contextHtml, /aria-current="page">Fundamentals/)
+  assert.match(contextHtml, /Current institutional decision/)
+  assert.match(contextHtml, /aria-current="page"><span>Fundamentals/)
   assert.equal(V2_ASSET_SECTIONS.length, 6)
   assert.deepEqual(V2_ASSET_SECTIONS.map((item) => item.id), ['overview', 'market-supply', 'tokenomics', 'fundamentals', 'reality', 'technical'])
   assert.doesNotMatch(contextHtml, /undefined|NaN|\[object Object\]/)
