@@ -220,6 +220,9 @@
 .v2-shell-state > p:not(.v2-eyebrow) { color: var(--v2-text-secondary); }
 .v2-shell-state > div { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
 .v2-shell-state > div a:not(.v2-primary-button) { color: var(--v2-text-secondary); font-size: 12px; }
+.v2-shell-state > div button { min-height: 44px; border: 0; padding: 0 4px; color: var(--v2-text-secondary); background: transparent; cursor: pointer; }
+.v2-shell-state > div button:hover { color: var(--v2-text-primary); }
+.v2-shell-state > div button:focus-visible { border-radius: 4px; outline: var(--v2-focus-ring); outline-offset: 4px; }
 .v2-shell-state__icon { display: grid; place-items: center; width: 50px; height: 50px; margin-bottom: 22px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-md); color: var(--v2-accent); background: var(--v2-accent-soft); }
 .v2-shell-state--loading { place-items: center; text-align: center; }
 .v2-shell-loader { width: 40px; height: 40px; margin-bottom: 20px; border: 2px solid var(--v2-border); border-top-color: var(--v2-accent); border-radius: 50%; animation: v2-shell-spin 900ms linear infinite; }

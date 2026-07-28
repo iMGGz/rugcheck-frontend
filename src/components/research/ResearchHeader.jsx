@@ -112,7 +112,7 @@ export default function ResearchHeader({
           <h2 style={styles.brandTitle}>Research Terminal</h2>
         </div>
         <nav style={styles.productViewNav} aria-label="Product view navigation">
-          <ProductViewLink href="/terminal-v2" styles={styles}>Open ThesisCore V2</ProductViewLink>
+          <ProductViewLink href="/terminal-v2" styles={styles}>Research Terminal</ProductViewLink>
           <ProductViewButton
             active={isOverviewView}
             onClick={onOpenOverview}

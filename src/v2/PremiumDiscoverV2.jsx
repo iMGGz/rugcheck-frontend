@@ -221,7 +221,7 @@ export default function PremiumDiscoverV2() {
   }, [route.kind, route.slug])
 
   useEffect(() => {
-    document.title = state.result ? `${state.result.universeDefinition.displayName} / ThesisCore Discover` : 'ThesisCore Discover / V2'
+    document.title = state.result ? `${state.result.universeDefinition.displayName} / ThesisCore Discover` : 'ThesisCore Discover'
   }, [state.result])
 
   useEffect(() => {

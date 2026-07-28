@@ -109,13 +109,14 @@ export function resolveV2Route(locationLike = {}) {
     const slug = safeDecode(universeMatch[1], 120)
     if (!slug) return { id: 'invalid-universe', kind: 'invalid_universe', label: 'Invalid universe route', pathname, slug: null }
     const universe = V2_ACTIVE_UNIVERSES.find((entry) => entry.href.endsWith(`/${slug}`))
+    if (!universe) return { id: 'invalid-universe', kind: 'invalid_universe', label: 'Research universe not found', pathname, slug }
     return {
-      id: universe?.id || 'universe-detail',
+      id: universe.id,
       kind: 'discover_universe',
-      label: universe?.label || 'Research universe',
+      label: universe.label,
       pathname,
       slug,
-      universe: universe || null,
+      universe,
     }
   }
   return pathname.startsWith('/terminal-v2')
@@ -173,7 +174,7 @@ export function buildV2Breadcrumbs(route, pageContext = {}) {
     ]
   }
   if (route.kind === 'discover_overview') return [{ label: 'Discover', current: true }]
-  return [{ label: route.label || 'ThesisCore V2', current: true }]
+  return [{ label: route.label || 'Research Terminal', current: true }]
 }
 
 export function filterActiveUniverseResults(query) {
@@ -213,12 +214,31 @@ export const PREMIUM_V2_SHELL_QA = Object.freeze({
   internalQaSeparated: true,
   legacyRoutePreserved: true,
   customerPrimaryNavContainsInternalQaTabs: false,
+  hostingConfigurationDetected: true,
+  hostingConfigurationPath: 'vercel.json',
+  expectedDeploymentProjectRoot: 'rugcheck-frontend',
+  projectRootProvenByRepository: false,
+  spaFallbackConfigured: true,
+  filesystemStaticResolutionPreserved: true,
+  apiRewriteExclusionStatus: 'pass',
+  directTerminalRouteValidation: 'pass_local_static_simulation',
+  nestedV2RouteValidation: 'pass_local_static_simulation',
+  directRefreshValidation: 'pass_local_http_browser_qa_pending',
+  technicalOpenV2CustomerCopyPresent: false,
+  premiumProductEntryPresent: true,
+  premiumProductEntryLabel: 'Research Terminal',
+  premiumProductEntrySameOrigin: true,
+  applicationNotFoundAttached: true,
+  staticAssetRegression: 'pass',
+  localRouteQaStatus: 'pass_http_browser_pending',
+  deployedRouteQaStatus: 'pending',
   browserVisualQaStatus: 'pending',
   testedViewports: [],
   screenshotEvidenceAvailable: false,
   knownLimitations: [
     'Before screenshots are unavailable because the local server launcher could not be bounded safely before implementation.',
     'Local browser interaction and visual QA remain pending.',
+    'Repository files cannot prove the Vercel dashboard Root Directory setting.',
     'Deployed browser QA remains required before Product PASS.',
   ],
   frontendAnalyticalCalculationCount: 0,

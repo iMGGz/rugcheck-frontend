@@ -47,7 +47,7 @@ function LoadingSurface({ stage }) {
       <h1>{stage === 'resolving_asset' ? 'Resolving canonical identity' : 'Building the institutional research view'}</h1>
       <p>{stage === 'resolving_asset'
         ? 'Matching provider identity, representation, network, and contract scope.'
-        : 'Collecting the canonical V2 result. Previous asset data is intentionally not displayed.'}</p>
+        : 'Collecting the canonical research result. Previous asset data is intentionally not displayed.'}</p>
       <div className="v2-loading-lines"><span /><span /><span /></div>
     </section>
   )
@@ -58,7 +58,7 @@ function V2Entry({ onSelect }) {
     <div className="v2-entry">
       <div className="v2-entry__ambient" aria-hidden="true" />
       <section className="v2-entry__content">
-        <p className="v2-eyebrow">ThesisCore V2 / Asset deep dive</p>
+        <p className="v2-eyebrow">ThesisCore / Asset deep dive</p>
         <h1>Institutional crypto research, distilled to the decision that matters.</h1>
         <p className="v2-entry__lead">Search a canonical asset to inspect current market structure, supply integrity, token economics, thesis evidence, risks, and open diligence in one source-bound view.</p>
         <V2AssetSearch onSelect={onSelect} />
@@ -82,7 +82,7 @@ function ErrorSurface({ status, error, onRetry, onSelect }) {
     not_found: ['Asset not found', 'No exact canonical match could be established for this deep link.'],
     invalid_identity: ['Identity could not be verified', 'The provider, network, or contract scope does not match the requested asset.'],
     backend_error: ['Research service unavailable', 'The live analysis could not be completed. No stale result has been substituted.'],
-    data_integrity_error: ['Data integrity check failed', 'The canonical V2 result was inconsistent, so this page failed closed.'],
+    data_integrity_error: ['Data integrity check failed', 'The canonical research result was inconsistent, so this page failed closed.'],
   }[status] || ['Research unavailable', 'The current asset view could not be completed.']
   return (
     <div className="v2-error-layout">
@@ -166,7 +166,7 @@ export default function PremiumAssetPageV2() {
 
   useEffect(() => {
     const assetName = researchState.result?.identity?.data?.name
-    document.title = assetName ? `${assetName} Research / ThesisCore V2` : 'ThesisCore V2 / Institutional Asset Research'
+    document.title = assetName ? `${assetName} Research / ThesisCore` : 'ThesisCore / Institutional Asset Research'
   }, [researchState.result])
 
   useEffect(() => {

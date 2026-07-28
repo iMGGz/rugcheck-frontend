@@ -172,7 +172,7 @@ export default function PremiumV2AppShell({ children }) {
         >
           <V2Icon name="menu" />
         </button>
-        <V2Link href="/terminal-v2" className="v2-brand" aria-label="ThesisCore V2 Asset Research">
+        <V2Link href="/terminal-v2" className="v2-brand" aria-label="ThesisCore Research Terminal">
           <span className="v2-brand__mark">TC</span>
           <span><strong>ThesisCore</strong><small>Institutional Research</small></span>
         </V2Link>
@@ -204,7 +204,7 @@ export default function PremiumV2AppShell({ children }) {
       <div className="v2-workspace">
         <div className="v2-route-context">
           <Breadcrumbs route={route} pageContext={pageContext} />
-          <span className="v2-route-context__status">{pageContext.routeStatus || 'Canonical V2 route'}</span>
+          <span className="v2-route-context__status">{pageContext.routeStatus || 'Canonical research route'}</span>
         </div>
         <main id="v2-main-content" className="v2-page-frame" tabIndex={-1}>
           <V2ShellErrorBoundary routeKey={route.pathname}>{children}</V2ShellErrorBoundary>

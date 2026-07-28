@@ -17,12 +17,14 @@ try {
     { default: PremiumV2AppShell },
     { default: V2AssetContextBar, V2_ASSET_SECTIONS },
     search,
+    researchUtils,
   ] = await Promise.all([
     server.ssrLoadModule('/src/v2/v2RouteConfig.js'),
     server.ssrLoadModule('/src/v2/shell/V2RouteContext.jsx'),
     server.ssrLoadModule('/src/v2/shell/PremiumV2AppShell.jsx'),
     server.ssrLoadModule('/src/v2/components/V2AssetContextBar.jsx'),
     server.ssrLoadModule('/src/v2/components/V2AssetSearch.jsx'),
+    server.ssrLoadModule('/src/components/research/researchUtils.js'),
   ])
 
   const routeValidation = routes.validateV2RouteConfiguration()
@@ -45,6 +47,8 @@ try {
     assert.equal(routes.resolveV2Route(location).kind, expectedKind, 'Direct refresh must resolve deterministically')
   }
   assert.equal(routes.resolveV2Route(new URL('/terminal-v2/no-such-route', 'https://example.test')).kind, 'not_found')
+  assert.equal(routes.resolveV2Route(new URL('/terminal-v2/discover/no-such-universe', 'https://example.test')).kind, 'invalid_universe')
+  assert.equal(routes.resolveV2Route(new URL('/terminal-v2/asset/%E0%A4%A', 'https://example.test')).kind, 'invalid_asset')
   assert.equal(routes.isV2Path('/terminal-v2/asset/ethereum'), true)
   assert.equal(routes.isV2Path('/'), false)
 
@@ -128,6 +132,8 @@ try {
   assert.match(mainSource, /PremiumV2Router/)
   assert.doesNotMatch(mainSource, /PremiumAssetPageV2 = lazy|PremiumDiscoverV2 = lazy/)
   assert.match(routerSource, /<PremiumV2AppShell>/)
+  assert.match(routerSource, /window\.history\.back\(\)/)
+  assert.match(routerSource, />Go back<\/button>/)
   assert.equal((routerSource.match(/<PremiumV2AppShell>/g) || []).length, 1)
   assert.match(routerSource, /lazy\(\(\) => import\('\.\/PremiumAssetPageV2\.jsx'\)\)/)
   assert.match(routerSource, /lazy\(\(\) => import\('\.\/PremiumDiscoverV2\.jsx'\)\)/)
@@ -159,7 +165,22 @@ try {
   const bundleSource = source('src/components/research/researchUtils.js')
   assert.match(bundleSource, /Premium V2 Product Shell \/ Navigation QA/)
   assert.match(bundleSource, /Frontend analytical calculation count/)
-  assert.match(source('src/components/research/ResearchHeader.jsx'), /Open ThesisCore V2/)
+  const shellBundle = researchUtils.buildReviewBundleText({
+    premiumV2ShellQa: {
+      ...routes.PREMIUM_V2_SHELL_QA,
+      activeRoute: '/terminal-v2',
+    },
+  })
+  assert.match(shellBundle, /Premium V2 Product Shell \/ Navigation QA/)
+  assert.match(shellBundle, /Hosting configuration detected: yes/)
+  assert.match(shellBundle, /SPA fallback configured: yes/)
+  assert.match(shellBundle, /API rewrite exclusion status: pass/)
+  assert.match(shellBundle, /Technical Open V2 customer copy present: no/)
+  assert.match(shellBundle, /Premium product entry label: Research Terminal/)
+  assert.match(shellBundle, /Application not-found attached: yes/)
+  assert.match(shellBundle, /Deployed route QA status: pending/)
+  assert.match(source('src/components/research/ResearchHeader.jsx'), />Research Terminal<\/ProductViewLink>/)
+  assert.doesNotMatch(source('src/components/research/ResearchHeader.jsx'), /Open ThesisCore V2|Open V2|V2 Preview/)
   assert.equal((source('src/main.jsx').match(/<PremiumV2Router/g) || []).length, 1)
 
   console.log(JSON.stringify({
