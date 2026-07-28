@@ -14,7 +14,7 @@ import {
 } from './assetResearchV2Navigation'
 import V2AssetSearch from './components/V2AssetSearch'
 import V2AssetDecisionCommandCenter from './components/V2AssetDecisionCommandCenter'
-import V2MarketSupplyDashboard from './components/V2MarketSupplyDashboard'
+import V2MarketLiquiditySupplyExperience from './components/V2MarketLiquiditySupplyExperience'
 import V2ResearchRail from './components/V2ResearchRail'
 import V2ResearchTabs from './components/V2ResearchTabs'
 import V2SourcesPanel from './components/V2SourcesPanel'
@@ -219,7 +219,7 @@ export default function PremiumAssetPageV2() {
           </div>
           <div className="v2-research-layout">
             <div className="v2-research-main">
-              <div id="market-supply"><V2MarketSupplyDashboard result={researchState.result} /></div>
+              <div id="market-supply"><V2MarketLiquiditySupplyExperience result={researchState.result} /></div>
               <div id="research-sections">
                 <V2ResearchTabs
                   result={researchState.result}

@@ -35,7 +35,7 @@ try {
     navigation,
     { default: PremiumAssetPageV2 },
     { default: V2AssetDecisionCommandCenter },
-    { default: V2MarketSupplyDashboard },
+    { default: V2MarketLiquiditySupplyExperience },
     tabs,
     { default: V2ResearchRail },
     { default: V2SourcesPanel },
@@ -45,7 +45,7 @@ try {
     server.ssrLoadModule('/src/v2/assetResearchV2Navigation.js'),
     server.ssrLoadModule('/src/v2/PremiumAssetPageV2.jsx'),
     server.ssrLoadModule('/src/v2/components/V2AssetDecisionCommandCenter.jsx'),
-    server.ssrLoadModule('/src/v2/components/V2MarketSupplyDashboard.jsx'),
+    server.ssrLoadModule('/src/v2/components/V2MarketLiquiditySupplyExperience.jsx'),
     server.ssrLoadModule('/src/v2/components/V2ResearchTabs.jsx'),
     server.ssrLoadModule('/src/v2/components/V2ResearchRail.jsx'),
     server.ssrLoadModule('/src/v2/components/V2SourcesPanel.jsx'),
@@ -135,7 +135,7 @@ try {
     const result = buildV2Fixture(symbol)
     const parts = [
       render(V2AssetDecisionCommandCenter, { result, activeSection: 'overview', onSelectSection: () => {} }),
-      render(V2MarketSupplyDashboard, { result }),
+      render(V2MarketLiquiditySupplyExperience, { result }),
       render(tabs.TokenomicsPanel, { result }),
       render(tabs.FundamentalsPanel, { result }),
       render(tabs.CurrentRealityPanel, { result }),
@@ -185,7 +185,7 @@ try {
     assert.equal(result.tokenomics.data.vesting.data.claimsSeparatedFromUnlocks, true)
     assert.equal(result.tokenomics.data.holderConcentration.data.beneficialOwnerAdjusted, false)
     assert.equal(result.tokenomics.data.tokenSuccess.data.protocolSuccessDoesNotProveTokenSuccess, true)
-    assert.doesNotMatch(html, /No unlock risk/i, `${symbol} cannot convert missing unlock coverage into a clean bill of health`)
+    assert.doesNotMatch(html, />No unlock risk<|No unlock risk detected/i, `${symbol} cannot convert missing unlock coverage into a clean bill of health`)
     if (symbol === 'RSS3') {
       assert.match(html, /Score withheld/)
       assert.equal(result.fundamentals.data.status, 'manual_review_required')
@@ -216,9 +216,10 @@ try {
   assert.match(render(V2AssetDecisionCommandCenter, { result: renderThenLink[0], activeSection: 'overview', onSelectSection: () => {} }), /DePIN resource network/)
   assert.match(render(V2AssetDecisionCommandCenter, { result: renderThenLink[1], activeSection: 'overview', onSelectSection: () => {} }), /Oracle and interoperability network/)
 
-  const disagreementHtml = render(V2MarketSupplyDashboard, { result: buildV2Fixture('BTC') })
-  assert.match(disagreementHtml, /Data sources disagree/)
-  assert.match(disagreementHtml, /sources remain separate with no averaging/)
+  const disagreementHtml = render(V2MarketLiquiditySupplyExperience, { result: buildV2Fixture('BTC') })
+  assert.match(disagreementHtml, /Material provider disagreement/)
+  assert.match(disagreementHtml, /Provider agreement and measurement quality/)
+  assert.deepEqual(buildV2Fixture('BTC').marketLiquiditySupply.providerAgreement.providersCompared, ['CoinGecko', 'CoinMarketCap'])
 
   const ethTokenomics = buildV2Fixture('ETH').tokenomics.data
   const usdcTokenomics = buildV2Fixture('USDC').tokenomics.data

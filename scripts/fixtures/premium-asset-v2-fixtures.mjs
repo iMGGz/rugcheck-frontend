@@ -451,6 +451,451 @@ function buildFundamentalsData({ assetSymbol, canonicalAssetId, familyId, family
   }
 }
 
+function presentationField(value, unit, {
+  provider = 'CoinGecko',
+  currency = null,
+  sourcePath = 'premiumApiDataProductLayer.fixture',
+  freshnessStatus = 'fresh',
+  limitations = [],
+} = {}) {
+  const available = typeof value === 'number' && Number.isFinite(value)
+  return {
+    value: available ? value : null,
+    normalizedValue: available ? value : null,
+    displayValue: available ? String(value) : 'Unavailable',
+    unit,
+    currency,
+    provider: available ? provider : null,
+    providerField: available ? sourcePath.split('.').at(-1) : null,
+    canonicalSourceOwner: 'premiumApiDataProductLayer',
+    providerAssetId: available ? 'fixture-provider-id' : null,
+    sourcePath,
+    network: null,
+    contractAddress: null,
+    observedAt: available ? FIXED_TIME : null,
+    receivedAt: available ? FIXED_TIME : null,
+    freshnessStatus: available ? freshnessStatus : 'unknown',
+    validationStatus: available ? 'canonical' : 'unknown',
+    availabilityStatus: available ? 'available' : 'unavailable',
+    legitimacyClass: available ? 'direct_provider_measurement' : 'unavailable',
+    boundary: available ? ['Provider-reported current observation.'] : [],
+    limitations: available ? limitations : ['Canonical measurement unavailable.'],
+  }
+}
+
+function presentationScalar(value, unit, sourcePath, {
+  notApplicable = false,
+  provider = null,
+  limitations = [],
+} = {}) {
+  const available = typeof value === 'number' && Number.isFinite(value)
+  return {
+    value: available ? value : null,
+    unit,
+    availability: notApplicable ? 'not_applicable' : available ? 'available' : 'unavailable',
+    sourcePath,
+    provider: available ? provider : null,
+    observedAt: available ? FIXED_TIME : null,
+    freshness: notApplicable ? 'not_applicable' : available ? 'fresh' : 'unavailable',
+    boundary: available ? ['Canonical fixture measurement.'] : [],
+    limitations: available ? limitations : limitations.length ? limitations : ['Canonical measurement unavailable.'],
+  }
+}
+
+function presentationFormula(formulaId, value, unit, formulaExpression, inputPaths, applicability = 'applicable') {
+  const computed = applicability === 'applicable' && typeof value === 'number' && Number.isFinite(value)
+  return {
+    ...presentationField(computed ? value : null, unit, {
+      provider: 'ThesisCore Formula Engine',
+      sourcePath: `premiumApiDataProductLayer.supply.derivedMetrics.${formulaId}`,
+      limitations: computed ? ['Derived value does not predict future market outcomes.'] : ['Compatible canonical inputs are unavailable.'],
+    }),
+    formulaId,
+    formulaExpression,
+    formulaStatus: applicability === 'not_applicable' ? 'not_applicable' : computed ? 'computed' : 'unavailable_missing_inputs',
+    inputs: inputPaths.map((fieldPath) => ({
+      name: fieldPath.split('.').at(-1),
+      fieldPath,
+      value: computed ? 1 : null,
+      unit: 'fixture_input',
+      provider: computed ? 'CoinGecko' : null,
+      observedAt: computed ? FIXED_TIME : null,
+      validationState: computed ? 'valid' : 'missing',
+    })),
+    missingInputs: computed ? [] : inputPaths,
+    invalidInputs: [],
+    roundingRule: 'Display only; backend result preserved.',
+  }
+}
+
+function presentationHistorySeries(seriesId, label, unit, values) {
+  const dates = [
+    '2026-06-20T00:00:00.000Z',
+    '2026-06-28T00:00:00.000Z',
+    '2026-07-05T00:00:00.000Z',
+    '2026-07-11T00:00:00.000Z',
+    FIXED_TIME,
+  ]
+  const points = values.map((value, index) => ({
+    timestamp: dates[index],
+    value,
+    unit,
+    quoteCurrency: 'USD',
+    sourceProvider: 'CoinGecko',
+    sourceMethod: 'direct_provider_series',
+    observedAt: FIXED_TIME,
+    limitations: [],
+  }))
+  const range = (rangeId, rangeLabel) => ({
+    rangeId,
+    label: rangeLabel,
+    availability: 'available',
+    points,
+    startAt: points[0].timestamp,
+    endAt: points.at(-1).timestamp,
+    reasonUnavailable: null,
+  })
+  return {
+    seriesId,
+    label,
+    unit,
+    quoteCurrency: 'USD',
+    sourceProvider: 'CoinGecko',
+    sourceMethod: 'direct_provider_series',
+    observedAt: FIXED_TIME,
+    freshness: 'fresh',
+    coverage: 'partial',
+    directOrDerived: 'direct_provider_series',
+    ranges: [range('30d', '30D'), range('90d', '90D'), range('1y', '1Y'), range('max', 'Max')],
+    limitations: ['Fixture series contains direct observations only.'],
+  }
+}
+
+function buildMarketLiquiditySupplyPresentationFixture({
+  assetSymbol,
+  canonicalAssetId,
+  name,
+  familyId,
+  representationType,
+  network,
+  contract,
+  riskCopy,
+  lowCoverage,
+}) {
+  const noFixedCap = assetSymbol === 'ETH' || assetSymbol === 'USDC'
+  const unlockApplicable = !['native_asset', 'fiat_backed_stablecoin', 'wrapped_asset', 'liquid_staking_derivative', 'tokenized_commodity'].includes(representationType)
+  const pairAvailable = Boolean(contract)
+  const currentPrice = assetSymbol === 'USDC' ? 1 : 100
+  const price = presentationField(currentPrice, 'usd_per_token', { currency: 'USD', sourcePath: 'premiumApiDataProductLayer.market.currentPrice' })
+  const marketCap = presentationField(1_000_000_000, 'usd', { currency: 'USD', sourcePath: 'premiumApiDataProductLayer.market.marketCap' })
+  const fdv = presentationField(noFixedCap ? null : 1_250_000_000, 'usd', { currency: 'USD', sourcePath: 'premiumApiDataProductLayer.market.fullyDilutedValuation' })
+  const volume = presentationField(75_000_000, 'usd_24h', { currency: 'USD', sourcePath: 'premiumApiDataProductLayer.market.volume24h' })
+  const circulating = presentationField(10_000_000, 'token', { sourcePath: 'premiumApiDataProductLayer.supply.circulatingSupply' })
+  const total = presentationField(12_000_000, 'token', { sourcePath: 'premiumApiDataProductLayer.supply.totalSupply' })
+  const maximum = presentationField(noFixedCap ? null : 15_000_000, 'token', { sourcePath: 'premiumApiDataProductLayer.supply.maxSupply' })
+  const marketCapToFdv = presentationFormula('market_cap_to_fdv', noFixedCap ? null : 80, 'percent', '(Market Cap / FDV) * 100', ['market.marketCap', 'market.fullyDilutedValuation'], noFixedCap ? 'not_applicable' : 'applicable')
+  const circulatingShare = presentationFormula('circulating_percent_of_max', noFixedCap ? null : 66.67, 'percent', '(Circulating Supply / Maximum Supply) * 100', ['supply.circulatingSupply', 'supply.maxSupply'], noFixedCap ? 'not_applicable' : 'applicable')
+  const remainingDilution = presentationFormula('remaining_dilution', noFixedCap ? null : 33.33, 'percent', '((Maximum Supply - Circulating Supply) / Maximum Supply) * 100', ['supply.circulatingSupply', 'supply.maxSupply'], noFixedCap ? 'not_applicable' : 'applicable')
+  const volumeToMarketCap = presentationFormula('volume_market_cap_ratio', 7.5, 'percent', '(24h Volume / Market Cap) * 100', ['market.volume24h', 'market.marketCap'])
+  const providerField = (value, provider, field) => presentationField(value, field === 'currentPrice' ? 'usd_per_token' : field.includes('Supply') ? 'token' : 'usd', {
+    provider,
+    sourcePath: `premiumApiDataProductLayer.market.providerObservations.${provider}.${field}`,
+  })
+  const providerObservations = [
+    ['CoinGecko', currentPrice, 1_000_000_000],
+    ['CoinMarketCap', currentPrice * 1.01, 1_070_000_000],
+  ].map(([provider, observedPrice, observedMarketCap]) => ({
+    provider,
+    scope: 'global_asset_market',
+    providerAssetId: provider === 'CoinGecko' ? canonicalAssetId : 1,
+    providerSymbol: assetSymbol,
+    providerName: name,
+    canonicalProviderId: provider === 'CoinGecko' ? canonicalAssetId : 1,
+    identityMatchStatus: 'matched',
+    contractScopeStatus: contract ? 'matched' : 'not_applicable',
+    networkScopeStatus: 'matched',
+    acceptedForPrimaryDisplay: true,
+    quarantineReasons: [],
+    sourcePath: `fixture.${provider}`,
+    observedAt: FIXED_TIME,
+    receivedAt: FIXED_TIME,
+    fields: {
+      currentPrice: providerField(observedPrice, provider, 'currentPrice'),
+      marketCap: providerField(observedMarketCap, provider, 'marketCap'),
+      fullyDilutedValuation: providerField(noFixedCap ? null : provider === 'CoinGecko' ? 1_250_000_000 : 1_300_000_000, provider, 'fullyDilutedValuation'),
+      circulatingSupply: providerField(10_000_000, provider, 'circulatingSupply'),
+    },
+  }))
+  const selectedPairLiquidity = pairAvailable ? presentationField(8_500_000, 'usd', { provider: 'DexScreener', currency: 'USD', sourcePath: 'premiumApiDataProductLayer.liquidity.primaryPairs.liquidityUsd' }) : null
+  const selectedPairVolume = pairAvailable ? presentationField(1_900_000, 'usd_24h', { provider: 'DexScreener', currency: 'USD', sourcePath: 'premiumApiDataProductLayer.liquidity.primaryPairs.volume24h' }) : null
+  const missingData = [
+    {
+      fieldId: 'global_liquidity',
+      label: 'Global executable liquidity',
+      reasonUnavailable: 'No canonical global depth or slippage aggregation is attached.',
+      analyticalImpact: 'Reported volume and one pool cannot establish executable global depth.',
+      nextRequiredSourceOrMeasurement: 'Attach compatible order-book depth, spread, slippage, and venue-concentration measurements.',
+      conclusionBounded: true,
+      scoreUnaffectedByMilestone: true,
+    },
+    {
+      fieldId: 'historical_supply',
+      label: 'Historical circulating supply',
+      reasonUnavailable: 'No direct historical supply series is attached.',
+      analyticalImpact: 'Price and supply effects cannot be decomposed across the historical window.',
+      nextRequiredSourceOrMeasurement: 'Attach direct historical supply observations for the selected representation.',
+      conclusionBounded: true,
+      scoreUnaffectedByMilestone: true,
+    },
+  ]
+  if (unlockApplicable) {
+    missingData.push({
+      fieldId: 'unlock_schedule',
+      label: 'Unlock schedule',
+      reasonUnavailable: 'Canonical future unlock coverage is incomplete.',
+      analyticalImpact: 'Missing coverage cannot be interpreted as no unlock risk.',
+      nextRequiredSourceOrMeasurement: 'Attach a current representation-matched unlock schedule.',
+      conclusionBounded: true,
+      scoreUnaffectedByMilestone: true,
+    })
+  }
+  return {
+    schemaVersion: 'premium-v2-market-liquidity-supply-experience-v1',
+    generatedAt: FIXED_TIME,
+    canonicalAssetId,
+    identity: { symbol: assetSymbol, name },
+    representation: { representationType, assetFamily: familyId, selectedNetwork: network, selectedContract: contract },
+    status: lowCoverage ? 'degraded' : 'partial',
+    marketOverview: {
+      currentPrice: price,
+      quoteCurrency: 'USD',
+      marketCap,
+      marketCapRank: presentationField(12, 'rank', { sourcePath: 'premiumApiDataProductLayer.market.marketRank' }),
+      fullyDilutedValuation: fdv,
+      volume24h: volume,
+      priceChange24h: presentationField(1.25, 'percent', { sourcePath: 'premiumApiDataProductLayer.market.priceChange24h' }),
+      circulatingSupply: circulating,
+      totalSupply: total,
+      maximumSupply: maximum,
+      measurementTimestamp: FIXED_TIME,
+      freshnessState: 'fresh',
+      providerCount: 2,
+      providerAgreementState: 'material_provider_disagreement',
+      providerDisagreementSummary: ['Comparable global market-cap observations differ materially.'],
+      availabilityState: 'available',
+      derivedMetrics: [marketCapToFdv, circulatingShare, remainingDilution, volumeToMarketCap],
+    },
+    providerAgreement: {
+      overallState: 'material_provider_disagreement',
+      priceAgreementState: 'minor_provider_variance',
+      priceDispersionPercent: 1,
+      marketCapAgreementState: 'material_provider_disagreement',
+      supplyAgreementState: 'providers_aligned',
+      fdvAgreementState: noFixedCap ? 'not_comparable' : 'minor_provider_variance',
+      providersCompared: ['CoinGecko', 'CoinMarketCap'],
+      comparableProviderCount: 2,
+      comparisons: [{
+        comparisonId: 'fixture-market-cap-comparison',
+        field: 'marketCap',
+        leftProvider: 'CoinGecko',
+        rightProvider: 'CoinMarketCap',
+        leftValue: 1_000_000_000,
+        rightValue: 1_070_000_000,
+        unit: 'usd',
+        absoluteDifference: 70_000_000,
+        relativeDifferencePercent: 7,
+        observationTimeDifferenceMs: 0,
+        comparisonStatus: 'material_disagreement',
+        thresholdPercent: 5,
+        scoringActive: false,
+        limitations: ['Provider values remain separate.'],
+      }],
+      observations: providerObservations,
+      disagreementReasons: ['Comparable global market-cap observations differ materially.'],
+      staleProviders: [],
+      excludedProviderMeasurements: [],
+      comparisonTimestamp: FIXED_TIME,
+      limitations: ['Pair-level measurements are excluded from global agreement.'],
+    },
+    liquidity: {
+      status: pairAvailable ? 'partial' : 'unavailable',
+      globalVolume24h: volume,
+      spotVolume24h: presentationScalar(null, 'usd_24h', 'marketLiquiditySupply.liquidity.spotVolume24h'),
+      dexVolume24h: presentationScalar(null, 'usd_24h', 'marketLiquiditySupply.liquidity.dexVolume24h'),
+      selectedPairVolume24h: selectedPairVolume,
+      selectedPairLiquidityUsd: selectedPairLiquidity,
+      selectedPairIdentity: pairAvailable ? { chain: network, venue: 'Uniswap', pairAddress: '0x2222222222222222222222222222222222222222', baseAsset: assetSymbol, quoteAsset: 'USDC', pairCreatedAt: '2024-01-01T00:00:00.000Z' } : null,
+      selectedVenue: pairAvailable ? 'Uniswap' : null,
+      globalLiquidityAvailability: 'unavailable',
+      orderBookDepth: presentationScalar(null, 'usd', 'marketLiquiditySupply.liquidity.orderBookDepth'),
+      spread: presentationScalar(null, 'percent', 'marketLiquiditySupply.liquidity.spread'),
+      slippageMeasurements: presentationScalar(null, 'percent', 'marketLiquiditySupply.liquidity.slippageMeasurements'),
+      venueConcentration: presentationField(null, 'percent', { sourcePath: 'premiumApiDataProductLayer.liquidity.venueConcentration' }),
+      topVenueShare: presentationScalar(null, 'percent', 'marketLiquiditySupply.liquidity.topVenueShare'),
+      liquidityQualityState: 'bounded_market_activity_context',
+      liquidityMeasurementScope: pairAvailable ? 'Global trading volume plus one selected pair.' : 'Global trading volume only.',
+      liquidityFreshness: 'fresh',
+      liquidityLimitations: ['One pool is not global liquidity.'],
+      pairIsRepresentativeOfGlobalLiquidity: pairAvailable ? false : null,
+      pairRepresentationReason: pairAvailable ? 'This pool is one venue-level observation and may not represent total market liquidity.' : 'No selected pair is attached; global liquidity is not inferred.',
+    },
+    supplyStructure: {
+      status: 'partial',
+      circulatingSupply: circulating,
+      totalSupply: total,
+      maximumSupply: maximum,
+      maxSupplyDefined: noFixedCap ? false : true,
+      maxSupplyPolicy: assetSymbol === 'ETH' ? 'adaptive_issuance' : assetSymbol === 'USDC' ? 'elastic_issuer_supply' : 'finite_cap_reported',
+      maxSupplyPolicyExplanation: noFixedCap ? 'A fixed maximum is not the primary supply policy for this family.' : 'A provider-reported finite cap is visible but remains source-bound.',
+      burnedSupply: presentationScalar(null, 'token', 'tokenomicsQuality.supplyTruth.observations.burned_supply'),
+      lockedSupply: presentationScalar(null, 'token', 'tokenomicsQuality.supplyStructure.data.lockedSupply'),
+      stakedSupply: presentationScalar(null, 'token', 'marketLiquiditySupply.supplyStructure.stakedSupply'),
+      treasurySupply: presentationScalar(null, 'token', 'tokenomicsQuality.treasury.data.amountTokens'),
+      escrowedSupply: presentationScalar(null, 'token', 'tokenomicsQuality.supplyTruth.observations.escrowed_supply'),
+      bridgedOrWrappedSupply: presentationScalar(null, 'token', 'tokenomicsQuality.supplyTruth.observations.bridged_supply'),
+      freeFloatSupply: presentationScalar(null, 'token', 'tokenomicsQuality.supplyStructure.data.freeFloat'),
+      freeFloatMethod: null,
+      remainingMintableSupply: noFixedCap ? null : presentationFormula('max_supply_gap', 5_000_000, 'token', 'Maximum Supply - Circulating Supply', ['supply.maxSupply', 'supply.circulatingSupply']),
+      circulatingShare,
+      circulatingToTotalShare: presentationFormula('circulating_to_total_ratio', 83.33, 'percent', '(Circulating Supply / Total Supply) * 100', ['supply.circulatingSupply', 'supply.totalSupply']),
+      remainingDilutionShare: remainingDilution,
+      lockedShare: null,
+      stakedShare: null,
+      treasuryShare: null,
+      escrowShare: null,
+      supplyMeasurementTimestamp: FIXED_TIME,
+      supplyAgreementState: 'providers_aligned',
+      supplyLimitations: ['Supply values apply only to the selected representation.'],
+      categoriesMayOverlap: true,
+    },
+    issuanceAndBurn: {
+      status: 'unavailable',
+      issuanceModel: representationType === 'fiat_backed_stablecoin' ? 'issuer_mint_redeem' : 'unavailable',
+      grossIssuanceRate: presentationScalar(null, 'percent_per_year', 'tokenomicsQuality.issuance.data.annualInflationEstimate'),
+      grossIssuanceAmount: presentationScalar(null, 'token_per_year', 'tokenomicsQuality.issuance.data.annualizedEmissions'),
+      burnModel: ['native_asset', 'fiat_backed_stablecoin', 'liquid_staking_derivative'].includes(representationType) ? 'not_applicable_or_family_specific' : 'unavailable',
+      burnedAmount: presentationScalar(null, 'token', 'tokenomicsQuality.burns.data.burnedTokens'),
+      burnRate: presentationScalar(null, 'percent', 'marketLiquiditySupply.issuanceAndBurn.burnRate'),
+      netIssuanceRate: presentationScalar(null, 'percent', 'tokenomicsQuality.netSupplyChange.data.netInflationRate'),
+      netIssuanceAmount: presentationScalar(null, 'token', 'tokenomicsQuality.netSupplyChange.data.netIssuanceAfterBurn'),
+      inflationState: 'unavailable',
+      deflationState: 'unavailable',
+      issuancePeriod: null,
+      measurementBasis: 'Existing Tokenomics Quality observations only.',
+      sourceTimestamp: null,
+      economicInterpretation: 'Compatible current issuance and burn periods are not attached.',
+      interpretationLimitations: ['Burn presence would not prove net deflation or value capture.'],
+      formulaOutputs: [],
+    },
+    unlocksAndEmissions: {
+      status: unlockApplicable ? 'unavailable' : 'not_applicable',
+      nextUnlockDate: null,
+      nextUnlockAmount: null,
+      nextUnlockPercentOfCirculating: null,
+      nextUnlockPercentOfTotal: null,
+      nextUnlockUsdValue: null,
+      unlockScheduleCoverage: unlockApplicable ? 'unknown' : 'not_applicable',
+      emissionsScheduleCoverage: 'unavailable',
+      scheduledUnlocks: [],
+      scheduledEmissions: [],
+      rolling30DayUnlockPercent: null,
+      rolling90DayUnlockPercent: null,
+      rolling365DayUnlockPercent: null,
+      cliffUnlocks: [],
+      linearUnlocks: [],
+      unlockRecipients: [],
+      sourceFreshness: 'unavailable',
+      unlockRiskState: unlockApplicable ? 'coverage_unavailable' : 'not_applicable',
+      unlockInterpretation: unlockApplicable ? 'Missing unlock coverage is not interpreted as no unlock risk.' : 'Generic token unlocks are not the primary future-supply path for this representation.',
+      limitations: ['No scheduled unlock is not the same as no issuance.'],
+    },
+    allocationAndConcentration: {
+      status: 'partial',
+      allocationCategories: [],
+      investorAllocation: null,
+      teamAllocation: null,
+      foundationAllocation: null,
+      treasuryAllocation: null,
+      ecosystemAllocation: null,
+      communityAllocation: null,
+      publicSaleAllocation: null,
+      unknownAllocation: null,
+      topHolderConcentration: 18.5,
+      top10HolderShare: 42,
+      exchangeHolderShare: null,
+      treasuryHolderShare: null,
+      contractHolderShare: null,
+      concentrationCoverage: 'raw_or_partially_label_adjusted',
+      concentrationConfidence: 'low',
+      excludedAddressCategories: [],
+      concentrationLimitations: ['Provider labels do not prove beneficial ownership.'],
+      originalAllocationIsNotCurrentOwnership: true,
+    },
+    historicalContext: {
+      status: 'partial',
+      requestedRange: 'max',
+      sourceProvider: 'CoinGecko',
+      sourceMethod: 'direct_provider_series',
+      measurementTimestamp: FIXED_TIME,
+      freshness: 'fresh',
+      series: [
+        presentationHistorySeries('price', 'Price', 'usd_per_token', [92, 96, 94, 101, currentPrice]),
+        presentationHistorySeries('market_cap', 'Market cap', 'usd', [920_000_000, 960_000_000, 940_000_000, 1_010_000_000, 1_000_000_000]),
+        presentationHistorySeries('volume', 'Volume', 'usd_24h', [42_000_000, 64_000_000, 55_000_000, 81_000_000, 75_000_000]),
+      ],
+      limitations: ['Historical supply is unavailable.'],
+      technicalIndicatorsIncluded: false,
+      syntheticHistoryCreated: false,
+      gapsPreserved: true,
+    },
+    boundedInterpretation: {
+      marketStructureView: 'Current global market measurements are available, with a material market-cap disagreement preserved.',
+      liquidityView: pairAvailable ? 'Global volume and selected-pool liquidity are visible as separate scopes.' : 'Global volume is visible, while executable liquidity remains unavailable.',
+      supplyView: representationType === 'wrapped_asset' ? 'Displayed supply applies only to the wrapped representation.' : representationType === 'liquid_staking_derivative' ? 'Displayed supply applies only to the liquid staking representation.' : 'Displayed supply applies only to the selected canonical representation.',
+      dilutionView: noFixedCap ? 'Remaining dilution to a fixed maximum is not the primary metric for this family.' : 'Backend formulas expose the remaining maximum-supply gap without predicting price impact.',
+      strongestSupportedMarketConclusion: 'Current market size, provider-reported activity, and available supply measurements are inspectable with exact scope boundaries.',
+      primaryMarketOrSupplyRisk: riskCopy,
+      criticalMarketOrSupplyUnknown: missingData[0].analyticalImpact,
+      whatWouldImproveMarketSupplyConfidence: missingData.map((item) => item.nextRequiredSourceOrMeasurement),
+      whatTheDataDoesNotProve: ['Reported volume does not prove executable institutional depth.', 'Circulating supply does not automatically equal free float.'],
+      interpretationState: lowCoverage ? 'bounded_by_material_data_gaps' : 'bounded_by_provider_disagreement',
+      interpretationLimitations: ['This presentation does not alter score, confidence, or verdict.'],
+    },
+    dataQuality: {
+      status: 'partial',
+      providerAgreementState: 'material_provider_disagreement',
+      freshnessState: 'fresh',
+      unavailableCriticalFieldCount: missingData.length,
+      staleProviders: [],
+      providerFailures: [],
+      limitations: ['Data quality and asset quality are distinct.'],
+    },
+    missingData,
+    nextDiligence: missingData.map((item) => item.nextRequiredSourceOrMeasurement),
+    provenance: [
+      { owner: 'premiumApiDataProductLayer', sourcePath: 'premiumApiDataProductLayer.market/supply/liquidity', measurementScope: 'canonical current provider measurements', boundary: 'Provider values remain separate.' },
+      { owner: 'tokenomicsQuality', sourcePath: 'tokenomicsQuality', measurementScope: 'selected representation token economics', boundary: 'Missing coverage remains unavailable.' },
+      { owner: 'historicalMarketData', sourcePath: 'historicalMarketData', measurementScope: 'direct historical market series', boundary: 'No synthetic history or technical indicators.' },
+    ],
+    limitations: ['Order-book depth, global executable liquidity, historical supply, free float, and unlock coverage may remain unavailable.'],
+    guardrails: {
+      frontendCalculationsAllowed: false,
+      selectedPairIsGlobalLiquidity: false,
+      missingDataRenderedAsZero: false,
+      missingUnlockMeansNoRisk: false,
+      nativeWrappedSupplyMerged: false,
+      nativeLstSupplyMerged: false,
+      scoringChanged: false,
+      tokenomicsScoreChanged: false,
+      confidenceChanged: false,
+      verdictChanged: false,
+      providerBehaviorChanged: false,
+      snapshotsEnabled: false,
+      partialRefreshEnabled: false,
+    },
+  }
+}
+
 export function buildV2Fixture(symbol, overrides = {}) {
   const control = ASSET_CONTROLS.find((entry) => entry[0] === symbol)
   if (!control) throw new Error(`Unknown V2 fixture ${symbol}`)
@@ -541,6 +986,17 @@ export function buildV2Fixture(symbol, overrides = {}) {
     productAvailability: section({ assetDeepDive: lowCoverage ? 'partial' : 'available', marketData: 'available', supplyData: 'available', liquidity: 'partial', tokenomics: 'partial', protocolEconomics: 'not_applicable', providerComparison: 'available', sourceFreshness: 'available', fundamentals: lowCoverage ? 'manual_review_required' : 'partial', currentReality: 'partial', valueCapture: 'partial', smartMoney: 'future_milestone', technicalStructure: 'future_milestone', priceFibonacci: 'future_milestone', marketCapFibonacci: 'future_milestone', projectedSupply: 'future_milestone', valuationScenarios: 'future_milestone', universeDiscovery: 'future_milestone', universeMembership: 'future_milestone', opportunityRanking: 'future_milestone', portfolioRoles: 'future_milestone', protectedReport: 'available' }, 'partial'),
     limitations: ['Provider coverage remains uneven.'],
   }
+  result.marketLiquiditySupply = buildMarketLiquiditySupplyPresentationFixture({
+    assetSymbol,
+    canonicalAssetId,
+    name,
+    familyId,
+    representationType,
+    network,
+    contract,
+    riskCopy,
+    lowCoverage,
+  })
   return { ...result, ...overrides }
 }
 

@@ -7966,6 +7966,7 @@ export function buildReviewBundleText({
   security,
   premiumV2ShellQa,
   premiumV2DecisionCommandCenterQa,
+  premiumV2MarketLiquiditySupplyQa,
 } = {}) {
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
@@ -7976,6 +7977,7 @@ export function buildReviewBundleText({
   const safeConfidence = safeObject(confidence || safeAnalysis.confidence || safeData.confidence);
   const safePremiumV2ShellQa = safeObject(premiumV2ShellQa);
   const safePremiumV2DecisionCommandCenterQa = safeObject(premiumV2DecisionCommandCenterQa);
+  const safePremiumV2MarketLiquiditySupplyQa = safeObject(premiumV2MarketLiquiditySupplyQa);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -7999,6 +8001,7 @@ export function buildReviewBundleText({
   const assetResearchResultV2 = normalizeAssetResearchResultV2Payload(safeData)
     || normalizeAssetResearchResultV2Payload(safeAnalysis)
     || normalizeAssetResearchResultV2Payload(safeModel);
+  const marketLiquiditySupply = safeObject(assetResearchResultV2?.marketLiquiditySupply);
   const tokenomicsQuality = safeObject(assetResearchResultV2?.tokenomics?.data);
   const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
   const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
@@ -9378,6 +9381,53 @@ export function buildReviewBundleText({
       ]),
       "Known limitations:",
       bundleList(safePremiumV2DecisionCommandCenterQa.knownLimitations),
+    ]),
+    bundleSection("Premium V2 Market, Liquidity & Supply QA", [
+      bundleField("Experience attached", marketLiquiditySupply.schemaVersion && safePremiumV2MarketLiquiditySupplyQa.experienceAttached ? "yes" : "no"),
+      bundleField("Experience version", marketLiquiditySupply.schemaVersion || safePremiumV2MarketLiquiditySupplyQa.experienceVersion),
+      bundleField("Canonical asset", marketLiquiditySupply.canonicalAssetId || assetResearchResultV2?.identity?.data?.canonicalAssetId),
+      bundleField("Canonical representation", marketLiquiditySupply.representation?.representationType),
+      bundleField("Canonical family", marketLiquiditySupply.representation?.assetFamily),
+      bundleField("Presentation owner", safePremiumV2MarketLiquiditySupplyQa.presentationOwner),
+      bundleField("Frontend normalizer", safePremiumV2MarketLiquiditySupplyQa.frontendNormalizer),
+      bundleField("Frontend primary component", safePremiumV2MarketLiquiditySupplyQa.frontendPrimaryComponent),
+      bundleField("Market overview source", "AssetResearchResultV2.marketLiquiditySupply.marketOverview"),
+      bundleField("Liquidity source", "AssetResearchResultV2.marketLiquiditySupply.liquidity"),
+      bundleField("Supply source", "AssetResearchResultV2.marketLiquiditySupply.supplyStructure"),
+      bundleField("Issuance source", "AssetResearchResultV2.marketLiquiditySupply.issuanceAndBurn"),
+      bundleField("Burn source", "AssetResearchResultV2.marketLiquiditySupply.issuanceAndBurn"),
+      bundleField("Unlock source", "AssetResearchResultV2.marketLiquiditySupply.unlocksAndEmissions"),
+      bundleField("Allocation source", "AssetResearchResultV2.marketLiquiditySupply.allocationAndConcentration"),
+      bundleField("Historical source", "AssetResearchResultV2.marketLiquiditySupply.historicalContext"),
+      bundleField("Provider agreement source", "AssetResearchResultV2.marketLiquiditySupply.providerAgreement"),
+      bundleField("Freshness source", "AssetResearchResultV2.marketLiquiditySupply.marketOverview.freshnessState"),
+      bundleField("Interpretation source", "AssetResearchResultV2.marketLiquiditySupply.boundedInterpretation"),
+      bundleField("Old V2 market surface primary", yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.oldV2MarketSurfacePrimary)),
+      bundleField("Duplicate market field count", safePremiumV2MarketLiquiditySupplyQa.duplicateMarketFieldCount),
+      bundleField("Pair-as-global leakage count", safePremiumV2MarketLiquiditySupplyQa.pairAsGlobalLeakageCount),
+      bundleField("Native-to-wrapped inheritance count", safePremiumV2MarketLiquiditySupplyQa.nativeToWrappedInheritanceCount),
+      bundleField("Native-to-LST inheritance count", safePremiumV2MarketLiquiditySupplyQa.nativeToLstInheritanceCount),
+      bundleField("Missing-as-zero finding count", safePremiumV2MarketLiquiditySupplyQa.missingAsZeroFindingCount),
+      bundleField("Missing-unlock-as-no-risk count", safePremiumV2MarketLiquiditySupplyQa.missingUnlockAsNoRiskCount),
+      bundleField("Customer internal-enum leakage count", safePremiumV2MarketLiquiditySupplyQa.customerInternalEnumLeakageCount),
+      bundleField("Frontend analytical calculation count", safePremiumV2MarketLiquiditySupplyQa.frontendAnalyticalCalculationCount),
+      bundleField("Browser visual QA status", safePremiumV2MarketLiquiditySupplyQa.browserVisualQaStatus),
+      bundleField("Tested routes", safeArray(safePremiumV2MarketLiquiditySupplyQa.testedRoutes).join(", ") || "not run"),
+      bundleField("Tested viewports", safeArray(safePremiumV2MarketLiquiditySupplyQa.testedViewports).join(", ") || "not run"),
+      bundleField("Screenshot evidence", safeArray(safePremiumV2MarketLiquiditySupplyQa.screenshotEvidence).join(", ") || "not available"),
+      bundleField("Bundle size delta", safePremiumV2MarketLiquiditySupplyQa.bundleSizeDelta),
+      "Guardrails:",
+      bundleList([
+        `scoring changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.scoringChanged)}`,
+        `tokenomics score changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.tokenomicsScoreChanged)}`,
+        `confidence changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.confidenceChanged)}`,
+        `verdict changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.verdictChanged)}`,
+        `ranking changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.rankingChanged)}`,
+        `universe changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.universeChanged)}`,
+        `provider behavior changed=${yesNoUnknown(safePremiumV2MarketLiquiditySupplyQa.providerBehaviorChanged)}`,
+      ]),
+      "Known limitations:",
+      bundleList(safePremiumV2MarketLiquiditySupplyQa.knownLimitations),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

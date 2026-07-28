@@ -82,6 +82,15 @@ function validateV2Result(result) {
     throw new AssetResearchV2ContractError('malformed_v2_result', 'AssetResearchResultV2 identity metadata is malformed.')
   }
   for (const sectionName of REQUIRED_SECTIONS) validateSection(sectionName, result[sectionName])
+  if (
+    !isRecord(result.marketLiquiditySupply)
+    || result.marketLiquiditySupply.schemaVersion !== 'premium-v2-market-liquidity-supply-experience-v1'
+  ) {
+    throw new AssetResearchV2ContractError(
+      'missing_market_supply_result',
+      'The canonical Market, Liquidity & Supply presentation is unavailable.',
+    )
+  }
   return result
 }
 
