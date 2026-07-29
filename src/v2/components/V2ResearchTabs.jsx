@@ -9,7 +9,6 @@ import {
   safeProductText,
 } from '../assetResearchResultV2'
 import {
-  V2AnswerCard,
   V2Disclosure,
   V2InsightList,
   V2SectionHeading,
@@ -17,6 +16,7 @@ import {
 } from './V2Primitives'
 import V2TechnicalScenariosPanel from './V2TechnicalScenariosPanel'
 import V2TokenomicsQualityExperience from './V2TokenomicsQualityExperience'
+import V2ThesisFundamentalsExperience from './V2ThesisFundamentalsExperience'
 
 export const V2_RESEARCH_TABS = [
   { id: 'tokenomics', label: 'Tokenomics' },
@@ -288,214 +288,8 @@ function LegacyTokenomicsPanel({ result }) {
 // Compatibility export now points to the sole Premium V2 Tokenomics owner.
 export const TokenomicsPanel = V2TokenomicsQualityExperience
 
-function fundamentalTone(status) {
-  if (status === 'supported') return 'positive'
-  if (status === 'contradictory' || status === 'manual_review_required') return 'negative'
-  if (status === 'partially_supported' || status === 'degraded') return 'caution'
-  return 'neutral'
-}
-
-function FundamentalDimensionCard({ dimension, compact = false }) {
-  if (!dimension) return null
-  return (
-    <article className={`v2-fundamental-card${compact ? ' v2-fundamental-card--compact' : ''}`}>
-      <div className="v2-fundamental-card__header">
-        <h3>{safeProductText(dimension.label, 'Research dimension')}</h3>
-        <V2StatusPill label={humanizeV2Value(dimension.status, 'Evidence limited')} status={dimension.status} tone={fundamentalTone(dimension.status)} />
-      </div>
-      <p>{safeProductText(dimension.conciseAnswer, 'Current eligible evidence does not support a stronger answer.')}</p>
-      <div className="v2-fundamental-card__meta">
-        <span>Confidence: {humanizeV2Value(dimension.confidence?.label, 'Not assessed')}</span>
-        <span>Freshness: {humanizeV2Value(dimension.freshness?.status, 'Unavailable')}</span>
-      </div>
-      {compact ? (
-        <div className="v2-fundamental-card__compact-detail">
-          <div><h4>Supported</h4><V2InsightList items={dimension.whatIsSupported} emptyText="No stronger conclusion is supported yet." tone="positive" limit={3} /></div>
-          <div><h4>Open checks</h4><V2InsightList items={dimension.missingCriticalEvidence} emptyText={dimension.applicability === 'not_applicable' ? 'Not relevant for this asset type.' : 'No additional critical gap is attached.'} tone="caution" limit={3} /></div>
-        </div>
-      ) : (
-        <V2Disclosure label="Evidence, limits, and next diligence" summary="Inspect the canonical support boundary." quiet>
-          <div className="v2-answer-grid">
-            <div><h4>What is supported</h4><V2InsightList items={dimension.whatIsSupported} emptyText="No stronger conclusion is supported yet." tone="positive" /></div>
-            <div><h4>What is not proven</h4><V2InsightList items={dimension.whatIsNotProven} emptyText="No additional boundary is attached." tone="caution" /></div>
-            <div><h4>Missing evidence</h4><V2InsightList items={dimension.missingCriticalEvidence} emptyText={dimension.applicability === 'not_applicable' ? 'Not relevant for this asset type.' : 'No additional missing evidence is attached.'} tone="caution" /></div>
-            <div><h4>Next diligence</h4><V2InsightList items={dimension.nextDiligence} emptyText="No additional diligence step is attached." /></div>
-          </div>
-        </V2Disclosure>
-      )}
-    </article>
-  )
-}
-
-function FundamentalsMetricStrip({ metrics }) {
-  const visible = Array.isArray(metrics) ? metrics.filter((metric) => metric?.displayValue && metric.displayValue !== 'Unavailable').slice(0, 6) : []
-  if (!visible.length) return <p className="v2-empty-copy">No canonically mapped usage metric is available.</p>
-  return (
-    <div className="v2-fundamentals-metrics">
-      {visible.map((metric) => (
-        <article key={`${metric.fieldId}-${metric.period || 'current'}`}>
-          <span>{safeProductText(metric.label, 'Metric')}</span>
-          <strong>{safeProductText(metric.displayValue, 'Unavailable')}</strong>
-          <small>{[metric.period, metric.provider, humanizeV2Value(metric.freshness, null)].filter(Boolean).join(' / ') || 'Source scope attached in detail'}</small>
-          <em>{safeProductText(metric.scope, 'Mapping scope requires review.')}</em>
-        </article>
-      ))}
-    </div>
-  )
-}
-
-function FundamentalsDomainDisclosure({ title, summary, dimensions }) {
-  const visible = (dimensions || []).filter(Boolean)
-  if (!visible.length) return null
-  return (
-    <V2Disclosure label={title} summary={summary}>
-      <div className="v2-fundamental-domain-grid">
-        {visible.map((dimension) => <FundamentalDimensionCard key={dimension.dimension} dimension={dimension} compact />)}
-      </div>
-    </V2Disclosure>
-  )
-}
-
-export function FundamentalsPanel({ result }) {
-  const fundamentals = result.fundamentals.data
-  const thesis = result.thesis.data
-  const valueCapture = result.valueCapture.data
-  const product = fundamentals.productRealityDetails || {}
-  const adoption = fundamentals.adoptionDetails || {}
-  const economics = fundamentals.protocolEconomicsDetails || {}
-  const transfer = fundamentals.protocolTokenTransferDetails || {}
-  const thesisDetails = fundamentals.thesisDetails || {}
-  const directAnswers = fundamentals.directAnswers || fundamentals.canonicalQuestions || []
-  const protocolMetrics = [
-    ...(economics.fees || []),
-    ...(economics.revenue || []),
-    ...(economics.protocolVolume || []),
-    ...(economics.tvl || []),
-    ...(economics.borrowing || []),
-    ...(economics.activeLoans || []),
-    ...(economics.incentives || []),
-    ...(economics.costs || []),
-    ...(economics.treasuryFlows || []),
-    ...(economics.tokenholderDistributions || []),
-  ]
-  return (
-    <div className="v2-tab-panel__inner v2-fundamentals-shell">
-      <V2SectionHeading
-        eyebrow="Thesis and fundamentals"
-        title="Product reality first. Evidence boundaries always."
-        description={safeProductText(fundamentals.analystSummary, 'Canonical fundamental answers remain limited by current eligible evidence.')}
-        action={<V2StatusPill label={humanizeV2Value(fundamentals.status, 'Evidence limited')} status={result.fundamentals.status} />}
-      />
-
-      <section className="v2-fundamentals-command" aria-label="Fundamentals coverage summary">
-        <article><span>Confidence</span><strong>{humanizeV2Value(fundamentals.confidence?.label, 'Not assessed')}</strong><small>{safeProductText(fundamentals.confidence?.explanation, 'Evidence coverage determines answer strength.')}</small></article>
-        <article><span>Freshness</span><strong>{humanizeV2Value(fundamentals.freshness?.status, 'Unavailable')}</strong><small>{fundamentals.freshness?.observedAt ? `Observed ${formatV2Date(fundamentals.freshness.observedAt)}` : 'No common observation time is attached.'}</small></article>
-        <article><span>Evidence coverage</span><strong>{fundamentals.evidenceSummary?.eligibleEvidenceCount ?? 0} eligible inputs</strong><small>{fundamentals.evidenceSummary?.missingCriticalEvidenceCount ?? 0} critical gap{fundamentals.evidenceSummary?.missingCriticalEvidenceCount === 1 ? '' : 's'} remain.</small></article>
-        <article className="is-caution"><span>Primary open check</span><strong>{safeProductText(fundamentals.missingCriticalEvidence?.[0], 'No critical gap attached')}</strong><small>{safeProductText(fundamentals.nextDiligence?.[0], 'No additional diligence step is attached.')}</small></article>
-      </section>
-
-      <section className="v2-product-reality-hero">
-        <div className="v2-product-reality-hero__copy">
-          <p className="v2-eyebrow">What this asset represents</p>
-          <h3>{safeProductText(product.productType, fundamentals.productReality?.label || 'Canonical asset family')}</h3>
-          <p>{safeProductText(product.conciseSummary || fundamentals.productReality?.conciseAnswer, 'Product reality is not established from current evidence.')}</p>
-        </div>
-        <div className="v2-product-reality-hero__facts">
-          <div><span>Primary product</span><strong>{safeProductText(product.primaryProduct, 'Needs verification')}</strong></div>
-          <div><span>Primary use case</span><strong>{safeProductText(product.primaryUseCase, 'Needs verification')}</strong></div>
-        </div>
-        <div className="v2-product-reality-hero__actors">
-          <div><span>Target participants</span><V2InsightList items={product.targetUsers} emptyText="Target users are not established." limit={4} /></div>
-          <div><span>Critical dependencies</span><V2InsightList items={product.productDependency} emptyText="Dependencies require source review." limit={4} tone="caution" /></div>
-        </div>
-        <div className="v2-product-state-grid">
-          <div><span>Delivered or active</span><V2InsightList items={[...(product.deliveredProducts || []), ...(product.activeProducts || [])]} emptyText="No delivered product claim is supported by current evidence." limit={4} tone="positive" /></div>
-          <div><span>Proposed or unverified</span><V2InsightList items={product.proposedProducts} emptyText="No proposed product claim is attached." limit={4} tone="caution" /></div>
-          <div><span>Secondary use cases</span><V2InsightList items={product.secondaryUseCases} emptyText="No secondary use case is established." limit={4} /></div>
-        </div>
-      </section>
-
-      <div className="v2-thesis-summary-grid">
-        <article><span>Core thesis</span><p>{safeProductText(thesisDetails.thesisSummary || thesis.thesisSummary, 'A complete thesis is not available yet.')}</p></article>
-        <article className="is-positive"><span>Strongest support</span><p>{safeProductText(fundamentals.strongestSupportedArea, 'No strongest supported area is attached.')}</p></article>
-        <article className="is-caution"><span>Primary weakness</span><p>{safeProductText(fundamentals.weakestArea, 'The weakest area requires further evidence.')}</p></article>
-      </div>
-
-      <section className="v2-fundamentals-section">
-        <div className="v2-tokenomics-section-title"><div><p className="v2-eyebrow">Adoption and economics</p><h3>Is the product used, and are the economics durable?</h3></div></div>
-        <div className="v2-fundamental-feature-grid">
-          <FundamentalDimensionCard dimension={fundamentals.adoption} />
-          <FundamentalDimensionCard dimension={fundamentals.usageQuality} />
-          <FundamentalDimensionCard dimension={fundamentals.protocolEconomics} />
-          <FundamentalDimensionCard dimension={fundamentals.revenueQuality} />
-        </div>
-        <div className="v2-economics-state-strip">
-          <span>Adoption: <strong>{humanizeV2Value(adoption.classification, 'Unavailable')}</strong></span>
-          <span>Revenue quality: <strong>{humanizeV2Value(fundamentals.revenueQualityDetails?.state, 'Unavailable')}</strong></span>
-          <span>Economic sustainability: <strong>{humanizeV2Value(economics.economicSustainability, 'Unavailable')}</strong></span>
-          <span>Period consistency: <strong>{humanizeV2Value(economics.periodConsistency, 'Unavailable')}</strong></span>
-        </div>
-        <V2Disclosure label="Mapped adoption and protocol metrics" summary={`${(adoption.metrics || []).length + protocolMetrics.length} scoped observation${(adoption.metrics || []).length + protocolMetrics.length === 1 ? '' : 's'}`} quiet>
-          <FundamentalsMetricStrip metrics={[...(adoption.metrics || []), ...protocolMetrics]} />
-          <p className="v2-fundamentals-boundary">TVL is not users. Volume is not revenue. Revenue is not profit or tokenholder accrual.</p>
-        </V2Disclosure>
-      </section>
-
-      <section className="v2-value-capture-card v2-value-capture-card--fundamentals">
-        <div className="v2-value-capture-card__header">
-          <div><p className="v2-eyebrow">Protocol versus token</p><h3>Does protocol success transfer to tokenholders?</h3></div>
-          <V2StatusPill label={humanizeV2Value(transfer.transferStatus || valueCapture.valueCaptureStatus, 'Not established')} status={fundamentals.protocolToTokenTransfer?.status || result.valueCapture.status} />
-        </div>
-        <p>{safeProductText(transfer.conciseSummary || fundamentals.protocolToTokenTransfer?.conciseAnswer || valueCapture.tokenholderEconomicRights, 'Current evidence does not establish a direct tokenholder accrual mechanism.')}</p>
-        <div className="v2-protocol-transfer-status">
-          <div><span>Protocol success</span><strong>{humanizeV2Value(transfer.protocolSuccessStatus, 'Not established')}</strong></div>
-          <div><span>Token success</span><strong>{humanizeV2Value(transfer.tokenSuccessStatus, 'Not established')}</strong></div>
-          <div><span>Transfer mechanism</span><strong>{humanizeV2Value(transfer.transferStatus, 'Unknown')}</strong></div>
-          <div><span>Evidence confidence</span><strong>{humanizeV2Value(fundamentals.protocolToTokenTransfer?.confidence?.label, 'Not assessed')}</strong></div>
-        </div>
-        <div className="v2-protocol-transfer-grid">
-          <div><h4>Direct or realized</h4><V2InsightList items={[...(transfer.directMechanisms || []), ...(valueCapture.whatIsRealized || [])]} emptyText="No direct mechanism is sufficiently supported." tone="positive" /></div>
-          <div><h4>Indirect or hypothetical</h4><V2InsightList items={[...(transfer.indirectMechanisms || []), ...(transfer.hypotheticalMechanisms || []), ...(valueCapture.whatIsHypothetical || [])]} emptyText="No hypothetical mechanism is attached." tone="caution" /></div>
-          <div><h4>Rights and dilution limits</h4><V2InsightList items={[...(transfer.economicRightsLimits || []), ...(transfer.dilutionOffsets || [])]} emptyText="Economic-rights evidence remains limited." tone="caution" /></div>
-          <div><h4>Unresolved questions</h4><V2InsightList items={transfer.unresolvedQuestions} emptyText="No additional unresolved transfer question is attached." tone="caution" /></div>
-        </div>
-      </section>
-
-      <section className="v2-fundamentals-section">
-        <div className="v2-tokenomics-section-title"><div><p className="v2-eyebrow">Institutional answers</p><h3>Canonical questions behind the thesis</h3></div></div>
-        {directAnswers.length ? (
-          <div className="v2-answer-stack">{directAnswers.map((answer) => <V2AnswerCard key={answer.questionId} answer={answer} />)}</div>
-        ) : <p className="v2-empty-panel">Canonical question answers are not available for this asset yet.</p>}
-      </section>
-
-      <section className="v2-fundamentals-section v2-fundamentals-section--domains">
-        <div className="v2-tokenomics-section-title"><div><p className="v2-eyebrow">Research domains</p><h3>Inspect the evidence behind each fundamental pillar</h3></div></div>
-        <FundamentalsDomainDisclosure title="Product, architecture, and dependencies" summary="What is live, how it works, and what it relies on." dimensions={[fundamentals.productReality, fundamentals.useCase, fundamentals.architecture, fundamentals.dependencies]} />
-        <FundamentalsDomainDisclosure title="Competition and defensibility" summary="Differentiation is kept separate from category labels and integrations." dimensions={[fundamentals.competitivePosition, fundamentals.moatAndDefensibility]} />
-        <FundamentalsDomainDisclosure title="Governance and decentralization" summary="Formal rights, practical control, and concentration are separate." dimensions={[fundamentals.governance, fundamentals.decentralization]} />
-        <FundamentalsDomainDisclosure title="Security and operational resilience" summary="Coverage is scoped; absence of a flag is not a guarantee." dimensions={[fundamentals.security, fundamentals.operationalRisk]} />
-        <FundamentalsDomainDisclosure title="Execution and roadmap" summary="Repository activity, delivery, and proposed work remain distinct." dimensions={[fundamentals.execution, fundamentals.developmentActivity, fundamentals.roadmap]} />
-        <FundamentalsDomainDisclosure title="Legal and economic rights" summary="Token ownership, governance, backing, and enforceable rights remain distinct." dimensions={[fundamentals.legalAndEconomicRights]} />
-        <FundamentalsDomainDisclosure title="Evidence coverage" summary={`${fundamentals.evidenceSummary?.missingCriticalEvidenceCount ?? 0} critical evidence gap${fundamentals.evidenceSummary?.missingCriticalEvidenceCount === 1 ? '' : 's'}`} dimensions={[fundamentals.evidenceCoverage]} />
-      </section>
-
-      <section className="v2-falsification-cockpit">
-        <div className="v2-falsification-cockpit__header"><p className="v2-eyebrow">Thesis discipline</p><h3>Thesis, anti-thesis, and falsification</h3></div>
-        <div className="v2-falsification-summary-grid">
-          <article><span>Thesis</span><p>{safeProductText(thesisDetails.thesisSummary || thesis.thesisSummary, 'A supported thesis is not available yet.')}</p></article>
-          <article className="is-caution"><span>Anti-thesis</span><p>{safeProductText(thesisDetails.antiThesisSummary || thesis.strongestCounterargument, 'The strongest counterargument requires more evidence.')}</p></article>
-        </div>
-        <div className="v2-thesis-conditions">
-          <div><h3>What must remain true</h3><V2InsightList items={thesisDetails.thesisConditions || thesis.supportingConditions} emptyText="No supporting condition is attached." /></div>
-          <div><h3>Strongest anti-thesis</h3><V2InsightList items={thesisDetails.antiThesisEvidence || thesis.antiThesis} emptyText="No anti-thesis condition is attached." tone="caution" /></div>
-          <div><h3>What would falsify it</h3><V2InsightList items={thesisDetails.falsificationSignals || fundamentals.falsification?.nextDiligence || thesis.invalidationConditions} emptyText="No falsification signal is attached." tone="caution" /></div>
-        </div>
-        <div className="v2-next-step"><span>What would strengthen the thesis</span><p>{safeProductText(thesisDetails.whatWouldStrengthen?.[0], 'No additional strengthening condition is attached.')}</p></div>
-        <p className="v2-fundamentals-boundary">{safeProductText(thesisDetails.boundary || thesis.boundary, 'Price movement alone is not thesis falsification.')}</p>
-      </section>
-    </div>
-  )
-}
+// Compatibility export now points to the sole Premium V2 Fundamentals owner.
+export const FundamentalsPanel = V2ThesisFundamentalsExperience
 
 const CURRENT_REALITY_IMPACT_FILTERS = [
   ['all', 'All material'],
@@ -733,7 +527,7 @@ export default function V2ResearchTabs({ result, activeTab: controlledActiveTab,
       </div>
       <div className="v2-tab-panel" id={`${tabsetId}-${activeTab}-panel`} role="tabpanel" aria-labelledby={`${tabsetId}-${activeTab}-tab`} tabIndex={0}>
         {activeTab === 'tokenomics' ? <V2TokenomicsQualityExperience result={result} /> : null}
-        {activeTab === 'fundamentals' ? <FundamentalsPanel result={result} /> : null}
+        {activeTab === 'fundamentals' ? <V2ThesisFundamentalsExperience result={result} /> : null}
         {activeTab === 'reality' ? <CurrentRealityPanel result={result} /> : null}
         {activeTab === 'technical' ? <V2TechnicalScenariosPanel result={result} /> : null}
       </div>

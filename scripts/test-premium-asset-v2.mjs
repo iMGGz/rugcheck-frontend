@@ -170,14 +170,14 @@ try {
       assert.equal(result.fundamentals.data[dimension].dimension, dimension, `${symbol} ${dimension} identity`)
       assert.ok(result.fundamentals.data[dimension].conciseAnswer, `${symbol} ${dimension} concise answer`)
     })
-    assert.match(html, /Product reality first\. Evidence boundaries always\./, `${symbol} must render the fundamentals executive hierarchy`)
-    assert.match(html, /What this asset represents/, `${symbol} must render product reality`)
-    assert.match(html, /Is the product used, and are the economics durable\?/, `${symbol} must render adoption and economics`)
-    assert.match(html, /Does protocol success transfer to tokenholders\?/, `${symbol} must render protocol-token comparison`)
-    assert.match(html, /Canonical questions behind the thesis/, `${symbol} must render question-level research`)
-    assert.match(html, /Thesis, anti-thesis, and falsification/, `${symbol} must render falsification discipline`)
+    assert.match(html, /Institutional thesis/, `${symbol} must render the fundamentals executive hierarchy`)
+    assert.match(html, /What does the asset, network, issuer, or claim actually do\?/, `${symbol} must render product reality`)
+    assert.match(html, /Is adoption measurable and durable\?/, `${symbol} must render adoption`)
+    assert.match(html, /What creates measurable economic activity\?/, `${symbol} must render economic activity`)
+    assert.match(html, /Is the differentiation defensible\?/, `${symbol} must render competition and moat`)
+    assert.match(html, /What could change or falsify the view\?/, `${symbol} must render falsification discipline`)
     assert.match(html, /Confidence/, `${symbol} must render confidence`)
-    assert.match(html, /Evidence coverage/, `${symbol} must render evidence coverage`)
+    assert.match(html, /What should the analyst verify next\?/, `${symbol} must render evidence coverage`)
     assert.doesNotMatch(html, /Fundamentals Score|\bBUY\b|\bSELL\b|ACCUMULATE|AVOID/i, `${symbol} must not invent a fundamentals score or recommendation`)
     assert.equal(result.tokenomics.data.schemaVersion, 'tokenomics-quality-engine-v1')
     assert.equal(result.tokenomics.data.supplyTruth.data.noSilentAveraging, true)
@@ -206,9 +206,19 @@ try {
   partialFundamentals.fundamentals.data.protocolEconomicsDetails.revenue = []
   partialFundamentals.fundamentals.data.directAnswers = []
   partialFundamentals.fundamentals.data.canonicalQuestions = []
+  partialFundamentals.thesisFundamentalsPresentation.adoptionAndUsage.metrics = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.fees = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.revenue = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.protocolVolume = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.tvl = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.borrowing = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.activeLoans = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.incentives = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.costs = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.treasuryFlows = []
+  partialFundamentals.thesisFundamentalsPresentation.economicActivity.tokenholderDistributions = []
   const partialFundamentalsHtml = render(tabs.FundamentalsPanel, { result: partialFundamentals })
   assert.match(partialFundamentalsHtml, /0 scoped observations/)
-  assert.match(partialFundamentalsHtml, /Canonical question answers are not available/)
   assert.doesNotMatch(partialFundamentalsHtml, /undefined|NaN|Infinity|\[object Object\]/)
 
   const renderThenLink = [buildV2Fixture('RENDER'), buildV2Fixture('LINK')]
@@ -299,15 +309,16 @@ try {
   assert.doesNotMatch(v2SourceCorpus, /partialRefresh|snapshotId|hydrateSnapshot/i, 'V2 must not add snapshot or partial-refresh behavior')
   assert.doesNotMatch(v2SourceCorpus, /if\s*\(\s*(?:symbol|assetSymbol)\s*===?\s*['"][A-Z0-9]+['"]/, 'V2 runtime must not contain token-specific branches')
   assert.doesNotMatch(source('src/v2/components/V2ResearchTabs.jsx'), /(?:marketCap|fdv|supply|unlock|issuance|burn)\s*[+*/-]\s*(?:marketCap|fdv|supply|unlock|issuance|burn)/i, 'Tokenomics UI must not own analytical formulas')
-  const fundamentalsSource = source('src/v2/components/V2ResearchTabs.jsx')
-  assert.match(fundamentalsSource, /fundamentals\.productReality/)
-  assert.match(fundamentalsSource, /fundamentals\.protocolToTokenTransfer/)
-  assert.match(fundamentalsSource, /fundamentals\.falsification/)
+  const fundamentalsSource = source('src/v2/components/V2ThesisFundamentalsExperience.jsx')
+  assert.match(fundamentalsSource, /model\.assetOrBusinessModel/)
+  assert.match(fundamentalsSource, /model\.economicActivity/)
+  assert.match(fundamentalsSource, /model\.falsificationConditions/)
   assert.doesNotMatch(fundamentalsSource, /finalAnalystAnswerComposerContract|institutionalAnswerSurfaceContract|typedObservation|reviewedEvidencePacket|research-seeds/i, 'Fundamentals UI must consume only canonical V2 projections')
-  assert.doesNotMatch(fundamentalsSource, /protocolSuccessStatus\s*=|tokenSuccessStatus\s*=|transferStatus\s*=/, 'Frontend must not infer protocol-to-token transfer')
-  const currentRealitySource = fundamentalsSource.slice(
-    fundamentalsSource.indexOf('const CURRENT_REALITY_IMPACT_FILTERS'),
-    fundamentalsSource.indexOf('export default function V2ResearchTabs'),
+  assert.doesNotMatch(fundamentalsSource, /protocolSuccessStatus\s*=|tokenSuccessStatus\s*=|transferStatus\s*=|symbol\s*===|assetSymbol\s*===/, 'Frontend must not infer protocol-to-token transfer or branch by asset')
+  const researchTabsSource = source('src/v2/components/V2ResearchTabs.jsx')
+  const currentRealitySource = researchTabsSource.slice(
+    researchTabsSource.indexOf('const CURRENT_REALITY_IMPACT_FILTERS'),
+    researchTabsSource.indexOf('export default function V2ResearchTabs'),
   )
   assert.doesNotMatch(currentRealitySource, /eventTone|signalStrength|\.classification\b/, 'Current Reality frontend must not retain the old event classifier')
   assert.doesNotMatch(currentRealitySource, /headline.*(?:bullish|bearish)|(?:bullish|bearish).*headline/i, 'Headline sentiment cannot drive the Current Reality UI')
@@ -317,8 +328,10 @@ try {
   assert.doesNotMatch(currentRealitySource, /(?:marketCap|price|volume)\s*[><=]/, 'Frontend must not infer event materiality from market metrics')
   const reportMirrorSource = source('src/components/research/researchUtils.js')
   assert.match(reportMirrorSource, /const thesisFundamentals = safeObject\(assetResearchResultV2\?\.fundamentals\?\.data\)/)
+  assert.match(reportMirrorSource, /const thesisFundamentalsPresentation = safeObject\(assetResearchResultV2\?\.thesisFundamentalsPresentation\)/)
   assert.match(reportMirrorSource, /Thesis & Fundamentals synthesis/)
   assert.match(reportMirrorSource, /AssetResearchResultV2 Thesis & Fundamentals attached/)
+  assert.match(reportMirrorSource, /Premium V2 Thesis & Fundamentals Experience QA/)
   assert.equal((reportMirrorSource.match(/const currentReality = safeObject\(assetResearchResultV2\?\.currentReality\?\.data\)/g) || []).length, 2)
   assert.match(reportMirrorSource, /Most material current development/)
   assert.match(reportMirrorSource, /AssetResearchResultV2 Current Reality attached/)

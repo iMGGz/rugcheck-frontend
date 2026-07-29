@@ -7968,6 +7968,7 @@ export function buildReviewBundleText({
   premiumV2DecisionCommandCenterQa,
   premiumV2MarketLiquiditySupplyQa,
   premiumV2TokenomicsQualityQa,
+  premiumV2ThesisFundamentalsQa,
 } = {}) {
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
@@ -7980,6 +7981,7 @@ export function buildReviewBundleText({
   const safePremiumV2DecisionCommandCenterQa = safeObject(premiumV2DecisionCommandCenterQa);
   const safePremiumV2MarketLiquiditySupplyQa = safeObject(premiumV2MarketLiquiditySupplyQa);
   const safePremiumV2TokenomicsQualityQa = safeObject(premiumV2TokenomicsQualityQa);
+  const safePremiumV2ThesisFundamentalsQa = safeObject(premiumV2ThesisFundamentalsQa);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -8005,6 +8007,7 @@ export function buildReviewBundleText({
     || normalizeAssetResearchResultV2Payload(safeModel);
   const marketLiquiditySupply = safeObject(assetResearchResultV2?.marketLiquiditySupply);
   const tokenomicsQualityPresentation = safeObject(assetResearchResultV2?.tokenomicsQualityPresentation);
+  const thesisFundamentalsPresentation = safeObject(assetResearchResultV2?.thesisFundamentalsPresentation);
   const tokenomicsQuality = safeObject(assetResearchResultV2?.tokenomics?.data);
   const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
   const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
@@ -9486,6 +9489,52 @@ export function buildReviewBundleText({
       ]),
       "Known limitations:",
       bundleList(safePremiumV2TokenomicsQualityQa.knownLimitations),
+    ]),
+    bundleSection("Premium V2 Thesis & Fundamentals Experience QA", [
+      bundleField("Experience attached", thesisFundamentalsPresentation.schemaVersion && safePremiumV2ThesisFundamentalsQa.experienceAttached ? "yes" : "no"),
+      bundleField("Experience version", thesisFundamentalsPresentation.schemaVersion || safePremiumV2ThesisFundamentalsQa.experienceVersion),
+      bundleField("Canonical asset", thesisFundamentalsPresentation.canonicalAssetId || assetResearchResultV2?.identity?.data?.canonicalAssetId),
+      bundleField("Canonical representation", thesisFundamentalsPresentation.representation?.representationType),
+      bundleField("Canonical family", thesisFundamentalsPresentation.family?.familyId),
+      bundleField("Presentation owner", safePremiumV2ThesisFundamentalsQa.presentationOwner),
+      bundleField("Analytical owner", safePremiumV2ThesisFundamentalsQa.analyticalOwner),
+      bundleField("Final-language owner", safePremiumV2ThesisFundamentalsQa.finalLanguageOwner),
+      bundleField("Frontend normalizer", safePremiumV2ThesisFundamentalsQa.frontendNormalizer),
+      bundleField("Frontend primary component", safePremiumV2ThesisFundamentalsQa.frontendPrimaryComponent),
+      bundleField("Old V2 Fundamentals surface primary", yesNoUnknown(safePremiumV2ThesisFundamentalsQa.oldV2FundamentalsSurfacePrimary)),
+      bundleField("Duplicate thesis count", safePremiumV2ThesisFundamentalsQa.duplicateThesisCount),
+      bundleField("Duplicate risk count", safePremiumV2ThesisFundamentalsQa.duplicateRiskCount),
+      bundleField("Duplicate critical-unknown count", safePremiumV2ThesisFundamentalsQa.duplicateCriticalUnknownCount),
+      bundleField("Integration-as-adoption leakage count", safePremiumV2ThesisFundamentalsQa.integrationAsAdoptionLeakageCount),
+      bundleField("Partnership-as-usage leakage count", safePremiumV2ThesisFundamentalsQa.partnershipAsUsageLeakageCount),
+      bundleField("Market-cap-as-moat leakage count", safePremiumV2ThesisFundamentalsQa.marketCapAsMoatLeakageCount),
+      bundleField("Price-as-adoption leakage count", safePremiumV2ThesisFundamentalsQa.priceAsAdoptionLeakageCount),
+      bundleField("Protocol-to-token value leakage count", safePremiumV2ThesisFundamentalsQa.protocolToTokenValueLeakageCount),
+      bundleField("Product-AUM-to-token-value leakage count", safePremiumV2ThesisFundamentalsQa.productAumToTokenValueLeakageCount),
+      bundleField("Missing-evidence-as-risk finding count", safePremiumV2ThesisFundamentalsQa.missingEvidenceAsRiskFindingCount),
+      bundleField("Native-to-wrapped fundamentals leakage count", safePremiumV2ThesisFundamentalsQa.nativeToWrappedFundamentalsLeakageCount),
+      bundleField("Native-to-LST fundamentals leakage count", safePremiumV2ThesisFundamentalsQa.nativeToLstFundamentalsLeakageCount),
+      bundleField("Stablecoin speculative-thesis leakage count", safePremiumV2ThesisFundamentalsQa.stablecoinSpeculativeThesisLeakageCount),
+      bundleField("Meme invented-utility leakage count", safePremiumV2ThesisFundamentalsQa.memeInventedUtilityLeakageCount),
+      bundleField("Customer internal-enum leakage count", safePremiumV2ThesisFundamentalsQa.customerInternalEnumLeakageCount),
+      bundleField("Frontend analytical calculation count", safePremiumV2ThesisFundamentalsQa.frontendAnalyticalCalculationCount),
+      bundleField("Browser visual QA status", safePremiumV2ThesisFundamentalsQa.browserVisualQaStatus),
+      bundleField("Tested routes", safeArray(safePremiumV2ThesisFundamentalsQa.testedRoutes).join(", ") || "not run"),
+      bundleField("Tested viewports", safeArray(safePremiumV2ThesisFundamentalsQa.testedViewports).join(", ") || "not run"),
+      bundleField("Screenshot evidence", safeArray(safePremiumV2ThesisFundamentalsQa.screenshotEvidence).join(", ") || "not available"),
+      bundleField("Bundle-size delta", safePremiumV2ThesisFundamentalsQa.bundleSizeDelta),
+      "Guardrails:",
+      bundleList([
+        `scoring changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.scoringChanged)}`,
+        `tokenomics score changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.tokenomicsScoreChanged)}`,
+        `confidence changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.confidenceChanged)}`,
+        `verdict changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.verdictChanged)}`,
+        `ranking changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.rankingChanged)}`,
+        `universe changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.universeChanged)}`,
+        `provider behavior changed=${yesNoUnknown(safePremiumV2ThesisFundamentalsQa.providerBehaviorChanged)}`,
+      ]),
+      "Known limitations:",
+      bundleList(safePremiumV2ThesisFundamentalsQa.knownLimitations),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

@@ -100,6 +100,15 @@ function validateV2Result(result) {
       'The canonical Tokenomics Quality presentation is unavailable.',
     )
   }
+  if (
+    !isRecord(result.thesisFundamentalsPresentation)
+    || result.thesisFundamentalsPresentation.schemaVersion !== 'premium-v2-thesis-fundamentals-experience-v1'
+  ) {
+    throw new AssetResearchV2ContractError(
+      'missing_thesis_fundamentals_presentation',
+      'The canonical Thesis & Fundamentals presentation is unavailable.',
+    )
+  }
   return result
 }
 

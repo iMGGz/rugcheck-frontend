@@ -17,7 +17,8 @@
     "test:premium-v2-deployment-routing": "node scripts/test-premium-v2-deployment-routing.mjs",
     "test:premium-v2-decision-command-center": "node scripts/test-premium-v2-decision-command-center.mjs",
     "test:premium-v2-market-liquidity-supply": "node scripts/test-premium-v2-market-liquidity-supply.mjs",
-    "test:premium-v2-tokenomics-quality": "node scripts/test-premium-v2-tokenomics-quality.mjs"
+    "test:premium-v2-tokenomics-quality": "node scripts/test-premium-v2-tokenomics-quality.mjs",
+    "test:premium-v2-thesis-fundamentals": "node scripts/test-premium-v2-thesis-fundamentals.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",
