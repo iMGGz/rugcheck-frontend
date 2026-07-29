@@ -7982,6 +7982,8 @@ export function buildReviewBundleText({
   const safePremiumV2MarketLiquiditySupplyQa = safeObject(premiumV2MarketLiquiditySupplyQa);
   const safePremiumV2TokenomicsQualityQa = safeObject(premiumV2TokenomicsQualityQa);
   const safePremiumV2ThesisFundamentalsQa = safeObject(premiumV2ThesisFundamentalsQa);
+  const institutionalDiscoveryDeterministicRankingConstitution =
+    safeAnalysis.institutionalDiscoveryDeterministicRankingConstitution || null;
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9287,6 +9289,36 @@ export function buildReviewBundleText({
       "Known limitations:",
       bundleList(marketWideAnalystPipelinePurityContract?.knownLimitations),
       bundleField("Next resume pointer", marketWideAnalystPipelinePurityContract?.nextResumePointer),
+    ]),
+    bundleSection("Institutional Discovery Two-Universe Deterministic Ranking Constitution v1", [
+      bundleField("Contract attached", institutionalDiscoveryDeterministicRankingConstitution ? "yes" : "no"),
+      bundleField("Constitution version", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.constitutionVersion),
+      bundleField("Universes", safeArray(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.universeIds).join(", ") || "unavailable"),
+      bundleField("Universe count", safeArray(institutionalDiscoveryDeterministicRankingConstitution?.universes).length),
+      bundleField("Cohort count", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.cohortCount),
+      bundleField("Formula count", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.formulaCount),
+      bundleField("Eligibility policy count", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.eligibilityPolicyCount),
+      bundleField("Comparability policy count", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.comparabilityPolicyCount),
+      bundleField("Activation state", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.activationState),
+      bundleField("Runtime score changed", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.runtimeScoreChanged)),
+      bundleField("Runtime rank changed", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.runtimeRankChanged)),
+      bundleField("AI runtime authority", institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.runtimeAiAuthority),
+      bundleField("Anthropic integrated", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.anthropicIntegrated)),
+      bundleField("Provider behavior changed", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.providerBehaviorChanged)),
+      bundleField("Snapshots enabled", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.snapshotsEnabled)),
+      bundleField("Partial refresh enabled", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.diagnosticSummary?.incrementalReuseEnabled)),
+      bundleField("Customer-facing score added", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.frontendBoundary?.customerScoreAdded)),
+      bundleField("Customer-facing rank added", yesNoUnknown(institutionalDiscoveryDeterministicRankingConstitution?.frontendBoundary?.customerRankAdded)),
+      bundleField("Protected Investor Report changes", safeArray(institutionalDiscoveryDeterministicRankingConstitution?.protectedReportChanges).length),
+      "Methodology boundaries:",
+      bundleList(safeArray(institutionalDiscoveryDeterministicRankingConstitution?.universes).flatMap((universe) =>
+        safeArray(universe?.methodologyBoundary).map((boundary) => `${universe?.universeId || "unknown"}: ${boundary}`)
+      )),
+      "Guardrails:",
+      bundleList(Object.entries(safeObject(institutionalDiscoveryDeterministicRankingConstitution?.guardrails)).map(([key, value]) =>
+        `${key}=${Array.isArray(value) ? value.join(", ") || "none" : String(value)}`
+      )),
+      bundleField("Next resume pointer", institutionalDiscoveryDeterministicRankingConstitution?.nextResumePointer),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),
