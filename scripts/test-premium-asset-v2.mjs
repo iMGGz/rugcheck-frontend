@@ -150,9 +150,10 @@ try {
     assert.doesNotMatch(html, /\b(?:source_required|live_data_required|legacy_diagnostic_only|future_milestone|not_evaluated)\b/i, `${symbol} must not leak raw enums`)
     assert.doesNotMatch(html, /\b2(?:A|B)[A-Z0-9]+\b|claimIds?|packIds?|ruleIds?|artifactVersion|scoringActive/i, `${symbol} must not leak internal identifiers`)
     assert.doesNotMatch(html, /Technical Analysis|Fibonacci|Smart Money|Price Target|Buy now|Sell now/i, `${symbol} must not expose future or gambling surfaces`)
-    assert.match(html, /Supply, dilution, ownership, and token economics/, `${symbol} must render premium tokenomics hierarchy`)
-    assert.match(html, /Protocol success does not automatically become token success/, `${symbol} must preserve protocol-token separation`)
-    assert.match(html, /The browser displays them without recalculation/, `${symbol} must disclose backend formula ownership`)
+    assert.match(html, /What creates demand for this asset\?/, `${symbol} must render premium tokenomics demand hierarchy`)
+    assert.match(html, /What does ownership actually provide\?/, `${symbol} must render holder-rights hierarchy`)
+    assert.match(html, /Does activity accrue to holders\?/, `${symbol} must preserve protocol-token separation`)
+    assert.match(html, /Open detailed schedules in Market &amp; Supply/, `${symbol} must preserve Market & Supply measurement ownership`)
     assert.equal(result.currentReality.data.schemaVersion, 'current-reality-engine-v1.0.0')
     assert.match(html, /What has materially changed\?/, `${symbol} must render the Current Reality executive question`)
     assert.match(html, /Material event timeline/, `${symbol} must render the canonical event timeline`)
@@ -267,9 +268,9 @@ try {
   assert.deepEqual(currentRealitySwitch[0].currentReality.data, currentRealitySwitch[2].currentReality.data)
 
   const longLabelFixture = buildV2Fixture('RIO')
-  longLabelFixture.tokenomics.data.utilityMechanisms.data.mechanisms[0].mechanism = 'Extremely long provider-defined utility mechanism label that must wrap without horizontal overflow'
+  longLabelFixture.tokenomicsQualityPresentation.demandMechanisms[0].label = 'Extremely long provider-defined utility mechanism label that must wrap without horizontal overflow'
   const longLabelHtml = render(tabs.TokenomicsPanel, { result: longLabelFixture })
-  assert.match(longLabelHtml, /Extremely Long Provider Defined Utility Mechanism Label/i)
+  assert.match(longLabelHtml, /Extremely long provider-defined utility mechanism label/i)
   assert.doesNotMatch(longLabelHtml, /undefined|NaN|Infinity|\[object Object\]/)
 
   const entryHtml = render(PremiumAssetPageV2, {})

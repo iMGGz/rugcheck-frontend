@@ -7967,6 +7967,7 @@ export function buildReviewBundleText({
   premiumV2ShellQa,
   premiumV2DecisionCommandCenterQa,
   premiumV2MarketLiquiditySupplyQa,
+  premiumV2TokenomicsQualityQa,
 } = {}) {
   const safeData = safeObject(data);
   const safeAnalysis = safeObject(analysis || safeData.analysis);
@@ -7978,6 +7979,7 @@ export function buildReviewBundleText({
   const safePremiumV2ShellQa = safeObject(premiumV2ShellQa);
   const safePremiumV2DecisionCommandCenterQa = safeObject(premiumV2DecisionCommandCenterQa);
   const safePremiumV2MarketLiquiditySupplyQa = safeObject(premiumV2MarketLiquiditySupplyQa);
+  const safePremiumV2TokenomicsQualityQa = safeObject(premiumV2TokenomicsQualityQa);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -8002,6 +8004,7 @@ export function buildReviewBundleText({
     || normalizeAssetResearchResultV2Payload(safeAnalysis)
     || normalizeAssetResearchResultV2Payload(safeModel);
   const marketLiquiditySupply = safeObject(assetResearchResultV2?.marketLiquiditySupply);
+  const tokenomicsQualityPresentation = safeObject(assetResearchResultV2?.tokenomicsQualityPresentation);
   const tokenomicsQuality = safeObject(assetResearchResultV2?.tokenomics?.data);
   const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
   const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
@@ -9428,6 +9431,61 @@ export function buildReviewBundleText({
       ]),
       "Known limitations:",
       bundleList(safePremiumV2MarketLiquiditySupplyQa.knownLimitations),
+    ]),
+    bundleSection("Premium V2 Tokenomics Quality Experience QA", [
+      bundleField("Experience attached", tokenomicsQualityPresentation.schemaVersion && safePremiumV2TokenomicsQualityQa.experienceAttached ? "yes" : "no"),
+      bundleField("Experience version", tokenomicsQualityPresentation.schemaVersion || safePremiumV2TokenomicsQualityQa.experienceVersion),
+      bundleField("Canonical asset", tokenomicsQualityPresentation.canonicalAssetId || assetResearchResultV2?.identity?.data?.canonicalAssetId),
+      bundleField("Canonical representation", tokenomicsQualityPresentation.representation?.representationType),
+      bundleField("Canonical family", tokenomicsQualityPresentation.family?.familyId),
+      bundleField("Presentation owner", safePremiumV2TokenomicsQualityQa.presentationOwner),
+      bundleField("Tokenomics Quality score owner", safePremiumV2TokenomicsQualityQa.tokenomicsQualityScoreOwner),
+      bundleField("Frontend normalizer", safePremiumV2TokenomicsQualityQa.frontendNormalizer),
+      bundleField("Frontend primary component", safePremiumV2TokenomicsQualityQa.frontendPrimaryComponent),
+      bundleField("Economic-role source", "AssetResearchResultV2.tokenomicsQualityPresentation.economicRole"),
+      bundleField("Demand-mechanism source", "AssetResearchResultV2.tokenomicsQualityPresentation.demandMechanisms"),
+      bundleField("Utility source", "AssetResearchResultV2.tokenomicsQualityPresentation.utilityAndNecessity"),
+      bundleField("Holder-rights source", "AssetResearchResultV2.tokenomicsQualityPresentation.holderRights"),
+      bundleField("Value-capture source", "AssetResearchResultV2.tokenomicsQualityPresentation.valueCapture"),
+      bundleField("Governance source", "AssetResearchResultV2.tokenomicsQualityPresentation.governanceAndControl"),
+      bundleField("Control-authority source", "AssetResearchResultV2.tokenomicsQualityPresentation.governanceAndControl"),
+      bundleField("Distribution source", "AssetResearchResultV2.tokenomicsQualityPresentation.distribution"),
+      bundleField("Unlock/dilution source", "AssetResearchResultV2.tokenomicsQualityPresentation.unlocksAndDilution"),
+      bundleField("Issuance/burn source", "AssetResearchResultV2.tokenomicsQualityPresentation.issuanceAndBurn"),
+      bundleField("Treasury/incentive source", "AssetResearchResultV2.tokenomicsQualityPresentation.treasuryAndIncentives"),
+      bundleField("Staking/yield source", "AssetResearchResultV2.tokenomicsQualityPresentation.stakingAndYieldBoundary"),
+      bundleField("Product/token-boundary source", "AssetResearchResultV2.tokenomicsQualityPresentation.productTokenBoundary"),
+      bundleField("Strengths source", "AssetResearchResultV2.tokenomicsQualityPresentation.strengths"),
+      bundleField("Risks source", "AssetResearchResultV2.tokenomicsQualityPresentation.risks"),
+      bundleField("Critical-unknown source", "AssetResearchResultV2.tokenomicsQualityPresentation.criticalUnknowns"),
+      bundleField("Missing-evidence source", "AssetResearchResultV2.tokenomicsQualityPresentation.missingEvidence"),
+      bundleField("Old V2 Tokenomics surface primary", yesNoUnknown(safePremiumV2TokenomicsQualityQa.oldV2TokenomicsSurfacePrimary)),
+      bundleField("Duplicate tokenomics-score count", safePremiumV2TokenomicsQualityQa.duplicateTokenomicsScoreCount),
+      bundleField("Protocol-to-token value leakage count", safePremiumV2TokenomicsQualityQa.protocolToTokenValueLeakageCount),
+      bundleField("Governance-to-cashflow leakage count", safePremiumV2TokenomicsQualityQa.governanceToCashflowLeakageCount),
+      bundleField("Product-AUM-to-token-value leakage count", safePremiumV2TokenomicsQualityQa.productAumToTokenValueLeakageCount),
+      bundleField("Missing-evidence-as-risk finding count", safePremiumV2TokenomicsQualityQa.missingEvidenceAsRiskFindingCount),
+      bundleField("Native-to-wrapped tokenomics leakage count", safePremiumV2TokenomicsQualityQa.nativeToWrappedTokenomicsLeakageCount),
+      bundleField("Native-to-LST tokenomics leakage count", safePremiumV2TokenomicsQualityQa.nativeToLstTokenomicsLeakageCount),
+      bundleField("Customer internal-enum leakage count", safePremiumV2TokenomicsQualityQa.customerInternalEnumLeakageCount),
+      bundleField("Frontend analytical calculation count", safePremiumV2TokenomicsQualityQa.frontendAnalyticalCalculationCount),
+      bundleField("Browser visual QA status", safePremiumV2TokenomicsQualityQa.browserVisualQaStatus),
+      bundleField("Tested routes", safeArray(safePremiumV2TokenomicsQualityQa.testedRoutes).join(", ") || "not run"),
+      bundleField("Tested viewports", safeArray(safePremiumV2TokenomicsQualityQa.testedViewports).join(", ") || "not run"),
+      bundleField("Screenshot evidence", safeArray(safePremiumV2TokenomicsQualityQa.screenshotEvidence).join(", ") || "not available"),
+      bundleField("Bundle-size delta", safePremiumV2TokenomicsQualityQa.bundleSizeDelta),
+      "Guardrails:",
+      bundleList([
+        `tokenomics score changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.tokenomicsScoreChanged)}`,
+        `overall score changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.overallScoreChanged)}`,
+        `confidence changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.confidenceChanged)}`,
+        `verdict changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.verdictChanged)}`,
+        `ranking changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.rankingChanged)}`,
+        `universe changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.universeChanged)}`,
+        `provider behavior changed=${yesNoUnknown(safePremiumV2TokenomicsQualityQa.providerBehaviorChanged)}`,
+      ]),
+      "Known limitations:",
+      bundleList(safePremiumV2TokenomicsQualityQa.knownLimitations),
     ]),
     bundleSection("2AM. Institutional Answer Surface Cleanup v1", [
       bundleField("Contract attached", institutionalAnswerSurfaceContract ? "yes" : "missing"),

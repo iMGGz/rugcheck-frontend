@@ -16,6 +16,7 @@ import {
   V2StatusPill,
 } from './V2Primitives'
 import V2TechnicalScenariosPanel from './V2TechnicalScenariosPanel'
+import V2TokenomicsQualityExperience from './V2TokenomicsQualityExperience'
 
 export const V2_RESEARCH_TABS = [
   { id: 'tokenomics', label: 'Tokenomics' },
@@ -122,7 +123,7 @@ function SupplyTruthDetail({ data }) {
   )
 }
 
-export function TokenomicsPanel({ result }) {
+function LegacyTokenomicsPanel({ result }) {
   const section = result.tokenomics
   const data = section.data
   const formulas = data.formulaOutputs || []
@@ -283,6 +284,9 @@ export function TokenomicsPanel({ result }) {
     </div>
   )
 }
+
+// Compatibility export now points to the sole Premium V2 Tokenomics owner.
+export const TokenomicsPanel = V2TokenomicsQualityExperience
 
 function fundamentalTone(status) {
   if (status === 'supported') return 'positive'
@@ -728,7 +732,7 @@ export default function V2ResearchTabs({ result, activeTab: controlledActiveTab,
         ))}
       </div>
       <div className="v2-tab-panel" id={`${tabsetId}-${activeTab}-panel`} role="tabpanel" aria-labelledby={`${tabsetId}-${activeTab}-tab`} tabIndex={0}>
-        {activeTab === 'tokenomics' ? <TokenomicsPanel result={result} /> : null}
+        {activeTab === 'tokenomics' ? <V2TokenomicsQualityExperience result={result} /> : null}
         {activeTab === 'fundamentals' ? <FundamentalsPanel result={result} /> : null}
         {activeTab === 'reality' ? <CurrentRealityPanel result={result} /> : null}
         {activeTab === 'technical' ? <V2TechnicalScenariosPanel result={result} /> : null}

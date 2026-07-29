@@ -91,6 +91,15 @@ function validateV2Result(result) {
       'The canonical Market, Liquidity & Supply presentation is unavailable.',
     )
   }
+  if (
+    !isRecord(result.tokenomicsQualityPresentation)
+    || result.tokenomicsQualityPresentation.schemaVersion !== 'premium-v2-tokenomics-quality-experience-v1'
+  ) {
+    throw new AssetResearchV2ContractError(
+      'missing_tokenomics_quality_presentation',
+      'The canonical Tokenomics Quality presentation is unavailable.',
+    )
+  }
   return result
 }
 

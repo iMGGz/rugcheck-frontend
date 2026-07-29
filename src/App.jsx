@@ -31,6 +31,7 @@ import { buildInstitutionalAssetIdentity } from "./components/research/instituti
 import { PREMIUM_V2_SHELL_QA } from "./v2/v2RouteConfig";
 import { PREMIUM_V2_DECISION_COMMAND_CENTER_QA } from "./v2/assetDecisionCommandCenterV2";
 import { PREMIUM_V2_MARKET_LIQUIDITY_SUPPLY_QA } from "./v2/marketLiquiditySupplyV2";
+import { PREMIUM_V2_TOKENOMICS_QUALITY_QA } from "./v2/tokenomicsQualityV2";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -1123,6 +1124,7 @@ export default function App() {
       },
       premiumV2DecisionCommandCenterQa: PREMIUM_V2_DECISION_COMMAND_CENTER_QA,
       premiumV2MarketLiquiditySupplyQa: PREMIUM_V2_MARKET_LIQUIDITY_SUPPLY_QA,
+      premiumV2TokenomicsQualityQa: PREMIUM_V2_TOKENOMICS_QUALITY_QA,
     });
     return [
       INTERNAL_EXPORT_HEADER,
