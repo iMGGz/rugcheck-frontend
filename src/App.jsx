@@ -34,6 +34,7 @@ import { PREMIUM_V2_MARKET_LIQUIDITY_SUPPLY_QA } from "./v2/marketLiquiditySuppl
 import { PREMIUM_V2_TOKENOMICS_QUALITY_QA } from "./v2/tokenomicsQualityV2";
 import { PREMIUM_V2_THESIS_FUNDAMENTALS_QA } from "./v2/thesisFundamentalsV2";
 import { normalizeInstitutionalDiscoveryRankingConstitution } from "./v2/institutionalDiscoveryRankingConstitutionV1";
+import { normalizeInstitutionalSourceProviderEvidenceMap } from "./v2/institutionalSourceProviderEvidenceMapV1";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -768,6 +769,8 @@ export default function App() {
     const institutionalAnalystWorkflowContract = resolveInstitutionalAnalystWorkflowContract(data);
     const institutionalDiscoveryDeterministicRankingConstitution =
       normalizeInstitutionalDiscoveryRankingConstitution(data);
+    const institutionalSourceProviderEvidenceMap =
+      normalizeInstitutionalSourceProviderEvidenceMap(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
@@ -778,6 +781,7 @@ export default function App() {
       analysisFreshness,
       institutionalAnalystWorkflowContract,
       institutionalDiscoveryDeterministicRankingConstitution,
+      institutionalSourceProviderEvidenceMap,
     };
   }, [data]);
   const asset = data?.asset;

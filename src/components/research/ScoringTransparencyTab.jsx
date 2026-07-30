@@ -468,6 +468,8 @@ export default function ScoringTransparencyTab({
   const reviewQueue = model?.sourceCandidateReviewQueueContract || reviewWorkflow.sourceCandidateReviewQueueContract || {};
   const analystWorkflow = resolveInstitutionalAnalystWorkflowContract(model, analysis) || {};
   const sourceCoverageRegistry = safeObject(model?.institutionalQuestionSourceCoverageContract);
+  const sourceProviderEvidenceMap = safeObject(model?.institutionalSourceProviderEvidenceMap);
+  const sourceProviderEvidenceSummary = safeObject(sourceProviderEvidenceMap.diagnosticSummary);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
@@ -522,6 +524,43 @@ export default function ScoringTransparencyTab({
           <SectionRow
             label="Readiness boundary"
             value="Specialized institutional questions require eligible typed observations. Unrelated market data remains context, and missing evidence is a gap rather than a negative conclusion."
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {sourceProviderEvidenceMap.contractId === "institutionalSourceProviderEvidenceMap" ? (
+        <Card
+          title="Institutional Source Coverage Map"
+          subtitle="Internal diagnostic map only. It does not activate providers, scoring, ranking, or evidence."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${sourceProviderEvidenceSummary.mappedObservationCount || 0}/${sourceProviderEvidenceSummary.observationCount || 0} observations mapped`)}
+            {boundaryChip(styles, `${sourceProviderEvidenceSummary.mappedFormulaCount || 0}/${sourceProviderEvidenceSummary.formulaCount || 0} formulas mapped`)}
+            {boundaryChip(styles, `${sourceProviderEvidenceSummary.mappedEligibilityGateCount || 0}/${sourceProviderEvidenceSummary.eligibilityGateCount || 0} gates mapped`)}
+            {boundaryChip(styles, sourceProviderEvidenceSummary.activationState || "Diagnostic only")}
+          </div>
+          <SectionRow
+            label="Source/provider coverage"
+            value={`${sourceProviderEvidenceSummary.sourceClassCount || 0} source classes; ${sourceProviderEvidenceSummary.providerCount || 0} provider/source candidates; ${sourceProviderEvidenceSummary.currentIntegratedProviderCount || 0} current integrations.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Document and access blockers"
+            value={`${sourceProviderEvidenceSummary.officialDocumentRequirementCount || 0} official-document requirements; ${sourceProviderEvidenceSummary.licensingBlockerCount || 0} licensing blockers.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Identity, legal, and yield blockers"
+            value={`${sourceProviderEvidenceSummary.identityBlockerCount || 0} identity; ${sourceProviderEvidenceSummary.legalBlockerCount || 0} legal/reserve; ${sourceProviderEvidenceSummary.yieldBlockerCount || 0} yield.`}
+            styles={styles}
+          />
+          <ListBlock
+            title="Priority source capabilities"
+            items={safeArray(sourceProviderEvidenceSummary.priorityIntegrations)}
+            emptyText="No priority source capabilities were attached."
+            color="#7dd3fc"
             styles={styles}
           />
         </Card>

@@ -6083,6 +6083,8 @@ export function buildDecisionTerminalModel({
   const providerCapabilityRegistryContract = normalizeProviderCapabilityRegistryPayload(safeAnalysis) || providerDataBoundaryContract?.providerCapabilitySummary || null;
   const typedObservationFamilyAuthorityContract = normalizeTypedObservationFamilyAuthorityPayload(safeAnalysis);
   const institutionalMethodologyContract = normalizeInstitutionalMethodologyContractPayload(safeAnalysis);
+  const institutionalSourceProviderEvidenceMap =
+    safeObject(safeAnalysis.institutionalSourceProviderEvidenceMap);
   const sourceIntelligenceContract = normalizeSourceIntelligencePayload(safeAnalysis);
   const evidenceRegistryContract = normalizeEvidenceRegistryPayload(safeAnalysis)
     || sourceIntelligenceContract?.evidenceRegistryContract
@@ -6454,6 +6456,7 @@ export function buildDecisionTerminalModel({
     typedObservationLayerContract,
     typedObservationFamilyAuthorityContract,
     institutionalMethodologyContract,
+    institutionalSourceProviderEvidenceMap,
     sourceIntelligenceContract,
     evidenceRegistryContract,
     questionEvidenceMappingContract,
@@ -7984,6 +7987,8 @@ export function buildReviewBundleText({
   const safePremiumV2ThesisFundamentalsQa = safeObject(premiumV2ThesisFundamentalsQa);
   const institutionalDiscoveryDeterministicRankingConstitution =
     safeAnalysis.institutionalDiscoveryDeterministicRankingConstitution || null;
+  const institutionalSourceProviderEvidenceMap =
+    safeAnalysis.institutionalSourceProviderEvidenceMap || null;
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9319,6 +9324,39 @@ export function buildReviewBundleText({
         `${key}=${Array.isArray(value) ? value.join(", ") || "none" : String(value)}`
       )),
       bundleField("Next resume pointer", institutionalDiscoveryDeterministicRankingConstitution?.nextResumePointer),
+    ]),
+    bundleSection("Institutional Source & Provider Evidence Map v1 — RWA & Hybrid Finance plus Stablecoins & Yield", [
+      bundleField("Map attached", institutionalSourceProviderEvidenceMap ? "yes" : "no"),
+      bundleField("Map version", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.mapVersion),
+      bundleField("Constitution version", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.constitutionVersion),
+      bundleField("Observation mapping coverage", `${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.mappedObservationCount ?? 0}/${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.observationCount ?? 0}`),
+      bundleField("Formula-input coverage", `${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.mappedFormulaCount ?? 0}/${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.formulaCount ?? 0}`),
+      bundleField("Eligibility-gate coverage", `${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.mappedEligibilityGateCount ?? 0}/${institutionalSourceProviderEvidenceMap?.diagnosticSummary?.eligibilityGateCount ?? 0}`),
+      bundleField("Provider count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.providerCount),
+      bundleField("Source-class count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.sourceClassCount),
+      bundleField("Freshness-policy count", safeArray(institutionalSourceProviderEvidenceMap?.freshnessPolicies).length),
+      bundleField("Contradiction-policy count", safeArray(institutionalSourceProviderEvidenceMap?.contradictionPolicies).length),
+      bundleField("Fallback-policy count", safeArray(institutionalSourceProviderEvidenceMap?.fallbackPolicies).length),
+      bundleField("Licensing-blocker count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.licensingBlockerCount),
+      bundleField("Identity-blocker count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.identityBlockerCount),
+      bundleField("Legal-blocker count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.legalBlockerCount),
+      bundleField("Yield-blocker count", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.yieldBlockerCount),
+      bundleField("Currently computable formulas", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.currentlyComputableFormulaCount),
+      bundleField("Blocked formulas", institutionalSourceProviderEvidenceMap?.diagnosticSummary?.blockedFormulaCount),
+      "Provider integration priorities:",
+      bundleList(institutionalSourceProviderEvidenceMap?.diagnosticSummary?.priorityIntegrations, "No priority integration candidates attached."),
+      bundleField("Diagnostic-only", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.diagnosticOnly)),
+      bundleField("Provider calls inactive", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.providerCallsActive === false)),
+      bundleField("Scoring inactive", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.scoringActive === false)),
+      bundleField("Ranking inactive", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.rankingActive === false)),
+      bundleField("Evidence promotion inactive", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.evidencePromotionActive === false)),
+      bundleField("AI runtime inactive", yesNoUnknown(institutionalSourceProviderEvidenceMap?.activationState?.runtimeAiActive === false)),
+      bundleField("Anthropic integrated", yesNoUnknown(institutionalSourceProviderEvidenceMap?.guardrails?.anthropicIntegrated)),
+      bundleField("Runtime score changed", yesNoUnknown(institutionalSourceProviderEvidenceMap?.guardrails?.overallScoreChanged)),
+      bundleField("Runtime rank changed", yesNoUnknown(institutionalSourceProviderEvidenceMap?.guardrails?.currentRankingOrderChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(institutionalSourceProviderEvidenceMap?.guardrails?.providerBehaviorChanged)),
+      "Known limitations:",
+      bundleList(institutionalSourceProviderEvidenceMap?.knownLimitations),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),
