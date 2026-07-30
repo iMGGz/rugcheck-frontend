@@ -470,6 +470,8 @@ export default function ScoringTransparencyTab({
   const sourceCoverageRegistry = safeObject(model?.institutionalQuestionSourceCoverageContract);
   const sourceProviderEvidenceMap = safeObject(model?.institutionalSourceProviderEvidenceMap);
   const sourceProviderEvidenceSummary = safeObject(sourceProviderEvidenceMap.diagnosticSummary);
+  const identityBackbone = safeObject(model?.canonicalInstitutionalIdentityBackbone);
+  const identityBackboneSummary = safeObject(identityBackbone.diagnosticSummary);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
@@ -561,6 +563,36 @@ export default function ScoringTransparencyTab({
             items={safeArray(sourceProviderEvidenceSummary.priorityIntegrations)}
             emptyText="No priority source capabilities were attached."
             color="#7dd3fc"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {identityBackbone.contractId === "canonicalInstitutionalIdentityBackbone" ? (
+        <Card
+          title="Institutional Identity Backbone"
+          subtitle="Internal identity and relationship diagnostic only. It does not activate providers, evidence, scoring, or ranking."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${identityBackboneSummary.entityTypeCount || 0} entity types`)}
+            {boundaryChip(styles, `${identityBackboneSummary.canonicalEntityFixtureCount || 0} fixtures`)}
+            {boundaryChip(styles, `${identityBackboneSummary.relationshipTypeCount || 0} relationship types`)}
+            {boundaryChip(styles, identityBackboneSummary.identityAuthorityState || "Status unavailable")}
+          </div>
+          <SectionRow
+            label="Identity separation"
+            value={`${identityBackboneSummary.productTokenConflationFindingCount || 0} product/token; ${identityBackboneSummary.wrapperUnderlyingConflationFindingCount || 0} wrapper/underlying; ${identityBackboneSummary.fundShareClassConflationFindingCount || 0} fund/share-class findings.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Lifecycle and inheritance"
+            value={`${identityBackboneSummary.migrationConflictCount || 0} migration conflicts; ${identityBackboneSummary.lifecycleConflictCount || 0} lifecycle conflicts; ${identityBackboneSummary.prohibitedObservationInheritanceFindingCount || 0} prohibited-inheritance findings.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Activation boundary"
+            value={`Provider calls ${identityBackboneSummary.providerCallsActive ? "active" : "inactive"}; evidence promotion ${identityBackboneSummary.evidencePromotionActive ? "active" : "inactive"}; scoring ${identityBackboneSummary.scoringActive ? "active" : "inactive"}; ranking ${identityBackboneSummary.rankingActive ? "active" : "inactive"}; runtime AI ${identityBackboneSummary.runtimeAiActive ? "active" : "inactive"}.`}
             styles={styles}
           />
         </Card>

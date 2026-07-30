@@ -7989,6 +7989,10 @@ export function buildReviewBundleText({
     safeAnalysis.institutionalDiscoveryDeterministicRankingConstitution || null;
   const institutionalSourceProviderEvidenceMap =
     safeAnalysis.institutionalSourceProviderEvidenceMap || null;
+  const canonicalInstitutionalIdentityBackbone =
+    safeAnalysis.canonicalInstitutionalIdentityBackbone
+    || safeModel.canonicalInstitutionalIdentityBackbone
+    || null;
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9357,6 +9361,44 @@ export function buildReviewBundleText({
       bundleField("Provider behavior changed", yesNoUnknown(institutionalSourceProviderEvidenceMap?.guardrails?.providerBehaviorChanged)),
       "Known limitations:",
       bundleList(institutionalSourceProviderEvidenceMap?.knownLimitations),
+    ]),
+    bundleSection("Canonical Product, Claim, Wrapper, and Strategy Identity Backbone v1", [
+      bundleField("Backbone attached", canonicalInstitutionalIdentityBackbone ? "yes" : "no"),
+      bundleField("Backbone version", canonicalInstitutionalIdentityBackbone?.schemaVersion),
+      bundleField("Entity type count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.entityTypeCount),
+      bundleField("Canonical entity fixture count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.canonicalEntityFixtureCount),
+      bundleField("External identifier type count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.externalIdentifierTypeCount),
+      bundleField("Alias type count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.aliasTypeCount),
+      bundleField("Relationship type count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.relationshipTypeCount),
+      bundleField("Relationship count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.relationshipCount),
+      bundleField("Identity authority owner", "assetIdentityResolution.service.ts plus canonicalInstitutionalIdentityBackbone.registry.ts extension"),
+      bundleField("Relationship graph owner", "canonicalInstitutionalIdentityRelationship.registry.ts"),
+      bundleField("Frontend normalizer", "src/v2/canonicalInstitutionalIdentityBackboneV1.js"),
+      bundleField("Confirmed identity count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.confirmedIdentityCount),
+      bundleField("Provisional identity count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.provisionalIdentityCount),
+      bundleField("Conflicting identity count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.conflictingIdentityCount),
+      bundleField("Blocked identity count", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.blockedIdentityCount),
+      bundleField("Product-token conflation findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.productTokenConflationFindingCount),
+      bundleField("Wrapper-underlying conflation findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.wrapperUnderlyingConflationFindingCount),
+      bundleField("Fund-share-class conflation findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.fundShareClassConflationFindingCount),
+      bundleField("Protocol-strategy conflation findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.protocolStrategyConflationFindingCount),
+      bundleField("Issuer-custodian conflation findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.issuerCustodianConflationFindingCount),
+      bundleField("Prohibited inheritance findings", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.prohibitedObservationInheritanceFindingCount),
+      bundleField("Migration conflicts", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.migrationConflictCount),
+      bundleField("Lifecycle conflicts", canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.lifecycleConflictCount),
+      bundleField("Token-specific branch count", Number(canonicalInstitutionalIdentityBackbone?.guardrails?.tokenSpecificBackendRuntimeBranchCount || 0) + Number(canonicalInstitutionalIdentityBackbone?.guardrails?.tokenSpecificFrontendRuntimeBranchCount || 0)),
+      bundleField("Diagnostic-only", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.diagnosticOnly)),
+      bundleField("Provider calls inactive", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.providerCallsActive === false)),
+      bundleField("Scoring inactive", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.scoringActive === false)),
+      bundleField("Ranking inactive", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.rankingActive === false)),
+      bundleField("Evidence promotion inactive", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.evidencePromotionActive === false)),
+      bundleField("Runtime AI inactive", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.runtimeAiActive === false)),
+      bundleField("Anthropic integrated", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.anthropicIntegrated)),
+      bundleField("Score changed", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.scoreChanged)),
+      bundleField("Ranking changed", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.rankingChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.providerBehaviorChanged)),
+      "Known limitations:",
+      bundleList(canonicalInstitutionalIdentityBackbone?.knownLimitations),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),

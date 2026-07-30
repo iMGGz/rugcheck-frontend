@@ -20,7 +20,8 @@
     "test:premium-v2-tokenomics-quality": "node scripts/test-premium-v2-tokenomics-quality.mjs",
     "test:premium-v2-thesis-fundamentals": "node scripts/test-premium-v2-thesis-fundamentals.mjs",
     "test:institutional-discovery-ranking-constitution": "node scripts/test-institutional-discovery-ranking-constitution-v1.mjs",
-    "test:institutional-source-provider-evidence-map": "node scripts/test-institutional-source-provider-evidence-map-v1.mjs"
+    "test:institutional-source-provider-evidence-map": "node scripts/test-institutional-source-provider-evidence-map-v1.mjs",
+    "test:canonical-institutional-identity-backbone": "node scripts/test-canonical-institutional-identity-backbone-v1.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",
