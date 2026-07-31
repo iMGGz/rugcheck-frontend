@@ -1,3 +1,5 @@
+import { normalizeRwaHybridFinanceTypedObservations } from "../../v2/rwaHybridFinanceTypedObservationsV1.js";
+
 export function formatUsd(value) {
   if (value === null || value === undefined || value === "") return "Unknown";
   const num = Number(value);
@@ -7993,6 +7995,13 @@ export function buildReviewBundleText({
     safeAnalysis.canonicalInstitutionalIdentityBackbone
     || safeModel.canonicalInstitutionalIdentityBackbone
     || null;
+  const rwaHybridFinanceTypedObservationBackbone =
+    safeModel.rwaHybridFinanceTypedObservationBackbone
+    || normalizeRwaHybridFinanceTypedObservations(safeAnalysis)
+    || normalizeRwaHybridFinanceTypedObservations(safeData);
+  const rwaObservationSummary = safeObject(
+    rwaHybridFinanceTypedObservationBackbone?.diagnosticSummary,
+  );
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9399,6 +9408,43 @@ export function buildReviewBundleText({
       bundleField("Provider behavior changed", yesNoUnknown(canonicalInstitutionalIdentityBackbone?.diagnosticSummary?.providerBehaviorChanged)),
       "Known limitations:",
       bundleList(canonicalInstitutionalIdentityBackbone?.knownLimitations),
+    ]),
+    bundleSection("RWA & Hybrid Finance Typed Observation Backbone v1", [
+      bundleField("Backbone attached", rwaHybridFinanceTypedObservationBackbone ? "yes" : "no"),
+      bundleField("Version", rwaHybridFinanceTypedObservationBackbone?.schemaVersion),
+      bundleField("Prerequisite versions", Object.entries(safeObject(rwaObservationSummary.prerequisiteVersions)).map(([key, value]) => `${key}=${value}`).join(", ") || "unavailable"),
+      bundleField("Applicable observation type count", rwaObservationSummary.applicableObservationTypeCount),
+      bundleField("Raw input count", rwaObservationSummary.rawInputCount),
+      bundleField("Accepted observation count", rwaObservationSummary.acceptedObservationCount),
+      bundleField("Accepted with limits count", rwaObservationSummary.acceptedWithLimitsCount),
+      bundleField("Contextual-only count", rwaObservationSummary.contextualOnlyCount),
+      bundleField("Rejected count", rwaObservationSummary.rejectedCount),
+      bundleField("Stale count", rwaObservationSummary.staleCount),
+      bundleField("Conflicting count", rwaObservationSummary.conflictingCount),
+      bundleField("Unavailable count", rwaObservationSummary.unavailableCount),
+      bundleField("Blocked identity count", rwaObservationSummary.blockedIdentityCount),
+      bundleField("Blocked authority count", rwaObservationSummary.blockedAuthorityCount),
+      bundleField("Branch coverage", safeArray(rwaObservationSummary.branchCoverage).join(", ") || "none"),
+      bundleField("Cohort coverage", safeArray(rwaObservationSummary.cohortCoverage).join(", ") || "none"),
+      bundleField("Formula readiness", Object.entries(safeObject(rwaObservationSummary.formulaReadiness)).map(([key, value]) => `${key}=${value}`).join(", ") || "none"),
+      bundleField("Eligibility readiness", Object.entries(safeObject(rwaObservationSummary.eligibilityReadiness)).map(([key, value]) => `${key}=${value}`).join(", ") || "none"),
+      bundleField("Product-token contamination findings", rwaObservationSummary.contaminationFindingCounts?.productToken),
+      bundleField("Wrapper-underlying contamination findings", rwaObservationSummary.contaminationFindingCounts?.wrapperUnderlying),
+      bundleField("Fund-share-class contamination findings", rwaObservationSummary.contaminationFindingCounts?.fundShareClass),
+      bundleField("Prohibited inheritance findings", rwaObservationSummary.contaminationFindingCounts?.prohibitedInheritance),
+      bundleField("Token-specific branch count", rwaObservationSummary.tokenSpecificBranchCount),
+      bundleField("Diagnostic-only", yesNoUnknown(rwaObservationSummary.diagnosticOnly)),
+      bundleField("Provider calls inactive", yesNoUnknown(rwaObservationSummary.providerCallsActive === false)),
+      bundleField("Scoring inactive", yesNoUnknown(rwaObservationSummary.scoringActive === false)),
+      bundleField("Ranking inactive", yesNoUnknown(rwaObservationSummary.rankingActive === false)),
+      bundleField("Evidence promotion inactive", yesNoUnknown(rwaObservationSummary.evidencePromotionActive === false)),
+      bundleField("Runtime AI inactive", yesNoUnknown(rwaObservationSummary.runtimeAiActive === false)),
+      bundleField("Anthropic integrated", yesNoUnknown(rwaObservationSummary.anthropicIntegrated)),
+      bundleField("Score changed", yesNoUnknown(rwaObservationSummary.scoreChanged)),
+      bundleField("Rank changed", yesNoUnknown(rwaObservationSummary.rankChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(rwaObservationSummary.providerBehaviorChanged)),
+      "Known limitations:",
+      bundleList(rwaHybridFinanceTypedObservationBackbone?.knownLimitations),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),

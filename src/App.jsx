@@ -36,6 +36,7 @@ import { PREMIUM_V2_THESIS_FUNDAMENTALS_QA } from "./v2/thesisFundamentalsV2";
 import { normalizeInstitutionalDiscoveryRankingConstitution } from "./v2/institutionalDiscoveryRankingConstitutionV1";
 import { normalizeInstitutionalSourceProviderEvidenceMap } from "./v2/institutionalSourceProviderEvidenceMapV1";
 import { normalizeCanonicalInstitutionalIdentityBackbone } from "./v2/canonicalInstitutionalIdentityBackboneV1";
+import { normalizeRwaHybridFinanceTypedObservations } from "./v2/rwaHybridFinanceTypedObservationsV1";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -774,6 +775,8 @@ export default function App() {
       normalizeInstitutionalSourceProviderEvidenceMap(data);
     const canonicalInstitutionalIdentityBackbone =
       normalizeCanonicalInstitutionalIdentityBackbone(data);
+    const rwaHybridFinanceTypedObservationBackbone =
+      normalizeRwaHybridFinanceTypedObservations(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
@@ -786,6 +789,7 @@ export default function App() {
       institutionalDiscoveryDeterministicRankingConstitution,
       institutionalSourceProviderEvidenceMap,
       canonicalInstitutionalIdentityBackbone,
+      rwaHybridFinanceTypedObservationBackbone,
     };
   }, [data]);
   const asset = data?.asset;

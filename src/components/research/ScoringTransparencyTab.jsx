@@ -472,6 +472,8 @@ export default function ScoringTransparencyTab({
   const sourceProviderEvidenceSummary = safeObject(sourceProviderEvidenceMap.diagnosticSummary);
   const identityBackbone = safeObject(model?.canonicalInstitutionalIdentityBackbone);
   const identityBackboneSummary = safeObject(identityBackbone.diagnosticSummary);
+  const rwaObservationBackbone = safeObject(model?.rwaHybridFinanceTypedObservationBackbone);
+  const rwaObservationSummary = safeObject(rwaObservationBackbone.diagnosticSummary);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
@@ -593,6 +595,41 @@ export default function ScoringTransparencyTab({
           <SectionRow
             label="Activation boundary"
             value={`Provider calls ${identityBackboneSummary.providerCallsActive ? "active" : "inactive"}; evidence promotion ${identityBackboneSummary.evidencePromotionActive ? "active" : "inactive"}; scoring ${identityBackboneSummary.scoringActive ? "active" : "inactive"}; ranking ${identityBackboneSummary.rankingActive ? "active" : "inactive"}; runtime AI ${identityBackboneSummary.runtimeAiActive ? "active" : "inactive"}.`}
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {rwaObservationBackbone.contractId === "rwaHybridFinanceTypedObservationBackbone" ? (
+        <Card
+          title="RWA Typed Observation Backbone"
+          subtitle="Internal diagnostic only. Typed observations do not activate providers, evidence, scoring, or ranking."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${rwaObservationSummary.acceptedObservationCount || 0} valid observations`)}
+            {boundaryChip(styles, `${rwaObservationSummary.acceptedWithLimitsCount || 0} valid with limits`)}
+            {boundaryChip(styles, `${rwaObservationSummary.contextualOnlyCount || 0} contextual inputs`)}
+            {boundaryChip(styles, `${rwaObservationSummary.rejectedCount || 0} rejected inputs`)}
+          </div>
+          <SectionRow
+            label="Constitutional coverage"
+            value={`${rwaObservationSummary.applicableObservationTypeCount || 0} applicable RWA observation types; ${rwaObservationSummary.rawInputCount || 0} raw inputs inspected.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Freshness and contradiction state"
+            value={`${rwaObservationSummary.staleCount || 0} stale; ${rwaObservationSummary.conflictingCount || 0} conflicting; ${rwaObservationSummary.unavailableCount || 0} unavailable.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Contamination guard"
+            value={`${Object.values(safeObject(rwaObservationSummary.contaminationFindingCounts)).reduce((total, value) => total + Number(value || 0), 0)} findings across product/token, wrapper/underlying, fund/share-class, relationship, generated-text, candidate, and cross-family controls.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Activation boundary"
+            value={`Provider calls ${rwaObservationSummary.providerCallsActive ? "active" : "inactive"}; scoring ${rwaObservationSummary.scoringActive ? "active" : "inactive"}; ranking ${rwaObservationSummary.rankingActive ? "active" : "inactive"}; evidence promotion ${rwaObservationSummary.evidencePromotionActive ? "active" : "inactive"}; runtime AI ${rwaObservationSummary.runtimeAiActive ? "active" : "inactive"}.`}
             styles={styles}
           />
         </Card>
