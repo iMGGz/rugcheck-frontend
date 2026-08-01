@@ -37,6 +37,7 @@ import { normalizeInstitutionalDiscoveryRankingConstitution } from "./v2/institu
 import { normalizeInstitutionalSourceProviderEvidenceMap } from "./v2/institutionalSourceProviderEvidenceMapV1";
 import { normalizeCanonicalInstitutionalIdentityBackbone } from "./v2/canonicalInstitutionalIdentityBackboneV1";
 import { normalizeRwaHybridFinanceTypedObservations } from "./v2/rwaHybridFinanceTypedObservationsV1";
+import { normalizeStablecoinsYieldTypedObservations } from "./v2/stablecoinsYieldTypedObservationsV1";
 import {
   assertAnalysisShape,
   buildAnalysisQualityExplanation,
@@ -777,6 +778,8 @@ export default function App() {
       normalizeCanonicalInstitutionalIdentityBackbone(data);
     const rwaHybridFinanceTypedObservationBackbone =
       normalizeRwaHybridFinanceTypedObservations(data);
+    const stablecoinsYieldTypedObservationBackbone =
+      normalizeStablecoinsYieldTypedObservations(data);
     return {
       ...analysisBlock,
       institutionalQuestions: institutionalQuestionPayload.institutionalQuestions,
@@ -790,6 +793,7 @@ export default function App() {
       institutionalSourceProviderEvidenceMap,
       canonicalInstitutionalIdentityBackbone,
       rwaHybridFinanceTypedObservationBackbone,
+      stablecoinsYieldTypedObservationBackbone,
     };
   }, [data]);
   const asset = data?.asset;

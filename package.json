@@ -22,7 +22,8 @@
     "test:institutional-discovery-ranking-constitution": "node scripts/test-institutional-discovery-ranking-constitution-v1.mjs",
     "test:institutional-source-provider-evidence-map": "node scripts/test-institutional-source-provider-evidence-map-v1.mjs",
     "test:canonical-institutional-identity-backbone": "node scripts/test-canonical-institutional-identity-backbone-v1.mjs",
-    "test:rwa-hybrid-finance-typed-observations": "node scripts/test-rwa-hybrid-finance-typed-observations-v1.mjs"
+    "test:rwa-hybrid-finance-typed-observations": "node scripts/test-rwa-hybrid-finance-typed-observations-v1.mjs",
+    "test:stablecoins-yield-typed-observations": "node scripts/test-stablecoins-yield-typed-observations-v1.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",

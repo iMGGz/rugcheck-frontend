@@ -1,4 +1,5 @@
 import { normalizeRwaHybridFinanceTypedObservations } from "../../v2/rwaHybridFinanceTypedObservationsV1.js";
+import { normalizeStablecoinsYieldTypedObservations } from "../../v2/stablecoinsYieldTypedObservationsV1.js";
 
 export function formatUsd(value) {
   if (value === null || value === undefined || value === "") return "Unknown";
@@ -8002,6 +8003,13 @@ export function buildReviewBundleText({
   const rwaObservationSummary = safeObject(
     rwaHybridFinanceTypedObservationBackbone?.diagnosticSummary,
   );
+  const stablecoinsYieldTypedObservationBackbone =
+    safeModel.stablecoinsYieldTypedObservationBackbone
+    || normalizeStablecoinsYieldTypedObservations(safeAnalysis)
+    || normalizeStablecoinsYieldTypedObservations(safeData);
+  const stableYieldObservationSummary = safeObject(
+    stablecoinsYieldTypedObservationBackbone?.diagnosticSummary,
+  );
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9445,6 +9453,51 @@ export function buildReviewBundleText({
       bundleField("Provider behavior changed", yesNoUnknown(rwaObservationSummary.providerBehaviorChanged)),
       "Known limitations:",
       bundleList(rwaHybridFinanceTypedObservationBackbone?.knownLimitations),
+    ]),
+    bundleSection("Stablecoins & Yield Typed Observation Backbone v1", [
+      bundleField("Backbone attached", stablecoinsYieldTypedObservationBackbone ? "yes" : "no"),
+      bundleField("Version", stablecoinsYieldTypedObservationBackbone?.schemaVersion),
+      bundleField("Prerequisite versions", Object.entries(safeObject(stableYieldObservationSummary.prerequisiteVersions)).map(([key, value]) => `${key}=${value}`).join(", ") || "unavailable"),
+      bundleField("Applicable observation count", stableYieldObservationSummary.applicableObservationTypeCount),
+      bundleField("Raw input count", stableYieldObservationSummary.rawInputCount),
+      bundleField("Accepted observation count", stableYieldObservationSummary.acceptedObservationCount),
+      bundleField("Accepted with limits count", stableYieldObservationSummary.acceptedWithLimitsCount),
+      bundleField("Contextual-only count", stableYieldObservationSummary.contextualOnlyCount),
+      bundleField("Rejected count", stableYieldObservationSummary.rejectedCount),
+      bundleField("Stale count", stableYieldObservationSummary.staleCount),
+      bundleField("Expired count", stableYieldObservationSummary.expiredCount),
+      bundleField("Conflicting count", stableYieldObservationSummary.conflictingCount),
+      bundleField("Unavailable count", stableYieldObservationSummary.unavailableCount),
+      bundleField("Blocked identity count", stableYieldObservationSummary.blockedIdentityCount),
+      bundleField("Blocked relationship count", stableYieldObservationSummary.blockedRelationshipCount),
+      bundleField("Blocked authority count", stableYieldObservationSummary.blockedAuthorityCount),
+      bundleField("Blocked yield-semantics count", stableYieldObservationSummary.blockedYieldSemanticsCount),
+      bundleField("Blocked benchmark count", stableYieldObservationSummary.blockedBenchmarkCount),
+      bundleField("Branch coverage", safeArray(stableYieldObservationSummary.branchCoverage).join(", ") || "none"),
+      bundleField("Cohort coverage", safeArray(stableYieldObservationSummary.cohortCoverage).join(", ") || "none"),
+      bundleField("Reserve coverage readiness", stableYieldObservationSummary.formulaReadiness?.blocked_missing_observation ?? stableYieldObservationSummary.formulaReadiness?.blocked ?? "diagnostic"),
+      bundleField("Redemption readiness", stableYieldObservationSummary.eligibilityReadiness?.blocked ?? "diagnostic"),
+      bundleField("Peg readiness", stableYieldObservationSummary.formulaReadiness?.partially_ready ?? "diagnostic"),
+      bundleField("Yield readiness", stableYieldObservationSummary.formulaReadiness?.ready_diagnostic_only ?? stableYieldObservationSummary.formulaReadiness?.partially_ready ?? "diagnostic"),
+      bundleField("Formula readiness", Object.entries(safeObject(stableYieldObservationSummary.formulaReadiness)).map(([key, value]) => `${key}=${value}`).join(", ") || "none"),
+      bundleField("Eligibility readiness", Object.entries(safeObject(stableYieldObservationSummary.eligibilityReadiness)).map(([key, value]) => `${key}=${value}`).join(", ") || "none"),
+      bundleField("Contamination findings", Object.values(safeObject(stableYieldObservationSummary.contaminationFindingCounts)).reduce((total, value) => total + Number(value || 0), 0)),
+      bundleField("Cross-universe duplicate findings", stableYieldObservationSummary.contaminationFindingCounts?.crossUniverseDuplicate),
+      bundleField("Token-specific branch count", stableYieldObservationSummary.tokenSpecificBranchCount),
+      bundleField("Diagnostic-only", yesNoUnknown(stableYieldObservationSummary.diagnosticOnly)),
+      bundleField("Provider calls inactive", yesNoUnknown(stableYieldObservationSummary.providerCallsActive === false)),
+      bundleField("Stablecoin scoring inactive", yesNoUnknown(stableYieldObservationSummary.stablecoinScoringActive === false)),
+      bundleField("Yield scoring inactive", yesNoUnknown(stableYieldObservationSummary.yieldScoringActive === false)),
+      bundleField("Risk-adjusted yield scoring inactive", yesNoUnknown(stableYieldObservationSummary.riskAdjustedYieldScoringActive === false)),
+      bundleField("Ranking inactive", yesNoUnknown(stableYieldObservationSummary.rankingActive === false)),
+      bundleField("Evidence promotion inactive", yesNoUnknown(stableYieldObservationSummary.evidencePromotionActive === false)),
+      bundleField("Runtime AI inactive", yesNoUnknown(stableYieldObservationSummary.runtimeAiActive === false)),
+      bundleField("Anthropic integrated", yesNoUnknown(stableYieldObservationSummary.anthropicIntegrated)),
+      bundleField("Score changed", yesNoUnknown(stableYieldObservationSummary.scoreChanged)),
+      bundleField("Rank changed", yesNoUnknown(stableYieldObservationSummary.rankChanged)),
+      bundleField("Provider behavior changed", yesNoUnknown(stableYieldObservationSummary.providerBehaviorChanged)),
+      "Known limitations:",
+      bundleList(stablecoinsYieldTypedObservationBackbone?.knownLimitations),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),

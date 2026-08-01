@@ -474,6 +474,8 @@ export default function ScoringTransparencyTab({
   const identityBackboneSummary = safeObject(identityBackbone.diagnosticSummary);
   const rwaObservationBackbone = safeObject(model?.rwaHybridFinanceTypedObservationBackbone);
   const rwaObservationSummary = safeObject(rwaObservationBackbone.diagnosticSummary);
+  const stableYieldObservationBackbone = safeObject(model?.stablecoinsYieldTypedObservationBackbone);
+  const stableYieldObservationSummary = safeObject(stableYieldObservationBackbone.diagnosticSummary);
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
@@ -630,6 +632,46 @@ export default function ScoringTransparencyTab({
           <SectionRow
             label="Activation boundary"
             value={`Provider calls ${rwaObservationSummary.providerCallsActive ? "active" : "inactive"}; scoring ${rwaObservationSummary.scoringActive ? "active" : "inactive"}; ranking ${rwaObservationSummary.rankingActive ? "active" : "inactive"}; evidence promotion ${rwaObservationSummary.evidencePromotionActive ? "active" : "inactive"}; runtime AI ${rwaObservationSummary.runtimeAiActive ? "active" : "inactive"}.`}
+            styles={styles}
+          />
+        </Card>
+      ) : null}
+
+      {stableYieldObservationBackbone.contractId === "stablecoinsYieldTypedObservationBackbone" ? (
+        <Card
+          title="Stablecoins & Yield Typed Observation Backbone"
+          subtitle="Internal diagnostic only. Typed observations do not activate providers, evidence, scoring, formulas, or ranking."
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, `${stableYieldObservationSummary.acceptedObservationCount || 0} valid observations`)}
+            {boundaryChip(styles, `${stableYieldObservationSummary.acceptedWithLimitsCount || 0} valid with limits`)}
+            {boundaryChip(styles, `${stableYieldObservationSummary.contextualOnlyCount || 0} contextual inputs`)}
+            {boundaryChip(styles, `${stableYieldObservationSummary.rejectedCount || 0} rejected inputs`)}
+          </div>
+          <SectionRow
+            label="Constitutional coverage"
+            value={`${stableYieldObservationSummary.applicableObservationTypeCount || 0} applicable stablecoin and yield observation types; ${stableYieldObservationSummary.rawInputCount || 0} raw inputs inspected across ${safeArray(stableYieldObservationSummary.branchCoverage).length} branches and ${safeArray(stableYieldObservationSummary.cohortCoverage).length} cohorts.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Freshness and contradiction state"
+            value={`${stableYieldObservationSummary.staleCount || 0} stale; ${stableYieldObservationSummary.expiredCount || 0} expired; ${stableYieldObservationSummary.conflictingCount || 0} conflicting; ${stableYieldObservationSummary.unavailableCount || 0} unavailable.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Identity and semantic gates"
+            value={`${stableYieldObservationSummary.blockedIdentityCount || 0} identity; ${stableYieldObservationSummary.blockedRelationshipCount || 0} relationship; ${stableYieldObservationSummary.blockedYieldSemanticsCount || 0} yield semantics; ${stableYieldObservationSummary.blockedBenchmarkCount || 0} benchmark.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Contamination guard"
+            value={`${Object.values(safeObject(stableYieldObservationSummary.contaminationFindingCounts)).reduce((total, value) => total + Number(value || 0), 0)} findings across base/wrapper, stablecoin/position, protocol/strategy, vault/share, pool/LP, PT/YT, reserve-scope, yield-semantics, generated-text, candidate, and cross-universe controls.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Activation boundary"
+            value={`Provider calls ${stableYieldObservationSummary.providerCallsActive ? "active" : "inactive"}; stablecoin scoring ${stableYieldObservationSummary.stablecoinScoringActive ? "active" : "inactive"}; yield scoring ${stableYieldObservationSummary.yieldScoringActive ? "active" : "inactive"}; risk-adjusted yield scoring ${stableYieldObservationSummary.riskAdjustedYieldScoringActive ? "active" : "inactive"}; ranking ${stableYieldObservationSummary.rankingActive ? "active" : "inactive"}; evidence promotion ${stableYieldObservationSummary.evidencePromotionActive ? "active" : "inactive"}.`}
             styles={styles}
           />
         </Card>
