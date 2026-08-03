@@ -16,6 +16,7 @@ import {
   V2SectionHeading,
   V2StatusPill,
 } from './V2Primitives'
+import V2ProductResearchSummary from './V2ProductResearchSummary'
 
 const MAX_POLICY_LABELS = Object.freeze({
   finite_cap_reported: 'Finite cap reported',
@@ -413,7 +414,7 @@ function MissingDataAndDiligence({ model }) {
   )
 }
 
-export default function V2MarketLiquiditySupplyExperience({ result }) {
+export default function V2MarketLiquiditySupplyExperience({ result, productResearchResultV2 }) {
   const model = useMemo(() => normalizeMarketLiquiditySupplyV2(result), [result])
   return (
     <section className="v2-mls-experience" aria-labelledby="v2-mls-title">
@@ -444,6 +445,8 @@ export default function V2MarketLiquiditySupplyExperience({ result }) {
         <SupplyStructurePanel model={model} />
         <DilutionIssuanceUnlockPanel model={model} />
       </div>
+
+      <V2ProductResearchSummary productResearchResultV2={productResearchResultV2} variant="market" />
 
       <MarketSupplyInterpretation model={model} />
       <MissingDataAndDiligence model={model} />

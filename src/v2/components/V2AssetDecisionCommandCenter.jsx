@@ -10,6 +10,7 @@ import {
   normalizeAssetDecisionCommandCenterV2,
 } from '../assetDecisionCommandCenterV2'
 import { V2Icon, V2StatusPill } from './V2Primitives'
+import V2ProductResearchSummary from './V2ProductResearchSummary'
 
 function Metric({ label, value, type = 'usd' }) {
   const display = type === 'percent'
@@ -39,6 +40,7 @@ function SynthesisRow({ icon, label, value, tone }) {
 
 export default function V2AssetDecisionCommandCenter({
   result,
+  productResearchResultV2,
   activeSection,
   onSelectSection,
 }) {
@@ -147,6 +149,8 @@ export default function V2AssetDecisionCommandCenter({
         </div>
         <p>{model.productTokenBoundary.detail}</p>
       </footer>
+
+      <V2ProductResearchSummary productResearchResultV2={productResearchResultV2} variant="decision" />
 
       <nav className="v2-command-nav" aria-label="Asset research sections">
         {model.sectionNavigation.map((section) => (

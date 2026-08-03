@@ -17,6 +17,7 @@ import {
 import V2TechnicalScenariosPanel from './V2TechnicalScenariosPanel'
 import V2TokenomicsQualityExperience from './V2TokenomicsQualityExperience'
 import V2ThesisFundamentalsExperience from './V2ThesisFundamentalsExperience'
+import V2ProductResearchSummary from './V2ProductResearchSummary'
 
 export const V2_RESEARCH_TABS = [
   { id: 'tokenomics', label: 'Tokenomics' },
@@ -488,7 +489,7 @@ export function CurrentRealityPanel({ result }) {
   )
 }
 
-export default function V2ResearchTabs({ result, activeTab: controlledActiveTab, onActiveTabChange }) {
+export default function V2ResearchTabs({ result, productResearchResultV2, activeTab: controlledActiveTab, onActiveTabChange }) {
   const [localActiveTab, setLocalActiveTab] = useState('tokenomics')
   const activeTab = controlledActiveTab || localActiveTab
   const setActiveTab = (nextTab) => {
@@ -526,6 +527,7 @@ export default function V2ResearchTabs({ result, activeTab: controlledActiveTab,
         ))}
       </div>
       <div className="v2-tab-panel" id={`${tabsetId}-${activeTab}-panel`} role="tabpanel" aria-labelledby={`${tabsetId}-${activeTab}-tab`} tabIndex={0}>
+        <V2ProductResearchSummary productResearchResultV2={productResearchResultV2} />
         {activeTab === 'tokenomics' ? <V2TokenomicsQualityExperience result={result} /> : null}
         {activeTab === 'fundamentals' ? <V2ThesisFundamentalsExperience result={result} /> : null}
         {activeTab === 'reality' ? <CurrentRealityPanel result={result} /> : null}

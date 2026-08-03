@@ -8,13 +8,14 @@ import {
   safeProductList,
 } from '../assetResearchResultV2'
 import { V2Disclosure, V2InsightList, V2StatusPill } from './V2Primitives'
+import V2ProductResearchSummary from './V2ProductResearchSummary'
 
 function metricObservation(label, metric) {
   if (!metric || finiteMetricValue(metric) === null) return null
   return { label, metric }
 }
 
-export default function V2SourcesPanel({ result }) {
+export default function V2SourcesPanel({ result, productResearchResultV2 }) {
   const market = result.market.data
   const health = result.sourceHealth.data
   const observations = [
@@ -27,6 +28,7 @@ export default function V2SourcesPanel({ result }) {
   ].filter(Boolean)
   return (
     <section className="v2-sources-panel">
+      <V2ProductResearchSummary productResearchResultV2={productResearchResultV2} variant="sources" />
       <V2Disclosure
         label="Sources & methodology"
         summary={`${health.availableProviders.length} available provider${health.availableProviders.length === 1 ? '' : 's'} / ${health.fieldDisagreementCount} field disagreement${health.fieldDisagreementCount === 1 ? '' : 's'}`}

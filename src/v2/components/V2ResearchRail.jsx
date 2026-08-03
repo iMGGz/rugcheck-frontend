@@ -7,6 +7,7 @@ import {
   safeProductText,
 } from '../assetResearchResultV2'
 import { V2Icon, V2InsightList, V2StatusPill } from './V2Primitives'
+import V2ProductResearchSummary from './V2ProductResearchSummary'
 
 function RailModule({ icon, title, children }) {
   return (
@@ -17,7 +18,7 @@ function RailModule({ icon, title, children }) {
   )
 }
 
-export default function V2ResearchRail({ result }) {
+export default function V2ResearchRail({ result, productResearchResultV2 }) {
   const decision = result.decision.data
   const risks = result.risks.data
   const thesis = result.thesis.data
@@ -65,6 +66,7 @@ export default function V2ResearchRail({ result }) {
           <span><strong>{evidence.missingCriticalEvidenceCount}</strong> open checks</span>
         </div>
       </RailModule>
+      <V2ProductResearchSummary productResearchResultV2={productResearchResultV2} variant="readiness" />
     </aside>
   )
 }

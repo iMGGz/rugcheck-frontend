@@ -3,6 +3,7 @@ import {
   AssetResearchV2ContractError,
   normalizeAssetResearchResultV2,
 } from './assetResearchResultV2'
+import { normalizeProductResearchResultV2 } from './productResearchResultV2'
 import { analyzeV2Asset, searchV2Assets, V2ApiError } from './assetResearchV2Api'
 import {
   buildV2AssetPath,
@@ -28,6 +29,8 @@ const EMPTY_RESEARCH_STATE = Object.freeze({
   result: null,
   contractSource: null,
   parityStatus: null,
+  productResearchResultV2: null,
+  productResearchParityStatus: 'compatibility_fallback',
   error: null,
 })
 
@@ -140,6 +143,7 @@ export default function PremiumAssetPageV2() {
         const response = await analyzeV2Asset(query, candidate, signal)
         if (!coordinator.isCurrent(requestId)) return
         const normalized = normalizeAssetResearchResultV2(response)
+        const productResearch = normalizeProductResearchResultV2(response)
         if (!v2ResultMatchesRoute(normalized.result, route)) {
           throw new AssetResearchV2ContractError('identity_mismatch', 'The completed analysis did not match the requested canonical asset scope.')
         }
@@ -149,6 +153,8 @@ export default function PremiumAssetPageV2() {
           result: normalized.result,
           contractSource: normalized.source,
           parityStatus: normalized.parityStatus,
+          productResearchResultV2: productResearch.result,
+          productResearchParityStatus: productResearch.parityStatus,
           error: null,
         })
       } catch (error) {
@@ -213,23 +219,25 @@ export default function PremiumAssetPageV2() {
           <div id="overview">
             <V2AssetDecisionCommandCenter
               result={researchState.result}
+              productResearchResultV2={researchState.productResearchResultV2}
               activeSection={activeSection}
               onSelectSection={selectSection}
             />
           </div>
           <div className="v2-research-layout">
             <div className="v2-research-main">
-              <div id="market-supply"><V2MarketLiquiditySupplyExperience result={researchState.result} /></div>
+              <div id="market-supply"><V2MarketLiquiditySupplyExperience result={researchState.result} productResearchResultV2={researchState.productResearchResultV2} /></div>
               <div id="research-sections">
                 <V2ResearchTabs
                   result={researchState.result}
+                  productResearchResultV2={researchState.productResearchResultV2}
                   activeTab={['tokenomics', 'fundamentals', 'reality', 'technical'].includes(activeSection) ? activeSection : 'tokenomics'}
                   onActiveTabChange={setActiveSection}
                 />
               </div>
-              <V2SourcesPanel result={researchState.result} />
+              <V2SourcesPanel result={researchState.result} productResearchResultV2={researchState.productResearchResultV2} />
             </div>
-            <V2ResearchRail result={researchState.result} />
+            <V2ResearchRail result={researchState.result} productResearchResultV2={researchState.productResearchResultV2} />
           </div>
           <footer className="v2-page-footer">
             <p>Research support only. ThesisCore separates current provider facts, deterministic calculations, bounded judgments, and missing evidence.</p>

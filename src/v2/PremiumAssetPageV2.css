@@ -1950,3 +1950,73 @@
   .v2-tf-synthesis h3,
   .v2-tf-evidence h3 { font-size: 21px; }
 }
+.v2-product-contract-summary,
+.v2-product-fact-grid,
+.v2-product-question-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.v2-product-contract-summary {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius-md);
+  background: color-mix(in srgb, var(--v2-surface) 86%, transparent);
+}
+
+.v2-product-contract-summary > div,
+.v2-product-fact-grid article {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.v2-product-contract-summary span,
+.v2-product-fact-grid span,
+.v2-product-fact-grid small,
+.v2-product-readiness span {
+  color: var(--v2-muted);
+  font-size: 0.76rem;
+}
+
+.v2-product-contract-summary strong,
+.v2-product-fact-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.v2-product-question-surface {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius-lg);
+  background: var(--v2-surface);
+}
+
+.v2-product-question-surface > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.v2-product-readiness {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.v2-product-readiness > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+@media (max-width: 680px) {
+  .v2-product-contract-summary,
+  .v2-product-fact-grid,
+  .v2-product-question-grid {
+    grid-template-columns: 1fr;
+  }
+}

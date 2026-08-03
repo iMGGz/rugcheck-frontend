@@ -1,5 +1,6 @@
 import { normalizeRwaHybridFinanceTypedObservations } from "../../v2/rwaHybridFinanceTypedObservationsV1.js";
 import { normalizeStablecoinsYieldTypedObservations } from "../../v2/stablecoinsYieldTypedObservationsV1.js";
+import { normalizeProductResearchResultV2 } from "../../v2/productResearchResultV2.js";
 
 export function formatUsd(value) {
   if (value === null || value === undefined || value === "") return "Unknown";
@@ -3344,6 +3345,13 @@ export function buildProtectedInvestorReportText({
   const tokenomicsQualityAttached = String(tokenomicsQuality.schemaVersion || "").startsWith("tokenomics-quality-engine-v1");
   const thesisFundamentals = safeObject(assetResearchResultV2?.fundamentals?.data);
   const thesisFundamentalsAttached = String(thesisFundamentals.schemaVersion || "").startsWith("thesis-fundamentals-engine-v1");
+  const productResearchResultV2Normalization = normalizeProductResearchResultV2({
+    productResearchResultV2: safeData.productResearchResultV2,
+    analysis: safeAnalysis,
+  });
+  const productResearchResultV2 = safeModel.productResearchResultV2
+    || productResearchResultV2Normalization.result;
+  const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
   const currentReality = safeObject(assetResearchResultV2?.currentReality?.data);
   const currentRealityAttached = String(currentReality.schemaVersion || "").startsWith("current-reality-engine-v1");
   const currentRealityMostMaterial = safeObject(currentReality.mostMaterialEvent);
@@ -3640,6 +3648,20 @@ export function buildProtectedInvestorReportText({
     reportLine("Source gaps", sourceIntelligenceContract ? `${sourceIntelligenceContract.protectedReportSummary?.sourceGapCount || 0} open source gaps` : "Not available yet."),
     reportLine("Contradiction review", sourceIntelligenceContract?.protectedReportSummary?.contradictionRequiresReview ? "Required" : "No contradiction gate attached"),
     reportLine("Evidence scoring boundary", sourceIntelligenceContract ? "Reviewed evidence improves source readiness but is not active in the numerical score." : "Not available yet."),
+    ...(productResearchResultV2 ? [
+      "",
+      "7A. Institutional Product Analysis",
+      reportLine("Analyzed entity", `${productResearchCustomer.entityHeader?.name || "Not available yet."} / ${productResearchCustomer.entityHeader?.entityType || "type unavailable"}`),
+      reportLine("Universe / cohort", `${productResearchCustomer.entityHeader?.universe || "unavailable"} / ${productResearchCustomer.entityHeader?.cohort || "unavailable"}`),
+      reportLine("Product structure", safeArray(productResearchCustomer.productStructure).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "Not available yet."),
+      "Institutional product answers:",
+      ...formatReportList(safeArray(productResearchCustomer.institutionalQuestions).slice(0, 6).map((answer) => `${cleanPrimaryAnswerText(answer.question)}: ${cleanPrimaryAnswerText(answer.answer)}`), "No bounded product answer is available.", 6),
+      reportLine("Source and freshness", safeArray(productResearchCustomer.sourceAndFreshnessStatus).slice(0, 3).map(cleanPrimaryAnswerText).join("; ") || "Not available yet."),
+      reportLine("Future scoring readiness", productResearchCustomer.futureScoringReadinessState),
+      reportLine("Future ranking readiness", productResearchCustomer.futureRankingReadinessState),
+      "Major product evidence gaps:",
+      ...formatReportList(safeArray(productResearchCustomer.missingEvidence).map(cleanPrimaryAnswerText), "No major product evidence gap is attached.", 6),
+    ] : []),
     reportLine("Source discovery status", deepResearchSourceDiscoveryContract?.contractStatus || "Not available yet."),
     reportLine("Source candidates accepted for review", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.acceptedCandidateCount ?? deepResearchSourceDiscoveryContract.protectedReportSummary?.candidateCount ?? 0}` : "Not available yet."),
     reportLine("High-priority source reviews", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.highPriorityReviewCount || 0}` : "Not available yet."),
@@ -6131,6 +6153,8 @@ export function buildDecisionTerminalModel({
   const institutionalAnswerSurfaceContract = normalizeInstitutionalAnswerSurfacePayload(safeAnalysis);
   const finalAnalystAnswerComposerContract = normalizeFinalAnalystAnswerComposerPayload(safeAnalysis);
   const marketWideAnalystPipelinePurityContract = normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
+  const productResearchResultV2Normalization = normalizeProductResearchResultV2({ analysis: safeAnalysis });
+  const productResearchResultV2 = productResearchResultV2Normalization.result;
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -6422,6 +6446,8 @@ export function buildDecisionTerminalModel({
     representationFamilyEvidenceGates,
     institutionalAnswerSurfaceContract,
     finalAnalystAnswerComposerContract,
+    productResearchResultV2,
+    productResearchResultV2ParityStatus: productResearchResultV2Normalization.parityStatus,
     marketWideAnalystPipelinePurityContract,
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
@@ -8010,6 +8036,13 @@ export function buildReviewBundleText({
   const stableYieldObservationSummary = safeObject(
     stablecoinsYieldTypedObservationBackbone?.diagnosticSummary,
   );
+  const bundleProductResearchNormalization = normalizeProductResearchResultV2({
+    productResearchResultV2: safeData.productResearchResultV2,
+    analysis: safeAnalysis,
+  });
+  const productResearchResultV2 = safeModel.productResearchResultV2
+    || bundleProductResearchNormalization.result;
+  const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9498,6 +9531,50 @@ export function buildReviewBundleText({
       bundleField("Provider behavior changed", yesNoUnknown(stableYieldObservationSummary.providerBehaviorChanged)),
       "Known limitations:",
       bundleList(stablecoinsYieldTypedObservationBackbone?.knownLimitations),
+    ]),
+    bundleSection("ProductResearchResultV2 — Institutional Product Analysis Contract v1", [
+      bundleField("Contract attached", productResearchResultV2 ? "yes" : "no"),
+      bundleField("Contract version", productResearchResultV2?.artifactVersion),
+      bundleField("Analyzed entity", productResearchResultV2?.analyzedEntity?.analyzedEntity),
+      bundleField("Universe", productResearchResultV2?.universeAndCohort?.universe),
+      bundleField("Branch", productResearchResultV2?.universeAndCohort?.branch),
+      bundleField("Family", productResearchResultV2?.universeAndCohort?.family),
+      bundleField("Cohort", productResearchResultV2?.universeAndCohort?.cohort),
+      bundleField("Identity state", productResearchResultV2?.analysisJob?.analysisState),
+      bundleField("Lifecycle state", productResearchResultV2?.lifecycle?.currentLifecycleState),
+      bundleField("Fact count", productResearchResultV2?.productFactLedger?.length),
+      bundleField("Answered question count", productResearchResultV2?.coverage?.answeredQuestionCount),
+      bundleField("Limited answer count", productResearchResultV2?.coverage?.limitedAnswerCount),
+      bundleField("Partial answer count", productResearchResultV2?.coverage?.partialAnswerCount),
+      bundleField("Missing critical question count", productResearchResultV2?.coverage?.missingCriticalQuestionCount),
+      bundleField("Contradiction count", productResearchResultV2?.contradictions?.length),
+      bundleField("Blocked claim count", productResearchResultV2?.blockedClaims?.length),
+      bundleField("Coverage state", productResearchResultV2?.coverage?.coverageState),
+      bundleField("Data confidence state", productResearchResultV2?.dataConfidence?.confidenceState),
+      bundleField("Formula readiness", safeArray(productResearchResultV2?.formulaInputReadiness).map((entry) => `${entry.formulaId}:${entry.currentReadinessState}`).join("; ")),
+      bundleField("Eligibility readiness", safeArray(productResearchResultV2?.eligibilityReadiness).map((entry) => `${entry.gateId}:${entry.currentReadiness}`).join("; ")),
+      bundleField("Module readiness", safeArray(productResearchResultV2?.moduleReadiness).map((entry) => `${entry.moduleId}:${entry.readinessState}`).join("; ")),
+      bundleField("Future scoring readiness", productResearchResultV2?.futureScoringReadiness?.scoringReadinessState),
+      bundleField("Future ranking readiness", productResearchResultV2?.futureRankingReadiness?.rankingReadinessState),
+      bundleField("Product-token boundary status", safeArray(productResearchResultV2?.identityAndRelationships?.boundaryConclusions).some((entry) => /product.*token.*distinct/i.test(entry)) ? "explicit" : "not_applicable_or_unavailable"),
+      bundleField("Base-wrapper boundary status", safeArray(productResearchResultV2?.identityAndRelationships?.boundaryConclusions).some((entry) => /base asset.*wrapper.*distinct/i.test(entry)) ? "explicit" : "not_applicable_or_unavailable"),
+      bundleField("Source-lineage status", productResearchResultV2?.sourceAndLineageSummary?.lineageCompleteness),
+      bundleField("Backend/frontend parity", bundleProductResearchNormalization.result
+        ? bundleProductResearchNormalization.parityStatus
+        : safeModel.productResearchResultV2ParityStatus || "compatibility_fallback"),
+      bundleField("Diagnostic-only", yesNoUnknown(productResearchResultV2?.guardrails?.diagnosticOnly)),
+      bundleField("Scoring inactive", yesNoUnknown(productResearchResultV2?.guardrails?.scoringInactive)),
+      bundleField("Ranking inactive", yesNoUnknown(productResearchResultV2?.guardrails?.rankingInactive)),
+      bundleField("Provider behavior unchanged", yesNoUnknown(productResearchResultV2 ? !productResearchResultV2.guardrails?.providerBehaviorChanged : null)),
+      bundleField("Evidence promotion inactive", yesNoUnknown(productResearchResultV2 ? !productResearchResultV2.guardrails?.sourceCandidatesPromoted : null)),
+      bundleField("Runtime AI inactive", yesNoUnknown(productResearchResultV2 ? !productResearchResultV2.guardrails?.runtimeAiAuthorityAdded : null)),
+      bundleField("Anthropic integrated", yesNoUnknown(productResearchResultV2?.guardrails?.anthropicIntegrated)),
+      bundleField("Score changed", yesNoUnknown(productResearchResultV2?.guardrails?.overallScoreChanged)),
+      bundleField("Rank changed", yesNoUnknown(productResearchResultV2?.guardrails?.currentRankingOrderChanged)),
+      "Customer presentation mirror:",
+      bundleList(safeArray(productResearchCustomer.institutionalQuestions).map((entry) => `${entry.question} | ${entry.state} | ${entry.answer}`), "No bounded institutional product answers attached.", 12),
+      "Known limitations:",
+      bundleList(productResearchResultV2?.knownLimitations),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),
