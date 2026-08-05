@@ -1,6 +1,7 @@
 import { normalizeRwaHybridFinanceTypedObservations } from "../../v2/rwaHybridFinanceTypedObservationsV1.js";
 import { normalizeStablecoinsYieldTypedObservations } from "../../v2/stablecoinsYieldTypedObservationsV1.js";
 import { normalizeProductResearchResultV2 } from "../../v2/productResearchResultV2.js";
+import { normalizeInstitutionalProductScoringV1 } from "../../v2/institutionalProductScoringV1.js";
 
 export function formatUsd(value) {
   if (value === null || value === undefined || value === "") return "Unknown";
@@ -3352,6 +3353,16 @@ export function buildProtectedInvestorReportText({
   const productResearchResultV2 = safeModel.productResearchResultV2
     || productResearchResultV2Normalization.result;
   const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
+  const protectedInstitutionalScoringNormalization = normalizeInstitutionalProductScoringV1({
+    institutionalScoringConstitutionV1: safeData.institutionalScoringConstitutionV1,
+    institutionalProductScoringResultV1: safeData.institutionalProductScoringResultV1,
+    institutionalCohortRankingResultV1: safeData.institutionalCohortRankingResultV1,
+    institutionalScoringActivationDecisionV1: safeData.institutionalScoringActivationDecisionV1,
+    analysis: safeAnalysis,
+  });
+  const protectedInstitutionalScoring = protectedInstitutionalScoringNormalization.activationAllowed
+    ? protectedInstitutionalScoringNormalization.customerPresentation
+    : null;
   const currentReality = safeObject(assetResearchResultV2?.currentReality?.data);
   const currentRealityAttached = String(currentReality.schemaVersion || "").startsWith("current-reality-engine-v1");
   const currentRealityMostMaterial = safeObject(currentReality.mostMaterialEvent);
@@ -3623,6 +3634,24 @@ export function buildProtectedInvestorReportText({
       "No scoring-readiness gap summary was surfaced in the protected report model.",
       5,
     ),
+    ...(protectedInstitutionalScoring ? [
+      "",
+      "5A. Activated Institutional Product Scoring",
+      reportLine("Institutional Quality", protectedInstitutionalScoring.institutionalQuality?.score),
+      reportLine("Risk Grade / Severity", `${protectedInstitutionalScoring.riskGrade || "Not rated"} / ${protectedInstitutionalScoring.riskSeverity?.score ?? "Unavailable"}`),
+      reportLine("Technical Opportunity", protectedInstitutionalScoring.technicalOpportunity?.score),
+      reportLine("Eligibility", protectedInstitutionalScoring.eligibility?.state),
+      reportLine("Coverage", protectedInstitutionalScoring.coverage?.score),
+      reportLine("Data Confidence", protectedInstitutionalScoring.dataConfidence?.score),
+      reportLine("Methodology", protectedInstitutionalScoring.methodologyVersion),
+      reportLine("Observation cut-off", protectedInstitutionalScoring.observationCutoff),
+      "Applicable modules:",
+      ...formatReportList(safeArray(protectedInstitutionalScoring.moduleResults).map((module) => `${module.displayName}: ${module.score ?? "Withheld"}`), "No activated module summary is available.", 8),
+      "Critical caps and penalties:",
+      ...formatReportList(safeArray(protectedInstitutionalScoring.capsAndPenalties).map((rule) => rule.explanation), "No activated cap or penalty is attached.", 5),
+      "Bounded institutional answers:",
+      ...formatReportList(safeArray(protectedInstitutionalScoring.institutionalAnswers).map((answer) => `${answer.question}: ${answer.boundedAnswer}`), "No activated institutional scoring answer is available.", 6),
+    ] : []),
     "",
     "6. Coverage Tier / Score Eligibility",
     reportLine("Coverage tier", finalDecisionCoverage.label || finalDecisionCoverage.tier || coverageScoreEligibilityContract?.coverageTierLabel || "Not available yet."),
@@ -6155,6 +6184,7 @@ export function buildDecisionTerminalModel({
   const marketWideAnalystPipelinePurityContract = normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
   const productResearchResultV2Normalization = normalizeProductResearchResultV2({ analysis: safeAnalysis });
   const productResearchResultV2 = productResearchResultV2Normalization.result;
+  const institutionalProductScoringV1Normalization = normalizeInstitutionalProductScoringV1({ analysis: safeAnalysis });
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
   const isBenchmark = isBenchmarkAssetClass(assetClassification.assetClass || null);
@@ -6448,6 +6478,15 @@ export function buildDecisionTerminalModel({
     finalAnalystAnswerComposerContract,
     productResearchResultV2,
     productResearchResultV2ParityStatus: productResearchResultV2Normalization.parityStatus,
+    institutionalScoringConstitutionV1: institutionalProductScoringV1Normalization.institutionalScoringConstitutionV1,
+    institutionalProductScoringResultV1: institutionalProductScoringV1Normalization.institutionalProductScoringResultV1,
+    institutionalCohortRankingResultV1: institutionalProductScoringV1Normalization.institutionalCohortRankingResultV1,
+    institutionalScoringActivationDecisionV1: institutionalProductScoringV1Normalization.institutionalScoringActivationDecisionV1,
+    institutionalProductScoringV1ActivationAllowed: institutionalProductScoringV1Normalization.activationAllowed,
+    institutionalProductScoringV1ContractStatus: institutionalProductScoringV1Normalization.contractStatus,
+    institutionalProductScoringV1ParityStatus: institutionalProductScoringV1Normalization.parityStatus,
+    institutionalProductScoringV1CustomerPresentation: institutionalProductScoringV1Normalization.customerPresentation,
+    institutionalProductScoringV1ShadowDiagnostics: institutionalProductScoringV1Normalization.shadowDiagnostics,
     marketWideAnalystPipelinePurityContract,
     evidenceStatusAggregationContract,
     coverageScoreEligibilityContract,
@@ -8043,6 +8082,22 @@ export function buildReviewBundleText({
   const productResearchResultV2 = safeModel.productResearchResultV2
     || bundleProductResearchNormalization.result;
   const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
+  const bundleInstitutionalScoringNormalization = normalizeInstitutionalProductScoringV1({
+    institutionalScoringConstitutionV1: safeData.institutionalScoringConstitutionV1,
+    institutionalProductScoringResultV1: safeData.institutionalProductScoringResultV1,
+    institutionalCohortRankingResultV1: safeData.institutionalCohortRankingResultV1,
+    institutionalScoringActivationDecisionV1: safeData.institutionalScoringActivationDecisionV1,
+    analysis: safeAnalysis,
+  });
+  const institutionalScoringConstitutionV1 = safeModel.institutionalScoringConstitutionV1
+    || bundleInstitutionalScoringNormalization.institutionalScoringConstitutionV1;
+  const institutionalProductScoringResultV1 = safeModel.institutionalProductScoringResultV1
+    || bundleInstitutionalScoringNormalization.institutionalProductScoringResultV1;
+  const institutionalCohortRankingResultV1 = safeModel.institutionalCohortRankingResultV1
+    || bundleInstitutionalScoringNormalization.institutionalCohortRankingResultV1;
+  const institutionalScoringActivationDecisionV1 = safeModel.institutionalScoringActivationDecisionV1
+    || bundleInstitutionalScoringNormalization.institutionalScoringActivationDecisionV1;
+  const institutionalScoringValidationSummary = safeObject(institutionalScoringActivationDecisionV1?.repositoryValidationSummary);
   const decisionLayer = safeObject(safeModel.decisionLayer || safeAnalysis.decisionLayer || safeData.decisionLayer);
   const finalDecisionScore = safeObject(decisionLayer.score);
   const hasAtomicFinalDecision = decisionLayer.audit?.calculationVersion === "final-decision-atomic-v1";
@@ -9575,6 +9630,54 @@ export function buildReviewBundleText({
       bundleList(safeArray(productResearchCustomer.institutionalQuestions).map((entry) => `${entry.question} | ${entry.state} | ${entry.answer}`), "No bounded institutional product answers attached.", 12),
       "Known limitations:",
       bundleList(productResearchResultV2?.knownLimitations),
+    ]),
+    bundleSection("Institutional Scoring Research, Calibration, Stress Testing & Runtime Activation Constitution v1", [
+      bundleField("Research corpus status", institutionalScoringActivationDecisionV1?.researchGate?.status),
+      bundleField("Authoritative institution count", institutionalScoringConstitutionV1?.researchSummary?.institutionCount),
+      bundleField("Primary methodology document count", institutionalScoringConstitutionV1?.researchSummary?.primaryMethodologyDocumentCount),
+      bundleField("Extracted principle count", institutionalScoringConstitutionV1?.researchSummary?.extractedPrincipleCount),
+      bundleField("Scoring constitution version", institutionalScoringConstitutionV1?.artifactVersion),
+      bundleField("Formula count", safeArray(institutionalScoringConstitutionV1?.formulaRegistry).length),
+      bundleField("Module count", safeArray(institutionalScoringConstitutionV1?.moduleRegistry).length),
+      bundleField("Threshold count", safeArray(institutionalScoringConstitutionV1?.absoluteThresholdRegistry).length),
+      bundleField("Weight count", safeArray(institutionalScoringConstitutionV1?.weightRegistry).length),
+      bundleField("Cap count", safeArray(institutionalScoringConstitutionV1?.capRegistry).length),
+      bundleField("Penalty count", safeArray(institutionalScoringConstitutionV1?.penaltyRegistry).length),
+      bundleField("Calibration fixture count", institutionalScoringValidationSummary.calibrationFixtureCount),
+      bundleField("Historical failure fixture count", institutionalScoringValidationSummary.historicalFailureFixtureCount),
+      bundleField("Adversarial fixture count", institutionalScoringValidationSummary.adversarialFixtureCount),
+      bundleField("Monotonicity result", institutionalScoringValidationSummary.monotonicityResult),
+      bundleField("Sensitivity result", institutionalScoringValidationSummary.sensitivityResult),
+      bundleField("Stress result", institutionalScoringValidationSummary.stressResult),
+      bundleField("Shadow scoring result", institutionalProductScoringResultV1?.activationState),
+      bundleField("Answer parity result", institutionalScoringValidationSummary.answerParityResult),
+      bundleField("Activation gate result", institutionalScoringActivationDecisionV1?.runtimeActivationAllowed ? "PASS" : "WITHHELD"),
+      bundleField("Runtime activation decision", institutionalScoringActivationDecisionV1?.decision),
+      bundleField("Active score source", institutionalScoringActivationDecisionV1?.activeScoreSource),
+      bundleField("Active ranking source", institutionalScoringActivationDecisionV1?.activeRankingSource),
+      bundleField("Legacy compatibility status", institutionalScoringActivationDecisionV1?.activeScoreSource === "legacy_or_none" ? "legacy score behavior preserved" : "methodologically distinct V2 score active"),
+      bundleField("Product quality output", institutionalProductScoringResultV1 ? `${institutionalProductScoringResultV1.institutionalQuality?.score ?? "withheld"} (${institutionalProductScoringResultV1.institutionalQuality?.displayState || "state unavailable"}; shadow)` : "unavailable"),
+      bundleField("Risk output", institutionalProductScoringResultV1 ? `${institutionalProductScoringResultV1.riskGrade || "NR"} / ${institutionalProductScoringResultV1.riskSeverity?.score ?? "withheld"} (shadow)` : "unavailable"),
+      bundleField("Technical output", institutionalProductScoringResultV1 ? `${institutionalProductScoringResultV1.technicalOpportunity?.score ?? "withheld"} (${institutionalProductScoringResultV1.technicalOpportunity?.state || "state unavailable"}; shadow)` : "unavailable"),
+      bundleField("Confidence output", institutionalProductScoringResultV1 ? `${institutionalProductScoringResultV1.dataConfidence?.score ?? "unavailable"} (diagnostic)` : "unavailable"),
+      bundleField("Coverage output", institutionalProductScoringResultV1 ? `${institutionalProductScoringResultV1.coverage?.score ?? "unavailable"} (diagnostic)` : "unavailable"),
+      bundleField("Score withholding count", institutionalProductScoringResultV1?.eligibility?.scoreWithheld ? 1 : 0),
+      bundleField("Provisional score count", institutionalProductScoringResultV1?.eligibility?.state === "provisional" ? 1 : 0),
+      bundleField("Comparable count", institutionalProductScoringResultV1?.comparability?.state === "comparable" ? 1 : 0),
+      bundleField("Ranked count", safeArray(institutionalCohortRankingResultV1?.entries).length),
+      bundleField("Tie-group count", new Set(safeArray(institutionalCohortRankingResultV1?.entries).map((entry) => safeArray(entry.tieGroup).join("-"))).size),
+      bundleField("Contamination findings", Object.values(safeObject(productResearchResultV2?.internalDiagnostics?.contaminationScans)).reduce((total, findings) => total + safeArray(findings).length, 0)),
+      bundleField("Token-specific branch count", institutionalProductScoringResultV1?.guardrails?.tokenSpecificRuntimeBranchCount),
+      bundleField("Provider behavior changed", yesNoUnknown(productResearchResultV2?.guardrails?.providerBehaviorChanged)),
+      bundleField("AI runtime active", yesNoUnknown(institutionalProductScoringResultV1?.guardrails?.runtimeAiAuthorityAdded)),
+      bundleField("Anthropic integrated", yesNoUnknown(productResearchResultV2?.guardrails?.anthropicIntegrated)),
+      bundleField("Snapshots enabled", yesNoUnknown(productResearchResultV2?.guardrails?.snapshotsEnabled)),
+      bundleField("Partial refresh enabled", yesNoUnknown(productResearchResultV2?.guardrails?.partialRefreshEnabled)),
+      bundleField("Frontend parity", bundleInstitutionalScoringNormalization.contractStatus),
+      "Failed or unproven activation gates:",
+      bundleList(institutionalScoringActivationDecisionV1?.failedGates, "No failed activation gate attached."),
+      "Known limitations:",
+      bundleList(institutionalProductScoringResultV1?.limitations, "Institutional scoring result unavailable."),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),

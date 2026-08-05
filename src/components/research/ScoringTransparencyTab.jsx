@@ -479,6 +479,13 @@ export default function ScoringTransparencyTab({
   const finalComposer = safeObject(model?.finalAnalystAnswerComposerContract);
   const composerAvailable = finalComposer?.contractAttached === true;
   const composerScore = safeObject(finalComposer.scoreExplanationBridge);
+  const institutionalScoringConstitution = safeObject(model?.institutionalScoringConstitutionV1);
+  const institutionalScoringResult = safeObject(model?.institutionalProductScoringResultV1);
+  const institutionalCohortRanking = safeObject(model?.institutionalCohortRankingResultV1);
+  const institutionalScoringActivation = safeObject(model?.institutionalScoringActivationDecisionV1);
+  const runtimeActivationAllowed = model?.institutionalProductScoringV1ActivationAllowed === true
+    && institutionalScoringActivation.runtimeActivationAllowed === true;
+  const institutionalScoringAttached = institutionalScoringResult.contractId === "institutionalProductScoringResultV1";
 
   return (
     <div style={styles.scoringTransparencyShell}>
@@ -514,6 +521,107 @@ export default function ScoringTransparencyTab({
           styles={styles}
         />
       </ExecutiveSummaryCard>
+
+      {institutionalScoringAttached ? (
+        <Card
+          title={runtimeActivationAllowed ? "Institutional Product Scoring v1" : "Shadow methodology diagnostics"}
+          subtitle={runtimeActivationAllowed
+            ? "Backend-authoritative institutional scoring is active under the attached deterministic activation decision."
+            : "Internal calibration output only. Runtime activation is withheld, so these values do not replace the current customer score or ranking."}
+          styles={styles}
+        >
+          <div style={styles.scoringBoundaryStrip}>
+            {boundaryChip(styles, runtimeActivationAllowed ? "Runtime active" : "Runtime withheld")}
+            {boundaryChip(styles, institutionalScoringResult.eligibility?.state || "Eligibility unavailable")}
+            {boundaryChip(styles, `Risk ${institutionalScoringResult.riskGrade || "NR"}`)}
+            {boundaryChip(styles, institutionalScoringActivation.activeScoreSource || "Score source unavailable")}
+          </div>
+          <div style={styles.advancedGrid}>
+            <MetricCard
+              item={{
+                title: runtimeActivationAllowed ? "Institutional Quality" : "Institutional Quality (shadow)",
+                value: institutionalScoringResult.institutionalQuality?.score ?? "Withheld",
+                source: "institutionalProductScoringResultV1",
+                rule: institutionalScoringResult.institutionalQuality?.aggregation || "Result withheld",
+                live: runtimeActivationAllowed ? "Customer-active" : "No - shadow only",
+                reportOnly: runtimeActivationAllowed ? "No" : "Yes",
+                caveat: runtimeActivationAllowed ? "Activated methodology output." : "Must not replace or reinterpret the current score.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+            <MetricCard
+              item={{
+                title: runtimeActivationAllowed ? "Risk Severity" : "Risk Severity (shadow)",
+                value: institutionalScoringResult.riskSeverity?.score ?? "Not rated",
+                source: "institutionalProductScoringResultV1",
+                rule: `Grade ${institutionalScoringResult.riskGrade || "NR"}; risk remains separate from quality.`,
+                live: runtimeActivationAllowed ? "Customer-active" : "No - shadow only",
+                reportOnly: runtimeActivationAllowed ? "No" : "Yes",
+                caveat: "Missing risk evidence is not treated as zero risk.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+            <MetricCard
+              item={{
+                title: runtimeActivationAllowed ? "Technical Opportunity" : "Technical Opportunity (shadow)",
+                value: institutionalScoringResult.technicalOpportunity?.score ?? "Withheld",
+                source: "institutionalProductScoringResultV1",
+                rule: institutionalScoringResult.technicalOpportunity?.state || "State unavailable",
+                live: runtimeActivationAllowed ? "Customer-active" : "No - shadow only",
+                reportOnly: runtimeActivationAllowed ? "No" : "Yes",
+                caveat: "Technical opportunity is not fundamental quality or an investment recommendation.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+            <MetricCard
+              item={{
+                title: "Coverage / Confidence",
+                value: `${institutionalScoringResult.coverage?.score ?? "Unavailable"} / ${institutionalScoringResult.dataConfidence?.score ?? "Unavailable"}`,
+                source: "ProductResearchResultV2 diagnostics",
+                rule: "Coverage and confidence remain separate from quality.",
+                live: "Diagnostic context",
+                reportOnly: runtimeActivationAllowed ? "No" : "Yes",
+                caveat: "Neither value is used as a quality input.",
+                attached: true,
+              }}
+              styles={styles}
+            />
+          </div>
+          <SectionRow
+            label="Methodology / cut-off"
+            value={`${institutionalScoringResult.metadata?.methodologyVersion || institutionalScoringConstitution.methodologyVersion || "Unavailable"}; ${institutionalScoringResult.metadata?.observationCutoff || "observation cut-off unavailable"}.`}
+            styles={styles}
+          />
+          <SectionRow
+            label="Cohort ranking"
+            value={runtimeActivationAllowed
+              ? `${institutionalCohortRanking.state || "Unavailable"}; ${institutionalCohortRanking.entries?.length || 0} ranked entries.`
+              : `${institutionalCohortRanking.state || "Withheld"}; shadow rank is not customer-active.`}
+            styles={styles}
+          />
+          <ListBlock
+            title="Applied caps and penalties"
+            items={safeArray(institutionalScoringResult.capsAndPenalties).map((rule) => rule.explanation)}
+            emptyText="No explicit cap or penalty was triggered by the attached canonical facts."
+            color="#f9d976"
+            styles={styles}
+          />
+          <ListBlock
+            title="Why the result is withheld or not higher"
+            items={[
+              ...safeArray(institutionalScoringResult.eligibility?.criticalBlockers),
+              ...safeArray(institutionalScoringResult.institutionalQuality?.whyNotHigher),
+              ...safeArray(institutionalScoringActivation.blockingFindings),
+            ].slice(0, 10)}
+            emptyText="No additional blocker was attached."
+            color="#ffb020"
+            styles={styles}
+          />
+        </Card>
+      ) : null}
 
       {sourceCoverageRegistry.registryVersion ? (
         <Card
