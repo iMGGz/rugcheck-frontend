@@ -4,6 +4,7 @@ import {
   normalizeAssetResearchResultV2,
 } from './assetResearchResultV2'
 import { normalizeProductResearchResultV2 } from './productResearchResultV2'
+import { normalizeOneClickInstitutionalAnalysisV1 } from './oneClickInstitutionalAnalysisV1'
 import { analyzeV2Asset, searchV2Assets, V2ApiError } from './assetResearchV2Api'
 import {
   buildV2AssetPath,
@@ -31,6 +32,8 @@ const EMPTY_RESEARCH_STATE = Object.freeze({
   parityStatus: null,
   productResearchResultV2: null,
   productResearchParityStatus: 'compatibility_fallback',
+  oneClickInstitutionalAnalysisV1: null,
+  oneClickParityStatus: 'missing',
   error: null,
 })
 
@@ -144,6 +147,7 @@ export default function PremiumAssetPageV2() {
         if (!coordinator.isCurrent(requestId)) return
         const normalized = normalizeAssetResearchResultV2(response)
         const productResearch = normalizeProductResearchResultV2(response)
+        const oneClick = normalizeOneClickInstitutionalAnalysisV1(response)
         if (!v2ResultMatchesRoute(normalized.result, route)) {
           throw new AssetResearchV2ContractError('identity_mismatch', 'The completed analysis did not match the requested canonical asset scope.')
         }
@@ -155,6 +159,8 @@ export default function PremiumAssetPageV2() {
           parityStatus: normalized.parityStatus,
           productResearchResultV2: productResearch.result,
           productResearchParityStatus: productResearch.parityStatus,
+          oneClickInstitutionalAnalysisV1: oneClick.result,
+          oneClickParityStatus: oneClick.parityStatus,
           error: null,
         })
       } catch (error) {
@@ -220,6 +226,7 @@ export default function PremiumAssetPageV2() {
             <V2AssetDecisionCommandCenter
               result={researchState.result}
               productResearchResultV2={researchState.productResearchResultV2}
+              oneClickInstitutionalAnalysisV1={researchState.oneClickInstitutionalAnalysisV1}
               activeSection={activeSection}
               onSelectSection={selectSection}
             />

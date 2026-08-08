@@ -25,7 +25,8 @@
     "test:rwa-hybrid-finance-typed-observations": "node scripts/test-rwa-hybrid-finance-typed-observations-v1.mjs",
     "test:stablecoins-yield-typed-observations": "node scripts/test-stablecoins-yield-typed-observations-v1.mjs",
     "test:product-research-result-v2": "node scripts/test-product-research-result-v2.mjs",
-    "test:institutional-product-scoring-v1": "node scripts/test-institutional-product-scoring-v1.mjs"
+    "test:institutional-product-scoring-v1": "node scripts/test-institutional-product-scoring-v1.mjs",
+    "test:one-click-institutional-analysis-v1": "node scripts/test-one-click-institutional-analysis-v1.mjs"
   },
   "dependencies": {
     "react": "^19.2.4",

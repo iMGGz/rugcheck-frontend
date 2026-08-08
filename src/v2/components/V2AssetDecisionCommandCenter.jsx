@@ -38,15 +38,31 @@ function SynthesisRow({ icon, label, value, tone }) {
   )
 }
 
+function OneClickList({ title, items, empty }) {
+  return (
+    <section className="v2-one-click-list">
+      <h3>{title}</h3>
+      {items?.length ? <ul>{items.slice(0, 4).map((item) => <li key={item.itemId || item.falsifierId || item}>{item.statement || item.condition || item}</li>)}</ul> : <p>{empty}</p>}
+    </section>
+  )
+}
+
 export default function V2AssetDecisionCommandCenter({
   result,
   productResearchResultV2,
+  oneClickInstitutionalAnalysisV1,
   activeSection,
   onSelectSection,
 }) {
   const model = useMemo(() => normalizeAssetDecisionCommandCenterV2(result), [result])
   const { identity, currentMarket, decision, confidence, evidenceCoverage, freshness, synthesis } = model
-  const scoreVisible = decision.scoreValue !== null
+  const oneClick = oneClickInstitutionalAnalysisV1
+  const oneClickAttached = oneClick?.contractId === 'oneClickInstitutionalAnalysisV1'
+  const oneClickScoreVisible = oneClickAttached && oneClick.individualAnalysisActivationDecision === 'ACTIVATED' && oneClick.fundamentalQuality !== null
+  const scoreVisible = oneClickAttached ? oneClickScoreVisible : decision.scoreValue !== null
+  const primaryScore = oneClickAttached ? oneClick.fundamentalQuality : decision.scoreValue
+  const primaryVerdict = oneClickAttached ? humanizeV2Value(oneClick.investabilityVerdict) : decision.verdictLabel
+  const primaryReason = oneClickAttached ? oneClick.verdictRationale || oneClick.investmentCase : decision.conciseReason
   const priceChange = currentMarket.priceChange24h.value
 
   return (
@@ -96,17 +112,17 @@ export default function V2AssetDecisionCommandCenter({
           <div className="v2-command-section-label"><V2Icon name="compass" size={16} /> Current institutional decision</div>
           <div className="v2-command-decision__headline">
             <div>
-              <h2>{decision.verdictLabel}</h2>
-              <p>{decision.conciseReason}</p>
+              <h2>{primaryVerdict}</h2>
+              <p>{primaryReason}</p>
             </div>
             <div className="v2-command-score">
-              <span>Score state</span>
+              <span>{oneClickAttached ? 'Fundamental Quality' : 'Score state'}</span>
               {scoreVisible ? (
-                <strong>{formatV2Number(decision.scoreValue, { maximumFractionDigits: 0 })}<small>/100</small></strong>
+                <strong>{formatV2Number(primaryScore, { maximumFractionDigits: 0 })}<small>/100</small></strong>
               ) : (
                 <strong className="is-withheld">Withheld</strong>
               )}
-              <small>{scoreVisible ? 'Existing score policy' : decision.scoreWithheldReason}</small>
+              <small>{scoreVisible ? (oneClickAttached ? 'Individual analysis activated' : 'Existing score policy') : oneClickAttached ? 'Individual score activation pending' : decision.scoreWithheldReason}</small>
             </div>
           </div>
 
@@ -140,6 +156,39 @@ export default function V2AssetDecisionCommandCenter({
           <SynthesisRow icon="compass" label="What would change the view" value={synthesis.whatWouldChangeTheView} />
         </article>
       </div>
+
+      {oneClickAttached ? (
+        <section className="v2-one-click" aria-labelledby="v2-one-click-title">
+          <header>
+            <div>
+              <p className="v2-eyebrow">One-click institutional analysis</p>
+              <h2 id="v2-one-click-title">{humanizeV2Value(oneClick.investabilityVerdict)}</h2>
+              <p>{oneClick.investmentCase}</p>
+            </div>
+            <div className="v2-one-click__scores" aria-label="Institutional analysis outputs">
+              <div><span>Fundamental quality</span><strong>{oneClickScoreVisible ? formatV2Number(oneClick.fundamentalQuality, { maximumFractionDigits: 0 }) : 'Withheld'}</strong></div>
+              <div><span>Risk severity</span><strong>{oneClickScoreVisible && oneClick.riskSeverity !== null ? formatV2Number(oneClick.riskSeverity, { maximumFractionDigits: 0 }) : 'Withheld'}</strong></div>
+              <div><span>Technical opportunity</span><strong>{oneClickScoreVisible && oneClick.technicalOpportunity !== null ? formatV2Number(oneClick.technicalOpportunity, { maximumFractionDigits: 0 }) : 'Withheld'}</strong></div>
+            </div>
+          </header>
+          <div className="v2-one-click__grid">
+            <OneClickList title="What supports the case" items={oneClick.strengths} empty="No stronger supported conclusion is attached." />
+            <OneClickList title="What holds it back" items={oneClick.whatHoldsItBack} empty="No material holdback is attached." />
+            <OneClickList title="Key risks" items={oneClick.keyRisks} empty="No source-supported material risk is attached." />
+            <OneClickList title="Falsifiers to monitor" items={oneClick.falsifiers} empty="No testable falsifier is attached." />
+          </div>
+          <footer>
+            <span>{oneClick.family.displayLabel}</span>
+            <span>{humanizeV2Value(oneClick.dataConfidence.state)} confidence</span>
+            <span>{oneClick.individualAnalysisActivationDecision === 'ACTIVATED' ? 'Individual analysis active' : 'Individual score and verdict withheld pending activation'}</span>
+          </footer>
+        </section>
+      ) : (
+        <section className="v2-one-click v2-one-click--unavailable" role="status">
+          <h2>Institutional analysis unavailable</h2>
+          <p>The canonical one-click result was not attached. Existing research sections remain available without synthesizing a replacement in the browser.</p>
+        </section>
+      )}
 
       <footer className="v2-command-footer">
         <div>

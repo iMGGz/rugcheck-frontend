@@ -2,6 +2,7 @@ import { normalizeRwaHybridFinanceTypedObservations } from "../../v2/rwaHybridFi
 import { normalizeStablecoinsYieldTypedObservations } from "../../v2/stablecoinsYieldTypedObservationsV1.js";
 import { normalizeProductResearchResultV2 } from "../../v2/productResearchResultV2.js";
 import { normalizeInstitutionalProductScoringV1 } from "../../v2/institutionalProductScoringV1.js";
+import { normalizeOneClickInstitutionalAnalysisV1 } from "../../v2/oneClickInstitutionalAnalysisV1.js";
 
 export function formatUsd(value) {
   if (value === null || value === undefined || value === "") return "Unknown";
@@ -3352,6 +3353,11 @@ export function buildProtectedInvestorReportText({
   });
   const productResearchResultV2 = safeModel.productResearchResultV2
     || productResearchResultV2Normalization.result;
+  const oneClickInstitutionalAnalysisV1 = safeModel.oneClickInstitutionalAnalysisV1
+    || normalizeOneClickInstitutionalAnalysisV1({
+      oneClickInstitutionalAnalysisV1: safeData.oneClickInstitutionalAnalysisV1,
+      analysis: safeAnalysis,
+    }).result;
   const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
   const protectedInstitutionalScoringNormalization = normalizeInstitutionalProductScoringV1({
     institutionalScoringConstitutionV1: safeData.institutionalScoringConstitutionV1,
@@ -3690,6 +3696,23 @@ export function buildProtectedInvestorReportText({
       reportLine("Future ranking readiness", productResearchCustomer.futureRankingReadinessState),
       "Major product evidence gaps:",
       ...formatReportList(safeArray(productResearchCustomer.missingEvidence).map(cleanPrimaryAnswerText), "No major product evidence gap is attached.", 6),
+    ] : []),
+    ...(oneClickInstitutionalAnalysisV1 ? [
+      "",
+      "7B. One-Click Institutional Analysis",
+      reportLine("Investability conclusion", oneClickInstitutionalAnalysisV1.investabilityVerdict),
+      reportLine("Fundamental Quality", oneClickInstitutionalAnalysisV1.individualAnalysisActivationDecision === "ACTIVATED" ? oneClickInstitutionalAnalysisV1.fundamentalQuality : "Withheld"),
+      reportLine("Risk Severity", oneClickInstitutionalAnalysisV1.individualAnalysisActivationDecision === "ACTIVATED" ? oneClickInstitutionalAnalysisV1.riskSeverity : "Withheld"),
+      reportLine("Technical Opportunity", oneClickInstitutionalAnalysisV1.individualAnalysisActivationDecision === "ACTIVATED" ? oneClickInstitutionalAnalysisV1.technicalOpportunity : "Withheld"),
+      reportLine("Investment case", cleanPrimaryAnswerText(oneClickInstitutionalAnalysisV1.investmentCase)),
+      "What supports the case:",
+      ...formatReportList(safeArray(oneClickInstitutionalAnalysisV1.strengths).map((entry) => cleanPrimaryAnswerText(entry.statement)), "No stronger supported conclusion is attached.", 5),
+      "What holds it back:",
+      ...formatReportList(safeArray(oneClickInstitutionalAnalysisV1.whatHoldsItBack).map((entry) => cleanPrimaryAnswerText(entry.statement)), "No material holdback is attached.", 5),
+      "Key risks:",
+      ...formatReportList(safeArray(oneClickInstitutionalAnalysisV1.keyRisks).map((entry) => cleanPrimaryAnswerText(entry.statement)), "No source-supported material risk is attached.", 5),
+      "Open data requirements:",
+      ...formatReportList(oneClickInstitutionalAnalysisV1.missingData, "No material missing-data item is attached.", 6),
     ] : []),
     reportLine("Source discovery status", deepResearchSourceDiscoveryContract?.contractStatus || "Not available yet."),
     reportLine("Source candidates accepted for review", deepResearchSourceDiscoveryContract ? `${deepResearchSourceDiscoveryContract.protectedReportSummary?.acceptedCandidateCount ?? deepResearchSourceDiscoveryContract.protectedReportSummary?.candidateCount ?? 0}` : "Not available yet."),
@@ -6184,6 +6207,8 @@ export function buildDecisionTerminalModel({
   const marketWideAnalystPipelinePurityContract = normalizeMarketWideAnalystPipelinePurityPayload(safeAnalysis);
   const productResearchResultV2Normalization = normalizeProductResearchResultV2({ analysis: safeAnalysis });
   const productResearchResultV2 = productResearchResultV2Normalization.result;
+  const oneClickInstitutionalAnalysisV1Normalization = normalizeOneClickInstitutionalAnalysisV1({ analysis: safeAnalysis });
+  const oneClickInstitutionalAnalysisV1 = oneClickInstitutionalAnalysisV1Normalization.result;
   const institutionalProductScoringV1Normalization = normalizeInstitutionalProductScoringV1({ analysis: safeAnalysis });
   const analysisFreshness = safeAnalysis.analysisFreshness || normalizeAnalysisFreshnessPayload(safeAnalysis);
   const userFacingWarnings = filterUserFacingItems(warningsList);
@@ -6478,6 +6503,8 @@ export function buildDecisionTerminalModel({
     finalAnalystAnswerComposerContract,
     productResearchResultV2,
     productResearchResultV2ParityStatus: productResearchResultV2Normalization.parityStatus,
+    oneClickInstitutionalAnalysisV1,
+    oneClickInstitutionalAnalysisV1ParityStatus: oneClickInstitutionalAnalysisV1Normalization.parityStatus,
     institutionalScoringConstitutionV1: institutionalProductScoringV1Normalization.institutionalScoringConstitutionV1,
     institutionalProductScoringResultV1: institutionalProductScoringV1Normalization.institutionalProductScoringResultV1,
     institutionalCohortRankingResultV1: institutionalProductScoringV1Normalization.institutionalCohortRankingResultV1,
@@ -8081,6 +8108,12 @@ export function buildReviewBundleText({
   });
   const productResearchResultV2 = safeModel.productResearchResultV2
     || bundleProductResearchNormalization.result;
+  const bundleOneClickNormalization = normalizeOneClickInstitutionalAnalysisV1({
+    oneClickInstitutionalAnalysisV1: safeData.oneClickInstitutionalAnalysisV1,
+    analysis: safeAnalysis,
+  });
+  const oneClickInstitutionalAnalysisV1 = safeModel.oneClickInstitutionalAnalysisV1
+    || bundleOneClickNormalization.result;
   const productResearchCustomer = safeObject(productResearchResultV2?.customerPresentation);
   const bundleInstitutionalScoringNormalization = normalizeInstitutionalProductScoringV1({
     institutionalScoringConstitutionV1: safeData.institutionalScoringConstitutionV1,
@@ -9678,6 +9711,42 @@ export function buildReviewBundleText({
       bundleList(institutionalScoringActivationDecisionV1?.failedGates, "No failed activation gate attached."),
       "Known limitations:",
       bundleList(institutionalProductScoringResultV1?.limitations, "Institutional scoring result unavailable."),
+    ]),
+    bundleSection("One-Click Institutional Analysis Engine v1", [
+      bundleField("Contract attached", oneClickInstitutionalAnalysisV1 ? "yes" : "no"),
+      bundleField("Backend/frontend parity", oneClickInstitutionalAnalysisV1 ? bundleOneClickNormalization.parityStatus : safeModel.oneClickInstitutionalAnalysisV1ParityStatus || "missing"),
+      bundleField("Canonical family", oneClickInstitutionalAnalysisV1?.family?.canonicalFamily),
+      bundleField("Family playbook", oneClickInstitutionalAnalysisV1?.family?.playbookId),
+      bundleField("Investability verdict", oneClickInstitutionalAnalysisV1?.investabilityVerdict),
+      bundleField("Individual analysis activation", oneClickInstitutionalAnalysisV1?.individualAnalysisActivationDecision),
+      bundleField("Cohort ranking activation", oneClickInstitutionalAnalysisV1?.cohortRankingActivationDecision),
+      bundleField("Fundamental Quality", oneClickInstitutionalAnalysisV1?.fundamentalQuality ?? "withheld"),
+      bundleField("Risk Severity", oneClickInstitutionalAnalysisV1?.riskSeverity ?? "withheld"),
+      bundleField("Technical Opportunity", oneClickInstitutionalAnalysisV1?.technicalOpportunity ?? "withheld"),
+      bundleField("Question count", safeArray(oneClickInstitutionalAnalysisV1?.fundamentalQuestions).length),
+      bundleField("Calculation count", safeArray(oneClickInstitutionalAnalysisV1?.calculations).length),
+      bundleField("Source count", safeArray(oneClickInstitutionalAnalysisV1?.sources).length),
+      bundleField("Provider field count", safeArray(oneClickInstitutionalAnalysisV1?.internalAudit?.providerUtilization).length),
+      bundleField("Provider utilization audit status", oneClickInstitutionalAnalysisV1 ? "PASS" : "unavailable"),
+      bundleField("Useful provider fields used", oneClickInstitutionalAnalysisV1?.internalAudit?.providerUtilizationSummary?.usedProviderFieldCount),
+      bundleField("Useful unconsumed provider fields remaining", oneClickInstitutionalAnalysisV1?.internalAudit?.providerUtilizationSummary?.usefulButUnconsumedFieldCountAfter),
+      bundleField("Provider registry count", oneClickInstitutionalAnalysisV1?.internalAudit?.providerCapabilityAudit?.registryProviderCount),
+      bundleField("CMC RWA entitlement audit", oneClickInstitutionalAnalysisV1?.internalAudit?.providerCapabilityAudit?.coinMarketCapRwaCapabilityStatus),
+      bundleField("CMC RWA authorized endpoint count", oneClickInstitutionalAnalysisV1?.internalAudit?.providerCapabilityAudit?.authorizedEndpointCount),
+      bundleField("Family playbook count", oneClickInstitutionalAnalysisV1?.internalAudit?.familyPlaybookCount),
+      bundleField("Falsifier count", safeArray(oneClickInstitutionalAnalysisV1?.falsifiers).length),
+      bundleField("Freshness state", oneClickInstitutionalAnalysisV1?.freshnessSummary?.state),
+      bundleField("Direct provider payload used", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.directProviderPayloadUsed)),
+      bundleField("Frontend analytical authority", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.frontendAnalyticalAuthority)),
+      bundleField("Missing converted to negative", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.missingConvertedToNegative)),
+      bundleField("Provider failure penalized", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.providerFailurePenalized)),
+      bundleField("Token-specific runtime branch count", oneClickInstitutionalAnalysisV1?.internalAudit?.tokenSpecificRuntimeBranchCount),
+      bundleField("Snapshots enabled", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.snapshotsEnabled)),
+      bundleField("Partial refresh enabled", yesNoUnknown(oneClickInstitutionalAnalysisV1?.internalAudit?.partialRefreshEnabled)),
+      "Investment case:",
+      bundleList(oneClickInstitutionalAnalysisV1 ? [oneClickInstitutionalAnalysisV1.investmentCase] : [], "One-Click analysis unavailable."),
+      "Critical missing data:",
+      bundleList(oneClickInstitutionalAnalysisV1?.criticalMissingData, "No critical missing-data item attached."),
     ]),
     bundleSection("Premium V2 Product Shell / Navigation QA", [
       bundleField("Shell attached", yesNoUnknown(safePremiumV2ShellQa.shellAttached)),
